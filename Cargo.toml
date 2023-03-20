@@ -1,0 +1,13 @@
+[package]
+name = "chiquito"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+polyexen = { git = "https://github.com/Dhole/polyexen", commit = "1cad0ff971208560f3c9614b45b29aa987fb8917" }
+halo2_proofs = { git = "https://github.com/privacy-scaling-explorations/halo2.git", tag = "v2022_09_10" }
+
+[patch."https://github.com/privacy-scaling-explorations/halo2.git"]
+halo2_proofs = { git = "https://github.com/ed255/halo2", branch = "feature/wip-polyexen" }
