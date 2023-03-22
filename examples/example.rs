@@ -1,11 +1,14 @@
 use chiquito::{
     ast::{ToExpr, ToField},
+    compiler::{
+        cell_manager::SimpleCellManager, step_selector::SimpleStepSelectorBuilder, Compiler,
+    },
     dsl::circuit,
 };
 use halo2_proofs::halo2curves::bn256::Fr;
 
 fn main() {
-    circuit::<Fr, Vec<i32>, i32, _>("a circuit", |ctx| {
+    let sc = circuit::<Fr, Vec<i32>, i32, _>("a circuit", |ctx| {
         let a = ctx.forward("a");
         let b = ctx.forward("b");
         let c = ctx.forward("c");
@@ -14,8 +17,8 @@ fn main() {
             let d = ctx.signal("d");
             let f = ctx.signal("f");
 
-            ctx.cond("annotation", 0.into());
-            ctx.transition("annotation", a.expr() + 1);
+            ctx.constr("annotation", (a + b) * (c - 1.expr()));
+            ctx.transition("annotation", a + 1.expr());
 
             ctx.wg(move |ctx, _| {
                 ctx.assign(a, 13.field());
@@ -36,10 +39,13 @@ fn main() {
         });
 
         ctx.trace(move |ctx, _| {
-            // ...
             let v: i32 = 1;
-            ctx.add(&s2, v);
-            ctx.add(&s1, v);
+            s2.add(ctx, v);
+            s1.add(ctx, v);
         });
     });
+
+    let compiler = Compiler::new(SimpleCellManager {}, SimpleStepSelectorBuilder {});
+
+    println!("{:#?}", compiler.compile(sc));
 }

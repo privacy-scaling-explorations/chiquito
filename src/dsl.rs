@@ -1,3 +1,5 @@
+use std::rc::Rc;
+
 use crate::{
     ast::{Expr, Queriable, StepType, SuperCircuit},
     compiler::{TraceContext, WitnessGenContext},
@@ -12,7 +14,7 @@ impl<F, TraceArgs, StepArgs> CircuitContext<F, TraceArgs, StepArgs> {
         Queriable::Forward(self.sc.add_forward(name))
     }
 
-    pub fn step_type<D>(&mut self, name: &str, def: D) -> StepTypeHandler
+    pub fn step_type<D>(&mut self, name: &str, def: D) -> StepTypeHandler<F, StepArgs>
     where
         D: FnOnce(&mut StepTypeContext<F, StepArgs>),
     {
@@ -20,10 +22,10 @@ impl<F, TraceArgs, StepArgs> CircuitContext<F, TraceArgs, StepArgs> {
 
         def(&mut context);
 
-        self.sc.add_step_type(context.step_type);
+        let step = self.sc.add_step_type(context.step_type);
 
         // TODO meaningful StepTypeHandler
-        StepTypeHandler {}
+        StepTypeHandler { step }
     }
 
     pub fn trace<D>(&mut self, def: D)
@@ -51,8 +53,8 @@ impl<F, Args> StepTypeContext<F, Args> {
         Queriable::Internal(self.step_type.add_signal(name))
     }
 
-    pub fn cond(&mut self, annotation: &str, expr: Expr<F>) {
-        self.step_type.add_cond(annotation, expr);
+    pub fn constr(&mut self, annotation: &str, expr: Expr<F>) {
+        self.step_type.add_constr(annotation, expr);
     }
 
     pub fn transition<D: Into<Expr<F>>>(&mut self, annotation: &str, expr: D) {
@@ -61,14 +63,22 @@ impl<F, Args> StepTypeContext<F, Args> {
 
     pub fn wg<D>(&mut self, def: D)
     where
-        D: FnOnce(&WitnessGenContext<F>, Args) + 'static,
+        D: Fn(&WitnessGenContext<F>, Args) + 'static,
     {
         self.step_type.set_wg(def);
     }
 }
 
-pub struct StepTypeHandler {
-    // s: Step,
+pub struct StepTypeHandler<F, Args> {
+    step: Rc<StepType<F, Args>>,
+}
+
+impl<F, Args> StepTypeHandler<F, Args> {
+    pub fn add(&self, trace: &TraceContext<Args>, args: Args) {
+        let ctx = trace.start_wg(&self.step);
+
+        (self.step.wg)(&ctx, args);
+    }
 }
 
 pub struct ForwardSignalHandler {
@@ -82,7 +92,7 @@ pub struct CircuitDefinition<F, TraceArgs, StepArgs> {
 pub fn circuit<F, TraceArgs, StepArgs, D>(
     name: &str,
     def: D,
-) -> CircuitDefinition<F, TraceArgs, StepArgs>
+) -> SuperCircuit<F, TraceArgs, StepArgs>
 where
     D: Fn(&mut CircuitContext<F, TraceArgs, StepArgs>),
 {
@@ -92,5 +102,5 @@ where
 
     def(&mut context);
 
-    CircuitDefinition { sc: context.sc }
+    context.sc
 }

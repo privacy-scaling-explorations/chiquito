@@ -2,11 +2,13 @@ use std::marker::PhantomData;
 
 use crate::{
     ast::{Expr, Queriable, StepType, SuperCircuit},
-    dsl::StepTypeHandler,
     util::uuid,
 };
 
-use self::cell_manager::{CellManager, Placement};
+use self::{
+    cell_manager::{CellManager, Placement},
+    step_selector::StepSelectorBuilder,
+};
 
 pub mod cell_manager;
 pub mod step_selector;
@@ -22,8 +24,8 @@ impl<StepArgs> TraceContext<StepArgs> {
         }
     }
 
-    pub fn add(&self, step_type: &StepTypeHandler, args: StepArgs) {
-        todo!()
+    pub fn start_wg<F>(&self, step: &StepType<F, StepArgs>) -> WitnessGenContext<F> {
+        WitnessGenContext { _p: PhantomData }
     }
 }
 
@@ -42,36 +44,40 @@ impl<F> WitnessGenContext<F> {
 }
 
 #[derive(Clone, Debug)]
-struct Column {
+pub struct Column {
     pub annotation: String,
-    uuid: u32,
+    id: u32,
 }
 
 impl Column {
-    fn new(annotation: &str) -> Column {
+    pub fn new(annotation: &str) -> Column {
         Column {
             annotation: annotation.to_string(),
-            uuid: uuid(),
+            id: uuid(),
         }
+    }
+
+    pub fn uuid(&self) -> u32 {
+        self.id
     }
 }
 
 impl PartialEq for Column {
     fn eq(&self, other: &Self) -> bool {
-        self.uuid == other.uuid
+        self.id == other.id
     }
 }
 
 impl Eq for Column {}
 
-struct Signal {}
-
+#[derive(Debug)]
 struct Poly<F> {
     annotation: String,
     expr: PolyExpr<F>,
 }
 
-enum PolyExpr<F> {
+#[derive(Clone, Debug)]
+pub enum PolyExpr<F> {
     Const(F),
     Query(Column, u32, String), // column, rotation, annotation
     Sum(Vec<PolyExpr<F>>),
@@ -80,77 +86,106 @@ enum PolyExpr<F> {
     Pow(Box<PolyExpr<F>>, u32),
 }
 
-impl<F> PolyExpr<F> {
-    fn from_expr(source: Expr<F>) -> PolyExpr<F> {
-        match source {
-            Expr::Const(c) => PolyExpr::Const(c),
-            Expr::Sum(v) => PolyExpr::Sum(v.into_iter().map(|e| PolyExpr::from_expr(e)).collect()),
-            Expr::Mul(v) => PolyExpr::Mul(v.into_iter().map(|e| PolyExpr::from_expr(e)).collect()),
-            Expr::Neg(v) => PolyExpr::Neg(Box::new(PolyExpr::from_expr(*v))),
-            Expr::Pow(v, exp) => PolyExpr::Pow(Box::new(PolyExpr::from_expr(*v)), exp),
-            Expr::Query(_) => todo!(),
-            Expr::Equal(a, b) => PolyExpr::from_expr(*a - *b),
-        }
-    }
-}
-
+#[derive(Debug)]
 pub struct Circuit<F, StepArgs> {
     placement: Placement<F, StepArgs>,
     columns: Vec<Column>,
     polys: Vec<Poly<F>>,
 }
 
-impl<F, StepArgs> Circuit<F, StepArgs> {
-    fn place_queriable(&self, step: &StepType<F, StepArgs>, q: Queriable) -> PolyExpr<F> {
+pub struct Compiler<CM: CellManager, SSB: StepSelectorBuilder> {
+    cell_manager: CM,
+    step_selector_builder: SSB,
+}
+
+impl<CM: CellManager, SSB: StepSelectorBuilder> Compiler<CM, SSB> {
+    pub fn new(cell_manager: CM, step_selector_builder: SSB) -> Compiler<CM, SSB> {
+        Compiler {
+            cell_manager,
+            step_selector_builder,
+        }
+    }
+
+    pub fn compile<F: Clone, TraceArgs, StepArgs>(
+        &self,
+        sc: SuperCircuit<F, TraceArgs, StepArgs>,
+    ) -> Circuit<F, StepArgs> {
+        let placement = self.cell_manager.place(&sc);
+        let selector = self.step_selector_builder.build(&sc);
+        let mut polys = Vec::<Poly<F>>::new();
+
+        let columns = vec![placement.columns.clone(), selector.columns.clone()].concat();
+
+        for step in sc.step_types.iter() {
+            for cond in step.constraints.iter() {
+                let constraint = self.transform_expr(&placement, step, &cond.expr.clone());
+                let poly = selector.select(step, &constraint);
+
+                polys.push(Poly {
+                    expr: poly,
+                    annotation: cond.annotation.clone(),
+                })
+            }
+        }
+
+        Circuit::<F, StepArgs> {
+            placement,
+            columns,
+            polys,
+        }
+    }
+
+    fn place_queriable<F, StepArgs>(
+        &self,
+        placement: &Placement<F, StepArgs>,
+        step: &StepType<F, StepArgs>,
+        q: Queriable,
+    ) -> PolyExpr<F> {
         match q {
             Queriable::Internal(signal) => {
-                let placement = self.placement.find_internal_signal_placement(step, &signal);
+                let placement = placement.find_internal_signal_placement(step, &signal);
                 PolyExpr::Query(placement.column, placement.rotation, "TODO".to_string())
             }
             Queriable::Forward(forward) => {
-                let placement = self.placement.get_forward_placement(&forward);
+                let placement = placement.get_forward_placement(&forward);
                 PolyExpr::Query(placement.column, placement.rotation, "TODO".to_string())
             }
             Queriable::ForwardNext(forward) => {
-                let placement = self.placement.get_forward_placement(&forward);
-                let super_rotation = placement.rotation + self.placement.step_height(&step);
+                let step_height = placement.step_height(&step);
+                let placement = placement.get_forward_placement(&forward);
+                let super_rotation = placement.rotation + step_height;
                 PolyExpr::Query(placement.column, super_rotation, "TODO".to_string())
             }
         }
     }
 
-    fn transform_expr(&self, step: &StepType<F, StepArgs>, source: Expr<F>) -> PolyExpr<F> {
-        match source {
-            Expr::Const(c) => PolyExpr::Const(c),
-            Expr::Sum(v) => PolyExpr::Sum(v.into_iter().map(|e| PolyExpr::from_expr(e)).collect()),
-            Expr::Mul(v) => PolyExpr::Mul(v.into_iter().map(|e| PolyExpr::from_expr(e)).collect()),
-            Expr::Neg(v) => PolyExpr::Neg(Box::new(PolyExpr::from_expr(*v))),
-            Expr::Pow(v, exp) => PolyExpr::Pow(Box::new(PolyExpr::from_expr(*v)), exp),
-            Expr::Query(q) => self.place_queriable(step, q),
-            Expr::Equal(a, b) => PolyExpr::from_expr(*a - *b),
-        }
-    }
-}
-
-pub struct Compiler<CM: CellManager> {
-    cell_manager: CM,
-}
-
-impl<CM: CellManager> Compiler<CM> {
-    pub fn new(cell_manager: CM) -> Compiler<CM> {
-        Compiler { cell_manager }
-    }
-
-    pub fn compile<F, TraceArgs, StepArgs>(
+    fn transform_expr<F: Clone, StepArgs>(
         &self,
-        sc: SuperCircuit<F, TraceArgs, StepArgs>,
-    ) -> Circuit<F, StepArgs> {
-        let circuit = Circuit::<F, StepArgs> {
-            placement: self.cell_manager.place(&sc),
-            columns: Vec::new(),
-            polys: Vec::new(),
-        };
-
-        circuit
+        placement: &Placement<F, StepArgs>,
+        step: &StepType<F, StepArgs>,
+        source: &Expr<F>,
+    ) -> PolyExpr<F> {
+        match source.clone() {
+            Expr::Const(c) => PolyExpr::Const(c),
+            Expr::Sum(v) => PolyExpr::Sum(
+                v.into_iter()
+                    .map(|e| self.transform_expr(placement, step, &e))
+                    .collect(),
+            ),
+            Expr::Mul(v) => PolyExpr::Mul(
+                v.into_iter()
+                    .map(|e| self.transform_expr(placement, step, &e))
+                    .collect(),
+            ),
+            Expr::Neg(v) => PolyExpr::Neg(Box::new(self.transform_expr(placement, step, &v))),
+            Expr::Pow(v, exp) => {
+                PolyExpr::Pow(Box::new(self.transform_expr(placement, step, &v)), exp)
+            }
+            Expr::Query(q) => self.place_queriable(placement, step, q),
+            Expr::Equal(a, b) => {
+                let sub = Expr::Sum(vec![*a, Expr::Neg(Box::new(*b))]);
+                self.transform_expr(placement, step, &sub)
+            }
+        }
     }
 }

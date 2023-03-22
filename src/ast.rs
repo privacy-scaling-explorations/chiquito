@@ -1,5 +1,9 @@
 pub mod expr;
 
+use std::rc::Rc;
+
+use std::fmt::Debug;
+
 use crate::{
     compiler::{TraceContext, WitnessGenContext},
     util::uuid,
@@ -12,7 +16,7 @@ pub use expr::*;
 /// SuperCircuit
 pub struct SuperCircuit<F, TraceArgs, StepArgs> {
     pub forward_signals: Vec<ForwardSignal>,
-    pub step_types: Vec<StepType<F, StepArgs>>,
+    pub step_types: Vec<Rc<StepType<F, StepArgs>>>,
     pub trace: Option<Box<Trace<TraceArgs, StepArgs>>>,
 }
 
@@ -35,8 +39,11 @@ impl<F, TraceArgs, StepArgs> SuperCircuit<F, TraceArgs, StepArgs> {
         signal
     }
 
-    pub fn add_step_type(&mut self, step: StepType<F, StepArgs>) {
-        self.step_types.push(step);
+    pub fn add_step_type(&mut self, step: StepType<F, StepArgs>) -> Rc<StepType<F, StepArgs>> {
+        let step_rc = Rc::new(step);
+        self.step_types.push(Rc::clone(&step_rc));
+
+        step_rc
     }
 
     pub fn set_trace<D>(&mut self, def: D)
@@ -52,15 +59,28 @@ impl<F, TraceArgs, StepArgs> SuperCircuit<F, TraceArgs, StepArgs> {
     }
 }
 
+type StepTypeUUID = u32;
+
 /// Step
 pub struct StepType<F, Args> {
     id: u32,
 
     pub signals: Vec<InternalSignal>,
-    pub conditions: Vec<Condition<F>>,
-    pub transition_conditions: Vec<TransitionCondition<F>>,
+    pub constraints: Vec<Constraint<F>>,
+    pub transition_constraints: Vec<TransitionConstraint<F>>,
 
-    pub wg: Box<dyn FnOnce(&WitnessGenContext<F>, Args)>,
+    pub wg: Box<dyn Fn(&WitnessGenContext<F>, Args)>,
+}
+
+impl<F: Debug, Args> Debug for StepType<F, Args> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("StepType")
+            .field("id", &self.id)
+            .field("signals", &self.signals)
+            .field("constraints", &self.constraints)
+            .field("transition_constraints", &self.transition_constraints)
+            .finish()
+    }
 }
 
 impl<F, Args> Default for StepType<F, Args> {
@@ -68,14 +88,18 @@ impl<F, Args> Default for StepType<F, Args> {
         Self {
             id: uuid(),
             signals: Default::default(),
-            conditions: Default::default(),
-            transition_conditions: Default::default(),
+            constraints: Default::default(),
+            transition_constraints: Default::default(),
             wg: Box::new(|_, _| {}),
         }
     }
 }
 
 impl<F, Args> StepType<F, Args> {
+    pub fn uuid(&self) -> StepTypeUUID {
+        self.id
+    }
+
     pub fn add_signal(&mut self, name: &str) -> InternalSignal {
         let signal = InternalSignal::new();
 
@@ -84,27 +108,27 @@ impl<F, Args> StepType<F, Args> {
         signal
     }
 
-    pub fn add_cond(&mut self, annotation: &str, expr: Expr<F>) {
-        let condition = Condition {
+    pub fn add_constr(&mut self, annotation: &str, expr: Expr<F>) {
+        let condition = Constraint {
             annotation: annotation.to_string(),
             expr,
         };
 
-        self.conditions.push(condition)
+        self.constraints.push(condition)
     }
 
     pub fn add_transition(&mut self, annotation: &str, expr: Expr<F>) {
-        let condition = TransitionCondition {
+        let condition = TransitionConstraint {
             annotation: annotation.to_string(),
             expr,
         };
 
-        self.transition_conditions.push(condition)
+        self.transition_constraints.push(condition)
     }
 
     pub fn set_wg<D>(&mut self, def: D)
     where
-        D: FnOnce(&WitnessGenContext<F>, Args) + 'static,
+        D: Fn(&WitnessGenContext<F>, Args) + 'static,
     {
         // TODO, only can be called once
         self.wg = Box::new(def);
@@ -127,14 +151,14 @@ impl<F, Args> core::hash::Hash for StepType<F, Args> {
 
 #[derive(Clone, Debug)]
 /// Condition
-pub struct Condition<F> {
-    annotation: String,
-    expr: Expr<F>,
+pub struct Constraint<F> {
+    pub annotation: String,
+    pub expr: Expr<F>,
 }
 
 #[derive(Clone, Debug)]
 /// TransitionCondition
-pub struct TransitionCondition<F> {
+pub struct TransitionConstraint<F> {
     annotation: String,
     expr: Expr<F>,
 }
@@ -150,7 +174,7 @@ impl ForwardSignal {
         ForwardSignal { id: uuid() }
     }
 
-    fn uuid(&self) -> u32 {
+    pub fn uuid(&self) -> u32 {
         self.id
     }
 }

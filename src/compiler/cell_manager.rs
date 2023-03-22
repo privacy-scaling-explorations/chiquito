@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, rc::Rc};
 
 use crate::ast::{ForwardSignal, InternalSignal, StepType, SuperCircuit};
 
@@ -10,16 +10,17 @@ pub struct SignalPlacement {
     pub rotation: u32,
 }
 
+#[derive(Debug)]
 pub struct StepPlacement {
     height: u32,
     signals: HashMap<InternalSignal, SignalPlacement>,
 }
 
+#[derive(Debug)]
 pub struct Placement<F, StepArgs> {
-    forward: HashMap<ForwardSignal, SignalPlacement>,
-    steps: HashMap<StepType<F, StepArgs>, StepPlacement>,
-    width: u32,
-    columns: Vec<Column>,
+    pub forward: HashMap<ForwardSignal, SignalPlacement>,
+    pub steps: HashMap<Rc<StepType<F, StepArgs>>, StepPlacement>,
+    pub columns: Vec<Column>,
 }
 
 impl<F, StepArgs> Placement<F, StepArgs> {
@@ -67,14 +68,13 @@ impl CellManager for SimpleCellManager {
             forward: HashMap::new(),
             steps: HashMap::new(),
             columns: Vec::new(),
-            width: 0,
         };
 
         let mut forward_signals: u32 = 0;
 
         for forward_signal in sc.forward_signals.iter() {
             let column = Column::new("scm forward");
-            placement.columns.push(column);
+            placement.columns.push(column.clone());
 
             placement.forward.insert(
                 forward_signal.clone(),
@@ -101,10 +101,10 @@ impl CellManager for SimpleCellManager {
                 let column_pos = forward_signals + internal_signals;
                 let column = if placement.columns.len() <= column_pos as usize {
                     let column = Column::new("scm forward");
-                    placement.columns.push(column);
+                    placement.columns.push(column.clone());
                     column
                 } else {
-                    placement.columns[column_pos as usize]
+                    placement.columns[column_pos as usize].clone()
                 };
 
                 step_placement.signals.insert(
@@ -117,10 +117,10 @@ impl CellManager for SimpleCellManager {
 
                 internal_signals += 1;
             }
+
+            placement.steps.insert(Rc::clone(step), step_placement);
             max_internal_width = max_internal_width.max(internal_signals);
         }
-
-        placement.width = forward_signals + max_internal_width;
 
         placement
     }

@@ -19,48 +19,68 @@ pub trait ToExpr<F> {
     fn expr(&self) -> Expr<F>;
 }
 
+impl<F: Clone> ToExpr<F> for Expr<F> {
+    fn expr(&self) -> Expr<F> {
+        self.clone()
+    }
+}
+
 pub trait ToField<F: FieldExt> {
     fn field(&self) -> F;
 }
 
-impl<F> Add for Expr<F> {
+impl<F, RHS: ToExpr<F>> Add<RHS> for Expr<F> {
     type Output = Self;
-    fn add(self, rhs: Self) -> Self {
+    fn add(self, rhs: RHS) -> Self {
         use Expr::*;
         match self {
             Sum(mut xs) => {
-                xs.push(rhs);
+                xs.push(rhs.expr());
                 Sum(xs)
             }
-            e => Sum(vec![e, rhs]),
+            e => Sum(vec![e, rhs.expr()]),
         }
     }
 }
 
-impl<F> Sub for Expr<F> {
+/*impl<F> Add<Expr<F>> for Expr<F> {
     type Output = Self;
-    fn sub(self, rhs: Self) -> Self {
+    fn add(self, rhs: Expr<F>) -> Self {
         use Expr::*;
         match self {
             Sum(mut xs) => {
-                xs.push(rhs.neg());
+                xs.push(rhs.expr());
                 Sum(xs)
             }
-            e => Sum(vec![e, rhs.neg()]),
+            e => Sum(vec![e, rhs.expr()]),
+        }
+    }
+}*/
+
+impl<F, RHS: ToExpr<F>> Sub<RHS> for Expr<F> {
+    type Output = Self;
+    fn sub(self, rhs: RHS) -> Self {
+        use Expr::*;
+        match self {
+            Sum(mut xs) => {
+                xs.push(rhs.expr().neg());
+                Sum(xs)
+            }
+            e => Sum(vec![e, rhs.expr().neg()]),
         }
     }
 }
 
-impl<F> Mul for Expr<F> {
+impl<F, RHS: ToExpr<F>> Mul<RHS> for Expr<F> {
     type Output = Self;
-    fn mul(self, rhs: Self) -> Self {
+    fn mul(self, rhs: RHS) -> Self {
         use Expr::*;
         match self {
             Mul(mut xs) => {
-                xs.push(rhs);
+                xs.push(rhs.expr());
                 Mul(xs)
             }
-            e => Mul(vec![e, rhs]),
+            e => Mul(vec![e, rhs.expr()]),
         }
     }
 }
@@ -75,10 +95,10 @@ impl<F> Neg for Expr<F> {
     }
 }
 
-impl<F> BitOr for Expr<F> {
+impl<F, RHS: ToExpr<F>> BitOr<RHS> for Expr<F> {
     type Output = Self;
-    fn bitor(self, rhs: Self) -> Self::Output {
-        Expr::Equal(Box::new(self), Box::new(rhs))
+    fn bitor(self, rhs: RHS) -> Self::Output {
+        Expr::Equal(Box::new(self), Box::new(rhs.expr()))
     }
 }
 
@@ -113,53 +133,27 @@ impl<F> ToExpr<F> for Queriable {
     }
 }
 
-impl<F> Add<Expr<F>> for Queriable {
+impl<F: Clone> Add<Expr<F>> for Queriable {
     type Output = Expr<F>;
 
     fn add(self, rhs: Expr<F>) -> Self::Output {
-        Expr::Sum(vec![self.expr(), rhs])
+        self.expr() + rhs
     }
 }
 
-impl<F> Add<Queriable> for Expr<F> {
-    type Output = Self;
-    fn add(self, rhs: Queriable) -> Self {
-        use Expr::*;
-        match self {
-            Sum(mut xs) => {
-                xs.push(rhs.expr());
-                Sum(xs)
-            }
-            e => Sum(vec![e, rhs.expr()]),
-        }
+impl<F: Clone> Sub<Expr<F>> for Queriable {
+    type Output = Expr<F>;
+
+    fn sub(self, rhs: Expr<F>) -> Self::Output {
+        self.expr() - rhs
     }
 }
 
-impl<F> Sub<Queriable> for Expr<F> {
-    type Output = Self;
-    fn sub(self, rhs: Queriable) -> Self {
-        use Expr::*;
-        match self {
-            Sum(mut xs) => {
-                xs.push(rhs.expr().neg());
-                Sum(xs)
-            }
-            e => Sum(vec![e, rhs.expr().neg()]),
-        }
-    }
-}
+impl<F: Clone> Mul<Expr<F>> for Queriable {
+    type Output = Expr<F>;
 
-impl<F: FieldExt> Add<i32> for Expr<F> {
-    type Output = Self;
-    fn add(self, rhs: i32) -> Self {
-        use Expr::*;
-        match self {
-            Sum(mut xs) => {
-                xs.push(rhs.expr());
-                Sum(xs)
-            }
-            e => Sum(vec![e, rhs.expr()]),
-        }
+    fn mul(self, rhs: Expr<F>) -> Self::Output {
+        self.expr() * rhs
     }
 }
 
