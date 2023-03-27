@@ -1,7 +1,8 @@
 use std::marker::PhantomData;
 
 use crate::{
-    ast::{Expr, Queriable, StepType, SuperCircuit},
+    ast::{query::Queriable, Circuit as astCircuit, Expr, StepType},
+    dsl::StepTypeHandler,
     util::uuid,
 };
 
@@ -24,7 +25,11 @@ impl<StepArgs> TraceContext<StepArgs> {
         }
     }
 
-    pub fn start_wg<F>(&self, step: &StepType<F, StepArgs>) -> WitnessGenContext<F> {
+    pub fn add(&self, step: &StepTypeHandler, args: StepArgs) {
+        todo!();
+    }
+
+    fn start_wg<F>(&self, step: &StepType<F, StepArgs>) -> WitnessGenContext<F> {
         WitnessGenContext { _p: PhantomData }
     }
 }
@@ -38,7 +43,21 @@ impl<F> WitnessGenContext<F> {
     pub fn new() -> WitnessGenContext<F> {
         WitnessGenContext { _p: PhantomData {} }
     }
-    pub fn assign(&self, lhs: Queriable, rhs: F) {
+    pub fn assign(&self, lhs: Queriable<F>, rhs: F) {
+        todo!();
+    }
+}
+
+pub struct LookupWitnessGenContext<Args> {
+    _p: PhantomData<Args>,
+}
+
+impl<Args> LookupWitnessGenContext<Args> {
+    pub fn new() -> LookupWitnessGenContext<Args> {
+        LookupWitnessGenContext { _p: PhantomData {} }
+    }
+
+    pub fn add<F, D: Fn(&WitnessGenContext<F>, Args)>(&self, def: D) {
         todo!();
     }
 }
@@ -108,7 +127,7 @@ impl<CM: CellManager, SSB: StepSelectorBuilder> Compiler<CM, SSB> {
 
     pub fn compile<F: Clone, TraceArgs, StepArgs>(
         &self,
-        sc: SuperCircuit<F, TraceArgs, StepArgs>,
+        sc: astCircuit<F, TraceArgs, StepArgs>,
     ) -> Circuit<F, StepArgs> {
         let placement = self.cell_manager.place(&sc);
         let selector = self.step_selector_builder.build(&sc);
@@ -116,7 +135,7 @@ impl<CM: CellManager, SSB: StepSelectorBuilder> Compiler<CM, SSB> {
 
         let columns = vec![placement.columns.clone(), selector.columns.clone()].concat();
 
-        for step in sc.step_types.iter() {
+        for step in sc.step_types.values().into_iter() {
             for cond in step.constraints.iter() {
                 let constraint = self.transform_expr(&placement, step, &cond.expr.clone());
                 let poly = selector.select(step, &constraint);
@@ -139,7 +158,7 @@ impl<CM: CellManager, SSB: StepSelectorBuilder> Compiler<CM, SSB> {
         &self,
         placement: &Placement<F, StepArgs>,
         step: &StepType<F, StepArgs>,
-        q: Queriable,
+        q: Queriable<F>,
     ) -> PolyExpr<F> {
         match q {
             Queriable::Internal(signal) => {
@@ -156,6 +175,8 @@ impl<CM: CellManager, SSB: StepSelectorBuilder> Compiler<CM, SSB> {
                 let super_rotation = placement.rotation + step_height;
                 PolyExpr::Query(placement.column, super_rotation, "TODO".to_string())
             }
+            Queriable::StepTypeNext(_) => todo!(),
+            Queriable::_unaccessible(_) => panic!("jarrl"),
         }
     }
 

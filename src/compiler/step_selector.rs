@@ -1,6 +1,6 @@
 use std::{collections::HashMap, rc::Rc};
 
-use crate::ast::{StepType, SuperCircuit};
+use crate::ast::{Circuit, StepType};
 
 use super::{Column, PolyExpr};
 
@@ -19,7 +19,7 @@ impl<F: Clone, Args> StepSelector<F, Args> {
 pub trait StepSelectorBuilder {
     fn build<F, TraceArgs, StepArgs>(
         &self,
-        sc: &SuperCircuit<F, TraceArgs, StepArgs>,
+        sc: &Circuit<F, TraceArgs, StepArgs>,
     ) -> StepSelector<F, StepArgs>;
 }
 
@@ -28,14 +28,14 @@ pub struct SimpleStepSelectorBuilder {}
 impl StepSelectorBuilder for SimpleStepSelectorBuilder {
     fn build<F, TraceArgs, StepArgs>(
         &self,
-        sc: &SuperCircuit<F, TraceArgs, StepArgs>,
+        sc: &Circuit<F, TraceArgs, StepArgs>,
     ) -> StepSelector<F, StepArgs> {
         let mut selector = StepSelector {
             selector_expr: HashMap::new(),
             columns: Vec::new(),
         };
 
-        for step in sc.step_types.iter() {
+        for step in sc.step_types.values().into_iter() {
             let column = Column::new("step selector");
 
             selector.columns.push(column.clone());

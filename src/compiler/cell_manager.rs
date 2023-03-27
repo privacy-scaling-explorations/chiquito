@@ -1,6 +1,6 @@
 use std::{collections::HashMap, rc::Rc};
 
-use crate::ast::{ForwardSignal, InternalSignal, StepType, SuperCircuit};
+use crate::ast::{Circuit, ForwardSignal, InternalSignal, StepType};
 
 use super::Column;
 
@@ -53,7 +53,7 @@ impl<F, StepArgs> Placement<F, StepArgs> {
 pub trait CellManager {
     fn place<F, TraceArgs, StepArgs>(
         &self,
-        sc: &SuperCircuit<F, TraceArgs, StepArgs>,
+        sc: &Circuit<F, TraceArgs, StepArgs>,
     ) -> Placement<F, StepArgs>;
 }
 
@@ -62,7 +62,7 @@ pub struct SimpleCellManager {}
 impl CellManager for SimpleCellManager {
     fn place<F, TraceArgs, StepArgs>(
         &self,
-        sc: &SuperCircuit<F, TraceArgs, StepArgs>,
+        sc: &Circuit<F, TraceArgs, StepArgs>,
     ) -> Placement<F, StepArgs> {
         let mut placement = Placement::<F, StepArgs> {
             forward: HashMap::new(),
@@ -89,7 +89,7 @@ impl CellManager for SimpleCellManager {
 
         let mut max_internal_width: u32 = 0;
 
-        for step in sc.step_types.iter() {
+        for step in sc.step_types.values().into_iter() {
             let mut internal_signals: u32 = 0;
 
             let mut step_placement = StepPlacement {

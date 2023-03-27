@@ -1,6 +1,7 @@
 pub mod expr;
+pub mod lookup;
 
-use std::rc::Rc;
+use std::{collections::HashMap, rc::Rc};
 
 use std::fmt::Debug;
 
@@ -9,18 +10,16 @@ use crate::{
     util::uuid,
 };
 
-pub type Trace<TraceArgs, StepArgs> = dyn FnOnce(&TraceContext<StepArgs>, TraceArgs);
-
 pub use expr::*;
 
 /// SuperCircuit
-pub struct SuperCircuit<F, TraceArgs, StepArgs> {
+pub struct Circuit<F, TraceArgs, StepArgs> {
     pub forward_signals: Vec<ForwardSignal>,
-    pub step_types: Vec<Rc<StepType<F, StepArgs>>>,
+    pub step_types: HashMap<u32, Rc<StepType<F, StepArgs>>>,
     pub trace: Option<Box<Trace<TraceArgs, StepArgs>>>,
 }
 
-impl<F, TraceArgs, StepArgs> Default for SuperCircuit<F, TraceArgs, StepArgs> {
+impl<F, TraceArgs, StepArgs> Default for Circuit<F, TraceArgs, StepArgs> {
     fn default() -> Self {
         Self {
             forward_signals: Default::default(),
@@ -30,7 +29,7 @@ impl<F, TraceArgs, StepArgs> Default for SuperCircuit<F, TraceArgs, StepArgs> {
     }
 }
 
-impl<F, TraceArgs, StepArgs> SuperCircuit<F, TraceArgs, StepArgs> {
+impl<F, TraceArgs, StepArgs> Circuit<F, TraceArgs, StepArgs> {
     pub fn add_forward(&mut self, name: &str) -> ForwardSignal {
         let signal = ForwardSignal::new();
 
@@ -39,11 +38,12 @@ impl<F, TraceArgs, StepArgs> SuperCircuit<F, TraceArgs, StepArgs> {
         signal
     }
 
-    pub fn add_step_type(&mut self, step: StepType<F, StepArgs>) -> Rc<StepType<F, StepArgs>> {
+    pub fn add_step_type(&mut self, step: StepType<F, StepArgs>) -> StepTypeUUID {
+        let uuid = step.uuid();
         let step_rc = Rc::new(step);
-        self.step_types.push(Rc::clone(&step_rc));
+        self.step_types.insert(uuid, step_rc);
 
-        step_rc
+        uuid
     }
 
     pub fn set_trace<D>(&mut self, def: D)
@@ -57,17 +57,26 @@ impl<F, TraceArgs, StepArgs> SuperCircuit<F, TraceArgs, StepArgs> {
             Some(_) => panic!("circuit cannot have more than one trace generator"),
         }
     }
+
+    pub fn get_step_type(&self, uuid: u32) -> Rc<StepType<F, StepArgs>> {
+        let step_rc = self.step_types.get(&uuid).expect("step type not found");
+
+        Rc::clone(step_rc)
+    }
 }
 
-type StepTypeUUID = u32;
+pub type Trace<TraceArgs, StepArgs> = dyn FnOnce(&TraceContext<StepArgs>, TraceArgs);
+
+pub type StepTypeUUID = u32;
 
 /// Step
 pub struct StepType<F, Args> {
-    id: u32,
+    id: StepTypeUUID,
 
     pub signals: Vec<InternalSignal>,
     pub constraints: Vec<Constraint<F>>,
     pub transition_constraints: Vec<TransitionConstraint<F>>,
+    pub lookups: Vec<Lookup<F>>,
 
     pub wg: Box<dyn Fn(&WitnessGenContext<F>, Args)>,
 }
@@ -90,6 +99,7 @@ impl<F, Args> Default for StepType<F, Args> {
             signals: Default::default(),
             constraints: Default::default(),
             transition_constraints: Default::default(),
+            lookups: Default::default(),
             wg: Box::new(|_, _| {}),
         }
     }
@@ -126,6 +136,12 @@ impl<F, Args> StepType<F, Args> {
         self.transition_constraints.push(condition)
     }
 
+    pub fn add_lookup(&mut self, exprs: Vec<(Expr<F>, Expr<F>)>) {
+        let lookup = Lookup { exprs };
+
+        self.lookups.push(lookup);
+    }
+
     pub fn set_wg<D>(&mut self, def: D)
     where
         D: Fn(&WitnessGenContext<F>, Args) + 'static,
@@ -159,8 +175,12 @@ pub struct Constraint<F> {
 #[derive(Clone, Debug)]
 /// TransitionCondition
 pub struct TransitionConstraint<F> {
-    annotation: String,
-    expr: Expr<F>,
+    pub annotation: String,
+    pub expr: Expr<F>,
+}
+
+pub struct Lookup<F> {
+    pub exprs: Vec<(Expr<F>, Expr<F>)>,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]

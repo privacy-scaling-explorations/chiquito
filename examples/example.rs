@@ -1,5 +1,5 @@
 use chiquito::{
-    ast::{ToExpr, ToField},
+    ast::{Expr, ToExpr, ToField},
     compiler::{
         cell_manager::SimpleCellManager, step_selector::SimpleStepSelectorBuilder, Compiler,
     },
@@ -17,8 +17,9 @@ fn main() {
             let d = ctx.signal("d");
             let f = ctx.signal("f");
 
-            ctx.constr("annotation", (a + b) * (c - 1.expr()));
-            ctx.transition("annotation", a + 1.expr());
+            ctx.constr("annotation", (a + b) * (c - 1));
+            ctx.constr("annotation", 1.expr() + (a + b) * (c - 1));
+            ctx.transition("annotation", a + 1);
 
             ctx.wg(move |ctx, _| {
                 ctx.assign(a, 13.field());
@@ -40,8 +41,8 @@ fn main() {
 
         ctx.trace(move |ctx, _| {
             let v: i32 = 1;
-            s2.add(ctx, v);
-            s1.add(ctx, v);
+            ctx.add(&s2, v);
+            ctx.add(&s1, v);
         });
     });
 

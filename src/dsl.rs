@@ -1,20 +1,18 @@
-use std::rc::Rc;
-
 use crate::{
-    ast::{Expr, Queriable, StepType, SuperCircuit},
-    compiler::{TraceContext, WitnessGenContext},
+    ast::{lookup::LookupTable, query::Queriable, Circuit, Expr, StepType, StepTypeUUID},
+    compiler::{LookupWitnessGenContext, TraceContext, WitnessGenContext},
 };
 
 pub struct CircuitContext<F, TraceArgs, StepArgs> {
-    sc: SuperCircuit<F, TraceArgs, StepArgs>,
+    sc: Circuit<F, TraceArgs, StepArgs>,
 }
 
 impl<F, TraceArgs, StepArgs> CircuitContext<F, TraceArgs, StepArgs> {
-    pub fn forward(&mut self, name: &str) -> Queriable {
+    pub fn forward(&mut self, name: &str) -> Queriable<F> {
         Queriable::Forward(self.sc.add_forward(name))
     }
 
-    pub fn step_type<D>(&mut self, name: &str, def: D) -> StepTypeHandler<F, StepArgs>
+    pub fn step_type<D>(&mut self, name: &str, def: D) -> StepTypeHandler
     where
         D: FnOnce(&mut StepTypeContext<F, StepArgs>),
     {
@@ -22,10 +20,10 @@ impl<F, TraceArgs, StepArgs> CircuitContext<F, TraceArgs, StepArgs> {
 
         def(&mut context);
 
-        let step = self.sc.add_step_type(context.step_type);
+        let step_uuid = self.sc.add_step_type(context.step_type);
 
         // TODO meaningful StepTypeHandler
-        StepTypeHandler { step }
+        StepTypeHandler::new(step_uuid)
     }
 
     pub fn trace<D>(&mut self, def: D)
@@ -33,6 +31,27 @@ impl<F, TraceArgs, StepArgs> CircuitContext<F, TraceArgs, StepArgs> {
         D: FnOnce(&TraceContext<StepArgs>, TraceArgs) + 'static,
     {
         self.sc.set_trace(def);
+    }
+}
+
+pub struct LookupTableContext<F> {
+    table: LookupTable<F>,
+}
+
+impl<F> LookupTableContext<F> {
+    pub fn forward(&mut self, name: &str) -> Queriable<F> {
+        Queriable::Forward(self.table.add_signal(name))
+    }
+
+    pub fn constr(&mut self, annotation: &str, expr: Expr<F>) {
+        self.table.add_constr(annotation, expr);
+    }
+
+    pub fn wg<D, Args>(&mut self, def: D)
+    where
+        D: FnOnce(&LookupTableContext<F>, Args) + 'static,
+    {
+        todo!()
     }
 }
 
@@ -49,7 +68,7 @@ impl<F, Args> Default for StepTypeContext<F, Args> {
 }
 
 impl<F, Args> StepTypeContext<F, Args> {
-    pub fn signal(&mut self, name: &str) -> Queriable {
+    pub fn signal(&mut self, name: &str) -> Queriable<F> {
         Queriable::Internal(self.step_type.add_signal(name))
     }
 
@@ -61,6 +80,15 @@ impl<F, Args> StepTypeContext<F, Args> {
         self.step_type.add_transition(annotation, expr.into());
     }
 
+    pub fn lookup<D: Into<Expr<F>>>(&mut self, exprs: Vec<(D, D)>) {
+        let exprs: Vec<(Expr<F>, Expr<F>)> = exprs
+            .into_iter()
+            .map(|(a, b)| (a.into(), b.into()))
+            .collect();
+
+        self.step_type.add_lookup(exprs)
+    }
+
     pub fn wg<D>(&mut self, def: D)
     where
         D: Fn(&WitnessGenContext<F>, Args) + 'static,
@@ -69,15 +97,22 @@ impl<F, Args> StepTypeContext<F, Args> {
     }
 }
 
-pub struct StepTypeHandler<F, Args> {
-    step: Rc<StepType<F, Args>>,
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct StepTypeHandler {
+    step_uuid: StepTypeUUID,
 }
 
-impl<F, Args> StepTypeHandler<F, Args> {
-    pub fn add(&self, trace: &TraceContext<Args>, args: Args) {
-        let ctx = trace.start_wg(&self.step);
+impl StepTypeHandler {
+    pub(crate) fn new(step_uuid: StepTypeUUID) -> StepTypeHandler {
+        StepTypeHandler { step_uuid }
+    }
 
-        (self.step.wg)(&ctx, args);
+    pub fn uuid(&self) -> u32 {
+        self.step_uuid
+    }
+
+    pub fn next<F>(&self) -> Queriable<F> {
+        Queriable::StepTypeNext(self.clone())
     }
 }
 
@@ -85,22 +120,22 @@ pub struct ForwardSignalHandler {
     // fs: ForwardSignal,
 }
 
-pub struct CircuitDefinition<F, TraceArgs, StepArgs> {
-    sc: SuperCircuit<F, TraceArgs, StepArgs>,
-}
-
-pub fn circuit<F, TraceArgs, StepArgs, D>(
-    name: &str,
-    def: D,
-) -> SuperCircuit<F, TraceArgs, StepArgs>
+pub fn circuit<F, TraceArgs, StepArgs, D>(name: &str, def: D) -> Circuit<F, TraceArgs, StepArgs>
 where
     D: Fn(&mut CircuitContext<F, TraceArgs, StepArgs>),
 {
     let mut context = CircuitContext {
-        sc: SuperCircuit::default(),
+        sc: Circuit::default(),
     };
 
     def(&mut context);
 
     context.sc
+}
+
+pub fn lookup_table<F, Args, D>(name: &str, def: D) -> LookupTable<F>
+where
+    D: Fn(&LookupWitnessGenContext<F>),
+{
+    todo!()
 }
