@@ -7,16 +7,16 @@ use super::Column;
 #[derive(Clone, Debug)]
 pub struct SignalPlacement {
     pub column: Column,
-    pub rotation: u32,
+    pub rotation: i32,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct StepPlacement {
     height: u32,
     signals: HashMap<InternalSignal, SignalPlacement>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Placement<F, StepArgs> {
     pub forward: HashMap<ForwardSignal, SignalPlacement>,
     pub steps: HashMap<Rc<StepType<F, StepArgs>>, StepPlacement>,
@@ -57,9 +57,9 @@ pub trait CellManager {
     ) -> Placement<F, StepArgs>;
 }
 
-pub struct SimpleCellManager {}
+pub struct SingleRowCellManager {}
 
-impl CellManager for SimpleCellManager {
+impl CellManager for SingleRowCellManager {
     fn place<F, TraceArgs, StepArgs>(
         &self,
         sc: &Circuit<F, TraceArgs, StepArgs>,
@@ -73,13 +73,21 @@ impl CellManager for SimpleCellManager {
         let mut forward_signals: u32 = 0;
 
         for forward_signal in sc.forward_signals.iter() {
-            let column = Column::new("scm forward");
+            let column = if let Some(annotation) = sc.annotations.get(&forward_signal.uuid()) {
+                Column::advice(
+                    format!("srcm forward {}", annotation),
+                    forward_signal.phase(),
+                )
+            } else {
+                Column::advice("srcm forward", forward_signal.phase())
+            };
+
             placement.columns.push(column.clone());
 
             placement.forward.insert(
-                forward_signal.clone(),
+                *forward_signal,
                 SignalPlacement {
-                    column: column,
+                    column,
                     rotation: 0,
                 },
             );
@@ -100,7 +108,12 @@ impl CellManager for SimpleCellManager {
             for signal in step.signals.iter() {
                 let column_pos = forward_signals + internal_signals;
                 let column = if placement.columns.len() <= column_pos as usize {
-                    let column = Column::new("scm forward");
+                    let column = if let Some(annotation) = sc.annotations.get(&signal.uuid()) {
+                        Column::advice(format!("srcm internal signal {}", annotation), 0)
+                    } else {
+                        Column::advice("srcm internal signal", 0)
+                    };
+
                     placement.columns.push(column.clone());
                     column
                 } else {
@@ -108,9 +121,9 @@ impl CellManager for SimpleCellManager {
                 };
 
                 step_placement.signals.insert(
-                    signal.clone(),
+                    *signal,
                     SignalPlacement {
-                        column: column,
+                        column,
                         rotation: 0,
                     },
                 );

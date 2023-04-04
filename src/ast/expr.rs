@@ -1,10 +1,10 @@
-use std::ops::{Add, BitOr, Mul, Neg, Sub};
+use std::ops::{Add, Mul, Neg, Sub};
 
-use halo2_proofs::halo2curves::FieldExt;
+use halo2_proofs::{halo2curves::FieldExt, plonk::Expression};
 
 use self::query::Queriable;
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug)]
 pub enum Expr<F> {
     Const(F),
     Sum(Vec<Expr<F>>),
@@ -12,7 +12,7 @@ pub enum Expr<F> {
     Neg(Box<Expr<F>>),
     Pow(Box<Expr<F>>, u32),
     Query(Queriable<F>),
-    Equal(Box<Expr<F>>, Box<Expr<F>>),
+    Halo2Expr(Expression<F>),
 }
 
 pub trait ToExpr<F> {
@@ -78,13 +78,6 @@ impl<F> Neg for Expr<F> {
             Expr::Neg(xs) => *xs,
             e => Expr::Neg(Box::new(e)),
         }
-    }
-}
-
-impl<F, RHS: Into<Expr<F>>> BitOr<RHS> for Expr<F> {
-    type Output = Self;
-    fn bitor(self, rhs: RHS) -> Self::Output {
-        Expr::Equal(Box::new(self), Box::new(rhs.into()))
     }
 }
 
@@ -158,6 +151,13 @@ impl<F: FieldExt> ToField<F> for i32 {
     }
 }
 
+impl<F: FieldExt> From<Expression<F>> for Expr<F> {
+    #[inline]
+    fn from(value: Expression<F>) -> Self {
+        Expr::Halo2Expr(value)
+    }
+}
+
 pub mod query {
     use std::{
         marker::PhantomData,
@@ -165,7 +165,7 @@ pub mod query {
     };
 
     use crate::{
-        ast::{ForwardSignal, InternalSignal},
+        ast::{ForwardSignal, ImportedHalo2Advice, ImportedHalo2Fixed, InternalSignal},
         dsl::StepTypeHandler,
     };
 
@@ -175,9 +175,10 @@ pub mod query {
     #[derive(Clone, Copy, Debug, PartialEq)]
     pub enum Queriable<F> {
         Internal(InternalSignal),
-        Forward(ForwardSignal),
-        ForwardNext(ForwardSignal),
-        StepTypeNext(StepTypeHandler), // uuid of step type
+        Forward(ForwardSignal, bool),
+        StepTypeNext(StepTypeHandler),
+        Halo2AdviceQuery(ImportedHalo2Advice, i32),
+        Halo2FixedQuery(ImportedHalo2Fixed, i32),
         _unaccessible(PhantomData<F>),
     }
 
@@ -185,8 +186,27 @@ pub mod query {
         pub fn next(&self) -> Queriable<F> {
             use Queriable::*;
             match self {
-                Forward(s) => ForwardNext(*s),
-                _ => panic!("can only next a queriable"),
+                Forward(s, rot) => {
+                    if !*rot {
+                        Forward(*s, true)
+                    } else {
+                        panic!("jarrl: cannot rotate next(forward)")
+                    }
+                }
+                Halo2AdviceQuery(s, rot) => Halo2AdviceQuery(*s, rot + 1),
+                Halo2FixedQuery(s, r) => Halo2FixedQuery(*s, r + 1),
+                _ => panic!("can only next a forward or halo2 column"),
+            }
+        }
+
+        pub fn uuid(&self) -> u32 {
+            match self {
+                Queriable::Internal(s) => s.uuid(),
+                Queriable::Forward(s, _) => s.uuid(),
+                Queriable::StepTypeNext(s) => s.uuid(),
+                Queriable::Halo2AdviceQuery(s, _) => s.uuid(),
+                Queriable::Halo2FixedQuery(s, _) => s.uuid(),
+                Queriable::_unaccessible(_) => panic!("jarrl wrong queriable type"),
             }
         }
     }
@@ -232,13 +252,6 @@ pub mod query {
 
         fn neg(self) -> Self::Output {
             self.expr().neg()
-        }
-    }
-
-    impl<F, RHS: Into<Expr<F>>> BitOr<RHS> for Queriable<F> {
-        type Output = Expr<F>;
-        fn bitor(self, rhs: RHS) -> Self::Output {
-            Expr::Equal(Box::new(self.into()), Box::new(rhs.into()))
         }
     }
 }
