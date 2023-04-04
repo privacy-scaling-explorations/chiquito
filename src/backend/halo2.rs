@@ -21,6 +21,7 @@ use crate::{
     dsl::StepTypeHandler,
 };
 
+#[allow(non_snake_case)]
 pub fn chiquito2Halo2<F: FieldExt, TraceArgs, StepArgs: Clone>(
     circuit: Circuit<F, TraceArgs, StepArgs>,
 ) -> ChiquitoHalo2<F, TraceArgs, StepArgs> {
@@ -261,7 +262,7 @@ impl<F: FieldExt, TraceArgs, StepArgs: Clone> ChiquitoHalo2<F, TraceArgs, StepAr
                 let first = self.convert_poly(meta, iter.next().unwrap());
                 iter.fold(first, |acc, e| acc * self.convert_poly(meta, e))
             }
-            PolyExpr::Neg(e) => -self.convert_poly(meta, &*e),
+            PolyExpr::Neg(e) => -self.convert_poly(meta, e),
             PolyExpr::Pow(e, n) => {
                 if *n == 0 {
                     Expression::Constant(1.field())
@@ -363,7 +364,7 @@ impl<F: Field, StepArgs: Clone> TraceContextHalo2<F, StepArgs> {
 
         let super_rotation = placement.rotation
             + if next {
-                self.placement.step_height(&step) as i32
+                self.placement.step_height(step) as i32
             } else {
                 0
             };

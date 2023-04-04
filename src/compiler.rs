@@ -4,7 +4,7 @@ use std::{collections::HashMap, rc::Rc};
 use crate::{
     ast::{
         query::Queriable, Circuit as astCircuit, Expr, FixedGen, ImportedHalo2Advice,
-        ImportedHalo2Fixed, Lookup, StepType, Trace,
+        ImportedHalo2Fixed, StepType, Trace,
     },
     dsl::StepTypeHandler,
     util::uuid,
@@ -199,13 +199,10 @@ struct CompilationUnit<F, StepArgs> {
 impl<F, StepArgs> CompilationUnit<F, StepArgs> {
     fn find_halo2_advice(&self, to_find: ImportedHalo2Advice) -> Option<Column> {
         for column in self.columns.iter() {
-            match column.halo2_advice {
-                Some(advice) => {
-                    if advice == to_find {
-                        return Some(column.clone());
-                    }
+            if let Some(advice) = column.halo2_advice {
+                if advice == to_find {
+                    return Some(column.clone());
                 }
-                _ => {}
             }
         }
 
@@ -214,13 +211,10 @@ impl<F, StepArgs> CompilationUnit<F, StepArgs> {
 
     fn find_halo2_fixed(&self, to_find: ImportedHalo2Fixed) -> Option<Column> {
         for column in self.columns.iter() {
-            match column.halo2_fixed {
-                Some(fixed) => {
-                    if fixed == to_find {
-                        return Some(column.clone());
-                    }
+            if let Some(fixed) = column.halo2_fixed {
+                if fixed == to_find {
+                    return Some(column.clone());
                 }
-                _ => {}
             }
         }
 
@@ -283,8 +277,8 @@ impl<CM: CellManager, SSB: StepSelectorBuilder> Compiler<CM, SSB> {
         };
         sc.annotations = annotations.clone();
 
-        let placement = self.cell_manager.place(&sc);
-        let selector = self.step_selector_builder.build(&sc);
+        let placement = self.cell_manager.place(sc);
+        let selector = self.step_selector_builder.build(sc);
         let polys = Vec::<Poly<F>>::new();
         let lookups = Vec::<PolyLookup<F>>::new();
 
@@ -536,7 +530,7 @@ impl<CM: CellManager, SSB: StepSelectorBuilder> Compiler<CM, SSB> {
 
                 let super_rotation = placement.rotation
                     + if next {
-                        unit.placement.step_height(&step) as i32
+                        unit.placement.step_height(step) as i32
                     } else {
                         0
                     };
@@ -559,7 +553,7 @@ impl<CM: CellManager, SSB: StepSelectorBuilder> Compiler<CM, SSB> {
                 PolyExpr::Query(placement.column, super_rotation, annotation)
             }
             Queriable::StepTypeNext(step_type_handle) => {
-                let super_rotation = unit.placement.step_height(&step);
+                let super_rotation = unit.placement.step_height(step);
                 let dest_step = unit
                     .steps
                     .get(&step_type_handle.uuid())
@@ -617,7 +611,7 @@ impl<CM: CellManager, SSB: StepSelectorBuilder> Compiler<CM, SSB> {
             ),
             Expr::Neg(v) => PolyExpr::Neg(Box::new(self.transform_expr(unit, step, &v))),
             Expr::Pow(v, exp) => PolyExpr::Pow(Box::new(self.transform_expr(unit, step, &v)), exp),
-            Expr::Query(q) => self.place_queriable(&unit, step, q),
+            Expr::Query(q) => self.place_queriable(unit, step, q),
             Expr::Halo2Expr(expr) => PolyExpr::Halo2Expr(expr),
         }
     }

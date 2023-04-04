@@ -100,12 +100,8 @@ impl<F, Args> StepTypeContext<F, Args> {
         self.step_type.add_transition(annotation, expr.into());
     }
 
-    pub fn lookup(&mut self, annotation: &str, exprs: Vec<(Expr<F>, Expr<F>)>) {
-        /*let exprs: Vec<(Expr<F>, Expr<F>)> = exprs
-        .into_iter()
-        .map(|(a, b)| (a.into(), b.into()))
-        .collect();*/
-
+    pub fn lookup(&mut self, _annotation: &str, exprs: Vec<(Expr<F>, Expr<F>)>) {
+        // TODO annotate lookup
         self.step_type.add_lookup(exprs)
     }
 
@@ -141,10 +137,6 @@ impl Default for StepTypeHandler {
 }
 
 impl StepTypeHandler {
-    pub(crate) fn new(step_uuid: StepTypeUUID) -> StepTypeHandler {
-        StepTypeHandler { id: step_uuid }
-    }
-
     pub fn uuid(&self) -> u32 {
         self.id
     }
@@ -158,10 +150,11 @@ pub struct ForwardSignalHandler {
     // fs: ForwardSignal,
 }
 
-pub fn circuit<F, TraceArgs, StepArgs, D>(name: &str, def: D) -> Circuit<F, TraceArgs, StepArgs>
+pub fn circuit<F, TraceArgs, StepArgs, D>(_name: &str, def: D) -> Circuit<F, TraceArgs, StepArgs>
 where
     D: Fn(&mut CircuitContext<F, TraceArgs, StepArgs>),
 {
+    // TODO annotate circuit
     let mut context = CircuitContext {
         sc: Circuit::default(),
     };
@@ -193,7 +186,7 @@ pub mod cb {
         randomness: R,
     ) -> Expr<F> {
         if !exprs.is_empty() {
-            let mut exprs = exprs.into_iter().rev().map(|e| e.clone().into());
+            let mut exprs = exprs.iter().rev().map(|e| e.clone().into());
             let init = exprs.next().expect("should not be empty");
 
             exprs.fold(init, |acc, expr| acc * randomness.clone().into() + expr)

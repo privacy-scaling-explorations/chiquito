@@ -161,7 +161,7 @@ impl<F: FieldExt> From<Expression<F>> for Expr<F> {
 pub mod query {
     use std::{
         marker::PhantomData,
-        ops::{Add, BitOr, Mul, Neg, Sub},
+        ops::{Add, Mul, Neg, Sub},
     };
 
     use crate::{
@@ -172,13 +172,14 @@ pub mod query {
     use super::{Expr, ToExpr};
 
     // Queriable
-    #[derive(Clone, Copy, Debug, PartialEq)]
+    #[derive(Clone, Copy, Debug, PartialEq, Eq)]
     pub enum Queriable<F> {
         Internal(InternalSignal),
         Forward(ForwardSignal, bool),
         StepTypeNext(StepTypeHandler),
         Halo2AdviceQuery(ImportedHalo2Advice, i32),
         Halo2FixedQuery(ImportedHalo2Fixed, i32),
+        #[allow(non_camel_case_types)]
         _unaccessible(PhantomData<F>),
     }
 

@@ -272,13 +272,6 @@ pub struct ForwardSignal {
 }
 
 impl ForwardSignal {
-    pub fn new() -> ForwardSignal {
-        ForwardSignal {
-            id: uuid(),
-            phase: 0,
-        }
-    }
-
     pub fn new_with_phase(phase: usize) -> ForwardSignal {
         ForwardSignal { id: uuid(), phase }
     }
@@ -306,22 +299,6 @@ impl InternalSignal {
         self.id
     }
 }
-
-/*#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
-pub struct Halo2Advice {
-    id: u32,
-    pub column: Halo2Column<Advice>,
-}
-
-impl Halo2Advice {
-    pub fn new(column: Halo2Column<Advice>) -> Halo2Advice {
-        Halo2Advice { id: uuid(), column }
-    }
-
-    pub fn uuid(&self) -> u32 {
-        self.id
-    }
-}*/
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct ImportedHalo2Column<CT: ColumnType> {

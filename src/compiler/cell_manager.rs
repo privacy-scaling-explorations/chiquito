@@ -97,7 +97,7 @@ impl CellManager for SingleRowCellManager {
 
         let mut max_internal_width: u32 = 0;
 
-        for step in sc.step_types.values().into_iter() {
+        for step in sc.step_types.values() {
             let mut internal_signals: u32 = 0;
 
             let mut step_placement = StepPlacement {
