@@ -22,6 +22,7 @@ pub mod step_selector;
 
 pub trait TraceContext<StepArgs> {
     fn add(&mut self, step: &StepTypeHandler, args: StepArgs);
+    fn set_height(&mut self, height: usize);
 }
 
 pub trait WitnessGenContext<F> {

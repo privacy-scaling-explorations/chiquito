@@ -132,6 +132,7 @@ impl<F, TraceArgs, StepArgs> Circuit<F, TraceArgs, StepArgs> {
 
 pub type Trace<TraceArgs, StepArgs> = dyn Fn(&mut dyn TraceContext<StepArgs>, TraceArgs) + 'static;
 pub type FixedGen<F> = dyn Fn(&mut dyn FixedGenContext<F>) + 'static;
+pub type StepWitnessGen<F, Args> = dyn Fn(&mut dyn WitnessGenContext<F>, Args) + 'static;
 
 pub type StepTypeUUID = u32;
 
@@ -145,7 +146,7 @@ pub struct StepType<F, Args> {
     pub lookups: Vec<Lookup<F>>,
     pub annotations: HashMap<u32, String>,
 
-    pub wg: Box<dyn Fn(&mut dyn WitnessGenContext<F>, Args)>,
+    pub wg: Box<StepWitnessGen<F, Args>>,
 }
 
 impl<F: Debug, Args> Debug for StepType<F, Args> {

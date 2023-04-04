@@ -1,4 +1,4 @@
-use std::{cell::RefCell, collections::HashMap, rc::Rc};
+use std::{collections::HashMap, rc::Rc};
 
 use halo2_proofs::{
     arithmetic::Field,
@@ -12,7 +12,7 @@ use halo2_proofs::{
 };
 
 use crate::{
-    ast::{query::Queriable, FixedGen, ForwardSignal, InternalSignal, StepType, ToField, Trace},
+    ast::{query::Queriable, ForwardSignal, InternalSignal, StepType, ToField},
     compiler::{
         cell_manager::Placement, step_selector::StepSelector, Circuit, Column as cColumn,
         ColumnType::Advice as cAdvice, ColumnType::Fixed as cFixed, ColumnType::Halo2Advice,
@@ -118,7 +118,7 @@ impl<F: FieldExt, TraceArgs, StepArgs: Clone> ChiquitoHalo2<F, TraceArgs, StepAr
     }
 
     pub fn synthesize(&self, layouter: &mut impl Layouter<F>, args: TraceArgs) {
-        let (advice_assignments, max_offset) = self.synthesize_advice(args);
+        let (advice_assignments, height) = self.synthesize_advice(args);
 
         let _ = layouter.assign_region(
             || "circuit",
@@ -134,7 +134,9 @@ impl<F: FieldExt, TraceArgs, StepArgs: Clone> ChiquitoHalo2<F, TraceArgs, StepAr
                     region.assign_advice(|| "", *column, *offset, || *value)?;
                 }
 
-                self.default_fixed(&mut region, max_offset + 1);
+                if height > 0 {
+                    self.default_fixed(&mut region, height);
+                }
 
                 Ok(())
             },
@@ -172,11 +174,18 @@ impl<F: FieldExt, TraceArgs, StepArgs: Clone> ChiquitoHalo2<F, TraceArgs, StepAr
                 offset: 0,
                 cur_step: None,
                 max_offset: 0,
+                height: 0,
             };
 
             trace(&mut ctx, args);
 
-            (ctx.assigments, ctx.max_offset)
+            let height = if ctx.height > 0 {
+                ctx.height
+            } else {
+                ctx.max_offset + 1
+            };
+
+            (ctx.assigments, height)
         } else {
             (vec![], 0)
         }
@@ -205,13 +214,13 @@ impl<F: FieldExt, TraceArgs, StepArgs: Clone> ChiquitoHalo2<F, TraceArgs, StepAr
         }
     }
 
-    fn default_fixed(&self, region: &mut Region<F>, heigth: usize) {
+    fn default_fixed(&self, region: &mut Region<F>, height: usize) {
         let q_enable = self
             .fixed_columns
             .get(&self.circuit.q_enable.uuid())
             .expect("q_enable column not found");
 
-        for i in 0..heigth {
+        for i in 0..height {
             region.assign_fixed(|| "q_enable=1", *q_enable, i, || Value::known(F::one()));
         }
 
@@ -233,7 +242,7 @@ impl<F: FieldExt, TraceArgs, StepArgs: Clone> ChiquitoHalo2<F, TraceArgs, StepAr
             region.assign_fixed(
                 || "q_first=1",
                 *q_last,
-                heigth - 1,
+                height - 1,
                 || Value::known(F::one()),
             );
         }
@@ -307,6 +316,7 @@ struct TraceContextHalo2<F: Field, StepArgs> {
     assigments: Vec<Assignment<F, Advice>>,
 
     max_offset: usize,
+    height: usize,
 }
 
 impl<F: Field, StepArgs: Clone> TraceContextHalo2<F, StepArgs> {
@@ -410,6 +420,10 @@ impl<F: Field, StepArgs: Clone> TraceContext<StepArgs> for TraceContextHalo2<F, 
                 _ => panic!("wrong type of expresion is selector assignment"),
             }
         }
+    }
+
+    fn set_height(&mut self, height: usize) {
+        self.height = height;
     }
 }
 
