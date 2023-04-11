@@ -3,8 +3,8 @@ use std::{collections::HashMap, rc::Rc};
 
 use crate::{
     ast::{
-        query::Queriable, Circuit as astCircuit, Expr, FixedGen, ImportedHalo2Advice,
-        ImportedHalo2Fixed, StepType, Trace,
+        query::Queriable, Circuit as astCircuit, Expr, ImportedHalo2Advice, ImportedHalo2Fixed,
+        StepType,
     },
     dsl::StepTypeHandler,
     ir::{Circuit, Column, ColumnType, Poly, PolyExpr, PolyLookup},
@@ -16,7 +16,7 @@ use self::{
     step_selector::{StepSelector, StepSelectorBuilder},
 };
 
-use halo2_proofs::{arithmetic::Field, plonk::Expression};
+use halo2_proofs::arithmetic::Field;
 
 pub mod cell_manager;
 pub mod step_selector;

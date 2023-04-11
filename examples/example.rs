@@ -1,19 +1,20 @@
 use chiquito::{
-    ast::{Expr, ToExpr, ToField},
+    ast::{ToExpr, ToField},
     compiler::{
-        cell_manager::SimpleCellManager, step_selector::SimpleStepSelectorBuilder, Compiler,
+        cell_manager::SingleRowCellManager, step_selector::SimpleStepSelectorBuilder, Compiler,
     },
     dsl::circuit,
 };
 use halo2_proofs::halo2curves::bn256::Fr;
 
 fn main() {
-    let sc = circuit::<Fr, Vec<i32>, i32, _>("a circuit", |ctx| {
+    let mut sc = circuit::<Fr, Vec<i32>, i32, _>("a circuit", |ctx| {
         let a = ctx.forward("a");
         let b = ctx.forward("b");
         let c = ctx.forward("c");
 
-        let s1 = ctx.step_type("s1", |ctx| {
+        let s1 = ctx.step_type("s1");
+        ctx.step_type_def(s1, |ctx| {
             let d = ctx.signal("d");
             let f = ctx.signal("f");
 
@@ -31,7 +32,8 @@ fn main() {
             });
         });
 
-        let s2 = ctx.step_type("s2", |ctx| {
+        let s2 = ctx.step_type("s2");
+        ctx.step_type_def(s2, |ctx| {
             // ...
 
             ctx.wg(move |ctx, _| {
@@ -46,7 +48,7 @@ fn main() {
         });
     });
 
-    let compiler = Compiler::new(SimpleCellManager {}, SimpleStepSelectorBuilder {});
+    let compiler = Compiler::new(SingleRowCellManager {}, SimpleStepSelectorBuilder {});
 
-    println!("{:#?}", compiler.compile(sc));
+    println!("{:#?}", compiler.compile(&mut sc));
 }
