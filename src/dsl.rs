@@ -89,6 +89,11 @@ impl<F, Args> StepTypeContext<F, Args> {
     }
 
     pub fn signal(&mut self, name: &str) -> Queriable<F> {
+        eprintln!("WARN: .signal is deprecated, use .internal instead");
+        self.internal(name)
+    }
+
+    pub fn internal(&mut self, name: &str) -> Queriable<F> {
         Queriable::Internal(self.step_type.add_signal(name))
     }
 
