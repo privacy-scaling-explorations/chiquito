@@ -1,7 +1,7 @@
 use chiquito::{
     ast::{query::Queriable, Expr, ToExpr},
     compiler::{
-        cell_manager::SimpleCellManager, step_selector::SimpleStepSelectorBuilder, Compiler,
+        cell_manager::SingleRowCellManager, step_selector::SimpleStepSelectorBuilder, Compiler,
         WitnessGenContext,
     },
     dsl::{circuit, StepTypeContext},
@@ -41,7 +41,7 @@ impl<F: FieldExt> IsZero<F> {
 }
 
 impl<F: Field> IsZero<F> {
-    pub fn wg(&self, ctx: &WitnessGenContext<F>, value: F) {
+    pub fn wg(&self, ctx: &mut dyn WitnessGenContext<F>, value: F) {
         ctx.assign(self.value_inv, value.invert().unwrap_or(F::zero()));
     }
 }
@@ -57,7 +57,7 @@ struct BytecodeLine<F: Debug> {
 }
 
 fn main() {
-    let bytecode_circuit =
+    let mut bytecode_circuit =
         circuit::<Fr, Vec<Vec<BytecodeLine<Fr>>>, BytecodeLine<Fr>, _>("bytecode circuit", |ctx| {
             let length = ctx.forward("length");
             let index = ctx.forward("index");
@@ -66,14 +66,15 @@ fn main() {
             let value = ctx.forward("value");
             let value_rlc = ctx.forward("value_rlc");
 
-            ctx.step_type("header", |ctx| {
-                ctx.constr("index == 0", index | 0);
-                ctx.constr("value == length", value | length);
+            let s1 = ctx.step_type("header");
+            ctx.step_type_def(s1, |ctx| {
+                ctx.constr("index == 0", index.expr());
+                ctx.constr("value == length", value.expr());
 
                 ctx.wg(|ctx, v| {})
             });
-
-            ctx.step_type("byte", |ctx| {
+            let s2 = ctx.step_type("byte");
+            ctx.step_type_def(s2, |ctx| {
                 let push_data_left = ctx.signal("push_data_left");
                 let push_data_size = ctx.signal("push_data_size");
                 let push_data_left_inv = ctx.signal("push_data_left_inv");
@@ -82,7 +83,7 @@ fn main() {
 
                 ctx.constr(
                     "is_code == push_data_left_is_zero.is_zero",
-                    is_code | push_data_left_is_zero.is_zero(),
+                    is_code - push_data_left_is_zero.is_zero(),
                 );
 
                 // TODO
@@ -96,12 +97,14 @@ fn main() {
                 });
             });
 
-            ctx.trace(|ctx, bytecodes| for bytecode in bytecodes {
-                /// ...
+            ctx.trace(|ctx, bytecodes| {
+                for bytecode in bytecodes {
+                    println!("todo");
+                }
             })
         });
 
-    let compiler = Compiler::new(SimpleCellManager {}, SimpleStepSelectorBuilder {});
+    let compiler = Compiler::new(SingleRowCellManager {}, SimpleStepSelectorBuilder {});
 
-    println!("{:#?}", compiler.compile(bytecode_circuit));
+    println!("{:#?}", compiler.compile(&mut bytecode_circuit));
 }
