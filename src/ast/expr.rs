@@ -108,6 +108,7 @@ macro_rules! impl_expr_like {
 
 impl_expr_like!(bool);
 impl_expr_like!(u8);
+impl_expr_like!(u32);
 impl_expr_like!(u64);
 impl_expr_like!(usize);
 

@@ -14,11 +14,14 @@ use halo2_proofs::{
 use crate::{
     ast::{query::Queriable, ForwardSignal, InternalSignal, StepType, ToField},
     compiler::{
-        cell_manager::Placement, step_selector::StepSelector, Circuit, Column as cColumn,
-        ColumnType::Advice as cAdvice, ColumnType::Fixed as cFixed, ColumnType::Halo2Advice,
-        ColumnType::Halo2Fixed, FixedGenContext, PolyExpr, TraceContext, WitnessGenContext,
+        cell_manager::Placement, step_selector::StepSelector, FixedGenContext, TraceContext,
+        WitnessGenContext,
     },
     dsl::StepTypeHandler,
+    ir::{
+        Circuit, Column as cColumn, ColumnType::Advice as cAdvice, ColumnType::Fixed as cFixed,
+        ColumnType::Halo2Advice, ColumnType::Halo2Fixed, PolyExpr,
+    },
 };
 
 #[allow(non_snake_case)]
