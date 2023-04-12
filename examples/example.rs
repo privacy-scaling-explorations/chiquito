@@ -50,5 +50,5 @@ fn main() {
 
     let compiler = Compiler::new(SingleRowCellManager {}, SimpleStepSelectorBuilder {});
 
-    println!("{:#?}", compiler.compile(&mut sc));
+    println!("{:#?}", compiler.compile(&sc));
 }
