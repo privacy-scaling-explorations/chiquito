@@ -1,6 +1,6 @@
 use std::ops::{Add, Mul, Neg, Sub};
 
-use halo2_proofs::{halo2curves::FieldExt, plonk::Expression};
+use halo2_proofs::{arithmetic::Field, plonk::Expression};
 
 use self::query::Queriable;
 
@@ -25,7 +25,7 @@ impl<F: Clone> ToExpr<F> for Expr<F> {
     }
 }
 
-pub trait ToField<F: FieldExt> {
+pub trait ToField<F> {
     fn field(&self) -> F;
 }
 
@@ -83,21 +83,21 @@ impl<F> Neg for Expr<F> {
 
 macro_rules! impl_expr_like {
     ($type:ty) => {
-        impl<F: halo2_proofs::arithmetic::FieldExt> From<$type> for Expr<F> {
+        impl<F: From<u64>> From<$type> for Expr<F> {
             #[inline]
             fn from(value: $type) -> Self {
                 Expr::Const(F::from(value as u64))
             }
         }
 
-        impl<F: halo2_proofs::arithmetic::FieldExt> $crate::ast::ToExpr<F> for $type {
+        impl<F: From<u64>> $crate::ast::ToExpr<F> for $type {
             #[inline]
             fn expr(&self) -> Expr<F> {
                 Expr::Const(F::from(*self as u64))
             }
         }
 
-        impl<F: halo2_proofs::arithmetic::FieldExt> $crate::ast::ToField<F> for $type {
+        impl<F: From<u64>> $crate::ast::ToField<F> for $type {
             #[inline]
             fn field(&self) -> F {
                 F::from(*self as u64)
@@ -112,7 +112,7 @@ impl_expr_like!(u32);
 impl_expr_like!(u64);
 impl_expr_like!(usize);
 
-impl<F: FieldExt> From<i32> for Expr<F> {
+impl<F: Field + From<u64>> From<i32> for Expr<F> {
     #[inline]
     fn from(value: i32) -> Self {
         Expr::Const(
@@ -126,7 +126,7 @@ impl<F: FieldExt> From<i32> for Expr<F> {
     }
 }
 
-impl<F: FieldExt> ToExpr<F> for i32 {
+impl<F: Field + From<u64>> ToExpr<F> for i32 {
     #[inline]
     fn expr(&self) -> Expr<F> {
         Expr::Const(
@@ -140,7 +140,7 @@ impl<F: FieldExt> ToExpr<F> for i32 {
     }
 }
 
-impl<F: FieldExt> ToField<F> for i32 {
+impl<F: Field + From<u64>> ToField<F> for i32 {
     #[inline]
     fn field(&self) -> F {
         F::from(self.unsigned_abs() as u64)
@@ -152,7 +152,7 @@ impl<F: FieldExt> ToField<F> for i32 {
     }
 }
 
-impl<F: FieldExt> From<Expression<F>> for Expr<F> {
+impl<F> From<Expression<F>> for Expr<F> {
     #[inline]
     fn from(value: Expression<F>) -> Self {
         Expr::Halo2Expr(value)
