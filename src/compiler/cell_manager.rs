@@ -2,7 +2,7 @@ use std::{collections::HashMap, rc::Rc};
 
 use crate::ast::{Circuit, ForwardSignal, InternalSignal, StepType};
 
-use super::Column;
+use super::{Column, CompilationUnit};
 
 #[derive(Clone, Debug)]
 pub struct SignalPlacement {
@@ -21,6 +21,16 @@ pub struct Placement<F, StepArgs> {
     pub forward: HashMap<ForwardSignal, SignalPlacement>,
     pub steps: HashMap<Rc<StepType<F, StepArgs>>, StepPlacement>,
     pub columns: Vec<Column>,
+}
+
+impl<F, StepArgs> Default for Placement<F, StepArgs> {
+    fn default() -> Self {
+        Self {
+            forward: Default::default(),
+            steps: Default::default(),
+            columns: Default::default(),
+        }
+    }
 }
 
 impl<F, StepArgs> Placement<F, StepArgs> {
@@ -53,8 +63,9 @@ impl<F, StepArgs> Placement<F, StepArgs> {
 pub trait CellManager {
     fn place<F, TraceArgs, StepArgs>(
         &self,
+        unit: &mut CompilationUnit<F, StepArgs>,
         sc: &Circuit<F, TraceArgs, StepArgs>,
-    ) -> Placement<F, StepArgs>;
+    );
 }
 
 pub struct SingleRowCellManager {}
@@ -62,8 +73,9 @@ pub struct SingleRowCellManager {}
 impl CellManager for SingleRowCellManager {
     fn place<F, TraceArgs, StepArgs>(
         &self,
+        unit: &mut CompilationUnit<F, StepArgs>,
         sc: &Circuit<F, TraceArgs, StepArgs>,
-    ) -> Placement<F, StepArgs> {
+    ) {
         let mut placement = Placement::<F, StepArgs> {
             forward: HashMap::new(),
             steps: HashMap::new(),
@@ -73,7 +85,7 @@ impl CellManager for SingleRowCellManager {
         let mut forward_signals: u32 = 0;
 
         for forward_signal in sc.forward_signals.iter() {
-            let column = if let Some(annotation) = sc.annotations.get(&forward_signal.uuid()) {
+            let column = if let Some(annotation) = unit.annotations.get(&forward_signal.uuid()) {
                 Column::advice(
                     format!("srcm forward {}", annotation),
                     forward_signal.phase(),
@@ -97,7 +109,7 @@ impl CellManager for SingleRowCellManager {
 
         let mut max_internal_width: u32 = 0;
 
-        for step in sc.step_types.values() {
+        for step in unit.step_types.values() {
             let mut internal_signals: u32 = 0;
 
             let mut step_placement = StepPlacement {
@@ -108,7 +120,7 @@ impl CellManager for SingleRowCellManager {
             for signal in step.signals.iter() {
                 let column_pos = forward_signals + internal_signals;
                 let column = if placement.columns.len() <= column_pos as usize {
-                    let column = if let Some(annotation) = sc.annotations.get(&signal.uuid()) {
+                    let column = if let Some(annotation) = unit.annotations.get(&signal.uuid()) {
                         Column::advice(format!("srcm internal signal {}", annotation), 0)
                     } else {
                         Column::advice("srcm internal signal", 0)
@@ -135,6 +147,7 @@ impl CellManager for SingleRowCellManager {
             max_internal_width = max_internal_width.max(internal_signals);
         }
 
-        placement
+        unit.columns.extend_from_slice(&placement.columns);
+        unit.placement = placement;
     }
 }

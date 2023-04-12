@@ -35,14 +35,28 @@ pub trait FixedGenContext<F> {
 }
 
 #[derive(Debug)]
-struct CompilationUnit<F, StepArgs> {
-    placement: Placement<F, StepArgs>,
-    selector: StepSelector<F, StepArgs>,
-    columns: Vec<Column>,
-    steps: HashMap<u32, Rc<StepType<F, StepArgs>>>,
-    annotations: HashMap<u32, String>,
-    polys: Vec<Poly<F>>,
-    lookups: Vec<PolyLookup<F>>,
+pub struct CompilationUnit<F, StepArgs> {
+    pub placement: Placement<F, StepArgs>,
+    pub selector: StepSelector<F, StepArgs>,
+    pub columns: Vec<Column>,
+    pub step_types: HashMap<u32, Rc<StepType<F, StepArgs>>>,
+    pub annotations: HashMap<u32, String>,
+    pub polys: Vec<Poly<F>>,
+    pub lookups: Vec<PolyLookup<F>>,
+}
+
+impl<F, StepArgs> Default for CompilationUnit<F, StepArgs> {
+    fn default() -> Self {
+        Self {
+            placement: Default::default(),
+            selector: Default::default(),
+            columns: Default::default(),
+            step_types: Default::default(),
+            annotations: Default::default(),
+            polys: Default::default(),
+            lookups: Default::default(),
+        }
+    }
 }
 
 impl<F, StepArgs> CompilationUnit<F, StepArgs> {
@@ -86,28 +100,25 @@ impl<CM: CellManager, SSB: StepSelectorBuilder> Compiler<CM, SSB> {
 
     pub fn compile<F: Field + Clone, TraceArgs, StepArgs>(
         &self,
-        sc: &mut astCircuit<F, TraceArgs, StepArgs>,
+        sc: &astCircuit<F, TraceArgs, StepArgs>,
     ) -> Circuit<F, TraceArgs, StepArgs> {
-        let annotations: HashMap<u32, String> = {
-            let mut acc = sc.annotations.clone();
-            for step in sc.step_types.values() {
-                acc.extend(step.annotations.clone());
-            }
+        let mut unit = CompilationUnit::<F, StepArgs> {
+            annotations: {
+                let mut acc = sc.annotations.clone();
+                for step in sc.step_types.values() {
+                    acc.extend(step.annotations.clone());
+                }
 
-            acc
+                acc
+            },
+            ..Default::default()
         };
-        sc.annotations = annotations.clone();
-
-        let placement = self.cell_manager.place(sc);
-        let selector = self.step_selector_builder.build(sc);
-        let polys = Vec::<Poly<F>>::new();
-        let lookups = Vec::<PolyLookup<F>>::new();
 
         let halo2_advice_columns: Vec<Column> = sc
             .halo2_advice
             .iter()
             .map(|signal| {
-                if let Some(annotation) = sc.annotations.get(&signal.uuid()) {
+                if let Some(annotation) = unit.annotations.get(&signal.uuid()) {
                     Column::new_halo2_advice(format!("halo2 advice {}", annotation), *signal)
                 } else {
                     Column::new_halo2_advice("halo2 advice", *signal)
@@ -119,7 +130,7 @@ impl<CM: CellManager, SSB: StepSelectorBuilder> Compiler<CM, SSB> {
             .halo2_fixed
             .iter()
             .map(|signal| {
-                if let Some(annotation) = sc.annotations.get(&signal.uuid()) {
+                if let Some(annotation) = unit.annotations.get(&signal.uuid()) {
                     Column::new_halo2_fixed(format!("halo2 fixed {}", annotation), *signal)
                 } else {
                     Column::new_halo2_fixed("halo2 fixed", *signal)
@@ -127,25 +138,14 @@ impl<CM: CellManager, SSB: StepSelectorBuilder> Compiler<CM, SSB> {
             })
             .collect();
 
-        let columns = vec![
-            placement.columns.clone(),
-            selector.columns.clone(),
-            halo2_advice_columns,
-            halo2_fixed_columns,
-        ]
-        .concat();
+        unit.columns = vec![halo2_advice_columns, halo2_fixed_columns].concat();
+        unit.step_types = sc.step_types.clone();
 
-        let mut unit = CompilationUnit {
-            placement,
-            selector,
-            polys,
-            lookups,
-            annotations,
-            columns,
-            steps: sc.step_types.clone(),
-        };
+        self.cell_manager.place(&mut unit, sc);
+        self.step_selector_builder
+            .build::<F, TraceArgs, StepArgs>(&mut unit);
 
-        for step in sc.step_types.values() {
+        for step in unit.step_types.clone().values() {
             self.compile_step(&mut unit, step);
         }
 
@@ -160,37 +160,7 @@ impl<CM: CellManager, SSB: StepSelectorBuilder> Compiler<CM, SSB> {
 
         unit.columns.push(q_enable.clone());
 
-        unit.polys = unit
-            .polys
-            .iter()
-            .map(|poly| Poly {
-                annotation: poly.annotation.clone(),
-                expr: PolyExpr::Mul(vec![
-                    PolyExpr::<F>::Query(q_enable.clone(), 0, "q_enable".to_owned()),
-                    poly.expr.clone(),
-                ]),
-            })
-            .collect();
-
-        unit.lookups = unit
-            .lookups
-            .iter()
-            .map(|lookup| PolyLookup {
-                exprs: lookup
-                    .exprs
-                    .iter()
-                    .map(|(src, dest)| {
-                        (
-                            PolyExpr::Mul(vec![
-                                PolyExpr::<F>::Query(q_enable.clone(), 0, "q_enable".to_owned()),
-                                src.clone(),
-                            ]),
-                            dest.clone(),
-                        )
-                    })
-                    .collect(),
-            })
-            .collect();
+        self.add_q_enable(&mut unit, q_enable.clone());
 
         let q_first = if let Some(step_type) = sc.first_step {
             let q_first = Column {
@@ -203,7 +173,10 @@ impl<CM: CellManager, SSB: StepSelectorBuilder> Compiler<CM, SSB> {
             };
             unit.columns.push(q_first.clone());
 
-            let step = unit.steps.get(&step_type.uuid()).expect("step not found");
+            let step = unit
+                .step_types
+                .get(&step_type.uuid())
+                .expect("step not found");
 
             let poly = PolyExpr::Mul(vec![
                 PolyExpr::<F>::Query(q_first.clone(), 0, "q_first".to_owned()),
@@ -231,7 +204,10 @@ impl<CM: CellManager, SSB: StepSelectorBuilder> Compiler<CM, SSB> {
             };
             unit.columns.push(q_last.clone());
 
-            let step = unit.steps.get(&step_type.uuid()).expect("step not found");
+            let step = unit
+                .step_types
+                .get(&step_type.uuid())
+                .expect("step not found");
 
             let poly = PolyExpr::Mul(vec![
                 PolyExpr::<F>::Query(q_last.clone(), 0, "q_last".to_owned()),
@@ -254,7 +230,7 @@ impl<CM: CellManager, SSB: StepSelectorBuilder> Compiler<CM, SSB> {
             columns: unit.columns,
             polys: unit.polys,
             lookups: unit.lookups,
-            step_types: unit.steps,
+            step_types: unit.step_types,
             q_enable,
             q_first,
             q_last,
@@ -376,7 +352,7 @@ impl<CM: CellManager, SSB: StepSelectorBuilder> Compiler<CM, SSB> {
             Queriable::StepTypeNext(step_type_handle) => {
                 let super_rotation = unit.placement.step_height(step);
                 let dest_step = unit
-                    .steps
+                    .step_types
                     .get(&step_type_handle.uuid())
                     .expect("step not found");
 
@@ -435,5 +411,43 @@ impl<CM: CellManager, SSB: StepSelectorBuilder> Compiler<CM, SSB> {
             Expr::Query(q) => self.place_queriable(unit, step, q),
             Expr::Halo2Expr(expr) => PolyExpr::Halo2Expr(expr),
         }
+    }
+
+    fn add_q_enable<F: Clone, StepArgs>(
+        &self,
+        unit: &mut CompilationUnit<F, StepArgs>,
+        q_enable: Column,
+    ) {
+        unit.polys = unit
+            .polys
+            .iter()
+            .map(|poly| Poly {
+                annotation: poly.annotation.clone(),
+                expr: PolyExpr::Mul(vec![
+                    PolyExpr::<F>::Query(q_enable.clone(), 0, "q_enable".to_owned()),
+                    poly.expr.clone(),
+                ]),
+            })
+            .collect();
+
+        unit.lookups = unit
+            .lookups
+            .iter()
+            .map(|lookup| PolyLookup {
+                exprs: lookup
+                    .exprs
+                    .iter()
+                    .map(|(src, dest)| {
+                        (
+                            PolyExpr::Mul(vec![
+                                PolyExpr::<F>::Query(q_enable.clone(), 0, "q_enable".to_owned()),
+                                src.clone(),
+                            ]),
+                            dest.clone(),
+                        )
+                    })
+                    .collect(),
+            })
+            .collect();
     }
 }
