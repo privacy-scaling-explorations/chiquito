@@ -229,7 +229,13 @@ pub mod query {
         pub fn annotation(&self) -> String {
             match self {
                 Queriable::Internal(s) => s.annotation.to_string(),
-                Queriable::Forward(s, _) => s.annotation.to_string(),
+                Queriable::Forward(s, rot) => {
+                    if !rot {
+                        s.annotation.to_string()
+                    } else {
+                        format!("next({})", s.annotation)
+                    }
+                }
                 Queriable::StepTypeNext(s) => s.annotation.to_string(),
                 Queriable::Halo2AdviceQuery(s, _) => s.annotation.to_string(),
                 Queriable::Halo2FixedQuery(s, _) => s.annotation.to_string(),

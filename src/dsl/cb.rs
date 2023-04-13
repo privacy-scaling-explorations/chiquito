@@ -1,5 +1,7 @@
 use std::{fmt::Debug, vec};
 
+use halo2_proofs::arithmetic::Field;
+
 use crate::ast::{query::Queriable, Expr, ToExpr};
 
 #[derive(Clone)]
@@ -20,6 +22,29 @@ impl<F> From<Queriable<F>> for Constraint<F> {
         annotate(query.annotation(), Expr::Query(query))
     }
 }
+
+impl<F: Field + From<u64> + Debug> From<i32> for Constraint<F> {
+    fn from(v: i32) -> Self {
+        v.expr().into()
+    }
+}
+
+macro_rules! impl_cb_like {
+    ($type:ty) => {
+        impl<F: From<u64> + Debug> From<$type> for Constraint<F> {
+            #[inline]
+            fn from(value: $type) -> Self {
+                Expr::Const(F::from(value as u64)).into()
+            }
+        }
+    };
+}
+
+impl_cb_like!(bool);
+impl_cb_like!(u8);
+impl_cb_like!(u32);
+impl_cb_like!(u64);
+impl_cb_like!(usize);
 
 impl<F> Debug for Constraint<F> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {

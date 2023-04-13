@@ -41,7 +41,8 @@ impl<F, TraceArgs, StepArgs> CircuitContext<F, TraceArgs, StepArgs> {
     where
         D: FnOnce(&mut StepTypeContext<F, StepArgs>),
     {
-        let mut context = StepTypeContext::<F, StepArgs>::new(handler.uuid());
+        let mut context =
+            StepTypeContext::<F, StepArgs>::new(handler.uuid(), handler.annotation.to_string());
 
         def(&mut context);
 
@@ -75,18 +76,10 @@ pub struct StepTypeContext<F, Args> {
     step_type: StepType<F, Args>,
 }
 
-impl<F, Args> Default for StepTypeContext<F, Args> {
-    fn default() -> Self {
-        Self {
-            step_type: StepType::default(),
-        }
-    }
-}
-
 impl<F, Args> StepTypeContext<F, Args> {
-    pub fn new(uuid: u32) -> Self {
+    pub fn new(uuid: u32, name: String) -> Self {
         Self {
-            step_type: StepType::new(uuid),
+            step_type: StepType::new(uuid, name),
         }
     }
 

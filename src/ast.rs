@@ -141,6 +141,7 @@ pub type StepTypeUUID = u32;
 pub struct StepType<F, Args> {
     id: StepTypeUUID,
 
+    pub name: String,
     pub signals: Vec<InternalSignal>,
     pub constraints: Vec<Constraint<F>>,
     pub transition_constraints: Vec<TransitionConstraint<F>>,
@@ -161,24 +162,11 @@ impl<F: Debug, Args> Debug for StepType<F, Args> {
     }
 }
 
-impl<F, Args> Default for StepType<F, Args> {
-    fn default() -> Self {
-        Self {
-            id: uuid(),
-            signals: Default::default(),
-            constraints: Default::default(),
-            transition_constraints: Default::default(),
-            lookups: Default::default(),
-            annotations: Default::default(),
-            wg: Box::new(|_, _| {}),
-        }
-    }
-}
-
 impl<F, Args> StepType<F, Args> {
-    pub fn new(uuid: u32) -> Self {
+    pub fn new(uuid: u32, name: String) -> Self {
         Self {
             id: uuid,
+            name,
             signals: Default::default(),
             constraints: Default::default(),
             transition_constraints: Default::default(),

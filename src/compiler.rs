@@ -1,6 +1,9 @@
 use core::fmt::Debug;
 use std::{collections::HashMap, rc::Rc};
 
+use halo2_proofs::plonk::Column as Halo2Column;
+use halo2_proofs::{arithmetic::Field, plonk::Advice};
+
 use crate::{
     ast::{
         query::Queriable, Circuit as astCircuit, Expr, ImportedHalo2Advice, ImportedHalo2Fixed,
@@ -15,8 +18,6 @@ use self::{
     cell_manager::{CellManager, Placement},
     step_selector::{StepSelector, StepSelectorBuilder},
 };
-
-use halo2_proofs::arithmetic::Field;
 
 pub mod cell_manager;
 pub mod step_selector;
@@ -64,6 +65,18 @@ impl<F, StepArgs> CompilationUnit<F, StepArgs> {
         for column in self.columns.iter() {
             if let Some(advice) = column.halo2_advice {
                 if advice == to_find {
+                    return Some(column.clone());
+                }
+            }
+        }
+
+        None
+    }
+
+    fn find_halo2_advice_native(&self, halo2_advice: Halo2Column<Advice>) -> Option<Column> {
+        for column in self.columns.iter() {
+            if let Some(advice) = column.halo2_advice {
+                if advice.column == halo2_advice {
                     return Some(column.clone());
                 }
             }
