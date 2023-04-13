@@ -6,6 +6,8 @@ use crate::{
 
 use halo2_proofs::plonk::{Advice, Column as Halo2Column, Fixed};
 
+use self::cb::Constraint;
+
 pub struct CircuitContext<F, TraceArgs, StepArgs> {
     sc: Circuit<F, TraceArgs, StepArgs>,
 }
@@ -28,7 +30,7 @@ impl<F, TraceArgs, StepArgs> CircuitContext<F, TraceArgs, StepArgs> {
     }
 
     pub fn step_type(&mut self, name: &str) -> StepTypeHandler {
-        let handler = StepTypeHandler::default();
+        let handler = StepTypeHandler::new(name.to_string());
 
         self.sc.add_step_type(handler, name);
 
@@ -97,12 +99,18 @@ impl<F, Args> StepTypeContext<F, Args> {
         Queriable::Internal(self.step_type.add_signal(name))
     }
 
-    pub fn constr(&mut self, annotation: &str, expr: Expr<F>) {
-        self.step_type.add_constr(annotation, expr);
+    pub fn constr<C: Into<Constraint<F>>>(&mut self, constraint: C) {
+        let constraint = constraint.into();
+
+        self.step_type
+            .add_constr(constraint.annotation, constraint.expr);
     }
 
-    pub fn transition<D: Into<Expr<F>>>(&mut self, annotation: &str, expr: D) {
-        self.step_type.add_transition(annotation, expr.into());
+    pub fn transition<C: Into<Constraint<F>>>(&mut self, constraint: C) {
+        let constraint = constraint.into();
+
+        self.step_type
+            .add_transition(constraint.annotation, constraint.expr);
     }
 
     pub fn lookup(&mut self, _annotation: &str, exprs: Vec<(Expr<F>, Expr<F>)>) {
@@ -119,29 +127,37 @@ impl<F, Args> StepTypeContext<F, Args> {
 }
 
 impl<F: Clone, Args> StepTypeContext<F, Args> {
-    pub fn transition_to<D: Into<Expr<F>>>(
+    pub fn transition_to<C: Into<Constraint<F>>>(
         &mut self,
-        annotation: &str,
         step_type: StepTypeHandler,
-        expr: D,
+        constraint: C,
     ) {
+        let constraint = constraint.into();
+
+        let annotation = format!(
+            "if(next step is {})then({})",
+            step_type.annotation, constraint.annotation
+        );
+
         self.step_type
-            .add_transition(annotation, step_type.next() * expr.into());
+            .add_transition(annotation, step_type.next() * constraint.expr);
     }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct StepTypeHandler {
     id: StepTypeUUID,
-}
-
-impl Default for StepTypeHandler {
-    fn default() -> Self {
-        Self { id: uuid() }
-    }
+    pub annotation: &'static str,
 }
 
 impl StepTypeHandler {
+    fn new(annotation: String) -> Self {
+        Self {
+            id: uuid(),
+            annotation: Box::leak(annotation.into_boxed_str()),
+        }
+    }
+
     pub fn uuid(&self) -> u32 {
         self.id
     }

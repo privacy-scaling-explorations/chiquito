@@ -29,9 +29,9 @@ fn fibo_circuit<F: FieldExt>() -> chiquito::ir::Circuit<F, (), (u64, u64)> {
         ctx.step_type_def(fibo_step, |ctx| {
             let c = ctx.internal("c");
 
-            ctx.constr("a + b == c", eq(a + b, c));
-            ctx.transition("b == a.next", eq(b, a.next()));
-            ctx.transition("c == b.next", eq(c, b.next()));
+            ctx.constr(eq(a + b, c));
+            ctx.transition(eq(b, a.next()));
+            ctx.transition(eq(c, b.next()));
 
             ctx.wg(move |ctx, (a_value, b_value)| {
                 println!("fib line wg: {} {} {}", a_value, b_value, a_value + b_value);
@@ -44,7 +44,7 @@ fn fibo_circuit<F: FieldExt>() -> chiquito::ir::Circuit<F, (), (u64, u64)> {
         ctx.step_type_def(fibo_last_step, |ctx| {
             let c = ctx.internal("c");
 
-            ctx.constr("a + b == c", eq(a + b, c));
+            ctx.constr(eq(a + b, c));
 
             ctx.wg(move |ctx, (a_value, b_value)| {
                 println!(

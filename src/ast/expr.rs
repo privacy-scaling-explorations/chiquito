@@ -2,7 +2,17 @@ use std::ops::{Add, Mul, Neg, Sub};
 
 use halo2_proofs::{arithmetic::Field, plonk::Expression};
 
+use crate::dsl::cb::Constraint;
+
 use self::query::Queriable;
+
+pub trait ToExpr<F> {
+    fn expr(&self) -> Expr<F>;
+}
+
+pub trait ToField<F> {
+    fn field(&self) -> F;
+}
 
 #[derive(Clone, Debug)]
 pub enum Expr<F> {
@@ -15,18 +25,22 @@ pub enum Expr<F> {
     Halo2Expr(Expression<F>),
 }
 
-pub trait ToExpr<F> {
-    fn expr(&self) -> Expr<F>;
-}
-
 impl<F: Clone> ToExpr<F> for Expr<F> {
     fn expr(&self) -> Expr<F> {
         self.clone()
     }
 }
 
-pub trait ToField<F> {
-    fn field(&self) -> F;
+impl<F> From<Constraint<F>> for Expr<F> {
+    fn from(c: Constraint<F>) -> Self {
+        c.expr
+    }
+}
+
+impl<F> From<Queriable<F>> for Expr<F> {
+    fn from(value: Queriable<F>) -> Self {
+        Expr::Query(value)
+    }
 }
 
 impl<F, RHS: Into<Expr<F>>> Add<RHS> for Expr<F> {
@@ -211,11 +225,16 @@ pub mod query {
                 Queriable::_unaccessible(_) => panic!("jarrl wrong queriable type"),
             }
         }
-    }
 
-    impl<F> From<Queriable<F>> for Expr<F> {
-        fn from(value: Queriable<F>) -> Self {
-            Expr::Query(value)
+        pub fn annotation(&self) -> String {
+            match self {
+                Queriable::Internal(s) => s.annotation.to_string(),
+                Queriable::Forward(s, _) => s.annotation.to_string(),
+                Queriable::StepTypeNext(s) => s.annotation.to_string(),
+                Queriable::Halo2AdviceQuery(s, _) => s.annotation.to_string(),
+                Queriable::Halo2FixedQuery(s, _) => s.annotation.to_string(),
+                Queriable::_unaccessible(_) => todo!(),
+            }
         }
     }
 
