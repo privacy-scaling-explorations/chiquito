@@ -1,3 +1,4 @@
+use std::fmt::Debug;
 use std::ops::{Add, Mul, Neg, Sub};
 
 use halo2_proofs::{arithmetic::Field, plonk::Expression};
@@ -14,7 +15,7 @@ pub trait ToField<F> {
     fn field(&self) -> F;
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone)]
 pub enum Expr<F> {
     Const(F),
     Sum(Vec<Expr<F>>),
@@ -23,6 +24,34 @@ pub enum Expr<F> {
     Pow(Box<Expr<F>>, u32),
     Query(Queriable<F>),
     Halo2Expr(Expression<F>),
+}
+
+impl<F: Debug> Debug for Expr<F> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Const(arg0) => write!(f, "{:?}", arg0),
+            Self::Sum(arg0) => write!(
+                f,
+                "({})",
+                arg0.iter()
+                    .map(|v| format!("{:?}", v))
+                    .collect::<Vec<String>>()
+                    .join(" + ")
+            ),
+            Self::Mul(arg0) => write!(
+                f,
+                "({})",
+                arg0.iter()
+                    .map(|v| format!("{:?}", v))
+                    .collect::<Vec<String>>()
+                    .join(" * ")
+            ),
+            Self::Neg(arg0) => write!(f, "-{:?}", arg0),
+            Self::Pow(arg0, arg1) => write!(f, "({:?})^{}", arg0, arg1),
+            Self::Query(arg0) => write!(f, "{:?}", arg0),
+            Self::Halo2Expr(arg0) => write!(f, "halo2({:?})", arg0),
+        }
+    }
 }
 
 impl<F: Clone> ToExpr<F> for Expr<F> {
@@ -175,6 +204,7 @@ impl<F> From<Expression<F>> for Expr<F> {
 
 pub mod query {
     use std::{
+        fmt::Debug,
         marker::PhantomData,
         ops::{Add, Mul, Neg, Sub},
     };
@@ -187,7 +217,7 @@ pub mod query {
     use super::{Expr, ToExpr};
 
     // Queriable
-    #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+    #[derive(Clone, Copy, PartialEq, Eq)]
     pub enum Queriable<F> {
         Internal(InternalSignal),
         Forward(ForwardSignal, bool),
@@ -196,6 +226,12 @@ pub mod query {
         Halo2FixedQuery(ImportedHalo2Fixed, i32),
         #[allow(non_camel_case_types)]
         _unaccessible(PhantomData<F>),
+    }
+
+    impl<F> Debug for Queriable<F> {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            write!(f, "{}", self.annotation())
+        }
     }
 
     impl<F> Queriable<F> {
@@ -237,8 +273,20 @@ pub mod query {
                     }
                 }
                 Queriable::StepTypeNext(s) => s.annotation.to_string(),
-                Queriable::Halo2AdviceQuery(s, _) => s.annotation.to_string(),
-                Queriable::Halo2FixedQuery(s, _) => s.annotation.to_string(),
+                Queriable::Halo2AdviceQuery(s, rot) => {
+                    if *rot != 0 {
+                        format!("{}(rot {})", s.annotation, rot)
+                    } else {
+                        s.annotation.to_string()
+                    }
+                }
+                Queriable::Halo2FixedQuery(s, rot) => {
+                    if *rot != 0 {
+                        format!("{}(rot {})", s.annotation, rot)
+                    } else {
+                        s.annotation.to_string()
+                    }
+                }
                 Queriable::_unaccessible(_) => todo!(),
             }
         }
