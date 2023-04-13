@@ -83,11 +83,6 @@ impl<F, Args> StepTypeContext<F, Args> {
         }
     }
 
-    pub fn signal(&mut self, name: &str) -> Queriable<F> {
-        eprintln!("WARN: .signal is deprecated, use .internal instead");
-        self.internal(name)
-    }
-
     pub fn internal(&mut self, name: &str) -> Queriable<F> {
         Queriable::Internal(self.step_type.add_signal(name))
     }
@@ -116,24 +111,6 @@ impl<F, Args> StepTypeContext<F, Args> {
         D: Fn(&mut dyn WitnessGenContext<F>, Args) + 'static,
     {
         self.step_type.set_wg(def);
-    }
-}
-
-impl<F: Clone, Args> StepTypeContext<F, Args> {
-    pub fn transition_to<C: Into<Constraint<F>>>(
-        &mut self,
-        step_type: StepTypeHandler,
-        constraint: C,
-    ) {
-        let constraint = constraint.into();
-
-        let annotation = format!(
-            "if(next step is {})then({})",
-            step_type.annotation, constraint.annotation
-        );
-
-        self.step_type
-            .add_transition(annotation, step_type.next() * constraint.expr);
     }
 }
 

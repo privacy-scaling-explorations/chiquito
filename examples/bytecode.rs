@@ -77,9 +77,9 @@ fn main() {
             });
             let s2 = ctx.step_type("byte");
             ctx.step_type_def(s2, |ctx| {
-                let push_data_left = ctx.signal("push_data_left");
-                let push_data_size = ctx.signal("push_data_size");
-                let push_data_left_inv = ctx.signal("push_data_left_inv");
+                let push_data_left = ctx.internal("push_data_left");
+                let push_data_size = ctx.internal("push_data_size");
+                let push_data_left_inv = ctx.internal("push_data_left_inv");
 
                 let push_data_left_is_zero = IsZero::setup(ctx, push_data_left, push_data_left_inv);
 

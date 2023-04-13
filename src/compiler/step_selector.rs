@@ -152,7 +152,6 @@ impl StepSelectorBuilder for TwoStepsSelectorBuilder {
                 unit.columns.push(column.clone());
                 column
             }
-            _ => panic!("jarll: wrong signal type"),
         };
 
         // Zero

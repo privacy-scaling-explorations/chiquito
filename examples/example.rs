@@ -15,8 +15,8 @@ fn main() {
 
         let s1 = ctx.step_type("s1");
         ctx.step_type_def(s1, |ctx| {
-            let d = ctx.signal("d");
-            let f = ctx.signal("f");
+            let d = ctx.internal("d");
+            let f = ctx.internal("f");
 
             ctx.constr((a + b) * (c - 1));
             ctx.constr(1.expr() + (a + b) * (c - 1));

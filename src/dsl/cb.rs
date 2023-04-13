@@ -4,6 +4,8 @@ use halo2_proofs::arithmetic::Field;
 
 use crate::ast::{query::Queriable, Expr, ToExpr};
 
+use super::StepTypeHandler;
+
 #[derive(Clone)]
 pub struct Constraint<F> {
     pub annotation: String,
@@ -158,6 +160,23 @@ pub fn isz<F, T: Into<Constraint<F>>>(constraint: T) -> Constraint<F> {
     Constraint {
         annotation: format!("0 == {}", constraint.annotation),
         expr: constraint.expr,
+    }
+}
+
+pub fn if_next_step<F: Clone, T: Into<Constraint<F>>>(
+    step_type: StepTypeHandler,
+    constraint: T,
+) -> Constraint<F> {
+    let constraint = constraint.into();
+
+    let annotation = format!(
+        "if(next step is {})then({})",
+        step_type.annotation, constraint.annotation
+    );
+
+    Constraint {
+        expr: step_type.next() * constraint.expr,
+        annotation,
     }
 }
 
