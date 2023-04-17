@@ -111,7 +111,7 @@ pub const ROUND_KEYS: &[&str] = &[
 ];
 
 fn mimc7_circuit<F: FieldExt>() -> chiquito::ir::Circuit<F, (), (F, F, F)> {
-    let mimc = circuit::<F, (), (F, F, F), _>("mimc7", |ctx| {
+    let mimc7 = circuit::<F, (), (F, F, F), _>("mimc7", |ctx| {
         use chiquito::dsl::cb::*;
 
         let x = ctx.forward("x");
@@ -128,7 +128,7 @@ fn mimc7_circuit<F: FieldExt>() -> chiquito::ir::Circuit<F, (), (F, F, F)> {
             let y =  ctx.internal("y");
 
             ctx.constr("x + c + k == xck", eq(x + c + k, xck));
-            ctx.constr("(x + c + k)^7  = y", eq(xck * xck * xck * xck * xck * xck * xck, y));
+            ctx.constr("(x + c + k)^7 == y", eq(xck * xck * xck * xck * xck * xck * xck, y));
 
             ctx.transition("y == x.next", eq(y, x.next()));
             ctx.transition("k == k.next", eq(k, k.next()));
@@ -187,7 +187,7 @@ fn mimc7_circuit<F: FieldExt>() -> chiquito::ir::Circuit<F, (), (F, F, F)> {
 
     let compiler = Compiler::new(SingleRowCellManager {}, SimpleStepSelectorBuilder {});
 
-    let compiled = compiler.compile(&mimc);
+    let compiled = compiler.compile(&mimc7);
 
     // println!("compiled = {:#?}", compiled);
 
