@@ -2,7 +2,7 @@ use std::{fmt::Debug, vec};
 
 use halo2_proofs::arithmetic::Field;
 
-use crate::ast::{query::Queriable, Expr, ToExpr};
+use crate::ast::{query::Queriable, Expr, ToExpr, Lookup};
 
 use super::StepTypeHandler;
 
@@ -199,4 +199,33 @@ pub fn rlc<F: From<u64>, E: Into<Expr<F>> + Clone, R: Into<Expr<F>> + Clone>(
     } else {
         0u64.expr()
     }
+}
+
+pub struct LookupBuilder<F> {
+    pub lookup: Lookup<F>,
+}
+
+impl<F: Debug + Clone> LookupBuilder<F> {
+    pub fn new() -> Self {
+        LookupBuilder {
+            lookup: Lookup::empty(),
+        }
+    }
+
+    pub fn add<C: Into<Constraint<F>>, E: Into<Expr<F>>>(&mut self, constraint: C, expression: E) -> &mut Self {
+        let constraint = constraint.into();
+        self.lookup.add(constraint.annotation, constraint.expr, expression.into());
+        self
+    }
+
+    pub fn enable<C: Into<Constraint<F>>>(&mut self, enable: C) -> &mut Self {
+        let enable = enable.into();
+        self.lookup.enable(enable.annotation, enable.expr);
+        self
+    }
+}
+
+// Function: creates a new empty LookupBuilder object and returns it
+pub fn lookup<F: Debug + Clone>() -> LookupBuilder<F> { // ??? Can I chain new_lookup() to add and enable, i.e. invoke add on the LookupBuilder object itself?
+    LookupBuilder::new()
 }

@@ -301,7 +301,7 @@ impl<CM: CellManager, SSB: StepSelectorBuilder> Compiler<CM, SSB> {
                     .exprs
                     .iter()
                     .map(|(src, dest)| {
-                        let src_poly = self.transform_expr(unit, step, src);
+                        let src_poly = self.transform_expr(unit, step, &src.expr);
                         let dest_poly = self.transform_expr(unit, step, dest);
                         let src_selected = unit.selector.select(step, &src_poly);
 
