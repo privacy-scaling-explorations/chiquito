@@ -297,6 +297,7 @@ impl<CM: CellManager, SSB: StepSelectorBuilder> Compiler<CM, SSB> {
 
         for lookup in step.lookups.iter() {
             let poly_lookup = PolyLookup {
+                annotation: lookup.annotation.clone(),
                 exprs: lookup
                     .exprs
                     .iter()
@@ -447,6 +448,7 @@ impl<CM: CellManager, SSB: StepSelectorBuilder> Compiler<CM, SSB> {
             .lookups
             .iter()
             .map(|lookup| PolyLookup {
+                annotation: lookup.annotation.clone(),
                 exprs: lookup
                     .exprs
                     .iter()

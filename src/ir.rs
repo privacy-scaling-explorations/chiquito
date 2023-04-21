@@ -185,5 +185,6 @@ impl<F: Clone> PolyExpr<F> {
 
 #[derive(Clone, Debug)]
 pub struct PolyLookup<F> {
+    pub annotation: String,
     pub exprs: Vec<(PolyExpr<F>, PolyExpr<F>)>,
 }

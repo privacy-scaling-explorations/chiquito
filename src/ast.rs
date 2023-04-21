@@ -259,7 +259,7 @@ impl<F: Debug + Clone> Lookup<F> {
     // because dsl uses cb::Constraint while ast uses ast::Constraint
     pub fn add(&mut self, constraint_annotation: String, constraint_expr: Expr<F>, expression: Expr<F>) {
         let constraint = Constraint {annotation: constraint_annotation, expr: constraint_expr};
-        self.annotation += &format!("match({} => {:?})", &constraint.annotation, &expression); // expression: Expr<F> is formatted using the fmt method defined in the Debug trait
+        self.annotation += &format!("match({} => {:?}) ", &constraint.annotation, &expression); // expression: Expr<F> is formatted using the fmt method defined in the Debug trait
         match self.enable {
             None => {
                 self.exprs.push((constraint, expression));
@@ -283,14 +283,14 @@ impl<F: Debug + Clone> Lookup<F> {
                     *constraint = Self::multiply_constraints(enable.clone(), constraint.clone());
                 }
                 self.enable = Some(enable);
-                self.annotation = format!("if {}", enable_annotation) + &self.annotation;
+                self.annotation = format!("if {}, ", enable_annotation) + &self.annotation;
             }
             Some(_) => panic!("Enable constraint already exists"),
         }
     }
 
     // Function: helper function for multiplying enabler to constraint
-    pub fn multiply_constraints(enable: Constraint<F>, constraint: Constraint<F>) -> Constraint<F> {
+    fn multiply_constraints(enable: Constraint<F>, constraint: Constraint<F>) -> Constraint<F> {
         Constraint {
             annotation: constraint.annotation.clone(), // annotation only takes the constraint's annotation, because enabler's annotation is already included in the enable function above in the format of "if {enable}"
             expr: enable.expr * constraint.expr
