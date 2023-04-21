@@ -127,11 +127,11 @@ fn mimc7_circuit<F: FieldExt>() -> chiquito::ir::Circuit<F, (), (F, F, F)> {
             let xck =  ctx.internal("xck");
             let y =  ctx.internal("y");
 
-            ctx.constr("x + c + k == xck", eq(x + c + k, xck));
-            ctx.constr("(x + c + k)^7 == y", eq(xck * xck * xck * xck * xck * xck * xck, y));
+            ctx.constr(eq(x + c + k, xck));
+            ctx.constr(eq(xck * xck * xck * xck * xck * xck * xck, y));
 
-            ctx.transition("y == x.next", eq(y, x.next()));
-            ctx.transition("k == k.next", eq(k, k.next()));
+            ctx.transition(eq(y, x.next()));
+            ctx.transition(eq(k, k.next()));
 
 
             ctx.wg(move |ctx, (x_value, k_value, c_value)| {
@@ -148,7 +148,7 @@ fn mimc7_circuit<F: FieldExt>() -> chiquito::ir::Circuit<F, (), (F, F, F)> {
         ctx.step_type_def(mimc7_last_step, |ctx| {
            
            
-            ctx.constr("x + k == out", eq(x + k, out));
+            ctx.constr(eq(x + k, out));
 
             ctx.wg(move |ctx, (x_value, k_value, _)| {
                 

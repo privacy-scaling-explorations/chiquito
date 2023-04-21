@@ -262,13 +262,13 @@ fn mimc_sponge_circuit<F: FieldExt>() -> chiquito::ir::Circuit<F, (), (F, F, F, 
             let yl =  ctx.internal("yl");
             let yr =  ctx.internal("yr");
 
-            ctx.constr("xl + c + k == xck", eq(xl + c + k, xck));
-            ctx.constr("(xl + c + k)^5 + xr == yl", eq(xck * xck * xck * xck * xck + xr, yl));
-            ctx.constr("xl == yr", eq(xl , yr));
+            ctx.constr(eq(xl + c + k, xck));
+            ctx.constr( eq(xck * xck * xck * xck * xck + xr, yl));
+            ctx.constr(eq(xl , yr));
 
-            ctx.transition("yl == xl.next", eq(yl, xl.next()));
-            ctx.transition("yr == xr.next", eq(yr, xr.next()));
-            ctx.transition("k == k.next", eq(k, k.next()));
+            ctx.transition(eq(yl, xl.next()));
+            ctx.transition( eq(yr, xr.next()));
+            ctx.transition(eq(k, k.next()));
 
             ctx.wg(move |ctx, (xl_value, xr_value, k_value, c_value)| {
                 ctx.assign(xl, xl_value);
@@ -287,9 +287,9 @@ fn mimc_sponge_circuit<F: FieldExt>() -> chiquito::ir::Circuit<F, (), (F, F, F, 
            
             let xck =  ctx.internal("xck");
 
-            ctx.constr("xl + c + k == xck", eq(xl + c + k, xck));
-            ctx.constr("(xl + c + k)^5 + xr == outr", eq(xck * xck * xck * xck * xck + xr, outr));
-            ctx.constr("xl == yl", eq(xl , outl));
+            ctx.constr( eq(xl + c + k, xck));
+            ctx.constr(eq(xck * xck * xck * xck * xck + xr, outr));
+            ctx.constr(eq(xl , outl));
 
             ctx.wg(move |ctx, (xl_value, xr_value, k_value, c_value)| {
                 ctx.assign(xl, xl_value);
