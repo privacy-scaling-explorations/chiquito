@@ -226,6 +226,6 @@ impl<F: Debug + Clone> LookupBuilder<F> {
 }
 
 // Function: creates a new empty LookupBuilder object and returns it
-pub fn lookup<F: Debug + Clone>() -> LookupBuilder<F> { // ??? Can I chain new_lookup() to add and enable, i.e. invoke add on the LookupBuilder object itself?
+pub fn lookup<F: Debug + Clone>() -> LookupBuilder<F> {
     LookupBuilder::new()
 }
