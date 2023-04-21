@@ -1,5 +1,5 @@
 use chiquito::{
-    ast::ToField,
+    ast::{ToField, query::Queriable},
     backend::halo2::{chiquito2Halo2, ChiquitoHalo2},
     compiler::{
         cell_manager::SingleRowCellManager, step_selector::SimpleStepSelectorBuilder, Compiler,
@@ -10,9 +10,11 @@ use halo2_proofs::{
     // arithmetic::Field,
     circuit::SimpleFloorPlanner,
     dev::MockProver,
-    halo2curves::{bn256::Fr, FieldExt},
-    plonk::ConstraintSystem,
+    halo2curves::{bn256::Fr, FieldExt, group::ff::PrimeField},
+    plonk::{ConstraintSystem, Fixed, Assignment, Column},
 };
+use chiquito::dsl::cb::*;
+
 
 pub const ROUNDS: usize = 91;
 
@@ -110,47 +112,63 @@ pub const ROUND_KEYS: &[&str] = &[
     "13602139229813231349386885113156901793661719180900395818909719758150455500533"
 ];
 
-fn mimc7_circuit<F: FieldExt>() -> chiquito::ir::Circuit<F, (), (F, F, F)> {
-    let mimc7 = circuit::<F, (), (F, F, F), _>("mimc7", |ctx| {
-        use chiquito::dsl::cb::*;
+fn mimc7_circuit<F: FieldExt>(
+    row_value: Column<Fixed>,
+    c_value: Column<Fixed>,
+) -> chiquito::ir::Circuit<F, (F, F), (F, F, F, F)> {
+    let mimc7 = circuit::<F, (F, F), (F, F, F, F), _>("mimc7", |ctx| {
 
         let x = ctx.forward("x");
         let k = ctx.forward("k");
         let c = ctx.forward("c");
-        let out = ctx.forward("out");
+        let row = ctx.forward("row");
 
         let mimc7_step = ctx.step_type("mimc7 step");
         let mimc7_last_step = ctx.step_type("mimc7 last step");
 
+        let lookup_row: Queriable<F> = ctx.import_halo2_fixed("lookup row", row_value);
+        let lookup_c: Queriable<F> = ctx.import_halo2_fixed("lookup row", c_value);
+        
+        ctx.fixed_gen(move |ctx| {
+            for i in 0..ROUNDS {
+                ctx.assign(i, lookup_row, F::from(i as u64));
+                ctx.assign(i, lookup_c, F::from_str_vartime(ROUND_KEYS[i]).unwrap());
+            }
+        });
+
         ctx.step_type_def(mimc7_step, |ctx| {
             
-            let xck =  ctx.internal("xck");
+            let xkc =  ctx.internal("xkc");
             let y =  ctx.internal("y");
 
-            ctx.constr(eq(x + c + k, xck));
-            ctx.constr(eq(xck * xck * xck * xck * xck * xck * xck, y));
+            ctx.constr(eq(x + k + c, xkc));
+            ctx.constr(eq(xkc * xkc * xkc * xkc * xkc * xkc * xkc, y));
 
             ctx.transition(eq(y, x.next()));
             ctx.transition(eq(k, k.next()));
+            ctx.transition(eq(row + 1, row.next()));
 
+            add_lookup(lookup().add(row, ));
 
-            ctx.wg(move |ctx, (x_value, k_value, c_value)| {
+            ctx.wg(move |ctx, (x_value, k_value, c_value, row_value)| {
                 ctx.assign(x, x_value);
                 ctx.assign(k, k_value);
                 ctx.assign(c, c_value);
+                ctx.assign(row, row_value);
 
-                let ckx_value = c_value + k_value + x_value;
-                ctx.assign(xck, ckx_value);
-                ctx.assign(y, ckx_value.pow_vartime(&[7 as u64]));
+                let xkc_value = x_value + k_value + c_value;
+                ctx.assign(xkc, xkc_value);
+                ctx.assign(y, xkc_value.pow_vartime(&[7 as u64]));
             });
         });
 
         ctx.step_type_def(mimc7_last_step, |ctx| {
            
-           
+            let out = ctx.internal("out");
+
             ctx.constr(eq(x + k, out));
 
-            ctx.wg(move |ctx, (x_value, k_value, _)| {
+            ctx.wg(move |ctx, (x_value, k_value, _, _)| {
                 
                 ctx.assign(x, x_value);
                 ctx.assign(k, k_value);
@@ -161,25 +179,26 @@ fn mimc7_circuit<F: FieldExt>() -> chiquito::ir::Circuit<F, (), (F, F, F)> {
         ctx.pragma_first_step(mimc7_step);
         ctx.pragma_last_step(mimc7_last_step);
 
-        ctx.trace(move |ctx, _| {
-            let mut x = 1.field();
-            let mut c: F = F::from_str_vartime(ROUND_KEYS[0]).unwrap();
-            let k = 1.field();
-            ctx.add(&mimc7_step, (x, k, c));
+        ctx.trace(move |ctx, (x_in_value, k_value)| {
+            let mut c_value: F = F::from_str_vartime(ROUND_KEYS[0]).unwrap();
+            let mut x_value = x_in_value;
+            let mut row_value = F::from(0);
+            // Step 0: input the message to hash as x_in and the secret key as k
+            ctx.add(&mimc7_step, (x_in_value, k_value, c_value, row_value));
 
             for i in 1..ROUNDS {
-                x.add_assign(k);
-                x.add_assign(c);
-                x = x.pow_vartime(&[7 as u64]);
-                c = F::from_str_vartime(ROUND_KEYS[i]).unwrap(); 
-           
-                ctx.add(&mimc7_step, (x, k, c));
+                row_value += F::from(1);
+                x_value += k_value + c_value;
+                x_value = x_value.pow_vartime(&[7 as u64]);
+                c_value = F::from_str_vartime(ROUND_KEYS[i]).unwrap(); 
+                // Step 1 - 91: iterate x.next = y = (x + k + c[step]) ^ 7
+                ctx.add(&mimc7_step, (x_value, k_value, c_value, row_value));
             }
 
-            x.add_assign(k);
-            x.add_assign(c);
-            x = x.pow_vartime(&[7 as u64]);
-            ctx.add(&mimc7_last_step, (x, k, c));
+            x_value += k_value + c_value;
+            x_value = x_value.pow_vartime(&[7 as u64]);
+            // Step 91: output the hash result as x + k
+            ctx.add(&mimc7_last_step, (x_value, k_value, c_value, row_value)); // c_value and row_value are not used here
         })
     });
 
@@ -198,12 +217,15 @@ fn mimc7_circuit<F: FieldExt>() -> chiquito::ir::Circuit<F, (), (F, F, F)> {
 // * Halo2 boilerplate *
 #[derive(Clone)]
 struct Mimc7Config<F: FieldExt> {
-    compiled: ChiquitoHalo2<F, (), (F, F, F)>,
+    compiled: ChiquitoHalo2<F, (F, F), (F, F, F, F)>,
 }
 
 impl<F: FieldExt> Mimc7Config<F> {
     fn new(meta: &mut ConstraintSystem<F>) -> Mimc7Config<F> {
-        let mut compiled = chiquito2Halo2(mimc7_circuit::<F>());
+        let row_value = meta.fixed_column();
+        let c_value = meta.fixed_column();
+
+        let mut compiled = chiquito2Halo2(mimc7_circuit::<F>(row_value, c_value));
 
         compiled.configure(meta);
 
@@ -212,11 +234,13 @@ impl<F: FieldExt> Mimc7Config<F> {
 }
 
 #[derive(Default)]
-struct Mimc7Circuit {}
+struct Mimc7Circuit<F: FieldExt> {
+    x_in_value: F,
+    k_value: F,
+}
 
-impl<F: FieldExt> halo2_proofs::plonk::Circuit<F> for Mimc7Circuit {
+impl<F: FieldExt> halo2_proofs::plonk::Circuit<F> for Mimc7Circuit<F> {
     type Config = Mimc7Config<F>;
-
     type FloorPlanner = SimpleFloorPlanner;
 
     fn without_witnesses(&self) -> Self {
@@ -232,14 +256,16 @@ impl<F: FieldExt> halo2_proofs::plonk::Circuit<F> for Mimc7Circuit {
         config: Self::Config,
         mut layouter: impl halo2_proofs::circuit::Layouter<F>,
     ) -> Result<(), halo2_proofs::plonk::Error> {
-        config.compiled.synthesize(&mut layouter, ());
-
+        config.compiled.synthesize(&mut layouter, (self.x_in_value, self.k_value));
         Ok(())
     }
 }
 
 fn main() {
-    let circuit = Mimc7Circuit {};
+    let circuit = Mimc7Circuit {
+        x_in_value: Fr::from_str_vartime("1").expect("expected a number"),
+        k_value: Fr::from_str_vartime("2").expect("expected a number"),
+    };
 
     let prover = MockProver::<Fr>::run(10, &circuit, Vec::new()).unwrap();
 
