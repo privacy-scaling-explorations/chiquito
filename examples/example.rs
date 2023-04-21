@@ -3,7 +3,7 @@ use chiquito::{
     compiler::{
         cell_manager::SingleRowCellManager, step_selector::SimpleStepSelectorBuilder, Compiler,
     },
-    dsl::circuit,
+    dsl::{circuit, cb::lookup},
 };
 use halo2_proofs::halo2curves::bn256::Fr;
 
@@ -22,6 +22,8 @@ fn main() {
             ctx.constr(1.expr() + (a + b) * (c - 1));
             ctx.transition(a + 1);
 
+            ctx.add_lookup(lookup().add(a, b).enable(d).add(d + a, f * c));
+            
             ctx.wg(move |ctx, _| {
                 ctx.assign(a, 13.field());
                 ctx.assign(b, 13.field());

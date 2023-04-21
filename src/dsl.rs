@@ -1,12 +1,14 @@
 use crate::{
-    ast::{query::Queriable, Circuit, Expr, StepType, StepTypeUUID},
+    ast::{query::Queriable, Circuit, Expr, StepType, StepTypeUUID, Lookup},
     compiler::{FixedGenContext, TraceContext, WitnessGenContext},
     util::uuid,
 };
 
 use halo2_proofs::plonk::{Advice, Column as Halo2Column, Fixed};
 
-use self::cb::Constraint;
+use core::fmt::Debug;
+
+use self::cb::{Constraint, LookupBuilder};
 
 pub struct CircuitContext<F, TraceArgs, StepArgs> {
     sc: Circuit<F, TraceArgs, StepArgs>,
@@ -101,16 +103,19 @@ impl<F, Args> StepTypeContext<F, Args> {
             .add_transition(constraint.annotation, constraint.expr);
     }
 
-    pub fn lookup(&mut self, _annotation: &str, exprs: Vec<(Expr<F>, Expr<F>)>) {
-        // TODO annotate lookup
-        self.step_type.add_lookup(exprs)
-    }
-
     pub fn wg<D>(&mut self, def: D)
     where
         D: Fn(&mut dyn WitnessGenContext<F>, Args) + 'static,
     {
         self.step_type.set_wg(def);
+    }
+}
+
+impl<F: Debug + Clone, Args> StepTypeContext<F, Args> {
+    // Function: add Lookup in LookupBuilder to StepType
+    // Usage: ctx.add_lookup(lookup().add(...).add(...).enable(...))
+    pub fn add_lookup(&mut self, lookup_builder: &mut LookupBuilder<F>) {
+        self.step_type.lookups.push(lookup_builder.lookup.clone());
     }
 }
 
