@@ -110,7 +110,8 @@ impl<F: FieldExt, TraceArgs, StepArgs: Clone> ChiquitoHalo2<F, TraceArgs, StepAr
         }
 
         for lookup in self.circuit.lookups.iter() {
-            meta.lookup_any("", |meta| {
+            let annotation: &'static str = Box::leak(lookup.annotation.clone().into_boxed_str());
+            meta.lookup_any(annotation, |meta| {
                 let mut exprs = Vec::new();
                 for (src, dest) in lookup.exprs.iter() {
                     exprs.push((self.convert_poly(meta, src), self.convert_poly(meta, dest)))
