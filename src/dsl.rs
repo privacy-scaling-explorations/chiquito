@@ -6,6 +6,8 @@ use crate::{
 
 use halo2_proofs::plonk::{Advice, Column as Halo2Column, Fixed};
 
+use self::cb::Constraint;
+
 pub struct CircuitContext<F, TraceArgs, StepArgs> {
     sc: Circuit<F, TraceArgs, StepArgs>,
 }
@@ -28,7 +30,7 @@ impl<F, TraceArgs, StepArgs> CircuitContext<F, TraceArgs, StepArgs> {
     }
 
     pub fn step_type(&mut self, name: &str) -> StepTypeHandler {
-        let handler = StepTypeHandler::default();
+        let handler = StepTypeHandler::new(name.to_string());
 
         self.sc.add_step_type(handler, name);
 
@@ -39,7 +41,8 @@ impl<F, TraceArgs, StepArgs> CircuitContext<F, TraceArgs, StepArgs> {
     where
         D: FnOnce(&mut StepTypeContext<F, StepArgs>),
     {
-        let mut context = StepTypeContext::<F, StepArgs>::new(handler.uuid());
+        let mut context =
+            StepTypeContext::<F, StepArgs>::new(handler.uuid(), handler.annotation.to_string());
 
         def(&mut context);
 
@@ -73,36 +76,29 @@ pub struct StepTypeContext<F, Args> {
     step_type: StepType<F, Args>,
 }
 
-impl<F, Args> Default for StepTypeContext<F, Args> {
-    fn default() -> Self {
-        Self {
-            step_type: StepType::default(),
-        }
-    }
-}
-
 impl<F, Args> StepTypeContext<F, Args> {
-    pub fn new(uuid: u32) -> Self {
+    pub fn new(uuid: u32, name: String) -> Self {
         Self {
-            step_type: StepType::new(uuid),
+            step_type: StepType::new(uuid, name),
         }
-    }
-
-    pub fn signal(&mut self, name: &str) -> Queriable<F> {
-        eprintln!("WARN: .signal is deprecated, use .internal instead");
-        self.internal(name)
     }
 
     pub fn internal(&mut self, name: &str) -> Queriable<F> {
         Queriable::Internal(self.step_type.add_signal(name))
     }
 
-    pub fn constr(&mut self, annotation: &str, expr: Expr<F>) {
-        self.step_type.add_constr(annotation, expr);
+    pub fn constr<C: Into<Constraint<F>>>(&mut self, constraint: C) {
+        let constraint = constraint.into();
+
+        self.step_type
+            .add_constr(constraint.annotation, constraint.expr);
     }
 
-    pub fn transition<D: Into<Expr<F>>>(&mut self, annotation: &str, expr: D) {
-        self.step_type.add_transition(annotation, expr.into());
+    pub fn transition<C: Into<Constraint<F>>>(&mut self, constraint: C) {
+        let constraint = constraint.into();
+
+        self.step_type
+            .add_transition(constraint.annotation, constraint.expr);
     }
 
     pub fn lookup(&mut self, _annotation: &str, exprs: Vec<(Expr<F>, Expr<F>)>) {
@@ -118,30 +114,20 @@ impl<F, Args> StepTypeContext<F, Args> {
     }
 }
 
-impl<F: Clone, Args> StepTypeContext<F, Args> {
-    pub fn transition_to<D: Into<Expr<F>>>(
-        &mut self,
-        annotation: &str,
-        step_type: StepTypeHandler,
-        expr: D,
-    ) {
-        self.step_type
-            .add_transition(annotation, step_type.next() * expr.into());
-    }
-}
-
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct StepTypeHandler {
     id: StepTypeUUID,
-}
-
-impl Default for StepTypeHandler {
-    fn default() -> Self {
-        Self { id: uuid() }
-    }
+    pub annotation: &'static str,
 }
 
 impl StepTypeHandler {
+    fn new(annotation: String) -> Self {
+        Self {
+            id: uuid(),
+            annotation: Box::leak(annotation.into_boxed_str()),
+        }
+    }
+
     pub fn uuid(&self) -> u32 {
         self.id
     }
@@ -169,64 +155,4 @@ where
     context.sc
 }
 
-pub mod cb {
-    use halo2_proofs::halo2curves::FieldExt;
-
-    use crate::ast::{Expr, ToExpr};
-
-    pub fn and<F: From<u64>, E: Into<Expr<F>>, I: IntoIterator<Item = E>>(inputs: I) -> Expr<F> {
-        inputs
-            .into_iter()
-            .fold(1u64.expr(), |acc, input| acc * input.into())
-    }
-
-    pub fn or<F: From<u64>, E: Into<Expr<F>>, I: IntoIterator<Item = E>>(inputs: I) -> Expr<F> {
-        not(and(inputs.into_iter().map(not)))
-    }
-
-    pub fn xor<F: From<u64> + Clone, LHS: Into<Expr<F>>, RHS: Into<Expr<F>>>(
-        lhs: LHS,
-        rhs: RHS,
-    ) -> Expr<F> {
-        let lhs = lhs.into();
-        let rhs = rhs.into();
-
-        lhs.clone() + rhs.clone() - 2u64.expr() * lhs * rhs
-    }
-
-    pub fn eq<F, LHS: Into<Expr<F>>, RHS: Into<Expr<F>>>(lhs: LHS, rhs: RHS) -> Expr<F> {
-        lhs.into() - rhs.into()
-    }
-
-    pub fn select<F: From<u64>, T1: Into<Expr<F>> + Clone, T2: Into<Expr<F>>, T3: Into<Expr<F>>>(
-        selector: T1,
-        when_true: T2,
-        when_false: T3,
-    ) -> Expr<F> {
-        selector.clone().into() * when_true.into() + (1u64.expr() - selector.into()) * when_false
-    }
-
-    // not, works only if the parameter is 0 or 1
-    pub fn not<F: From<u64>, T: Into<Expr<F>>>(expr: T) -> Expr<F> {
-        1u64.expr() - expr.into()
-    }
-
-    /// Is zero
-    pub fn isz<F, T: Into<Expr<F>>>(expr: T) -> Expr<F> {
-        expr.into()
-    }
-
-    pub fn rlc<F: FieldExt, E: Into<Expr<F>> + Clone, R: Into<Expr<F>> + Clone>(
-        exprs: &[E],
-        randomness: R,
-    ) -> Expr<F> {
-        if !exprs.is_empty() {
-            let mut exprs = exprs.iter().rev().map(|e| e.clone().into());
-            let init = exprs.next().expect("should not be empty");
-
-            exprs.fold(init, |acc, expr| acc * randomness.clone().into() + expr)
-        } else {
-            0i32.expr()
-        }
-    }
-}
+pub mod cb;

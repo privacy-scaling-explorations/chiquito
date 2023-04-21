@@ -1,10 +1,21 @@
+use std::fmt::Debug;
 use std::ops::{Add, Mul, Neg, Sub};
 
 use halo2_proofs::{arithmetic::Field, plonk::Expression};
 
+use crate::dsl::cb::Constraint;
+
 use self::query::Queriable;
 
-#[derive(Clone, Debug)]
+pub trait ToExpr<F> {
+    fn expr(&self) -> Expr<F>;
+}
+
+pub trait ToField<F> {
+    fn field(&self) -> F;
+}
+
+#[derive(Clone)]
 pub enum Expr<F> {
     Const(F),
     Sum(Vec<Expr<F>>),
@@ -15,8 +26,32 @@ pub enum Expr<F> {
     Halo2Expr(Expression<F>),
 }
 
-pub trait ToExpr<F> {
-    fn expr(&self) -> Expr<F>;
+impl<F: Debug> Debug for Expr<F> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Const(arg0) => write!(f, "{:?}", arg0),
+            Self::Sum(arg0) => write!(
+                f,
+                "({})",
+                arg0.iter()
+                    .map(|v| format!("{:?}", v))
+                    .collect::<Vec<String>>()
+                    .join(" + ")
+            ),
+            Self::Mul(arg0) => write!(
+                f,
+                "({})",
+                arg0.iter()
+                    .map(|v| format!("{:?}", v))
+                    .collect::<Vec<String>>()
+                    .join(" * ")
+            ),
+            Self::Neg(arg0) => write!(f, "-{:?}", arg0),
+            Self::Pow(arg0, arg1) => write!(f, "({:?})^{}", arg0, arg1),
+            Self::Query(arg0) => write!(f, "{:?}", arg0),
+            Self::Halo2Expr(arg0) => write!(f, "halo2({:?})", arg0),
+        }
+    }
 }
 
 impl<F: Clone> ToExpr<F> for Expr<F> {
@@ -25,8 +60,16 @@ impl<F: Clone> ToExpr<F> for Expr<F> {
     }
 }
 
-pub trait ToField<F> {
-    fn field(&self) -> F;
+impl<F> From<Constraint<F>> for Expr<F> {
+    fn from(c: Constraint<F>) -> Self {
+        c.expr
+    }
+}
+
+impl<F> From<Queriable<F>> for Expr<F> {
+    fn from(value: Queriable<F>) -> Self {
+        Expr::Query(value)
+    }
 }
 
 impl<F, RHS: Into<Expr<F>>> Add<RHS> for Expr<F> {
@@ -161,6 +204,7 @@ impl<F> From<Expression<F>> for Expr<F> {
 
 pub mod query {
     use std::{
+        fmt::Debug,
         marker::PhantomData,
         ops::{Add, Mul, Neg, Sub},
     };
@@ -173,7 +217,7 @@ pub mod query {
     use super::{Expr, ToExpr};
 
     // Queriable
-    #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+    #[derive(Clone, Copy, PartialEq, Eq)]
     pub enum Queriable<F> {
         Internal(InternalSignal),
         Forward(ForwardSignal, bool),
@@ -182,6 +226,12 @@ pub mod query {
         Halo2FixedQuery(ImportedHalo2Fixed, i32),
         #[allow(non_camel_case_types)]
         _unaccessible(PhantomData<F>),
+    }
+
+    impl<F> Debug for Queriable<F> {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            write!(f, "{}", self.annotation())
+        }
     }
 
     impl<F> Queriable<F> {
@@ -211,11 +261,34 @@ pub mod query {
                 Queriable::_unaccessible(_) => panic!("jarrl wrong queriable type"),
             }
         }
-    }
 
-    impl<F> From<Queriable<F>> for Expr<F> {
-        fn from(value: Queriable<F>) -> Self {
-            Expr::Query(value)
+        pub fn annotation(&self) -> String {
+            match self {
+                Queriable::Internal(s) => s.annotation.to_string(),
+                Queriable::Forward(s, rot) => {
+                    if !rot {
+                        s.annotation.to_string()
+                    } else {
+                        format!("next({})", s.annotation)
+                    }
+                }
+                Queriable::StepTypeNext(s) => s.annotation.to_string(),
+                Queriable::Halo2AdviceQuery(s, rot) => {
+                    if *rot != 0 {
+                        format!("{}(rot {})", s.annotation, rot)
+                    } else {
+                        s.annotation.to_string()
+                    }
+                }
+                Queriable::Halo2FixedQuery(s, rot) => {
+                    if *rot != 0 {
+                        format!("{}(rot {})", s.annotation, rot)
+                    } else {
+                        s.annotation.to_string()
+                    }
+                }
+                Queriable::_unaccessible(_) => todo!(),
+            }
         }
     }
 

@@ -68,6 +68,7 @@ pub trait CellManager {
     );
 }
 
+#[derive(Debug, Default)]
 pub struct SingleRowCellManager {}
 
 impl CellManager for SingleRowCellManager {

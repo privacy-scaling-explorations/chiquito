@@ -54,11 +54,12 @@ impl<F, TraceArgs, StepArgs> Default for Circuit<F, TraceArgs, StepArgs> {
 }
 
 impl<F, TraceArgs, StepArgs> Circuit<F, TraceArgs, StepArgs> {
-    pub fn add_forward(&mut self, name: &str, phase: usize) -> ForwardSignal {
-        let signal = ForwardSignal::new_with_phase(phase);
+    pub fn add_forward<N: Into<String>>(&mut self, name: N, phase: usize) -> ForwardSignal {
+        let name = name.into();
+        let signal = ForwardSignal::new_with_phase(phase, name.clone());
 
         self.forward_signals.push(signal);
-        self.annotations.insert(signal.uuid(), name.to_string());
+        self.annotations.insert(signal.uuid(), name);
 
         signal
     }
@@ -68,7 +69,7 @@ impl<F, TraceArgs, StepArgs> Circuit<F, TraceArgs, StepArgs> {
         name: &str,
         column: Halo2Column<Advice>,
     ) -> ImportedHalo2Advice {
-        let advice = ImportedHalo2Advice::new(column);
+        let advice = ImportedHalo2Advice::new(column, name.to_string());
 
         self.halo2_advice.push(advice);
         self.annotations.insert(advice.uuid(), name.to_string());
@@ -81,7 +82,7 @@ impl<F, TraceArgs, StepArgs> Circuit<F, TraceArgs, StepArgs> {
         name: &str,
         column: Halo2Column<Fixed>,
     ) -> ImportedHalo2Fixed {
-        let advice = ImportedHalo2Fixed::new(column);
+        let advice = ImportedHalo2Fixed::new(column, name.to_string());
 
         self.halo2_fixed.push(advice);
         self.annotations.insert(advice.uuid(), name.to_string());
@@ -140,6 +141,7 @@ pub type StepTypeUUID = u32;
 pub struct StepType<F, Args> {
     id: StepTypeUUID,
 
+    pub name: String,
     pub signals: Vec<InternalSignal>,
     pub constraints: Vec<Constraint<F>>,
     pub transition_constraints: Vec<TransitionConstraint<F>>,
@@ -160,24 +162,11 @@ impl<F: Debug, Args> Debug for StepType<F, Args> {
     }
 }
 
-impl<F, Args> Default for StepType<F, Args> {
-    fn default() -> Self {
-        Self {
-            id: uuid(),
-            signals: Default::default(),
-            constraints: Default::default(),
-            transition_constraints: Default::default(),
-            lookups: Default::default(),
-            annotations: Default::default(),
-            wg: Box::new(|_, _| {}),
-        }
-    }
-}
-
 impl<F, Args> StepType<F, Args> {
-    pub fn new(uuid: u32) -> Self {
+    pub fn new(uuid: u32, name: String) -> Self {
         Self {
             id: uuid,
+            name,
             signals: Default::default(),
             constraints: Default::default(),
             transition_constraints: Default::default(),
@@ -191,28 +180,23 @@ impl<F, Args> StepType<F, Args> {
     }
 
     pub fn add_signal<N: Into<String>>(&mut self, name: N) -> InternalSignal {
-        let signal = InternalSignal::new();
+        let name = name.into();
+        let signal = InternalSignal::new(name.clone());
 
         self.signals.push(signal);
-        self.annotations.insert(signal.uuid(), name.into());
+        self.annotations.insert(signal.uuid(), name);
 
         signal
     }
 
-    pub fn add_constr(&mut self, annotation: &str, expr: Expr<F>) {
-        let condition = Constraint {
-            annotation: annotation.to_string(),
-            expr,
-        };
+    pub fn add_constr(&mut self, annotation: String, expr: Expr<F>) {
+        let condition = Constraint { annotation, expr };
 
         self.constraints.push(condition)
     }
 
-    pub fn add_transition(&mut self, annotation: &str, expr: Expr<F>) {
-        let condition = TransitionConstraint {
-            annotation: annotation.to_string(),
-            expr,
-        };
+    pub fn add_transition(&mut self, annotation: String, expr: Expr<F>) {
+        let condition = TransitionConstraint { annotation, expr };
 
         self.transition_constraints.push(condition)
     }
@@ -269,11 +253,16 @@ pub struct Lookup<F> {
 pub struct ForwardSignal {
     id: u32,
     phase: usize,
+    annotation: &'static str,
 }
 
 impl ForwardSignal {
-    pub fn new_with_phase(phase: usize) -> ForwardSignal {
-        ForwardSignal { id: uuid(), phase }
+    pub fn new_with_phase(phase: usize, annotation: String) -> ForwardSignal {
+        ForwardSignal {
+            id: uuid(),
+            phase,
+            annotation: Box::leak(annotation.into_boxed_str()),
+        }
     }
 
     pub fn uuid(&self) -> u32 {
@@ -288,11 +277,15 @@ impl ForwardSignal {
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct InternalSignal {
     id: u32,
+    annotation: &'static str,
 }
 
 impl InternalSignal {
-    pub fn new() -> InternalSignal {
-        InternalSignal { id: uuid() }
+    pub fn new(annotation: String) -> InternalSignal {
+        InternalSignal {
+            id: uuid(),
+            annotation: Box::leak(annotation.into_boxed_str()),
+        }
     }
 
     pub fn uuid(&self) -> u32 {
@@ -304,11 +297,16 @@ impl InternalSignal {
 pub struct ImportedHalo2Column<CT: ColumnType> {
     id: u32,
     pub column: Halo2Column<CT>,
+    annotation: &'static str,
 }
 
 impl<CT: ColumnType> ImportedHalo2Column<CT> {
-    pub fn new(column: Halo2Column<CT>) -> ImportedHalo2Column<CT> {
-        ImportedHalo2Column { id: uuid(), column }
+    pub fn new(column: Halo2Column<CT>, annotation: String) -> ImportedHalo2Column<CT> {
+        ImportedHalo2Column {
+            id: uuid(),
+            column,
+            annotation: Box::leak(annotation.into_boxed_str()),
+        }
     }
 
     pub fn uuid(&self) -> u32 {

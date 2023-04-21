@@ -27,7 +27,7 @@ impl<F: FieldExt> IsZero<F> {
         let value: Expr<F> = value.into();
         let is_zero_expression = (1.expr() - value.clone()) * value_inv;
 
-        ctx.constr("isZero", value.clone() * is_zero_expression.clone());
+        ctx.constr(value.clone() * is_zero_expression.clone());
 
         IsZero {
             value_inv,
@@ -59,6 +59,8 @@ struct BytecodeLine<F: Debug> {
 fn main() {
     let mut bytecode_circuit =
         circuit::<Fr, Vec<Vec<BytecodeLine<Fr>>>, BytecodeLine<Fr>, _>("bytecode circuit", |ctx| {
+            use chiquito::dsl::cb::*;
+
             let length = ctx.forward("length");
             let index = ctx.forward("index");
             let hash = ctx.forward("hash");
@@ -68,23 +70,20 @@ fn main() {
 
             let s1 = ctx.step_type("header");
             ctx.step_type_def(s1, |ctx| {
-                ctx.constr("index == 0", index.expr());
-                ctx.constr("value == length", value.expr());
+                ctx.constr(isz(index));
+                ctx.constr(eq(value, length));
 
                 ctx.wg(|ctx, v| {})
             });
             let s2 = ctx.step_type("byte");
             ctx.step_type_def(s2, |ctx| {
-                let push_data_left = ctx.signal("push_data_left");
-                let push_data_size = ctx.signal("push_data_size");
-                let push_data_left_inv = ctx.signal("push_data_left_inv");
+                let push_data_left = ctx.internal("push_data_left");
+                let push_data_size = ctx.internal("push_data_size");
+                let push_data_left_inv = ctx.internal("push_data_left_inv");
 
                 let push_data_left_is_zero = IsZero::setup(ctx, push_data_left, push_data_left_inv);
 
-                ctx.constr(
-                    "is_code == push_data_left_is_zero.is_zero",
-                    is_code - push_data_left_is_zero.is_zero(),
-                );
+                ctx.constr(eq(is_code, push_data_left_is_zero.is_zero()));
 
                 // TODO
                 // lookup(
