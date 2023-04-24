@@ -180,6 +180,20 @@ pub fn if_next_step<F: Clone, T: Into<Constraint<F>>>(
     }
 }
 
+pub fn next_step_must_be<F: From<u64>>(step_type: StepTypeHandler) -> Constraint<F> {
+    annotate(
+        format!("next_step_must_be({})", step_type.annotation),
+        not(step_type.next()),
+    )
+}
+
+pub fn next_step_must_not_be<F: From<u64>>(step_type: StepTypeHandler) -> Constraint<F> {
+    annotate(
+        format!("next_step_must_be({})", step_type.annotation),
+        step_type.next(),
+    )
+}
+
 pub fn annotate<F, E: Into<Expr<F>>>(annotation: String, expr: E) -> Constraint<F> {
     Constraint {
         annotation,
