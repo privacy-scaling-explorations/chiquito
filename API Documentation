@@ -1,1 +1,740 @@
+# Chiquito API Documentation
 
+# Overall Workflow
+
+Chiquito is a DSL that compiles Chiquito AST to an IR which can be parsed by a Chiquito Halo2 backend and integrated into a Halo2 circuit. Therefore, to create a Halo2 circuit using Chiquito, we need to:
+
+- Call `circuit` function in DSL, which returns an `ast::Circuit` object. The `circuit` function defines the `ast::Circuit` object by:
+    - Importing Halo2 columns
+    - Generating fixed columns
+    - Adding forward signals
+    - Defining and instantiating “steps”, which defines internal signals, constraints, lookups, and witness generation
+- Create a `Compiler` object that compiles the `ast::Circuit` object to an `ir::Circuit` object
+- Call `chiquito2Halo2` function in Halo2 backend to convert the `ir::Circuit` object to a `ChiquitoHalo2` object
+- Integrate `ChiquitoHalo2` object into a Halo2 circuit using a boiler plate code
+
+# DSL Functions
+
+The above section describes the high level process of building and integrating a Chiquito Halo2 backend object into a Halo2 circuit. However, when building a circuit using Chiquito, the developer mostly call DSL functions to manipulate the `ast::Circuit` object, which the rest of this API documentation will focus on.
+
+Before we dive in, there are a few Chiquito-specific concepts that are not in Halo2:
+
+- Step (or super row): Chiquito provides syntax sugar for defining complex constraints and therefore sometimes requires allocating multiple Halo2 rows to build out a set of constraints. These groups of rows are called “super rows” or “steps”.
+- Signals: Halo2 uses rotations to describe constraints among different rows. Chiquito abstracts rotation away from developers by using “signals”, to mimic Circom’s user friendly features.
+    - Internal signal: only supports constraints within the same step
+    - Forward signal: supports constraints across different steps
+
+DSL functions are defined on two levels:
+
+- Circuit level: define and manipulate circuit-level objects, such as forward signals, step types, fixed columns, and imported Halo2 columns.
+- Step type level: defined and manipulate step-specific objects, such as internal signals, constraints, witness generations.
+
+# Circuit-Level DSL Functions
+
+## CircuitContext **Struct**
+
+The **`CircuitContext`** struct is a generic structure designed to handle the context of a circuit for generic types **`F`**, **`TraceArgs`** and **`StepArgs`**. The struct contains a **`Circuit`** instance and implements methods to build the circuit, add various components, and manipulate the circuit.
+
+```rust
+pub struct CircuitContext<F, TraceArgs, StepArgs> {
+    sc: Circuit<F, TraceArgs, StepArgs>,
+}
+```
+
+### **Type Parameters**
+
+- **`F`**: A generic type representing the field of the circuit.
+- **`TraceArgs`**: A generic type representing the arguments passed to the trace function.
+- **`StepArgs`**: A generic type representing the arguments passed to the step_type_def function.
+
+## CircuitContext **Methods**
+
+### **`forward` function**
+
+```rust
+pub fn forward(&mut self, name: &str) -> Queriable<F>
+
+```
+
+**Description:**
+
+Adds a forward signal to the circuit with zero rotation and returns a **`Queriable`** instance.
+
+**Arguments:**
+
+- **`name: &str`** - The name of the forward signal.
+
+**Return:**
+
+- **`Queriable<F>`** - A **`Queriable`** instance representing the added forward signal.
+
+### **`forward_with_phase` function**
+
+```rust
+pub fn forward_with_phase(&mut self, name: &str, phase: usize) -> Queriable<F>
+
+```
+
+**Description:**
+
+Adds a forward signal to the circuit with the specified phase and returns a **`Queriable`** instance.
+
+**Arguments:**
+
+- **`name: &str`** - The name of the forward signal.
+- **`phase: usize`** - The phase of the forward signal.
+
+**Return:**
+
+- **`Queriable<F>`** - A **`Queriable`** instance representing the added forward signal.
+
+### **`import_halo2_advice` function**
+
+```rust
+pub fn import_halo2_advice(&mut self, name: &str, column: Halo2Column<Advice>) -> Queriable<F>
+
+```
+
+**Description:**
+
+Imports a halo2 advice column into the circuit and returns a **`Queriable`** instance.
+
+**Arguments:**
+
+- **`name: &str`** - The name of the halo2 advice column.
+- **`column: Halo2Column<Advice>`** - The advice column to import.
+
+**Return:**
+
+- **`Queriable<F>`** - A **`Queriable`** instance representing the imported halo2 advice column.
+
+### **`import_halo2_fixed` function**
+
+```rust
+pub fn import_halo2_fixed(&mut self, name: &str, column: Halo2Column<Fixed>) -> Queriable<F>
+
+```
+
+**Description:**
+
+Imports a halo2 fixed column into the circuit and returns a **`Queriable`** instance.
+
+**Arguments:**
+
+- **`name: &str`** - The name of the halo2 fixed column.
+- **`column: Halo2Column<Fixed>`** - The fixed column to import.
+
+**Return:**
+
+- **`Queriable<F>`** - A **`Queriable`** instance representing the imported halo2 fixed column.
+
+### **`step_type` function**
+
+```rust
+pub fn step_type(&mut self, name: &str) -> StepTypeHandler
+
+```
+
+**Description:**
+
+Adds a new step type with the specified name to the circuit and returns a **`StepTypeHandler`** instance.
+
+**Arguments:**
+
+- **`name: &str`** - The name of the new step type.
+
+**Return:**
+
+- **`StepTypeHandler`** - A **`StepTypeHandler`** instance representing the added step type.
+
+### **`step_type_def` function**
+
+```rust
+pub fn step_type_def<D>(&mut self, handler: StepTypeHandler, def: D)
+where
+    D: FnOnce(&mut StepTypeContext<F, StepArgs>),
+
+```
+
+**Description:**
+
+Defines a step type using the provided **`StepTypeHandler`** and a function that takes a mutable reference to a **`StepTypeContext`**. This function typically adds constraints to a step type and defines witness generation.
+
+**Arguments:**
+
+- **`handler: StepTypeHandler`** - The **`StepTypeHandler`** instance representing the step type to define.
+- **`def: D`** - The function that defines the step type by taking a mutable reference to a **`StepTypeContext`**.
+
+### **`trace` function**
+
+```rust
+pub fn trace<D>(&mut self, def: D)
+where
+    D: Fn(&mut dyn TraceContext<StepArgs>, TraceArgs) + 'static,
+
+```
+
+**Description:**
+
+Sets the trace function for the circuit. The trace function is responsible for adding step instantiations defined in step_type_def.
+
+**Arguments:**
+
+- **`def: D`** - The trace function, which takes a mutable reference to a **`TraceContext`** and a **`TraceArgs`** instance.
+
+### **fixed_gen**
+
+```rust
+pub fn fixed_gen<D>(&mut self, def: D)
+where
+    D: Fn(&mut dyn FixedGenContext<F>) + 'static,
+
+```
+
+**Description:**
+
+Sets the fixed generation function for the circuit. The fixed generation function is responsible for assigning fixed values to fixed column **`Queriable`**. It is entirely left for the user to implement and is Turing complete. Users typically generate cell values and call the `**assign**` function to fill the fixed columns.
+
+**Arguments:**
+
+- **`def: D`** - The fixed generation function, which takes a mutable reference to a **`FixedGenContext`**. See more information about this trait and its assign function below.
+
+### `FixedGenContext` trait and `assign` function (non-DSL)
+
+**`FixedGenContext`** is a trait that represents a fixed column generation context. It provides an interface for assigning values to fixed columns in a circuit at the specified offset.
+
+```rust
+pub trait FixedGenContext<F> {
+    fn assign(&mut self, offset: usize, lhs: Queriable<F>, rhs: F);
+}
+
+```
+
+The assign function takes a **`Queriable`** object representing the fixed column (lhs) and the value (rhs) to be assigned.
+
+### **`pragma_first_step` function**
+
+```rust
+pub fn pragma_first_step(&mut self, step_type: StepTypeHandler)
+
+```
+
+**Description:**
+
+Enforce the type of the first step for the circuit using the **`StepTypeHandler`** of the desired StepType
+
+**Arguments:**
+
+- **`step_type: StepTypeHandler`** - The **`StepTypeHandler`** instance representing the first step type to enforce.
+
+### **`pragma_last_step` function**
+
+```rust
+pub fn pragma_last_step(&mut self, step_type: StepTypeHandler)
+
+```
+
+**Description:**
+
+Enforce the type of the last step type for the circuit using the **`StepTypeHandler`** of the desired StepType.
+
+**Arguments:**
+
+- **`step_type: StepTypeHandler`** - The **`StepTypeHandler`** instance representing the last step type to enforce.
+
+# Step-Level DSL Functions
+
+## `StepTypeContext` **Struct**
+
+The **`StepTypeContext`** struct is a generic structure designed to handle the context of a step type for generic types **`F`** and **`Args`**. The struct contains a **`StepType`** instance and implements methods to build the step type, add components, and manipulate the step type.
+
+```rust
+pub struct StepTypeContext<F, Args> {
+    step_type: StepType<F, Args>,
+}
+
+```
+
+### **Type Parameters**
+
+- **`F`**: A generic type representing the field of the step type.
+- **`Args`**: A generic type representing the arguments passed to the step type.
+
+## `StepTypeContext` **Methods**
+
+### **`internal` function**
+
+```rust
+pub fn internal(&mut self, name: &str) -> Queriable<F>
+
+```
+
+**Description:**
+
+Adds an internal signal to the step type with the given name and returns a **`Queriable`** instance.
+
+**Arguments:**
+
+- **`name: &str`** - The name of the internal signal.
+
+**Return:**
+
+- **`Queriable<F>`** - A **`Queriable`** instance representing the added internal signal.
+
+### **`constr` function**
+
+```rust
+pub fn constr<C: Into<Constraint<F>>>(&mut self, constraint: C)
+
+```
+
+**Description:**
+
+Adds a constraint to the step type. Involves internal signal(s) only.
+
+**Arguments:**
+
+- **`constraint: C`** - Accepts any type that can be converted into a **`Constraint<F>`**. Chiquito provides syntax sugar for defining complex constraints. Refer to **Constraint Builder DSL Functions** section for more information.
+
+### **`transition` function**
+
+```rust
+pub fn transition<C: Into<Constraint<F>>>(&mut self, constraint: C)
+
+```
+
+**Description:**
+
+Adds a transition constraint to the step type. It’s the same as a regular constraint except that it can involve forward signal(s) as well.
+
+**Arguments:**
+
+- **`constraint: C`** - Accepts any type that can be converted into a **`Constraint<F>`**. Chiquito provides syntax sugar for defining complex constraints. Refer to **Constraint Builder DSL Functions** section for more information.
+
+### **`wg` function**
+
+```rust
+pub fn wg<D>(&mut self, def: D)
+where
+    D: Fn(&mut dyn WitnessGenContext<F>, Args) + 'static,
+
+```
+
+**Description:**
+
+Sets the witness generation function for the step type. The witness generation function is responsible for assigning witness values to witness column **`Queriable`**. It is entirely left for the user to implement and is Turing complete. Users typically generate cell values and call the assign function to fill the witness columns.
+
+**Arguments:**
+
+- **`def: D`** - The witness generation function, which takes a mutable reference to a **`WitnessGenContext`** and an **`Args`** instance, a generic type representing the arguments passed to the witness generation function. See more information about the **`WitnessGenContext`** trait and its assign function below.
+
+### `WitnessGenContext` trait and `assign` function (non-DSL)
+
+**`WitnessGenContext`** is a trait that represents a witness generation context. It provides an interface for assigning values to witness columns in a circuit.
+
+```rust
+pub trait WitnessGenContext<F> {
+    fn assign(&mut self, lhs: Queriable<F>, rhs: F);
+}
+
+```
+
+The assign function takes a **`Queriable`** object representing the witness column (lhs) and the value (rhs) to be assigned.
+
+### `add_lookup` function
+
+```rust
+pub fn add_lookup(&mut self, lookup_builder: &mut LookupBuilder<F>)
+
+```
+
+**Description:**
+
+Adds a lookup table to the step type.
+
+**Arguments:**
+
+- **`lookup_builder: &mut LookupBuilder<F>`** - The lookup table builder from which to add the lookup table to the step type.
+
+### `lookup` function
+
+```rust
+pub fn lookup<F: Debug + Clone>() -> LookupBuilder<F>
+
+```
+
+**Description**
+
+Creates a new empty **`LookupBuilder`** object and returns it. Can chain `**add**` and `**enable**` function calls to build the lookup table.
+
+**Returns**
+
+A new empty **`LookupBuilder<F>`**. See more information about the **`LookupBuilder`** object and its functions for building the lookup table below.
+
+### **`LookupBuilder` struct**
+
+```rust
+pub struct LookupBuilder<F> {
+    pub lookup: Lookup<F>,
+}
+
+```
+
+**Description**
+
+The **`LookupBuilder`** struct is a helper struct for building lookup tables.
+
+### `add` **function (`LookupBuilder` method)**
+
+```rust
+pub fn add<C: Into<Constraint<F>>, E: Into<Expr<F>>>(
+    &mut self,
+    constraint: C,
+    expression: E
+) -> &mut Self
+
+```
+
+**Description**
+
+Adds a source column-lookup column pair to the lookup table. Can chain `**add**` and `**enable**` function calls to build the lookup table.
+
+**Arguments**
+
+- **`constraint`**: Source column that accepts any type that can be converted into a  **`Constraint<F>`**.
+- **`expression`**: Lookup column that accepts any type that can be converted into an **`Expr<F>`**.
+
+**Returns**
+
+A mutable reference to the **`LookupBuilder<F>`**.
+
+### `enable` function **(`LookupBuilder` method)**
+
+```rust
+pub fn enable<C: Into<Constraint<F>>>(&mut self, enable: C) -> &mut Self
+
+```
+
+**Description**
+
+Adds a selector column specific to the lookup table. Can chain `**add**` and `**enable**` function calls to build the lookup table.
+
+**Arguments**
+
+- **`enable`**: Selector column that accepts any type that can be converted into **`Constraint<F>`**.
+
+**Returns**
+
+A mutable reference to the **`LookupBuilder<F>`**.
+
+# **Constraint Builder DSL Functions**
+
+## **`Constraint` Struct**
+
+The **`Constraint`** struct represents a constraint with an associated annotation and expression.
+
+```rust
+#[derive(Clone)]
+pub struct Constraint<F> {
+    pub annotation: String,
+    pub expr: Expr<F>,
+}
+
+```
+
+## `Constraint` Building Methods
+
+### **`from` function (many implementations)**
+
+```rust
+fn from(expr: Expr<F>) -> Self 
+fn from(query: Queriable<F>) -> Self
+fn from(value: i32) -> Self
+fn from(value: bool) -> Self
+fn from(value: u8) -> Self
+fn from(value: u32) -> Self
+fn from(value: u64) -> Self
+fn from(value: usize) -> Self
+```
+
+**`Constraint<F>`** can be converted from **`Expr<F>`, `Queriable<F>`, `i32`, `bool`, `u8`, `u32`, `u64`,** and **`usize`**, due to multiple implementations of the **`From<$type>`** traits.
+
+### `next` function (for forward signals only)
+
+```rust
+pub fn next(&self) -> Queriable<F>
+
+```
+
+**Description**
+
+Call `**next**` function on a `**Querible**` forward signal to build constraints for forward signal with rotation. Cannot be called on an internal signal and must be used within a `**transition**` constraint.
+
+**Returns**
+
+A new **`Queriable`** forward signal with rotation.
+
+### `and` function
+
+```rust
+pub fn and<F: From<u64>, E: Into<Constraint<F>>, I: IntoIterator<Item = E>>(
+    inputs: I,
+) -> Constraint<F>
+
+```
+
+**Description**
+
+The **`and`** function takes an iterator of input constraints and returns a new constraint representing the logical AND of all input constraints. In practice, multiplies all input constraints together, i.e. A * B * C * … = 0.
+
+**Arguments**
+
+- **`inputs`**: An iterator of items that can be converted into **`Constraint<F>`**.
+
+**Returns**
+
+A **`Constraint<F>`** representing the logical AND of all input constraints.
+
+### **`or` function**
+
+```rust
+pub fn or<
+    F: From<u64> + Debug,
+    E: Into<Constraint<F>> + Clone,
+    I: IntoIterator<Item = E> + Clone,
+>(
+    inputs: I,
+) -> Constraint<F>
+
+```
+
+**Description**
+
+The **`or`** function takes an iterator of input constraints and returns a new constraint representing the logical OR of all input constraints. In practice, constructs the output constraint in the format of not(and(not(A), not(B), not(C), …)) = 0, which is equivalent to or(A, B, C, …).
+
+**Arguments**
+
+- **`inputs`**: An iterator of items that can be converted into **`Constraint<F>`**.
+
+**Returns**
+
+A **`Constraint<F>`** representing the logical OR of all input constraints.
+
+### **`xor` function**
+
+```rust
+pub fn xor<F: From<u64> + Clone, LHS: Into<Expr<F>>, RHS: Into<Expr<F>>>(
+    lhs: LHS,
+    rhs: RHS,
+) -> Expr<F>
+
+```
+
+**Description**
+
+The **`xor`** function takes two expressions and returns a new expression representing the logical XOR of the input expressions.
+
+**Arguments**
+
+- **`lhs`**: An expression or item that can be converted into **`Expr<F>`**.
+- **`rhs`**: An expression or item that can be converted into **`Expr<F>`**.
+
+**Returns**
+
+An **`Expr<F>`** representing the logical XOR of the input expressions.
+
+### **`eq` function**
+
+```rust
+rustCopy code
+pub fn eq<F, LHS: Into<Constraint<F>>, RHS: Into<Constraint<F>>>(
+    lhs: LHS,
+    rhs: RHS,
+) -> Constraint<F>
+
+```
+
+**Description**
+
+The **`eq`** function takes two constraints and returns a new constraint representing the equality of the input constraints.
+
+**Arguments**
+
+- **`lhs`**: A constraint or item that can be converted into **`Constraint<F>`**.
+- **`rhs`**: A constraint or item that can be converted into **`Constraint<F>`**.
+
+**Returns**
+
+A **`Constraint<F>`** representing the equality of the input constraints.
+
+### **`select` function**
+
+```rust
+pub fn select<
+    F: From<u64> + Clone,
+    T1: Into<Constraint<F>>,
+    T2: Into<Constraint<F>>,
+    T3: Into<Constraint<F>>,
+>(
+    selector: T1,
+    when_true: T2,
+    when_false: T3,
+) -> Constraint<F>
+
+```
+
+**Description**
+
+The **`select`** function takes a selector constraint and two other constraints, and returns a new constraint that represents the value of **`when_true`** if the selector is true, or **`when_false`** if the selector is false.
+
+**Arguments**
+
+- **`selector`**: A constraint or item that can be converted into **`Constraint<F>`**.
+- **`when_true`**: A constraint or item that can be converted into **`Constraint<F>`**.
+- **`when_false`**: A constraint or item that can be converted into **`Constraint<F>`**.
+
+**Returns**
+
+A **`Constraint<F>`** representing the conditional value based on the selector constraint.
+
+### **`not` function**
+
+```rust
+pub fn not<F: From<u64>, T: Into<Constraint<F>>>(constraint: T) -> Constraint<F>
+
+```
+
+**Description**
+
+The **`not`** function takes a constraint and returns a new constraint representing the logical NOT of the input constraint. The input constraint must have a value of either 0 or 1.
+
+**Arguments**
+
+- **`constraint`**: A constraint or item that can be converted into **`Constraint<F>`**.
+
+**Returns**
+
+A **`Constraint<F>`** representing the logical NOT of the input constraint.
+
+### **`isz` function**
+
+```rust
+pub fn isz<F, T: Into<Constraint<F>>>(constraint: T) -> Constraint<F>
+
+```
+
+**Description**
+
+The **`isz`** function takes a constraint and returns a new constraint representing whether the input constraint is zero.
+
+**Arguments**
+
+- **`constraint`**: A constraint or item that can be converted into **`Constraint<F>`**.
+
+**Returns**
+
+A **`Constraint<F>`** representing whether the input constraint is zero.
+
+### **`if_next_step` function**
+
+```rust
+pub fn if_next_step<F: Clone, T: Into<Constraint<F>>>(
+    step_type: StepTypeHandler,
+    constraint: T,
+) -> Constraint<F>
+
+```
+
+**Description**
+
+The **`if_next_step`** function takes a **`StepTypeHandler`** and a constraint, and returns a new constraint that is only applied if the next step is of the given step type.
+
+**Arguments**
+
+- **`step_type`**: A **`StepTypeHandler`** object.
+- **`constraint`**: A constraint or item that can be converted into **`Constraint<F>`**.
+
+**Returns**
+
+A **`Constraint<F>`** representing the conditional constraint based on the next step's type.
+
+### **`next_step_must_be` function**
+
+```rust
+pub fn next_step_must_be<F: From<u64>>(step_type: StepTypeHandler) -> Constraint<F>
+
+```
+
+**Description**
+
+The **`next_step_must_be`** function takes a **`StepTypeHandler`** and returns a new constraint that requires the next step to be of the given step type.
+
+**Arguments**
+
+- **`step_type`**: A **`StepTypeHandler`** object.
+
+**Returns**
+
+A **`Constraint<F>`** representing the requirement that the next step must be of the given step type.
+
+### **`next_step_must_not_be` function**
+
+```rust
+pub fn next_step_must_not_be<F: From<u64>>(step_type: StepTypeHandler) -> Constraint<F>
+
+```
+
+**Description**
+
+The **`next_step_must_not_be`** function takes a **`StepTypeHandler`** and returns a new constraint that requires the next step to not be of the given step type.
+
+**Arguments**
+
+- **`step_type`**: A **`StepTypeHandler`** object.
+
+**Returns**
+
+A **`Constraint<F>`** representing the requirement that the next step must not be of the given step type.
+
+### **`annotate` function**
+
+```rust
+pub fn annotate<F, E: Into<Expr<F>>>(annotation: String, expr: E) -> Constraint<F>
+
+```
+
+**Description**
+
+The **`annotate`** function takes a string annotation and an expression, and returns a new constraint with the given annotation and expression.
+
+**Arguments**
+
+- **`annotation`**: A **`String`** containing the annotation for the constraint.
+- **`expr`**: An expression or item that can be converted into **`Expr<F>`**.
+
+**Returns**
+
+A **`Constraint<F>`** with the given annotation and expression.
+
+### **`rlc` function**
+
+```rust
+pub fn rlc<F: From<u64>, E: Into<Expr<F>> + Clone, R: Into<Expr<F>> + Clone>(
+    exprs: &[E],
+    randomness: R,
+) -> Expr<F>
+
+```
+
+**Description**
+
+The **`rlc`** function computes the randomized linear combination of the given expressions and randomness.
+
+**Arguments**
+
+- **`exprs`**: A slice of expressions or items that can be converted into **`Expr<F>`**.
+- **`randomness`**: A randomness value or item that can be converted into **`Expr<F>`**.
+
+**Returns**
+
+An **`Expr<F>`** representing the randomized linear combination of the input expressions and randomness.
