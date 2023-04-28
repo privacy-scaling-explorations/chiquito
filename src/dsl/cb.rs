@@ -2,7 +2,7 @@ use std::{fmt::Debug, vec};
 
 use halo2_proofs::arithmetic::Field;
 
-use crate::ast::{query::Queriable, Expr, ToExpr};
+use crate::ast::{query::Queriable, Expr, Lookup, ToExpr};
 
 use super::StepTypeHandler;
 
@@ -144,6 +144,35 @@ pub fn select<
     }
 }
 
+pub fn when<F: From<u64> + Clone, T1: Into<Constraint<F>>, T2: Into<Constraint<F>>>(
+    selector: T1,
+    when_true: T2,
+) -> Constraint<F> {
+    let selector = selector.into();
+    let when_true = when_true.into();
+
+    Constraint {
+        annotation: format!("if({})then({})", selector.annotation, when_true.annotation),
+        expr: selector.expr * when_true.expr,
+    }
+}
+
+pub fn unless<F: From<u64> + Clone, T1: Into<Constraint<F>>, T2: Into<Constraint<F>>>(
+    selector: T1,
+    when_false: T2,
+) -> Constraint<F> {
+    let selector = selector.into();
+    let when_false = when_false.into();
+
+    Constraint {
+        annotation: format!(
+            "unless({})then({})",
+            selector.annotation, when_false.annotation
+        ),
+        expr: (1u64.expr() - selector.expr) * when_false.expr,
+    }
+}
+
 // not, works only if the parameter is 0 or 1
 pub fn not<F: From<u64>, T: Into<Constraint<F>>>(constraint: T) -> Constraint<F> {
     let constraint = constraint.into();
@@ -180,6 +209,20 @@ pub fn if_next_step<F: Clone, T: Into<Constraint<F>>>(
     }
 }
 
+pub fn next_step_must_be<F: From<u64>>(step_type: StepTypeHandler) -> Constraint<F> {
+    annotate(
+        format!("next_step_must_be({})", step_type.annotation),
+        not(step_type.next()),
+    )
+}
+
+pub fn next_step_must_not_be<F: From<u64>>(step_type: StepTypeHandler) -> Constraint<F> {
+    annotate(
+        format!("next_step_must_be({})", step_type.annotation),
+        step_type.next(),
+    )
+}
+
 pub fn annotate<F, E: Into<Expr<F>>>(annotation: String, expr: E) -> Constraint<F> {
     Constraint {
         annotation,
@@ -199,4 +242,38 @@ pub fn rlc<F: From<u64>, E: Into<Expr<F>> + Clone, R: Into<Expr<F>> + Clone>(
     } else {
         0u64.expr()
     }
+}
+
+pub struct LookupBuilder<F> {
+    pub lookup: Lookup<F>,
+}
+
+impl<F: Debug + Clone> LookupBuilder<F> {
+    pub fn new() -> Self {
+        LookupBuilder {
+            lookup: Lookup::empty(),
+        }
+    }
+
+    pub fn add<C: Into<Constraint<F>>, E: Into<Expr<F>>>(
+        &mut self,
+        constraint: C,
+        expression: E,
+    ) -> &mut Self {
+        let constraint = constraint.into();
+        self.lookup
+            .add(constraint.annotation, constraint.expr, expression.into());
+        self
+    }
+
+    pub fn enable<C: Into<Constraint<F>>>(&mut self, enable: C) -> &mut Self {
+        let enable = enable.into();
+        self.lookup.enable(enable.annotation, enable.expr);
+        self
+    }
+}
+
+// Function: creates a new empty LookupBuilder object and returns it
+pub fn lookup<F: Debug + Clone>() -> LookupBuilder<F> {
+    LookupBuilder::new()
 }
