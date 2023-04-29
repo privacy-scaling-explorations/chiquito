@@ -242,30 +242,43 @@ pub struct TransitionConstraint<F> {
 pub struct Lookup<F> {
     pub annotation: String,
     pub exprs: Vec<(Constraint<F>, Expr<F>)>,
-    pub enable: Option<Constraint<F>>
+    pub enable: Option<Constraint<F>>,
 }
 
-impl<F: Debug + Clone> Lookup<F> {
-    pub fn empty() -> Self {
+impl<F> Default for Lookup<F> {
+    fn default() -> Self {
         Lookup {
             annotation: String::new(),
             exprs: Vec::<(Constraint<F>, Expr<F>)>::new(),
             enable: None,
         }
     }
+}
 
+impl<F: Debug + Clone> Lookup<F> {
     // Function: adds (constraint, expression) to exprs if there's no enabler, OR add (enabler * constraint, expression) to exprs if there's enabler
-    // Note that constraint_annotation and constraint_expr are passed in as separate parameters, and then reconstructed as Constraint, 
+    // Note that constraint_annotation and constraint_expr are passed in as separate parameters, and then reconstructed as Constraint,
     // because dsl uses cb::Constraint while ast uses ast::Constraint
-    pub fn add(&mut self, constraint_annotation: String, constraint_expr: Expr<F>, expression: Expr<F>) {
-        let constraint = Constraint {annotation: constraint_annotation, expr: constraint_expr};
+    pub fn add(
+        &mut self,
+        constraint_annotation: String,
+        constraint_expr: Expr<F>,
+        expression: Expr<F>,
+    ) {
+        let constraint = Constraint {
+            annotation: constraint_annotation,
+            expr: constraint_expr,
+        };
         self.annotation += &format!("match({} => {:?}) ", &constraint.annotation, &expression); // expression: Expr<F> is formatted using the fmt method defined in the Debug trait
         match self.enable {
             None => {
                 self.exprs.push((constraint, expression));
             }
             Some(_) => {
-                self.exprs.push((Self::multiply_constraints(self.enable.clone().unwrap(), constraint), expression));
+                self.exprs.push((
+                    Self::multiply_constraints(self.enable.clone().unwrap(), constraint),
+                    expression,
+                ));
             }
         }
     }
@@ -293,7 +306,7 @@ impl<F: Debug + Clone> Lookup<F> {
     fn multiply_constraints(enable: Constraint<F>, constraint: Constraint<F>) -> Constraint<F> {
         Constraint {
             annotation: constraint.annotation.clone(), // annotation only takes the constraint's annotation, because enabler's annotation is already included in the enable function above in the format of "if {enable}"
-            expr: enable.expr * constraint.expr
+            expr: enable.expr * constraint.expr,
         }
     }
 }
