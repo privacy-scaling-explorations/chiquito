@@ -248,13 +248,15 @@ pub struct LookupBuilder<F> {
     pub lookup: Lookup<F>,
 }
 
-impl<F: Debug + Clone> LookupBuilder<F> {
-    pub fn new() -> Self {
+impl<F> Default for LookupBuilder<F> {
+    fn default() -> Self {
         LookupBuilder {
-            lookup: Lookup::empty(),
+            lookup: Lookup::default(),
         }
     }
+}
 
+impl<F: Debug + Clone> LookupBuilder<F> {
     pub fn add<C: Into<Constraint<F>>, E: Into<Expr<F>>>(
         &mut self,
         constraint: C,
@@ -275,5 +277,5 @@ impl<F: Debug + Clone> LookupBuilder<F> {
 
 // Function: creates a new empty LookupBuilder object and returns it
 pub fn lookup<F: Debug + Clone>() -> LookupBuilder<F> {
-    LookupBuilder::new()
+    LookupBuilder::default()
 }
