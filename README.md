@@ -4,11 +4,11 @@
 
 Chiquito is a high-level DSL that provides syntax sugar and abstraction for constraint building and column placement when writing Halo2 circuits. It allows the user to manipulate an AST that’s compiled to a Chiquito Halo2 backend, which can be integrated into any Halo2 circuit.
 
-It's **HIGHLY RECOMMENDED** that you read the [design principles](#Design),  [architecture, and specific terms](#Architecture) of a Chiquito circuit before getting started.
+It's **HIGHLY RECOMMENDED** that you read the [design principles](#design-principles),  [architecture, and specific terms](#architecture) of a Chiquito circuit before getting started.
 
-You can also learn about the project's [current status](#ProjectStatus) and its [next steps](#NextSteps). 
+You can also learn about the project's [current status](#project-status-as-of-april-2023)) and its [next steps](#vision-and-next-steps). 
 
-# **Getting Started**
+# Getting Started
 
 ## Setup
 
@@ -20,9 +20,9 @@ chiquito = { git = "[https://github.com/privacy-scaling-explorations/chiquito](h
 
 Use the following examples to understand how Chiquito works or use them as starting templates for building your own Chiquito circuit.
 
-Refer to the Appendix on the [exposed user functions](#UserFunctions) and [overall workflow](#Workflow) of a Chiquito circuit.
+Refer to the Appendix on the [exposed user functions](#exposed-user-functions) and [overall workflow](#overall-workflow) of a Chiquito circuit.
 
-Refer to [Testing and Links](#Links) on detailed API documentations.
+Refer to [Testing and Links](#testing-and-links) on detailed API documentations.
 
 
 ## Example: Fibonacci Circuit
@@ -40,7 +40,7 @@ https://github.com/privacy-scaling-explorations/zkevm-circuits/pull/1348
 
 This example rewrites the zkEVM bytecode circuit using Chiquito and passes all original tests. It demonstrates how Chiquito can standardize and simplify larger scale circuits on the production level.
 
-# <a id="Links"></a> Testing and Links
+# Testing and Links
 **API documentation**: https://qwang98.github.io/chiquito/chiquito/index.html
 
 Currently API documentation is only written for exposed user functions, which are scattered across the DSL, constraint builder, compiler, and AST. **Refer to the following subdirectories for specific functions:**
@@ -56,7 +56,7 @@ MIT OR Apache-2.0
 
 # Appendix
 
-## <a id="Design"></a> **Design Principles**
+## Design Principles
 
 **Abstraction**. As circuit complexity increases, abstraction is inevitable. By abstracting constraint building and column placement, Chiquito improves the readability and learnability of Halo2 circuits, which can not only standardize and simplify the code base for complex projects such as the zkEVM, but also onboard more circuit developers.
 
@@ -66,11 +66,11 @@ MIT OR Apache-2.0
 
 **User Experience**. Chiquito simplifies and optimizes user experience. For example, annotations for constraints are automatically generated for debugging messages.
 
-## <a id="Architecture"></a> **Architecture**
+## Architecture
 
 There are two major architectural differences between Chiquito and Halo2:
 
-- Chiquito circuit is composed of “steps”. Each step defines the constraints among witnesses, fixed columns, and lookup tables, and can be composed of one or multiple rows in a PLONKish table. That’s why steps are also called “super rows”. We made this design choice to allow for more complex constraints, which sometimes require allocating multiple Halo2 rows.
+- Chiquito circuit is composed of “step” instances. Each step type defines the constraints among witnesses, fixed columns, and lookup tables. Step instances are also called “super rows”, each composed of one or multiple rows in a PLONKish table. We made this design choice to allow for more complex constraints, which sometimes require allocating multiple Halo2 rows.
 - Chiquito DSL is based on “signals” rather than columns in order to abstract away column placements. One signal can be placed in different columns across different steps, all handled by Chiquito’s compiler.
 
 Chiquito circuit has the following architecture
@@ -86,7 +86,7 @@ Chiquito circuit has the following architecture
     - Trace (global circuit witness generation)
         - Adds instances of step types
 
-## <a id="Workflow"></a> Overall Workflow
+## Overall Workflow
 
 Chiquito is a DSL that compiles Chiquito AST to an IR which can be parsed by a Chiquito Halo2 backend and integrated into a Halo2 circuit. Therefore, to create a Halo2 circuit using Chiquito, we need to:
 
@@ -100,7 +100,7 @@ Chiquito is a DSL that compiles Chiquito AST to an IR which can be parsed by a C
 - Integrate `ChiquitoHalo2` object into a Halo2 circuit by including it in the Halo2 circuit config struct
 - Call `configure` and `synthesize` functions defined in the Halo2 backend on the `ChiquitoHalo2` object
 
-## <a id="UserFunctions"></a> Exposed User Functions
+## Exposed User Functions
 
 The above section describes the high level process of building and integrating a Chiquito Halo2 backend object into a Halo2 circuit. However, when building a circuit using Chiquito, the developer mostly call DSL functions to manipulate the `ast::Circuit` object.
 
@@ -112,7 +112,7 @@ DSL functions are defined on five different levels, with nested relationships:
     - Fixed column generation level: allow user-defined Turing-complete function to manipulate fixed column generation inputs and assign fixed column values
     - Trace level: create the main circuit by instantiating step types; allow user-defined Turing-complete function to manipulate external trace inputs and assign input values to step type instances
 
-## <a id="ProjectStatus"></a> **Project Status (as of April 2023)** 
+## Project Status (as of April 2023)
 
 The current implementation includes:
 
@@ -122,7 +122,7 @@ The current implementation includes:
 - A working prototype that passes zkEVM bytecode circuit tests
 - Hashing function circuit examples
 
-## <a id="NextSteps"></a> **Vision and Next Steps**
+## Vision and Next Steps
 
 Modularity
 
