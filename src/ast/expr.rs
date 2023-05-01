@@ -235,6 +235,10 @@ pub mod query {
     }
 
     impl<F> Queriable<F> {
+        /// # **Description:**
+        /// Call `**next**` function on a `**Querible**` forward signal to build constraints for forward signal with rotation. Cannot be called on an internal signal and must be used within a `**transition**` constraint.
+        /// # **Return:**
+        /// A new **`Queriable`** forward signal with rotation.
         pub fn next(&self) -> Queriable<F> {
             use Queriable::*;
             match self {
