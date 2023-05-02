@@ -64,12 +64,12 @@ fn fibo_circuit<F: FieldExt>() -> chiquito::ir::Circuit<F, (), (u64, u64)> {
             let mut a = 1;
             let mut b = 2;
 
-            for i in 1..10 {
+            for _i in 1..10 {
                 ctx.add(&fibo_step, (a, b));
 
                 let prev_a = a;
                 a = b;
-                b = prev_a + b;
+                b += prev_a;
             }
 
             ctx.add(&fibo_last_step, (a, b));
@@ -80,11 +80,10 @@ fn fibo_circuit<F: FieldExt>() -> chiquito::ir::Circuit<F, (), (u64, u64)> {
 
     let compiler = Compiler::new(SingleRowCellManager {}, SimpleStepSelectorBuilder {});
 
-    let compiled = compiler.compile(&fibo);
+    compiler.compile(&fibo)
 
     //println!("{:#?}", compiled);
 
-    compiled
 }
 
 fn main() {

@@ -27,7 +27,7 @@ impl<F: FieldExt> IsZero<F> {
         let value: Expr<F> = value.into();
         let is_zero_expression = (1.expr() - value.clone()) * value_inv;
 
-        ctx.constr(value.clone() * is_zero_expression.clone());
+        ctx.constr(value * is_zero_expression.clone());
 
         IsZero {
             value_inv,
@@ -48,37 +48,37 @@ impl<F: Field> IsZero<F> {
 
 #[derive(Debug)]
 struct BytecodeLine<F: Debug> {
-    hash: F,
-    index: F,
-    length: F,
-    is_code: F,
-    value: F,
-    push_data_left: F,
+    _hash: F,
+    _index: F,
+    _length: F,
+    _is_code: F,
+    _value: F,
+    _push_data_left: F,
 }
 
 fn main() {
-    let mut bytecode_circuit =
+    let bytecode_circuit =
         circuit::<Fr, Vec<Vec<BytecodeLine<Fr>>>, BytecodeLine<Fr>, _>("bytecode circuit", |ctx| {
             use chiquito::dsl::cb::*;
 
             let length = ctx.forward("length");
             let index = ctx.forward("index");
-            let hash = ctx.forward("hash");
+            // let hash = ctx.forward("hash");
             let is_code = ctx.forward("is_code");
             let value = ctx.forward("value");
-            let value_rlc = ctx.forward("value_rlc");
+            // let value_rlc = ctx.forward("value_rlc");
 
             let s1 = ctx.step_type("header");
             ctx.step_type_def(s1, |ctx| {
                 ctx.constr(isz(index));
                 ctx.constr(eq(value, length));
 
-                ctx.wg(|ctx, v| {})
+                // ctx.wg(|ctx, v| {})
             });
             let s2 = ctx.step_type("byte");
             ctx.step_type_def(s2, |ctx| {
                 let push_data_left = ctx.internal("push_data_left");
-                let push_data_size = ctx.internal("push_data_size");
+                // let push_data_size = ctx.internal("push_data_size");
                 let push_data_left_inv = ctx.internal("push_data_left_inv");
 
                 let push_data_left_is_zero = IsZero::setup(ctx, push_data_left, push_data_left_inv);
@@ -96,11 +96,11 @@ fn main() {
                 });
             });
 
-            ctx.trace(|ctx, bytecodes| {
-                for bytecode in bytecodes {
-                    println!("todo");
-                }
-            })
+            // ctx.trace(|ctx, bytecodes| {
+            //     for bytecode in bytecodes {
+            //         println!("todo");
+            //     }
+            // })
         });
 
     let compiler = Compiler::new(SingleRowCellManager {}, SimpleStepSelectorBuilder {});
