@@ -1,5 +1,7 @@
-use std::fmt::Debug;
-use std::ops::{Add, Mul, Neg, Sub};
+use std::{
+    fmt::Debug,
+    ops::{Add, Mul, Neg, Sub},
+};
 
 use halo2_proofs::{arithmetic::Field, plonk::Expression};
 

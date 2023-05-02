@@ -76,14 +76,13 @@ fn fibo_circuit<F: FieldExt>() -> chiquito::ir::Circuit<F, (), (u64, u64)> {
         })
     });
 
-    //println!("{:#?}", fibo);
+    // println!("{:#?}", fibo);
 
     let compiler = Compiler::new(SingleRowCellManager {}, SimpleStepSelectorBuilder {});
 
     compiler.compile(&fibo)
 
-    //println!("{:#?}", compiled);
-
+    // println!("{:#?}", compiled);
 }
 
 fn main() {

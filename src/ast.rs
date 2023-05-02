@@ -1,11 +1,12 @@
 pub mod expr;
 
-use std::fmt::Debug;
-use std::{collections::HashMap, rc::Rc};
+use std::{collections::HashMap, fmt::Debug, rc::Rc};
 
-use crate::compiler::{FixedGenContext, TraceContext, WitnessGenContext};
-use crate::dsl::StepTypeHandler;
-use crate::util::uuid;
+use crate::{
+    compiler::{FixedGenContext, TraceContext, WitnessGenContext},
+    dsl::StepTypeHandler,
+    util::uuid,
+};
 
 pub use expr::*;
 
@@ -256,8 +257,9 @@ impl<F> Default for Lookup<F> {
 }
 
 impl<F: Debug + Clone> Lookup<F> {
-    // Function: adds (constraint, expression) to exprs if there's no enabler, OR add (enabler * constraint, expression) to exprs if there's enabler
-    // Note that constraint_annotation and constraint_expr are passed in as separate parameters, and then reconstructed as Constraint,
+    // Function: adds (constraint, expression) to exprs if there's no enabler, OR add (enabler *
+    // constraint, expression) to exprs if there's enabler Note that constraint_annotation and
+    // constraint_expr are passed in as separate parameters, and then reconstructed as Constraint,
     // because dsl uses cb::Constraint while ast uses ast::Constraint
     pub fn add(
         &mut self,
@@ -283,7 +285,8 @@ impl<F: Debug + Clone> Lookup<F> {
         }
     }
 
-    // Function: setup the enabler field and multiply all LHS constraints by the enabler if there's no enabler, OR panic if there's an enabler already
+    // Function: setup the enabler field and multiply all LHS constraints by the enabler if there's
+    // no enabler, OR panic if there's an enabler already
     pub fn enable(&mut self, enable_annotation: String, enable_expr: Expr<F>) {
         let enable = Constraint {
             annotation: enable_annotation.clone(),
@@ -305,7 +308,11 @@ impl<F: Debug + Clone> Lookup<F> {
     // Function: helper function for multiplying enabler to constraint
     fn multiply_constraints(enable: Constraint<F>, constraint: Constraint<F>) -> Constraint<F> {
         Constraint {
-            annotation: constraint.annotation.clone(), // annotation only takes the constraint's annotation, because enabler's annotation is already included in the enable function above in the format of "if {enable}"
+            annotation: constraint.annotation.clone(), /* annotation only takes the constraint's
+                                                        * annotation, because enabler's
+                                                        * annotation is already included in the
+                                                        * enable function above in the format of
+                                                        * "if {enable}" */
             expr: enable.expr * constraint.expr,
         }
     }
