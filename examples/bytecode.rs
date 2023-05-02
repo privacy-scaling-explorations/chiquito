@@ -63,17 +63,14 @@ fn main() {
 
             let length = ctx.forward("length");
             let index = ctx.forward("index");
-            // let hash = ctx.forward("hash");
             let is_code = ctx.forward("is_code");
             let value = ctx.forward("value");
-            // let value_rlc = ctx.forward("value_rlc");
 
             let s1 = ctx.step_type("header");
             ctx.step_type_def(s1, |ctx| {
                 ctx.constr(isz(index));
                 ctx.constr(eq(value, length));
 
-                // ctx.wg(|ctx, v| {})
             });
             let s2 = ctx.step_type("byte");
             ctx.step_type_def(s2, |ctx| {
@@ -96,11 +93,6 @@ fn main() {
                 });
             });
 
-            // ctx.trace(|ctx, bytecodes| {
-            //     for bytecode in bytecodes {
-            //         println!("todo");
-            //     }
-            // })
         });
 
     let compiler = Compiler::new(SingleRowCellManager {}, SimpleStepSelectorBuilder {});
