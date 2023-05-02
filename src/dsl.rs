@@ -1,5 +1,5 @@
 use crate::{
-    ast::{query::Queriable, Circuit, Expr, StepType, StepTypeUUID, Lookup},
+    ast::{query::Queriable, Circuit, StepType, StepTypeUUID},
     compiler::{FixedGenContext, TraceContext, WitnessGenContext},
     util::uuid,
 };

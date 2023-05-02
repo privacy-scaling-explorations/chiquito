@@ -20,7 +20,7 @@ jobs:
         with:
           cancel_others: 'true'
           concurrent_skipping: 'same_content_newer'
-          paths_ignore: '["**/README.md", "**/API Documentation"]'
+          paths_ignore: '["**/README.md", "**/Docs**", "**/Appendix.md"]'
 
   build:
     needs: [skip_check]
@@ -82,4 +82,3 @@ jobs:
         with:
           command: fmt
           args: --all -- --check
-          
