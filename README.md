@@ -1,4 +1,4 @@
-# Chiquito README
+# Chiquito
 
 # Project Description
 
@@ -12,11 +12,7 @@ You can also learn about the project's [current status](#project-status-as-of-ap
 
 ## Setup
 
-Add the following line to `Cargo.toml` of your project:
-
-```rust
-chiquito = { git = "[https://github.com/privacy-scaling-explorations/chiquito](https://github.com/privacy-scaling-explorations/chiquito)", tag = "v2023_04_24_2" }
-```
+cargo add --git https://github.com/privacy-scaling-explorations/chiquito 
 
 Use the following examples to understand how Chiquito works or use them as starting templates for building your own Chiquito circuit.
 
@@ -26,7 +22,7 @@ Refer to [Testing and Links](#testing-and-links) on detailed API documentations.
 
 
 ## Example: Fibonacci Circuit
-https://github.com/privacy-scaling-explorations/chiquito/blob/main/examples/fibonacci.rs
+cargo run --example fibonacci
 
 This example demonstrates how to construct signals, step types, constraints, and witness generation in Chiquito. Best for first time Chiquito users.
 
@@ -41,7 +37,7 @@ https://github.com/privacy-scaling-explorations/zkevm-circuits/pull/1348
 This example rewrites the zkEVM bytecode circuit using Chiquito and passes all original tests. It demonstrates how Chiquito can standardize and simplify larger scale circuits on the production level.
 
 # Testing and Links
-**API documentation**: https://qwang98.github.io/chiquito/chiquito/index.html
+**API documentation**: `cargo doc --open`
 
 Currently API documentation is only written for exposed user functions, which are scattered across the DSL, constraint builder, compiler, and AST. **Refer to the following subdirectories for specific functions:**
 - Circuit building (DSL): https://qwang98.github.io/chiquito/chiquito/dsl/index.html
