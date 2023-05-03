@@ -220,10 +220,14 @@
 <span id="220">220</span>
 <span id="221">221</span>
 <span id="222">222</span>
+<span id="223">223</span>
+<span id="224">224</span>
 </pre><pre class="rust"><code><span class="kw">use </span>std::{collections::HashMap, rc::Rc};
 
-<span class="kw">use </span>halo2_proofs::plonk::Column <span class="kw">as </span>Halo2Column;
-<span class="kw">use </span>halo2_proofs::{arithmetic::Field, plonk::Advice};
+<span class="kw">use </span>halo2_proofs::{
+    arithmetic::Field,
+    plonk::{Advice, Column <span class="kw">as </span>Halo2Column},
+};
 
 <span class="kw">use </span><span class="kw">crate</span>::ast::StepType;
 

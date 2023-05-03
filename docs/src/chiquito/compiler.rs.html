@@ -470,11 +470,15 @@
 <span id="470">470</span>
 <span id="471">471</span>
 <span id="472">472</span>
+<span id="473">473</span>
+<span id="474">474</span>
 </pre><pre class="rust"><code><span class="kw">use </span>core::fmt::Debug;
 <span class="kw">use </span>std::{collections::HashMap, rc::Rc};
 
-<span class="kw">use </span>halo2_proofs::plonk::Column <span class="kw">as </span>Halo2Column;
-<span class="kw">use </span>halo2_proofs::{arithmetic::Field, plonk::Advice};
+<span class="kw">use </span>halo2_proofs::{
+    arithmetic::Field,
+    plonk::{Advice, Column <span class="kw">as </span>Halo2Column},
+};
 
 <span class="kw">use crate</span>::{
     ast::{

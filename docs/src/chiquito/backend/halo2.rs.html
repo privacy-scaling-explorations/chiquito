@@ -487,6 +487,13 @@
 <span id="487">487</span>
 <span id="488">488</span>
 <span id="489">489</span>
+<span id="490">490</span>
+<span id="491">491</span>
+<span id="492">492</span>
+<span id="493">493</span>
+<span id="494">494</span>
+<span id="495">495</span>
+<span id="496">496</span>
 </pre><pre class="rust"><code><span class="kw">use </span>std::{collections::HashMap, rc::Rc};
 
 <span class="kw">use </span>halo2_proofs::{
@@ -508,8 +515,9 @@
     },
     dsl::StepTypeHandler,
     ir::{
-        Circuit, Column <span class="kw">as </span>cColumn, ColumnType::Advice <span class="kw">as </span>cAdvice, ColumnType::Fixed <span class="kw">as </span>cFixed,
-        ColumnType::Halo2Advice, ColumnType::Halo2Fixed, PolyExpr,
+        Circuit, Column <span class="kw">as </span>cColumn,
+        ColumnType::{Advice <span class="kw">as </span>cAdvice, Fixed <span class="kw">as </span>cFixed, Halo2Advice, Halo2Fixed},
+        PolyExpr,
     },
 };
 
@@ -715,7 +723,9 @@
             .expect(<span class="string">&quot;q_enable column not found&quot;</span>);
 
         <span class="kw">for </span>i <span class="kw">in </span><span class="number">0</span>..height {
-            region.assign_fixed(|| <span class="string">&quot;q_enable=1&quot;</span>, <span class="kw-2">*</span>q_enable, i, || Value::known(F::one()));
+            region
+                .assign_fixed(|| <span class="string">&quot;q_enable=1&quot;</span>, <span class="kw-2">*</span>q_enable, i, || Value::known(F::one()))
+                .expect(<span class="string">&quot;assignment of q_enable fixed column failed&quot;</span>);
         }
 
         <span class="kw">if let </span><span class="prelude-val">Some</span>(q_first) = <span class="self">self</span>.circuit.q_first.clone() {
@@ -724,7 +734,9 @@
                 .get(<span class="kw-2">&amp;</span>q_first.uuid())
                 .expect(<span class="string">&quot;q_enable column not found&quot;</span>);
 
-            region.assign_fixed(|| <span class="string">&quot;q_first=1&quot;</span>, <span class="kw-2">*</span>q_first, <span class="number">0</span>, || Value::known(F::one()));
+            region
+                .assign_fixed(|| <span class="string">&quot;q_first=1&quot;</span>, <span class="kw-2">*</span>q_first, <span class="number">0</span>, || Value::known(F::one()))
+                .expect(<span class="string">&quot;assignment of q_first fixed column failed&quot;</span>);
         }
 
         <span class="kw">if let </span><span class="prelude-val">Some</span>(q_last) = <span class="self">self</span>.circuit.q_last.clone() {
@@ -733,12 +745,14 @@
                 .get(<span class="kw-2">&amp;</span>q_last.uuid())
                 .expect(<span class="string">&quot;q_enable column not found&quot;</span>);
 
-            region.assign_fixed(
-                || <span class="string">&quot;q_first=1&quot;</span>,
-                <span class="kw-2">*</span>q_last,
-                height - <span class="number">1</span>,
-                || Value::known(F::one()),
-            );
+            region
+                .assign_fixed(
+                    || <span class="string">&quot;q_first=1&quot;</span>,
+                    <span class="kw-2">*</span>q_last,
+                    height - <span class="number">1</span>,
+                    || Value::known(F::one()),
+                )
+                .expect(<span class="string">&quot;assignment of q_last fixed column failed&quot;</span>);
         }
     }
 

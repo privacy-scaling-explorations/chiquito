@@ -379,14 +379,22 @@
 <span id="379">379</span>
 <span id="380">380</span>
 <span id="381">381</span>
+<span id="382">382</span>
+<span id="383">383</span>
+<span id="384">384</span>
+<span id="385">385</span>
+<span id="386">386</span>
+<span id="387">387</span>
+<span id="388">388</span>
 </pre><pre class="rust"><code><span class="kw">pub mod </span>expr;
 
-<span class="kw">use </span>std::fmt::Debug;
-<span class="kw">use </span>std::{collections::HashMap, rc::Rc};
+<span class="kw">use </span>std::{collections::HashMap, fmt::Debug, rc::Rc};
 
-<span class="kw">use </span><span class="kw">crate</span>::compiler::{FixedGenContext, TraceContext, WitnessGenContext};
-<span class="kw">use </span><span class="kw">crate</span>::dsl::StepTypeHandler;
-<span class="kw">use </span><span class="kw">crate</span>::util::uuid;
+<span class="kw">use crate</span>::{
+    compiler::{FixedGenContext, TraceContext, WitnessGenContext},
+    dsl::StepTypeHandler,
+    util::uuid,
+};
 
 <span class="kw">pub use </span>expr::<span class="kw-2">*</span>;
 
@@ -637,8 +645,9 @@
 }
 
 <span class="kw">impl</span>&lt;F: Debug + Clone&gt; Lookup&lt;F&gt; {
-    <span class="comment">// Function: adds (constraint, expression) to exprs if there&#39;s no enabler, OR add (enabler * constraint, expression) to exprs if there&#39;s enabler
-    // Note that constraint_annotation and constraint_expr are passed in as separate parameters, and then reconstructed as Constraint,
+    <span class="comment">// Function: adds (constraint, expression) to exprs if there&#39;s no enabler, OR add (enabler *
+    // constraint, expression) to exprs if there&#39;s enabler Note that constraint_annotation and
+    // constraint_expr are passed in as separate parameters, and then reconstructed as Constraint,
     // because dsl uses cb::Constraint while ast uses ast::Constraint
     </span><span class="kw">pub fn </span>add(
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
@@ -664,7 +673,8 @@
         }
     }
 
-    <span class="comment">// Function: setup the enabler field and multiply all LHS constraints by the enabler if there&#39;s no enabler, OR panic if there&#39;s an enabler already
+    <span class="comment">// Function: setup the enabler field and multiply all LHS constraints by the enabler if there&#39;s
+    // no enabler, OR panic if there&#39;s an enabler already
     </span><span class="kw">pub fn </span>enable(<span class="kw-2">&amp;mut </span><span class="self">self</span>, enable_annotation: String, enable_expr: Expr&lt;F&gt;) {
         <span class="kw">let </span>enable = Constraint {
             annotation: enable_annotation.clone(),
@@ -686,7 +696,11 @@
     <span class="comment">// Function: helper function for multiplying enabler to constraint
     </span><span class="kw">fn </span>multiply_constraints(enable: Constraint&lt;F&gt;, constraint: Constraint&lt;F&gt;) -&gt; Constraint&lt;F&gt; {
         Constraint {
-            annotation: constraint.annotation.clone(), <span class="comment">// annotation only takes the constraint&#39;s annotation, because enabler&#39;s annotation is already included in the enable function above in the format of &quot;if {enable}&quot;
+            annotation: constraint.annotation.clone(), <span class="comment">/* annotation only takes the constraint&#39;s
+                                                        * annotation, because enabler&#39;s
+                                                        * annotation is already included in the
+                                                        * enable function above in the format of
+                                                        * &quot;if {enable}&quot; */
             </span>expr: enable.expr * constraint.expr,
         }
     }
