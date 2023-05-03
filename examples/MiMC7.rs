@@ -13,7 +13,7 @@ use halo2_proofs::{
     halo2curves::{bn256::Fr, group::ff::PrimeField, FieldExt},
     plonk::{Column, ConstraintSystem, Fixed},
 };
-use MiMC7_constants::ROUND_KEYS;
+use mimc7_constants::ROUND_KEYS;
 
 // MiMC7 always has 91 rounds
 pub const ROUNDS: usize = 91;
@@ -45,9 +45,9 @@ fn mimc7_circuit<F: FieldExt>(
 
         // populate the lookup columns
         ctx.fixed_gen(move |ctx| {
-            for i in 0..ROUNDS {
+            for (i, round_key) in ROUND_KEYS.iter().enumerate().take(ROUNDS) {
                 ctx.assign(i, lookup_row, F::from(i as u64));
-                ctx.assign(i, lookup_c, F::from_str_vartime(ROUND_KEYS[i]).unwrap());
+                ctx.assign(i, lookup_c, F::from_str_vartime(round_key).unwrap());
             }
         });
 
@@ -79,7 +79,7 @@ fn mimc7_circuit<F: FieldExt>(
 
                 let xkc_value = x_value + k_value + c_value;
                 ctx.assign(xkc, xkc_value);
-                ctx.assign(y, xkc_value.pow_vartime(&[7 as u64]));
+                ctx.assign(y, xkc_value.pow_vartime([7 as u64]));
             });
         });
 
@@ -106,7 +106,7 @@ fn mimc7_circuit<F: FieldExt>(
 
                 let xkc_value = x_value + k_value + c_value;
                 ctx.assign(xkc, xkc_value);
-                ctx.assign(y, xkc_value.pow_vartime(&[7 as u64]));
+                ctx.assign(y, xkc_value.pow_vartime([7 as u64]));
             });
         });
 
@@ -140,12 +140,12 @@ fn mimc7_circuit<F: FieldExt>(
             // step 0: assign witness values
             ctx.add(&mimc7_first_step, (x_in_value, k_value, c_value, row_value));
 
-            for i in 1..ROUNDS {
+            for round_key in ROUND_KEYS.iter().take(ROUNDS).skip(1) {
                 // step 1 through 90: calculate witness values from iteration results
                 row_value += F::from(1);
                 x_value += k_value + c_value;
-                x_value = x_value.pow_vartime(&[7 as u64]);
-                c_value = F::from_str_vartime(ROUND_KEYS[i]).unwrap();
+                x_value = x_value.pow_vartime([7 as u64]);
+                c_value = F::from_str_vartime(round_key).unwrap();
                 // Step 1 through 90: assign witness values
                 ctx.add(&mimc7_step, (x_value, k_value, c_value, row_value));
             }
@@ -153,7 +153,7 @@ fn mimc7_circuit<F: FieldExt>(
             // step 90: calculate final output
             row_value += F::from(1);
             x_value += k_value + c_value;
-            x_value = x_value.pow_vartime(&[7 as u64]);
+            x_value = x_value.pow_vartime([7 as u64]);
             // Step 90: output the hash result as x + k in witness generation
             // output is not displayed as a public column, which will be implemented in the future
             ctx.add(&mimc7_last_step, (x_value, k_value, c_value, row_value)); // c_value is not
@@ -163,12 +163,10 @@ fn mimc7_circuit<F: FieldExt>(
         })
     });
 
-    // println!("{:#?}", mimc7);
     let compiler = Compiler::new(SingleRowCellManager {}, SimpleStepSelectorBuilder {});
-    let compiled = compiler.compile(&mimc7);
-    // println!("compiled = {:#?}", compiled);
+    
+    compiler.compile(&mimc7)
 
-    compiled
 }
 
 // * Halo2 boilerplate *
@@ -240,7 +238,7 @@ fn main() {
     }
 }
 
-mod MiMC7_constants {
+mod mimc7_constants {
     pub const ROUND_KEYS: &[&str] = &[
         "0",
         "20888961410941983456478427210666206549300505294776164667214940546594746570981",
