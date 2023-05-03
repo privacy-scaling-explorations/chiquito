@@ -108,32 +108,21 @@ fn fibo_circuit<F: FieldExt>() -> Circuit<F, (), (u64, u64)> {
             let mut a = 1;
             let mut b = 2;
 
-            for i in 1..10 {
-                // input values for witness generation function are (a, b) in this step instance
+            for _i in 1..10 {
                 ctx.add(&fibo_step, (a, b));
 
                 let prev_a = a;
                 a = b;
-                b = prev_a + b;
+                b += prev_a;
             }
             
             ctx.add(&fibo_last_step, (a, b));
         })
     });
-    
-    // uncomment for debugging:
-    // println!("{:#?}", fibo);
-    
-    // create a new compiler using a cell manager instance and a selector builder instance
+
     let compiler = Compiler::new(SingleRowCellManager {}, SimpleStepSelectorBuilder {});
-    
-    // compile the circuit into an IR object
-    let compiled = compiler.compile(&fibo);
 
-    // uncomment for debugging:
-    //println!("{:#?}", compiled);
-
-    compiled
+    compiler.compile(&fibo)
 }
 
 // After compiling Chiquito AST to an IR, it is further parsed by a Chiquito Halo2 backend and integrated into a Halo2 circuit,
