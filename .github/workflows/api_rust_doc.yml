@@ -2,7 +2,7 @@ name: api rust doc
 
 on:
   push:
-    branches: [ "main" ]
+    branches: [ "steve/issue_6-api_documentation_v2_test" ]
   pull_request:
     branches: [ "main" ]
 
@@ -18,6 +18,11 @@ jobs:
 
       - name: Build api rust doc
         run: cargo doc --no-deps --package chiquito
+
+      - name: Add index.html file to docs root
+        run: |
+          mkdir -p ./target/doc
+          echo '<meta http-equiv="refresh" content="0; url=chiquito">' > ./target/doc/index.html
 
       - name: Deploy to GitHub Pages
         uses: peaceiris/actions-gh-pages@v3
