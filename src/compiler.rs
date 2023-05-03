@@ -1,8 +1,10 @@
 use core::fmt::Debug;
 use std::{collections::HashMap, rc::Rc};
 
-use halo2_proofs::plonk::Column as Halo2Column;
-use halo2_proofs::{arithmetic::Field, plonk::Advice};
+use halo2_proofs::{
+    arithmetic::Field,
+    plonk::{Advice, Column as Halo2Column},
+};
 
 use crate::{
     ast::{

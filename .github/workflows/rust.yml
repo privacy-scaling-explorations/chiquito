@@ -10,13 +10,75 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
-  build:
-
+  skip_check:
     runs-on: ubuntu-latest
+    outputs:
+      should_skip: ${{ steps.skip_check.outputs.should_skip }}
+    steps:
+      - id: skip_check
+        uses: fkirc/skip-duplicate-actions@v5
+        with:
+          cancel_others: 'true'
+          concurrent_skipping: 'same_content_newer'
+          paths_ignore: '["**/README.md", "**/Docs**", "**/Appendix.md"]'
 
+  build:
+    needs: [skip_check]
+    runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v3
     - name: Build
       run: cargo build --verbose
     - name: Run tests
       run: cargo test --verbose
+
+  clippy_check:
+    needs: [skip_check]
+    name: Clippy Check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v2
+      - name: Setup Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: stable
+          components: clippy
+          override: true
+      - name: Run Clippy
+        run: cargo clippy --all-targets --all-features -- -D warnings
+
+  fmt:
+    needs: [skip_check]
+    if: |
+      github.event.pull_request.draft == false &&
+      (github.event.action == 'ready_for_review' || needs.skip_check.outputs.should_skip != 'true')
+    name: Rustfmt
+    timeout-minutes: 30
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions-rs/toolchain@v1
+        with:
+          override: false
+      - name: Cargo cache
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+      - name: cargo check
+        uses: actions-rs/cargo@v1
+        with:
+          command: check
+          args: --all-features
+      - run: rustup component add rustfmt
+      - uses: actions-rs/cargo@v1
+        with:
+          command: fmt
+          args: --all -- --check

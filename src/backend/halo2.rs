@@ -19,8 +19,9 @@ use crate::{
     },
     dsl::StepTypeHandler,
     ir::{
-        Circuit, Column as cColumn, ColumnType::Advice as cAdvice, ColumnType::Fixed as cFixed,
-        ColumnType::Halo2Advice, ColumnType::Halo2Fixed, PolyExpr,
+        Circuit, Column as cColumn,
+        ColumnType::{Advice as cAdvice, Fixed as cFixed, Halo2Advice, Halo2Fixed},
+        PolyExpr,
     },
 };
 
@@ -226,7 +227,9 @@ impl<F: FieldExt, TraceArgs, StepArgs: Clone> ChiquitoHalo2<F, TraceArgs, StepAr
             .expect("q_enable column not found");
 
         for i in 0..height {
-            region.assign_fixed(|| "q_enable=1", *q_enable, i, || Value::known(F::one()));
+            region
+                .assign_fixed(|| "q_enable=1", *q_enable, i, || Value::known(F::one()))
+                .expect("assignment of q_enable fixed column failed");
         }
 
         if let Some(q_first) = self.circuit.q_first.clone() {
@@ -235,7 +238,9 @@ impl<F: FieldExt, TraceArgs, StepArgs: Clone> ChiquitoHalo2<F, TraceArgs, StepAr
                 .get(&q_first.uuid())
                 .expect("q_enable column not found");
 
-            region.assign_fixed(|| "q_first=1", *q_first, 0, || Value::known(F::one()));
+            region
+                .assign_fixed(|| "q_first=1", *q_first, 0, || Value::known(F::one()))
+                .expect("assignment of q_first fixed column failed");
         }
 
         if let Some(q_last) = self.circuit.q_last.clone() {
@@ -244,12 +249,14 @@ impl<F: FieldExt, TraceArgs, StepArgs: Clone> ChiquitoHalo2<F, TraceArgs, StepAr
                 .get(&q_last.uuid())
                 .expect("q_enable column not found");
 
-            region.assign_fixed(
-                || "q_first=1",
-                *q_last,
-                height - 1,
-                || Value::known(F::one()),
-            );
+            region
+                .assign_fixed(
+                    || "q_first=1",
+                    *q_last,
+                    height - 1,
+                    || Value::known(F::one()),
+                )
+                .expect("assignment of q_last fixed column failed");
         }
     }
 
