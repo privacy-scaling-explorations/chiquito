@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":[["chiquito2Halo2",""],["to_halo2_advice",""]],"struct":[["ChiquitoHalo2",""]]};
