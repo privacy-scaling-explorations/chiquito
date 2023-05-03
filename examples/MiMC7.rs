@@ -165,7 +165,6 @@ fn mimc7_circuit<F: FieldExt>(
 
     let compiler = Compiler::new(SingleRowCellManager {}, SimpleStepSelectorBuilder {});
     compiler.compile(&mimc7)
-
 }
 
 // * Halo2 boilerplate *
