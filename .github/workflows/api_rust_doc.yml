@@ -2,8 +2,6 @@ name: api rust doc
 
 on:
   push:
-    branches: [ "steve/issue_6-api_documentation_v2_test" ]
-  pull_request:
     branches: [ "main" ]
 
 permissions: {}
