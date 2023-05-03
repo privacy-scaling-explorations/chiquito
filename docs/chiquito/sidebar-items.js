@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"mod":[["ast",""],["backend",""],["compiler",""],["dsl",""],["ir",""],["stdlib",""]]};
