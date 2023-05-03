@@ -6,7 +6,8 @@ use crate::ast::{query::Queriable, Expr, Lookup, ToExpr};
 
 use super::StepTypeHandler;
 
-/// The **`Constraint`** struct represents a constraint with an associated annotation and expression.
+/// The **`Constraint`** struct represents a constraint with an associated annotation and
+/// expression.
 #[derive(Clone)]
 pub struct Constraint<F> {
     pub annotation: String,
@@ -14,7 +15,7 @@ pub struct Constraint<F> {
 }
 
 /// **`Constraint<F>`** can be converted from `Expr<F>`.
-impl<F: Debug> From<Expr<F>> for Constraint<F> {    
+impl<F: Debug> From<Expr<F>> for Constraint<F> {
     fn from(expr: Expr<F>) -> Self {
         let annotation = format!("{:?}", &expr);
         Self { expr, annotation }
@@ -59,8 +60,9 @@ impl<F> Debug for Constraint<F> {
     }
 }
 
-/// The **`and`** function takes an iterator of input constraints and returns a new constraint representing the logical AND of all input constraints. In practice, multiplies all input constraints together, i.e. A * B * C * … = 0.
-/// # **Arguments:**
+/// The **`and`** function takes an iterator of input constraints and returns a new constraint
+/// representing the logical AND of all input constraints. In practice, multiplies all input
+/// constraints together, i.e. A * B * C * … = 0. # **Arguments:**
 /// - **`inputs`**: An iterator of items that can be converted into **`Constraint<F>`**.
 /// # **Return:**
 /// A **`Constraint<F>`** representing the logical AND of all input constraints.
@@ -83,8 +85,10 @@ pub fn and<F: From<u64>, E: Into<Constraint<F>>, I: IntoIterator<Item = E>>(
     }
 }
 
-/// The **`or`** function takes an iterator of input constraints and returns a new constraint representing the logical OR of all input constraints. In practice, constructs the output constraint in the format of not(and(not(A), not(B), not(C), …)) = 0, which is equivalent to or(A, B, C, …).
-/// # **Arguments:**
+/// The **`or`** function takes an iterator of input constraints and returns a new constraint
+/// representing the logical OR of all input constraints. In practice, constructs the output
+/// constraint in the format of not(and(not(A), not(B), not(C), …)) = 0, which is equivalent to
+/// or(A, B, C, …). # **Arguments:**
 /// - **`inputs`**: An iterator of items that can be converted into **`Constraint<F>`**.
 /// # **Return:**
 /// A **`Constraint<F>`** representing the logical OR of all input constraints.
@@ -112,8 +116,8 @@ pub fn or<
     }
 }
 
-/// The **`xor`** function takes two expressions and returns a new expression representing the logical XOR of the input expressions.
-/// # **Arguments:**
+/// The **`xor`** function takes two expressions and returns a new expression representing the
+/// logical XOR of the input expressions. # **Arguments:**
 /// - **`lhs`**: An expression or item that can be converted into **`Expr<F>`**.
 /// - **`rhs`**: An expression or item that can be converted into **`Expr<F>`**.
 /// # **Return:**
@@ -128,8 +132,8 @@ pub fn xor<F: From<u64> + Clone, LHS: Into<Expr<F>>, RHS: Into<Expr<F>>>(
     lhs.clone() + rhs.clone() - 2u64.expr() * lhs * rhs
 }
 
-/// The **`eq`** function takes two constraints and returns a new constraint representing the equality of the input constraints.
-/// # **Arguments:**
+/// The **`eq`** function takes two constraints and returns a new constraint representing the
+/// equality of the input constraints. # **Arguments:**
 /// - **`lhs`**: A constraint or item that can be converted into **`Constraint<F>`**.
 /// - **`rhs`**: A constraint or item that can be converted into **`Constraint<F>`**.
 /// # **Return:**
@@ -147,8 +151,9 @@ pub fn eq<F, LHS: Into<Constraint<F>>, RHS: Into<Constraint<F>>>(
     }
 }
 
-/// The **`select`** function takes a selector constraint and two other constraints, and returns a new constraint that represents the value of **`when_true`** if the selector is true, or **`when_false`** if the selector is false.
-/// # **Arguments:**
+/// The **`select`** function takes a selector constraint and two other constraints, and returns a
+/// new constraint that represents the value of **`when_true`** if the selector is true, or
+/// **`when_false`** if the selector is false. # **Arguments:**
 /// - **`selector`**: A constraint or item that can be converted into **`Constraint<F>`**.
 /// - **`when_true`**: A constraint or item that can be converted into **`Constraint<F>`**.
 /// - **`when_false`**: A constraint or item that can be converted into **`Constraint<F>`**.
@@ -178,8 +183,9 @@ pub fn select<
     }
 }
 
-/// The **`when`** function takes a selector constraint and a `when_true` constraint, and returns a new constraint that represents the value of **`when_true`** if the selector is true, or zero if the selector is false.
-/// # **Arguments:**
+/// The **`when`** function takes a selector constraint and a `when_true` constraint, and returns a
+/// new constraint that represents the value of **`when_true`** if the selector is true, or zero if
+/// the selector is false. # **Arguments:**
 /// - **`selector`**: A constraint or item that can be converted into **`Constraint<F>`**.
 /// - **`when_true`**: A constraint or item that can be converted into **`Constraint<F>`**.
 /// # **Return:**
@@ -197,8 +203,9 @@ pub fn when<F: From<u64> + Clone, T1: Into<Constraint<F>>, T2: Into<Constraint<F
     }
 }
 
-/// The **`unless`** function takes a selector constraint and a `when_false` constraint, and returns a new constraint that represents the value of **`when_false`** unless the selector is true, in which case it returns zero.
-/// # **Arguments:**
+/// The **`unless`** function takes a selector constraint and a `when_false` constraint, and returns
+/// a new constraint that represents the value of **`when_false`** unless the selector is true, in
+/// which case it returns zero. # **Arguments:**
 /// - **`selector`**: A constraint or item that can be converted into **`Constraint<F>`**.
 /// - **`when_false`**: A constraint or item that can be converted into **`Constraint<F>`**.
 /// # **Return:**
@@ -219,8 +226,8 @@ pub fn unless<F: From<u64> + Clone, T1: Into<Constraint<F>>, T2: Into<Constraint
     }
 }
 
-/// The **`not`** function takes a constraint and returns a new constraint representing the logical NOT of the input constraint. The input constraint must have a value of either 0 or 1.
-/// # **Arguments:**
+/// The **`not`** function takes a constraint and returns a new constraint representing the logical
+/// NOT of the input constraint. The input constraint must have a value of either 0 or 1. # **Arguments:**
 /// - **`constraint`**: A constraint or item that can be converted into **`Constraint<F>`**.
 /// # **Return:**
 /// A **`Constraint<F>`** representing the logical NOT of the input constraint.
@@ -232,8 +239,8 @@ pub fn not<F: From<u64>, T: Into<Constraint<F>>>(constraint: T) -> Constraint<F>
     Constraint { annotation, expr }
 }
 
-/// The **`isz`** function takes a constraint and returns a new constraint representing whether the input constraint is zero.
-/// # **Arguments:**
+/// The **`isz`** function takes a constraint and returns a new constraint representing whether the
+/// input constraint is zero. # **Arguments:**
 /// - **`constraint`**: A constraint or item that can be converted into **`Constraint<F>`**.
 /// # **Return:**
 /// A **`Constraint<F>`** representing whether the input constraint is zero.
@@ -246,8 +253,8 @@ pub fn isz<F, T: Into<Constraint<F>>>(constraint: T) -> Constraint<F> {
     }
 }
 
-/// The **`if_next_step`** function takes a **`StepTypeHandler`** and a constraint, and returns a new constraint that is only applied if the next step is of the given step type.
-/// # **Arguments:**
+/// The **`if_next_step`** function takes a **`StepTypeHandler`** and a constraint, and returns a
+/// new constraint that is only applied if the next step is of the given step type. # **Arguments:**
 /// - **`step_type`**: A **`StepTypeHandler`** object.
 /// - **`constraint`**: A constraint or item that can be converted into **`Constraint<F>`**.
 /// # **Return:**
@@ -269,11 +276,12 @@ pub fn if_next_step<F: Clone, T: Into<Constraint<F>>>(
     }
 }
 
-/// The **`next_step_must_be`** function takes a **`StepTypeHandler`** and returns a new constraint that requires the next step to be of the given step type.
-/// # **Arguments:**
+/// The **`next_step_must_be`** function takes a **`StepTypeHandler`** and returns a new constraint
+/// that requires the next step to be of the given step type. # **Arguments:**
 /// - **`step_type`**: A **`StepTypeHandler`** object.
 /// # **Return:**
-/// A **`Constraint<F>`** representing the requirement that the next step must be of the given step type.
+/// A **`Constraint<F>`** representing the requirement that the next step must be of the given step
+/// type.
 pub fn next_step_must_be<F: From<u64>>(step_type: StepTypeHandler) -> Constraint<F> {
     annotate(
         format!("next_step_must_be({})", step_type.annotation),
@@ -281,11 +289,12 @@ pub fn next_step_must_be<F: From<u64>>(step_type: StepTypeHandler) -> Constraint
     )
 }
 
-/// The **`next_step_must_not_be`** function takes a **`StepTypeHandler`** and returns a new constraint that requires the next step to not be of the given step type.
-/// # **Arguments:**
+/// The **`next_step_must_not_be`** function takes a **`StepTypeHandler`** and returns a new
+/// constraint that requires the next step to not be of the given step type. # **Arguments:**
 /// - **`step_type`**: A **`StepTypeHandler`** object.
 /// # **Return:**
-/// A **`Constraint<F>`** representing the requirement that the next step must not be of the given step type.
+/// A **`Constraint<F>`** representing the requirement that the next step must not be of the given
+/// step type.
 pub fn next_step_must_not_be<F: From<u64>>(step_type: StepTypeHandler) -> Constraint<F> {
     annotate(
         format!("next_step_must_be({})", step_type.annotation),
@@ -293,8 +302,8 @@ pub fn next_step_must_not_be<F: From<u64>>(step_type: StepTypeHandler) -> Constr
     )
 }
 
-/// The **`annotate`** function takes a string annotation and an expression, and returns a new constraint with the given annotation and expression.
-/// # **Arguments:**
+/// The **`annotate`** function takes a string annotation and an expression, and returns a new
+/// constraint with the given annotation and expression. # **Arguments:**
 /// - **`annotation`**: A **`String`** containing the annotation for the constraint.
 /// - **`expr`**: An expression or item that can be converted into **`Expr<F>`**.
 /// # **Return:**
@@ -306,12 +315,13 @@ pub fn annotate<F, E: Into<Expr<F>>>(annotation: String, expr: E) -> Constraint<
     }
 }
 
-/// The **`rlc`** function computes the randomized linear combination of the given expressions and randomness.
-/// # **Arguments:**
+/// The **`rlc`** function computes the randomized linear combination of the given expressions and
+/// randomness. # **Arguments:**
 /// - **`exprs`**: A slice of expressions or items that can be converted into **`Expr<F>`**.
 /// - **`randomness`**: A randomness value or item that can be converted into **`Expr<F>`**.
 /// # **Return:**
-/// An **`Expr<F>`** representing the randomized linear combination of the input expressions and randomness.
+/// An **`Expr<F>`** representing the randomized linear combination of the input expressions and
+/// randomness.
 pub fn rlc<F: From<u64>, E: Into<Expr<F>> + Clone, R: Into<Expr<F>> + Clone>(
     exprs: &[E],
     randomness: R,
@@ -341,10 +351,12 @@ impl<F> Default for LookupBuilder<F> {
 
 impl<F: Debug + Clone> LookupBuilder<F> {
     /// # **Description:**
-    /// Adds a source column-lookup column pair to the lookup table. Can chain `**add**` and `**enable**` function calls to build the lookup table.
-    /// # **Arguments:**
-    /// - **`constraint`**: Source column that accepts any type that can be converted into a  **`Constraint<F>`**.
-    /// - **`expression`**: Lookup column that accepts any type that can be converted into an **`Expr<F>`**.
+    /// Adds a source column-lookup column pair to the lookup table. Can chain `**add**` and
+    /// `**enable**` function calls to build the lookup table. # **Arguments:**
+    /// - **`constraint`**: Source column that accepts any type that can be converted into a
+    ///   **`Constraint<F>`**.
+    /// - **`expression`**: Lookup column that accepts any type that can be converted into an
+    ///   **`Expr<F>`**.
     /// # **Return:**
     /// A mutable reference to the **`LookupBuilder<F>`**.
     pub fn add<C: Into<Constraint<F>>, E: Into<Expr<F>>>(
@@ -359,9 +371,10 @@ impl<F: Debug + Clone> LookupBuilder<F> {
     }
 
     /// # **Description:**
-    /// Adds a selector column specific to the lookup table. Can chain `**add**` and `**enable**` function calls to build the lookup table.
-    /// # **Arguments:**
-    /// - **`enable`**: Selector column that accepts any type that can be converted into **`Constraint<F>`**.
+    /// Adds a selector column specific to the lookup table. Can chain `**add**` and `**enable**`
+    /// function calls to build the lookup table. # **Arguments:**
+    /// - **`enable`**: Selector column that accepts any type that can be converted into
+    ///   **`Constraint<F>`**.
     /// # **Return:**
     /// A mutable reference to the **`LookupBuilder<F>`**.
     pub fn enable<C: Into<Constraint<F>>>(&mut self, enable: C) -> &mut Self {
@@ -371,9 +384,10 @@ impl<F: Debug + Clone> LookupBuilder<F> {
     }
 }
 
-/// Creates a new empty **`LookupBuilder`** object and returns it. Can chain `**add**` and `**enable**` function calls to build the lookup table.
-/// # **Return:**
-/// A new empty **`LookupBuilder<F>`**. See more information about the **`LookupBuilder`** object and its functions for building the lookup table below.
+/// Creates a new empty **`LookupBuilder`** object and returns it. Can chain `**add**` and
+/// `**enable**` function calls to build the lookup table. # **Return:**
+/// A new empty **`LookupBuilder<F>`**. See more information about the **`LookupBuilder`** object
+/// and its functions for building the lookup table below.
 pub fn lookup<F: Debug + Clone>() -> LookupBuilder<F> {
     LookupBuilder::default()
 }
