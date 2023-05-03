@@ -70,7 +70,6 @@ fn main() {
             ctx.step_type_def(s1, |ctx| {
                 ctx.constr(isz(index));
                 ctx.constr(eq(value, length));
-
             });
             let s2 = ctx.step_type("byte");
             ctx.step_type_def(s2, |ctx| {
@@ -92,7 +91,6 @@ fn main() {
                     push_data_left_is_zero.wg(ctx, Fr::zero());
                 });
             });
-
         });
 
     let compiler = Compiler::new(SingleRowCellManager {}, SimpleStepSelectorBuilder {});
