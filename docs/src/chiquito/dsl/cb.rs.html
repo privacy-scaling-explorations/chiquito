@@ -318,6 +318,28 @@
 <span id="318">318</span>
 <span id="319">319</span>
 <span id="320">320</span>
+<span id="321">321</span>
+<span id="322">322</span>
+<span id="323">323</span>
+<span id="324">324</span>
+<span id="325">325</span>
+<span id="326">326</span>
+<span id="327">327</span>
+<span id="328">328</span>
+<span id="329">329</span>
+<span id="330">330</span>
+<span id="331">331</span>
+<span id="332">332</span>
+<span id="333">333</span>
+<span id="334">334</span>
+<span id="335">335</span>
+<span id="336">336</span>
+<span id="337">337</span>
+<span id="338">338</span>
+<span id="339">339</span>
+<span id="340">340</span>
+<span id="341">341</span>
+<span id="342">342</span>
 </pre><pre class="rust"><code><span class="kw">use </span>std::{fmt::Debug, vec};
 
 <span class="kw">use </span>halo2_proofs::arithmetic::Field;
@@ -637,6 +659,28 @@
 /// `enable` function calls after to build the lookup table.
 </span><span class="kw">pub fn </span>lookup&lt;F: Debug + Clone&gt;() -&gt; LookupBuilder&lt;F&gt; {
     LookupBuilder::default()
+}
+
+<span class="attribute">#[cfg(test)]
+</span><span class="kw">mod </span>test {
+    <span class="kw">use </span>halo2_proofs::halo2curves::bn256::Fr;
+
+    <span class="kw">use super</span>::<span class="kw-2">*</span>;
+    <span class="kw">use </span><span class="kw">crate</span>::ast::{ToExpr, ToField};
+
+    <span class="attribute">#[test]
+    </span><span class="kw">fn </span>test_and() {
+        <span class="kw">let </span>a = &lt;i32 <span class="kw">as </span>ToExpr&lt;Fr&gt;&gt;::expr(<span class="kw-2">&amp;</span><span class="number">10</span>);
+        <span class="kw">let </span>b = <span class="number">20</span>.expr();
+        <span class="kw">let </span>result = and(<span class="macro">vec!</span>[a, b]).expr;
+
+        <span class="macro">println!</span>(<span class="string">&quot;{:?}&quot;</span>, result);
+
+        <span class="macro">assert!</span>(<span class="macro">matches!</span>(result, Expr::Mul(v) <span class="kw">if </span>v.len() == <span class="number">3 </span>&amp;&amp;
+            (<span class="macro">matches!</span>(v[<span class="number">0</span>], Expr::Const(c) <span class="kw">if </span>c == <span class="number">1i32</span>.field())) &amp;&amp;
+            (<span class="macro">matches!</span>(v[<span class="number">1</span>], Expr::Const(c) <span class="kw">if </span>c == <span class="number">10i32</span>.field())) &amp;&amp; 
+            (<span class="macro">matches!</span>(v[<span class="number">2</span>], Expr::Const(c) <span class="kw">if </span>c == <span class="number">20i32</span>.field()))))
+    }
 }
 </code></pre></div>
 </section></div></main><div id="rustdoc-vars" data-root-path="../../../" data-current-crate="chiquito" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.65.0-nightly (015a824f2 2022-08-22)" ></div></body></html>
