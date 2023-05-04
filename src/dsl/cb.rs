@@ -318,3 +318,25 @@ impl<F: Debug + Clone> LookupBuilder<F> {
 pub fn lookup<F: Debug + Clone>() -> LookupBuilder<F> {
     LookupBuilder::default()
 }
+
+#[cfg(test)]
+mod test {
+    use halo2_proofs::halo2curves::bn256::Fr;
+
+    use super::*;
+    use crate::ast::{ToExpr, ToField};
+
+    #[test]
+    fn test_and() {
+        let a = <i32 as ToExpr<Fr>>::expr(&10);
+        let b = 20.expr();
+        let result = and(vec![a, b]).expr;
+
+        println!("{:?}", result);
+
+        assert!(matches!(result, Expr::Mul(v) if v.len() == 3 &&
+            (matches!(v[0], Expr::Const(c) if c == 1i32.field())) &&
+            (matches!(v[1], Expr::Const(c) if c == 10i32.field())) && 
+            (matches!(v[2], Expr::Const(c) if c == 20i32.field()))))
+    }
+}
