@@ -244,7 +244,7 @@ pub fn next_step_must_be<F: From<u64>>(step_type: StepTypeHandler) -> Constraint
 /// the given step type.
 pub fn next_step_must_not_be<F: From<u64>>(step_type: StepTypeHandler) -> Constraint<F> {
     annotate(
-        format!("next_step_must_be({})", step_type.annotation),
+        format!("next_step_must_not_be({})", step_type.annotation),
         step_type.next(),
     )
 }
@@ -320,23 +320,316 @@ pub fn lookup<F: Debug + Clone>() -> LookupBuilder<F> {
 }
 
 #[cfg(test)]
-mod test {
+mod tests {
     use halo2_proofs::halo2curves::bn256::Fr;
 
     use super::*;
     use crate::ast::{ToExpr, ToField};
 
     #[test]
-    fn test_and() {
-        let a = <i32 as ToExpr<Fr>>::expr(&10);
+    fn test_and_empty() {
+        let inputs: Vec<Constraint<Fr>> = vec![];
+        let result = and(inputs);
+        assert_eq!(result.annotation, "()");
+        assert!(matches!(result.expr, Expr::Const(c) if c == 1u64.field()));
+    }
+
+    #[test]
+    fn test_and_single_input() {
+        let a = <u64 as ToExpr<Fr>>::expr(&10);
+        let result = and(vec![a]);
+
+        assert!(matches!(result.expr, Expr::Mul(v) if v.len() == 2 &&
+            matches!(v[0], Expr::Const(c) if c == 1u64.field()) &&
+            matches!(v[1], Expr::Const(c) if c == 10u64.field())));
+    }
+
+    #[test]
+    fn test_and_multiple_inputs() {
+        let a = <u64 as ToExpr<Fr>>::expr(&10);
         let b = 20.expr();
-        let result = and(vec![a, b]).expr;
+        let c = 30.expr();
+        let result = and(vec![a, b, c]);
 
-        println!("{:?}", result);
+        assert!(matches!(result.expr, Expr::Mul(v) if v.len() == 4 &&
+            matches!(v[0], Expr::Const(c) if c == 1u64.field()) &&
+            matches!(v[1], Expr::Const(c) if c == 10u64.field()) && 
+            matches!(v[2], Expr::Const(c) if c == 20u64.field()) && 
+            matches!(v[3], Expr::Const(c) if c == 30u64.field())));
+    }
 
-        assert!(matches!(result, Expr::Mul(v) if v.len() == 3 &&
-            (matches!(v[0], Expr::Const(c) if c == 1i32.field())) &&
-            (matches!(v[1], Expr::Const(c) if c == 10i32.field())) && 
-            (matches!(v[2], Expr::Const(c) if c == 20i32.field()))))
+    #[test]
+    fn test_or_empty() {
+        let inputs: Vec<Constraint<Fr>> = vec![];
+        let result = or(inputs);
+
+        // returns "1 - 1", because `and` with empty input defaults to 1, and `not` returns "1 -
+        // expr"
+        assert_eq!(result.annotation, "()");
+        assert!(matches!(result.expr, Expr::Sum(v) if v.len() == 2 &&
+        matches!(v[0], Expr::Const(c) if c == 1u64.field()) &&
+        matches!(&v[1], Expr::Neg(boxed_e) if 
+            matches!(boxed_e.as_ref(), Expr::Const(c) if *c == 1u64.field()))));
+    }
+
+    #[test]
+    fn test_or_single_input() {
+        let a = <u64 as ToExpr<Fr>>::expr(&10);
+        let result = or(vec![a]);
+
+        // returns "1 - (1 * (1 - 10))"
+        assert!(matches!(result.expr, Expr::Sum(v) if v.len() == 2 &&
+            matches!(v[0], Expr::Const(c) if c == 1u64.field()) &&
+            matches!(&v[1], Expr::Neg(mul) if 
+                matches!(mul.as_ref(), Expr::Mul(v) if v.len() == 2 &&
+                    matches!(v[0], Expr::Const(c) if c == 1u64.field()) && 
+                    matches!(&v[1], Expr::Sum(v) if v.len() == 2 &&
+                        matches!(v[0], Expr::Const(c) if c == 1u64.field()) &&
+                        matches!(&v[1], Expr::Neg(boxed_e) if 
+                            matches!(boxed_e.as_ref(), Expr::Const(c) if *c == 10u64.field())))))));
+    }
+
+    #[test]
+    fn test_or_multiple_input() {
+        let a = <u64 as ToExpr<Fr>>::expr(&10);
+        let b = <u64 as ToExpr<Fr>>::expr(&20);
+        let c = <u64 as ToExpr<Fr>>::expr(&30);
+        let result = or(vec![a, b, c]);
+
+        // returns "1 - (1 * (1 - 10) * (1 - 20) * (1 - 30))"
+        assert!(matches!(result.expr, Expr::Sum(v) if v.len() == 2 &&
+            matches!(v[0], Expr::Const(c) if c == 1u64.field()) &&
+            matches!(&v[1], Expr::Neg(boxed_mul) if 
+                matches!(boxed_mul.as_ref(), Expr::Mul(v) if v.len() == 4 &&
+                    matches!(v[0], Expr::Const(c) if c == 1u64.field()) && 
+                    matches!(&v[1], Expr::Sum(v) if v.len() == 2 &&
+                        matches!(v[0], Expr::Const(c) if c == 1u64.field()) &&
+                        matches!(&v[1], Expr::Neg(boxed_e) if 
+                            matches!(boxed_e.as_ref(), Expr::Const(c) if *c == 10u64.field()))) &&
+                    matches!(&v[2], Expr::Sum(v) if v.len() == 2 &&
+                        matches!(v[0], Expr::Const(c) if c == 1u64.field()) &&
+                        matches!(&v[1], Expr::Neg(boxed_e) if 
+                            matches!(boxed_e.as_ref(), Expr::Const(c) if *c == 20u64.field()))) &&
+                    matches!(&v[3], Expr::Sum(v) if v.len() == 2 &&
+                        matches!(v[0], Expr::Const(c) if c == 1u64.field()) &&
+                        matches!(&v[1], Expr::Neg(boxed_e) if 
+                            matches!(boxed_e.as_ref(), Expr::Const(c) if *c == 30u64.field())))))));
+    }
+
+    // the intended input of `not` is 0 or 1, but there's no enforcement of that
+    #[test]
+    fn test_not_one() {
+        let a = <u64 as ToExpr<Fr>>::expr(&1);
+        let result = not(a);
+
+        assert!(matches!(result.expr, Expr::Sum(v) if v.len() == 2 &&
+            matches!(v[0], Expr::Const(c) if c == 1u64.field()) &&
+            matches!(&v[1], Expr::Neg(boxed_e) if 
+                matches!(boxed_e.as_ref(), Expr::Const(c) if *c == 1u64.field()))));
+    }
+
+    #[test]
+    fn test_not_zero() {
+        let a = <u64 as ToExpr<Fr>>::expr(&0);
+        let result = not(a);
+
+        assert!(matches!(result.expr, Expr::Sum(v) if v.len() == 2 &&
+            matches!(v[0], Expr::Const(c) if c == 1u64.field()) &&
+            matches!(&v[1], Expr::Neg(boxed_e) if 
+                matches!(boxed_e.as_ref(), Expr::Const(c) if *c == 0u64.field()))));
+    }
+
+    // TODO: xor should take Into<Constraint> and return a Constraint, not Expr?
+    #[test]
+    fn test_xor() {
+        let a = <u64 as ToExpr<Fr>>::expr(&10);
+        let b = <u64 as ToExpr<Fr>>::expr(&20);
+        let result = xor(a, b);
+
+        // returns "10 + 20 - 2 * 10 * 20"
+        assert!(matches!(result, Expr::Sum(v) if v.len() == 3 &&
+            matches!(v[0], Expr::Const(c) if c == 10u64.field()) &&
+            matches!(v[1], Expr::Const(c) if c == 20u64.field()) &&
+            matches!(&v[2], Expr::Neg(boxed_mul) if 
+                matches!(boxed_mul.as_ref(), Expr::Mul(v) if v.len() == 3 &&
+                    matches!(v[0], Expr::Const(c) if c == 2u64.field()) &&
+                    matches!(v[1], Expr::Const(c) if c == 10u64.field()) &&
+                    matches!(v[2], Expr::Const(c) if c == 20u64.field())))));
+    }
+
+    #[test]
+    fn test_eq() {
+        let a = <u64 as ToExpr<Fr>>::expr(&10);
+        let b = <u64 as ToExpr<Fr>>::expr(&20);
+        let result = eq(a, b);
+
+        // returns "10 - 20"
+        assert!(matches!(result.expr, Expr::Sum(v) if v.len() == 2 &&
+            matches!(v[0], Expr::Const(c) if c == 10u64.field()) &&
+            matches!(&v[1], Expr::Neg(boxed_e) if 
+                matches!(boxed_e.as_ref(), Expr::Const(c) if *c == 20u64.field()))));
+    }
+
+    #[test]
+    fn test_select() {
+        let selector = <u64 as ToExpr<Fr>>::expr(&1);
+        let when_true = <u64 as ToExpr<Fr>>::expr(&10);
+        let when_false = <u64 as ToExpr<Fr>>::expr(&20);
+        let result = select(selector, when_true, when_false);
+
+        // returns "1 * 10 + (1 - 1) * 20"
+        assert!(matches!(result.expr, Expr::Sum(v) if v.len() == 2 &&
+            matches!(&v[0], Expr::Mul(v) if v.len() == 2 &&
+                matches!(v[0], Expr::Const(c) if c == 1u64.field()) &&
+                matches!(v[1], Expr::Const(c) if c == 10u64.field())) &&
+            matches!(&v[1], Expr::Mul(v) if v.len() == 2 &&
+                matches!(&v[0], Expr::Sum(v) if v.len() == 2 &&
+                    matches!(v[0], Expr::Const(c) if c == 1u64.field()) &&
+                    matches!(&v[1], Expr::Neg(boxed_e) if
+                        matches!(boxed_e.as_ref(), Expr::Const(c) if *c == 1u64.field()))) &&
+                matches!(v[1], Expr::Const(c) if c == 20u64.field()))));
+    }
+
+    #[test]
+    fn test_when_true() {
+        let selector = <u64 as ToExpr<Fr>>::expr(&1);
+        let when_true = <u64 as ToExpr<Fr>>::expr(&10);
+        let result = when(selector, when_true);
+
+        // returns "1 * 10"
+        assert!(matches!(result.expr, Expr::Mul(v) if v.len() == 2 &&
+            matches!(v[0], Expr::Const(c) if c == 1u64.field()) &&
+            matches!(v[1], Expr::Const(c) if c == 10u64.field())));
+    }
+
+    #[test]
+    fn test_when_false() {
+        let selector = <u64 as ToExpr<Fr>>::expr(&0);
+        let when_true = <u64 as ToExpr<Fr>>::expr(&10);
+        let result = when(selector, when_true);
+
+        // returns "0 * 10"
+        assert!(matches!(result.expr, Expr::Mul(v) if v.len() == 2 &&
+            matches!(v[0], Expr::Const(c) if c == 0u64.field()) &&
+            matches!(v[1], Expr::Const(c) if c == 10u64.field())));
+    }
+
+    #[test]
+    fn test_unless() {
+        let selector = <u64 as ToExpr<Fr>>::expr(&1);
+        let when_false = <u64 as ToExpr<Fr>>::expr(&10);
+        let result = unless(selector, when_false);
+
+        // returns "(1 - 1) * 10"
+        assert!(matches!(result.expr, Expr::Mul(v) if v.len() == 2 &&
+            matches!(&v[0], Expr::Sum(v) if v.len() == 2 &&
+                matches!(v[0], Expr::Const(c) if c == 1u64.field()) &&
+                matches!(&v[1], Expr::Neg(boxed_e) if 
+                    matches!(boxed_e.as_ref(), Expr::Const(c) if *c == 1u64.field()))) &&
+            matches!(v[1], Expr::Const(c) if c == 10u64.field())));
+    }
+
+    // why do we define isz as returning the constraint itself?
+    #[test]
+    fn test_isz() {
+        let zero = <u64 as ToExpr<Fr>>::expr(&0);
+        let non_zero = <u64 as ToExpr<Fr>>::expr(&10);
+        let result_zero = isz(zero);
+        let result_non_zero = isz(non_zero);
+
+        // returns "0"
+        assert!(matches!(result_zero.expr, Expr::Const(c) if c == 0u64.field()));
+        // returns "10"
+        assert!(matches!(result_non_zero.expr, Expr::Const(c) if c == 10u64.field()));
+    }
+
+    #[test]
+    fn test_if_next_step() {
+        let step_type = StepTypeHandler::new("test_step".to_string());
+        let constraint = <u64 as ToExpr<Fr>>::expr(&10);
+        let result = if_next_step(step_type, constraint);
+
+        // returns "Expr::Query(Queriable::StepTypeNext(StepTypeHandler{id: _id, annotation:
+        // annotation})) * 10"
+        assert!(matches!(result.expr, Expr::Mul(v) if v.len() == 2 &&
+                    matches!(v[0], Expr::Query(Queriable::StepTypeNext(s)) if
+                        matches!(s, StepTypeHandler {id: _id, annotation: "test_step"})) &&
+                    matches!(v[1], Expr::Const(c) if c == 10u64.field())
+        ));
+    }
+
+    #[test]
+    fn test_next_step_must_be() {
+        let step_type = StepTypeHandler::new("test_step".to_owned());
+        let result: Constraint<Fr> = next_step_must_be(step_type);
+
+        // returns "1 - Expr::Query(Queriable::StepTypeNext(StepTypeHandler{id: _id, annotation:
+        // annotation}))"
+        assert_eq!(result.annotation, "next_step_must_be(test_step)");
+        assert!(matches!(result.expr, Expr::Sum(v) if v.len() == 2 &&
+                    matches!(v[0], Expr::Const(c) if c == 1u64.field()) &&
+                    matches!(&v[1], Expr::Neg(boxed_e) if
+                        matches!(boxed_e.as_ref(), Expr::Query(Queriable::StepTypeNext(s)) if 
+                            matches!(s, StepTypeHandler {id: _id, annotation: "test_step"})))));
+    }
+
+    #[test]
+    fn test_next_step_must_not_be() {
+        let step_type = StepTypeHandler::new("test_step".to_owned());
+        let result: Constraint<Fr> = next_step_must_not_be(step_type);
+
+        // returns "Expr::Query(Queriable::StepTypeNext(StepTypeHandler{id: _id, annotation:
+        // annotation}))"
+        assert_eq!(result.annotation, "next_step_must_not_be(test_step)");
+        assert!(
+            matches!(result.expr, Expr::Query(Queriable::StepTypeNext(s)) if 
+                        matches!(s, StepTypeHandler {id: _id, annotation: "test_step"}))
+        );
+    }
+
+    #[test]
+    fn test_annotate() {
+        let expr = <u64 as ToExpr<Fr>>::expr(&10);
+        let result = annotate("my_constraint".to_string(), expr);
+
+        assert_eq!(result.annotation, "my_constraint");
+        assert!(matches!(result.expr, Expr::Const(c) if c == 10u64.field()));
+    }
+
+    #[test]
+    fn test_rlc_empty() {
+        let randomness = <u64 as ToExpr<Fr>>::expr(&40);
+        let result = rlc::<Fr, Expr<Fr>, Expr<Fr>>(&[], randomness);
+
+        // returns "0"
+        assert!(matches!(result, Expr::Const(c) if c == 0u64.field()));
+    }
+
+    #[test]
+    fn test_rlc_one_input() {
+        let a = <u64 as ToExpr<Fr>>::expr(&10);
+        let result = rlc(&[a], 40u64.expr());
+
+        // returns "10"
+        assert!(matches!(result, Expr::Const(c) if c == 10u64.field()));
+    }
+
+    #[test]
+    fn test_rlc_multiple_inputs() {
+        let a = <u64 as ToExpr<Fr>>::expr(&10);
+        let b = 20u64.expr();
+        let c = 30u64.expr();
+        let result = rlc(&[a, b, c], 40u64.expr());
+
+        // returns "(30 * 40 + 20) * 40 + 10"
+        assert!(matches!(result, Expr::Sum(v) if v.len() == 2 &&
+            matches!(&v[0], Expr::Mul(v) if v.len() == 2 &&
+                matches!(&v[0], Expr::Sum(v) if
+                    matches!(&v[0], Expr::Mul(v) if v.len() == 2 &&
+                        matches!(v[0], Expr::Const(c) if c == 30u64.field()) &&
+                        matches!(v[1], Expr::Const(c) if c == 40u64.field())) &&
+                    matches!(v[1], Expr::Const(c) if c == 20u64.field())) &&
+                matches!(v[1], Expr::Const(c) if c == 40u64.field())) &&
+            matches!(v[1], Expr::Const(c) if c == 10u64.field())));
     }
 }
