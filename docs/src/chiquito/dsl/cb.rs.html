@@ -318,65 +318,6 @@
 <span id="318">318</span>
 <span id="319">319</span>
 <span id="320">320</span>
-<span id="321">321</span>
-<span id="322">322</span>
-<span id="323">323</span>
-<span id="324">324</span>
-<span id="325">325</span>
-<span id="326">326</span>
-<span id="327">327</span>
-<span id="328">328</span>
-<span id="329">329</span>
-<span id="330">330</span>
-<span id="331">331</span>
-<span id="332">332</span>
-<span id="333">333</span>
-<span id="334">334</span>
-<span id="335">335</span>
-<span id="336">336</span>
-<span id="337">337</span>
-<span id="338">338</span>
-<span id="339">339</span>
-<span id="340">340</span>
-<span id="341">341</span>
-<span id="342">342</span>
-<span id="343">343</span>
-<span id="344">344</span>
-<span id="345">345</span>
-<span id="346">346</span>
-<span id="347">347</span>
-<span id="348">348</span>
-<span id="349">349</span>
-<span id="350">350</span>
-<span id="351">351</span>
-<span id="352">352</span>
-<span id="353">353</span>
-<span id="354">354</span>
-<span id="355">355</span>
-<span id="356">356</span>
-<span id="357">357</span>
-<span id="358">358</span>
-<span id="359">359</span>
-<span id="360">360</span>
-<span id="361">361</span>
-<span id="362">362</span>
-<span id="363">363</span>
-<span id="364">364</span>
-<span id="365">365</span>
-<span id="366">366</span>
-<span id="367">367</span>
-<span id="368">368</span>
-<span id="369">369</span>
-<span id="370">370</span>
-<span id="371">371</span>
-<span id="372">372</span>
-<span id="373">373</span>
-<span id="374">374</span>
-<span id="375">375</span>
-<span id="376">376</span>
-<span id="377">377</span>
-<span id="378">378</span>
-<span id="379">379</span>
 </pre><pre class="rust"><code><span class="kw">use </span>std::{fmt::Debug, vec};
 
 <span class="kw">use </span>halo2_proofs::arithmetic::Field;
@@ -385,37 +326,33 @@
 
 <span class="kw">use </span><span class="kw">super</span>::StepTypeHandler;
 
-<span class="doccomment">/// The **`Constraint`** struct represents a constraint with an associated annotation and expression.
+<span class="doccomment">/// Represents a constraint with an associated annotation and expression.
 </span><span class="attribute">#[derive(Clone)]
 </span><span class="kw">pub struct </span>Constraint&lt;F&gt; {
     <span class="kw">pub </span>annotation: String,
     <span class="kw">pub </span>expr: Expr&lt;F&gt;,
 }
 
-<span class="doccomment">/// **`Constraint&lt;F&gt;`** can be converted from `Expr&lt;F&gt;`.
-</span><span class="kw">impl</span>&lt;F: Debug&gt; From&lt;Expr&lt;F&gt;&gt; <span class="kw">for </span>Constraint&lt;F&gt; {    
+<span class="kw">impl</span>&lt;F: Debug&gt; From&lt;Expr&lt;F&gt;&gt; <span class="kw">for </span>Constraint&lt;F&gt; {
     <span class="kw">fn </span>from(expr: Expr&lt;F&gt;) -&gt; <span class="self">Self </span>{
         <span class="kw">let </span>annotation = <span class="macro">format!</span>(<span class="string">&quot;{:?}&quot;</span>, <span class="kw-2">&amp;</span>expr);
         <span class="self">Self </span>{ expr, annotation }
     }
 }
 
-<span class="doccomment">/// **`Constraint&lt;F&gt;`** can be converted from `Queriable&lt;F&gt;`.
-</span><span class="kw">impl</span>&lt;F&gt; From&lt;Queriable&lt;F&gt;&gt; <span class="kw">for </span>Constraint&lt;F&gt; {
+<span class="kw">impl</span>&lt;F&gt; From&lt;Queriable&lt;F&gt;&gt; <span class="kw">for </span>Constraint&lt;F&gt; {
     <span class="kw">fn </span>from(query: Queriable&lt;F&gt;) -&gt; <span class="self">Self </span>{
         annotate(query.annotation(), Expr::Query(query))
     }
 }
 
-<span class="doccomment">/// **`Constraint&lt;F&gt;`** can be converted from `i32`.
-</span><span class="kw">impl</span>&lt;F: Field + From&lt;u64&gt; + Debug&gt; From&lt;i32&gt; <span class="kw">for </span>Constraint&lt;F&gt; {
+<span class="kw">impl</span>&lt;F: Field + From&lt;u64&gt; + Debug&gt; From&lt;i32&gt; <span class="kw">for </span>Constraint&lt;F&gt; {
     <span class="kw">fn </span>from(v: i32) -&gt; <span class="self">Self </span>{
         v.expr().into()
     }
 }
 
-<span class="doccomment">/// **`Constraint&lt;F&gt;`** can be converted from `bool`, `u8`, `u32`, `u64`, and `usize`.
-</span><span class="macro">macro_rules! </span>impl_cb_like {
+<span class="macro">macro_rules! </span>impl_cb_like {
     (<span class="macro-nonterminal">$</span><span class="kw">type</span>:<span class="macro-nonterminal">ty</span>) =&gt; {
         <span class="kw">impl</span>&lt;F: From&lt;u64&gt; + Debug&gt; From&lt;<span class="macro-nonterminal">$</span><span class="kw">type</span>&gt; <span class="kw">for </span><span class="macro-nonterminal">Constraint</span>&lt;F&gt; {
             <span class="attribute">#[inline]
@@ -438,11 +375,9 @@
     }
 }
 
-<span class="doccomment">/// The **`and`** function takes an iterator of input constraints and returns a new constraint representing the logical AND of all input constraints. In practice, multiplies all input constraints together, i.e. A * B * C * … = 0.
-/// # **Arguments:**
-/// - **`inputs`**: An iterator of items that can be converted into **`Constraint&lt;F&gt;`**.
-/// # **Return:**
-/// A **`Constraint&lt;F&gt;`** representing the logical AND of all input constraints.
+<span class="doccomment">/// Takes an iterator of input constraints and returns a new constraint representing the logical AND
+/// of all input constraints. In practice, multiplies all input constraints together, i.e. A * B * C
+/// * … = 0.
 </span><span class="kw">pub fn </span>and&lt;F: From&lt;u64&gt;, E: Into&lt;Constraint&lt;F&gt;&gt;, I: IntoIterator&lt;Item = E&gt;&gt;(
     inputs: I,
 ) -&gt; Constraint&lt;F&gt; {
@@ -462,11 +397,9 @@
     }
 }
 
-<span class="doccomment">/// The **`or`** function takes an iterator of input constraints and returns a new constraint representing the logical OR of all input constraints. In practice, constructs the output constraint in the format of not(and(not(A), not(B), not(C), …)) = 0, which is equivalent to or(A, B, C, …).
-/// # **Arguments:**
-/// - **`inputs`**: An iterator of items that can be converted into **`Constraint&lt;F&gt;`**.
-/// # **Return:**
-/// A **`Constraint&lt;F&gt;`** representing the logical OR of all input constraints.
+<span class="doccomment">/// Takes an iterator of input constraints and returns a new constraint representing the logical OR
+/// of all input constraints. In practice, constructs the output constraint in the format of
+/// not(and(not(A), not(B), not(C), …)) = 0, which is equivalent to or(A, B, C, …).
 </span><span class="kw">pub fn </span>or&lt;
     F: From&lt;u64&gt; + Debug,
     E: Into&lt;Constraint&lt;F&gt;&gt; + Clone,
@@ -491,12 +424,8 @@
     }
 }
 
-<span class="doccomment">/// The **`xor`** function takes two expressions and returns a new expression representing the logical XOR of the input expressions.
-/// # **Arguments:**
-/// - **`lhs`**: An expression or item that can be converted into **`Expr&lt;F&gt;`**.
-/// - **`rhs`**: An expression or item that can be converted into **`Expr&lt;F&gt;`**.
-/// # **Return:**
-/// An **`Expr&lt;F&gt;`** representing the logical XOR of the input expressions.
+<span class="doccomment">/// Takes two expressions and returns a new expression representing the logical XOR of the input
+/// expressions.
 </span><span class="kw">pub fn </span>xor&lt;F: From&lt;u64&gt; + Clone, LHS: Into&lt;Expr&lt;F&gt;&gt;, RHS: Into&lt;Expr&lt;F&gt;&gt;&gt;(
     lhs: LHS,
     rhs: RHS,
@@ -507,12 +436,8 @@
     lhs.clone() + rhs.clone() - <span class="number">2u64</span>.expr() * lhs * rhs
 }
 
-<span class="doccomment">/// The **`eq`** function takes two constraints and returns a new constraint representing the equality of the input constraints.
-/// # **Arguments:**
-/// - **`lhs`**: A constraint or item that can be converted into **`Constraint&lt;F&gt;`**.
-/// - **`rhs`**: A constraint or item that can be converted into **`Constraint&lt;F&gt;`**.
-/// # **Return:**
-/// A **`Constraint&lt;F&gt;`** representing the equality of the input constraints.
+<span class="doccomment">/// Takes two constraints and returns a new constraint representing the equality of the input
+/// constraints.
 </span><span class="kw">pub fn </span>eq&lt;F, LHS: Into&lt;Constraint&lt;F&gt;&gt;, RHS: Into&lt;Constraint&lt;F&gt;&gt;&gt;(
     lhs: LHS,
     rhs: RHS,
@@ -526,13 +451,9 @@
     }
 }
 
-<span class="doccomment">/// The **`select`** function takes a selector constraint and two other constraints, and returns a new constraint that represents the value of **`when_true`** if the selector is true, or **`when_false`** if the selector is false.
-/// # **Arguments:**
-/// - **`selector`**: A constraint or item that can be converted into **`Constraint&lt;F&gt;`**.
-/// - **`when_true`**: A constraint or item that can be converted into **`Constraint&lt;F&gt;`**.
-/// - **`when_false`**: A constraint or item that can be converted into **`Constraint&lt;F&gt;`**.
-/// # **Return:**
-/// A **`Constraint&lt;F&gt;`** representing the conditional value based on the selector constraint.
+<span class="doccomment">/// Takes a selector constraint and two other constraints, and returns a new constraint that
+/// represents the value of `when_true` if the selector is true, or `when_false` if the selector is
+/// false.
 </span><span class="kw">pub fn </span>select&lt;
     F: From&lt;u64&gt; + Clone,
     T1: Into&lt;Constraint&lt;F&gt;&gt;,
@@ -557,12 +478,8 @@
     }
 }
 
-<span class="doccomment">/// The **`when`** function takes a selector constraint and a `when_true` constraint, and returns a new constraint that represents the value of **`when_true`** if the selector is true, or zero if the selector is false.
-/// # **Arguments:**
-/// - **`selector`**: A constraint or item that can be converted into **`Constraint&lt;F&gt;`**.
-/// - **`when_true`**: A constraint or item that can be converted into **`Constraint&lt;F&gt;`**.
-/// # **Return:**
-/// A **`Constraint&lt;F&gt;`** representing the `when_true` value when the selector is true.
+<span class="doccomment">/// Takes a selector constraint and a `when_true` constraint, and returns a new constraint that
+/// represents the value of `when_true` if the selector is true, or zero if the selector is false.
 </span><span class="kw">pub fn </span>when&lt;F: From&lt;u64&gt; + Clone, T1: Into&lt;Constraint&lt;F&gt;&gt;, T2: Into&lt;Constraint&lt;F&gt;&gt;&gt;(
     selector: T1,
     when_true: T2,
@@ -576,12 +493,8 @@
     }
 }
 
-<span class="doccomment">/// The **`unless`** function takes a selector constraint and a `when_false` constraint, and returns a new constraint that represents the value of **`when_false`** unless the selector is true, in which case it returns zero.
-/// # **Arguments:**
-/// - **`selector`**: A constraint or item that can be converted into **`Constraint&lt;F&gt;`**.
-/// - **`when_false`**: A constraint or item that can be converted into **`Constraint&lt;F&gt;`**.
-/// # **Return:**
-/// A **`Constraint&lt;F&gt;`** representing the `when_false` value unless the selector is true.
+<span class="doccomment">/// Takes a selector constraint and a `when_false` constraint, and returns a new constraint that
+/// represents the value of `when_false` unless the selector is true, in which case it returns zero.
 </span><span class="kw">pub fn </span>unless&lt;F: From&lt;u64&gt; + Clone, T1: Into&lt;Constraint&lt;F&gt;&gt;, T2: Into&lt;Constraint&lt;F&gt;&gt;&gt;(
     selector: T1,
     when_false: T2,
@@ -598,11 +511,8 @@
     }
 }
 
-<span class="doccomment">/// The **`not`** function takes a constraint and returns a new constraint representing the logical NOT of the input constraint. The input constraint must have a value of either 0 or 1.
-/// # **Arguments:**
-/// - **`constraint`**: A constraint or item that can be converted into **`Constraint&lt;F&gt;`**.
-/// # **Return:**
-/// A **`Constraint&lt;F&gt;`** representing the logical NOT of the input constraint.
+<span class="doccomment">/// Takes a constraint and returns a new constraint representing the logical NOT of the input
+/// constraint. The input constraint must have a value of either 0 or 1.
 </span><span class="kw">pub fn </span>not&lt;F: From&lt;u64&gt;, T: Into&lt;Constraint&lt;F&gt;&gt;&gt;(constraint: T) -&gt; Constraint&lt;F&gt; {
     <span class="kw">let </span>constraint = constraint.into();
     <span class="kw">let </span>annotation = <span class="macro">format!</span>(<span class="string">&quot;NOT({})&quot;</span>, constraint.annotation);
@@ -611,11 +521,8 @@
     Constraint { annotation, expr }
 }
 
-<span class="doccomment">/// The **`isz`** function takes a constraint and returns a new constraint representing whether the input constraint is zero.
-/// # **Arguments:**
-/// - **`constraint`**: A constraint or item that can be converted into **`Constraint&lt;F&gt;`**.
-/// # **Return:**
-/// A **`Constraint&lt;F&gt;`** representing whether the input constraint is zero.
+<span class="doccomment">/// Takes a constraint and returns a new constraint representing whether the input constraint is
+/// zero.
 </span><span class="kw">pub fn </span>isz&lt;F, T: Into&lt;Constraint&lt;F&gt;&gt;&gt;(constraint: T) -&gt; Constraint&lt;F&gt; {
     <span class="kw">let </span>constraint = constraint.into();
 
@@ -625,12 +532,8 @@
     }
 }
 
-<span class="doccomment">/// The **`if_next_step`** function takes a **`StepTypeHandler`** and a constraint, and returns a new constraint that is only applied if the next step is of the given step type.
-/// # **Arguments:**
-/// - **`step_type`**: A **`StepTypeHandler`** object.
-/// - **`constraint`**: A constraint or item that can be converted into **`Constraint&lt;F&gt;`**.
-/// # **Return:**
-/// A **`Constraint&lt;F&gt;`** representing the conditional constraint based on the next step&#39;s type.
+<span class="doccomment">/// Takes a `StepTypeHandler` and a constraint, and returns a new constraint that is only applied if
+/// the next step is of the given step type.
 </span><span class="kw">pub fn </span>if_next_step&lt;F: Clone, T: Into&lt;Constraint&lt;F&gt;&gt;&gt;(
     step_type: StepTypeHandler,
     constraint: T,
@@ -648,11 +551,8 @@
     }
 }
 
-<span class="doccomment">/// The **`next_step_must_be`** function takes a **`StepTypeHandler`** and returns a new constraint that requires the next step to be of the given step type.
-/// # **Arguments:**
-/// - **`step_type`**: A **`StepTypeHandler`** object.
-/// # **Return:**
-/// A **`Constraint&lt;F&gt;`** representing the requirement that the next step must be of the given step type.
+<span class="doccomment">/// Takes a `StepTypeHandler` and returns a new constraint that requires the next step to be of the
+/// given step type.
 </span><span class="kw">pub fn </span>next_step_must_be&lt;F: From&lt;u64&gt;&gt;(step_type: StepTypeHandler) -&gt; Constraint&lt;F&gt; {
     annotate(
         <span class="macro">format!</span>(<span class="string">&quot;next_step_must_be({})&quot;</span>, step_type.annotation),
@@ -660,11 +560,8 @@
     )
 }
 
-<span class="doccomment">/// The **`next_step_must_not_be`** function takes a **`StepTypeHandler`** and returns a new constraint that requires the next step to not be of the given step type.
-/// # **Arguments:**
-/// - **`step_type`**: A **`StepTypeHandler`** object.
-/// # **Return:**
-/// A **`Constraint&lt;F&gt;`** representing the requirement that the next step must not be of the given step type.
+<span class="doccomment">/// Takes a `StepTypeHandler` and returns a new constraint that requires the next step to not be of
+/// the given step type.
 </span><span class="kw">pub fn </span>next_step_must_not_be&lt;F: From&lt;u64&gt;&gt;(step_type: StepTypeHandler) -&gt; Constraint&lt;F&gt; {
     annotate(
         <span class="macro">format!</span>(<span class="string">&quot;next_step_must_be({})&quot;</span>, step_type.annotation),
@@ -672,12 +569,8 @@
     )
 }
 
-<span class="doccomment">/// The **`annotate`** function takes a string annotation and an expression, and returns a new constraint with the given annotation and expression.
-/// # **Arguments:**
-/// - **`annotation`**: A **`String`** containing the annotation for the constraint.
-/// - **`expr`**: An expression or item that can be converted into **`Expr&lt;F&gt;`**.
-/// # **Return:**
-/// A **`Constraint&lt;F&gt;`** with the given annotation and expression.
+<span class="doccomment">/// Takes a string annotation and an expression, and returns a new constraint with the given
+/// annotation and expression.
 </span><span class="kw">pub fn </span>annotate&lt;F, E: Into&lt;Expr&lt;F&gt;&gt;&gt;(annotation: String, expr: E) -&gt; Constraint&lt;F&gt; {
     Constraint {
         annotation,
@@ -685,12 +578,7 @@
     }
 }
 
-<span class="doccomment">/// The **`rlc`** function computes the randomized linear combination of the given expressions and randomness.
-/// # **Arguments:**
-/// - **`exprs`**: A slice of expressions or items that can be converted into **`Expr&lt;F&gt;`**.
-/// - **`randomness`**: A randomness value or item that can be converted into **`Expr&lt;F&gt;`**.
-/// # **Return:**
-/// An **`Expr&lt;F&gt;`** representing the randomized linear combination of the input expressions and randomness.
+<span class="doccomment">/// Computes the randomized linear combination of the given expressions and randomness.
 </span><span class="kw">pub fn </span>rlc&lt;F: From&lt;u64&gt;, E: Into&lt;Expr&lt;F&gt;&gt; + Clone, R: Into&lt;Expr&lt;F&gt;&gt; + Clone&gt;(
     exprs: <span class="kw-2">&amp;</span>[E],
     randomness: R,
@@ -705,7 +593,7 @@
     }
 }
 
-<span class="doccomment">/// The **`LookupBuilder`** struct is a helper struct for building lookup tables.
+<span class="doccomment">/// A helper struct for building lookup tables.
 </span><span class="kw">pub struct </span>LookupBuilder&lt;F&gt; {
     <span class="kw">pub </span>lookup: Lookup&lt;F&gt;,
 }
@@ -719,13 +607,10 @@
 }
 
 <span class="kw">impl</span>&lt;F: Debug + Clone&gt; LookupBuilder&lt;F&gt; {
-    <span class="doccomment">/// # **Description:**
-    /// Adds a source column-lookup column pair to the lookup table. Can chain `**add**` and `**enable**` function calls to build the lookup table.
-    /// # **Arguments:**
-    /// - **`constraint`**: Source column that accepts any type that can be converted into a  **`Constraint&lt;F&gt;`**.
-    /// - **`expression`**: Lookup column that accepts any type that can be converted into an **`Expr&lt;F&gt;`**.
-    /// # **Return:**
-    /// A mutable reference to the **`LookupBuilder&lt;F&gt;`**.
+    <span class="doccomment">/// Adds a source column-lookup column pair to the lookup table. Because the function returns a
+    /// mutable reference to the `LookupBuilder&lt;F&gt;`, it can an chain multiple `add` and `enable`
+    /// function calls to build the lookup table. Requires calling `lookup` to create an empty
+    /// `LookupBuilder` instance at the very front.
     </span><span class="kw">pub fn </span>add&lt;C: Into&lt;Constraint&lt;F&gt;&gt;, E: Into&lt;Expr&lt;F&gt;&gt;&gt;(
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
         constraint: C,
@@ -737,12 +622,10 @@
         <span class="self">self
     </span>}
 
-    <span class="doccomment">/// # **Description:**
-    /// Adds a selector column specific to the lookup table. Can chain `**add**` and `**enable**` function calls to build the lookup table.
-    /// # **Arguments:**
-    /// - **`enable`**: Selector column that accepts any type that can be converted into **`Constraint&lt;F&gt;`**.
-    /// # **Return:**
-    /// A mutable reference to the **`LookupBuilder&lt;F&gt;`**.
+    <span class="doccomment">/// Adds a selector column specific to the lookup table. Because the function returns a mutable
+    /// reference to the `LookupBuilder&lt;F&gt;`, it can an chain multiple `add` and `enable` function
+    /// calls to build the lookup table. Requires calling `lookup` to create an
+    /// empty `LookupBuilder` instance at the very front.
     </span><span class="kw">pub fn </span>enable&lt;C: Into&lt;Constraint&lt;F&gt;&gt;&gt;(<span class="kw-2">&amp;mut </span><span class="self">self</span>, enable: C) -&gt; <span class="kw-2">&amp;mut </span><span class="self">Self </span>{
         <span class="kw">let </span>enable = enable.into();
         <span class="self">self</span>.lookup.enable(enable.annotation, enable.expr);
@@ -750,9 +633,8 @@
     </span>}
 }
 
-<span class="doccomment">/// Creates a new empty **`LookupBuilder`** object and returns it. Can chain `**add**` and `**enable**` function calls to build the lookup table.
-/// # **Return:**
-/// A new empty **`LookupBuilder&lt;F&gt;`**. See more information about the **`LookupBuilder`** object and its functions for building the lookup table below.
+<span class="doccomment">/// Creates a new empty `LookupBuilder` object and returns it. Can an chain multiple `add` and
+/// `enable` function calls after to build the lookup table.
 </span><span class="kw">pub fn </span>lookup&lt;F: Debug + Clone&gt;() -&gt; LookupBuilder&lt;F&gt; {
     LookupBuilder::default()
 }

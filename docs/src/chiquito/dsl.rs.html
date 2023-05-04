@@ -217,39 +217,6 @@
 <span id="217">217</span>
 <span id="218">218</span>
 <span id="219">219</span>
-<span id="220">220</span>
-<span id="221">221</span>
-<span id="222">222</span>
-<span id="223">223</span>
-<span id="224">224</span>
-<span id="225">225</span>
-<span id="226">226</span>
-<span id="227">227</span>
-<span id="228">228</span>
-<span id="229">229</span>
-<span id="230">230</span>
-<span id="231">231</span>
-<span id="232">232</span>
-<span id="233">233</span>
-<span id="234">234</span>
-<span id="235">235</span>
-<span id="236">236</span>
-<span id="237">237</span>
-<span id="238">238</span>
-<span id="239">239</span>
-<span id="240">240</span>
-<span id="241">241</span>
-<span id="242">242</span>
-<span id="243">243</span>
-<span id="244">244</span>
-<span id="245">245</span>
-<span id="246">246</span>
-<span id="247">247</span>
-<span id="248">248</span>
-<span id="249">249</span>
-<span id="250">250</span>
-<span id="251">251</span>
-<span id="252">252</span>
 </pre><pre class="rust"><code><span class="kw">use crate</span>::{
     ast::{query::Queriable, Circuit, StepType, StepTypeUUID},
     compiler::{FixedGenContext, TraceContext, WitnessGenContext},
@@ -262,65 +229,44 @@
 
 <span class="kw">use </span><span class="self">self</span>::cb::{Constraint, LookupBuilder};
 
-<span class="doccomment">/// The **`CircuitContext`** struct is a generic structure designed to handle the context of a circuit for generic types **`F`**, **`TraceArgs`** and **`StepArgs`**. The struct contains a **`Circuit`** instance and implements methods to build the circuit, add various components, and manipulate the circuit.
-/// **Type Parameters**
-/// - **`F`**: A generic type representing the field of the circuit.
-/// - **`TraceArgs`**: A generic type representing the arguments passed to the trace function.
-/// - **`StepArgs`**: A generic type representing the arguments passed to the step_type_def function.
+<span class="doccomment">/// A generic structure designed to handle the context of a circuit for generic types `F`,
+/// `TraceArgs` and `StepArgs`. The struct contains a `Circuit` instance and implements
+/// methods to build the circuit, add various components, and manipulate the circuit. `F` is a
+/// generic type representing the field of the circuit. `TraceArgs` is a generic type
+/// representing the arguments passed to the trace function. `StepArgs` is a generic type
+/// representing the arguments passed to the `step_type_def` function.
 </span><span class="kw">pub struct </span>CircuitContext&lt;F, TraceArgs, StepArgs&gt; {
     sc: Circuit&lt;F, TraceArgs, StepArgs&gt;,
 }
 
 <span class="kw">impl</span>&lt;F, TraceArgs, StepArgs&gt; CircuitContext&lt;F, TraceArgs, StepArgs&gt; {
-    <span class="doccomment">/// # **Description:**
-    /// Adds a forward signal to the circuit with zero rotation and returns a **`Queriable`** instance.
-    /// # **Arguments:**
-    /// - **`name: &amp;str`** - The name of the forward signal.
-    /// # **Return:**
-    /// - **`Queriable&lt;F&gt;`** - A **`Queriable`** instance representing the added forward signal.    
+    <span class="doccomment">/// Adds a forward signal to the circuit with a name string and zero rotation and returns a
+    /// `Queriable` instance representing the added forward signal.
     </span><span class="kw">pub fn </span>forward(<span class="kw-2">&amp;mut </span><span class="self">self</span>, name: <span class="kw-2">&amp;</span>str) -&gt; Queriable&lt;F&gt; {
         Queriable::Forward(<span class="self">self</span>.sc.add_forward(name, <span class="number">0</span>), <span class="bool-val">false</span>)
     }
 
-    <span class="doccomment">/// # **Description:**
-    /// Adds a forward signal to the circuit with the specified phase and returns a **`Queriable`** instance.
-    /// # **Arguments:**
-    /// - **`name: &amp;str`** - The name of the forward signal.
-    /// - **`phase: usize`** - The phase of the forward signal.
-    /// # **Return:**
-    /// - **`Queriable&lt;F&gt;`** - A **`Queriable`** instance representing the added forward signal.
+    <span class="doccomment">/// Adds a forward signal to the circuit with a name string and a specified phase and returns a
+    /// `Queriable` instance representing the added forward signal.
     </span><span class="kw">pub fn </span>forward_with_phase(<span class="kw-2">&amp;mut </span><span class="self">self</span>, name: <span class="kw-2">&amp;</span>str, phase: usize) -&gt; Queriable&lt;F&gt; {
         Queriable::Forward(<span class="self">self</span>.sc.add_forward(name, phase), <span class="bool-val">false</span>)
     }
 
-    <span class="doccomment">/// # **Description:**
-    /// Imports a halo2 advice column into the circuit and returns a **`Queriable`** instance.
-    /// # **Arguments:**
-    /// - **`name: &amp;str`** - The name of the halo2 advice column.
-    /// - **`column: Halo2Column&lt;Advice&gt;`** - The advice column to import.
-    /// # **Return:**
-    /// - **`Queriable&lt;F&gt;`** - A **`Queriable`** instance representing the imported halo2 advice column.
+    <span class="doccomment">/// Imports a halo2 advice column with a name string into the circuit and returns a
+    /// `Queriable` instance representing the imported column.
     </span><span class="kw">pub fn </span>import_halo2_advice(<span class="kw-2">&amp;mut </span><span class="self">self</span>, name: <span class="kw-2">&amp;</span>str, column: Halo2Column&lt;Advice&gt;) -&gt; Queriable&lt;F&gt; {
         Queriable::Halo2AdviceQuery(<span class="self">self</span>.sc.add_halo2_advice(name, column), <span class="number">0</span>)
     }
 
-    <span class="doccomment">/// # **Description:**
-    /// Imports a halo2 fixed column into the circuit and returns a **`Queriable`** instance.
-    /// # **Arguments:**
-    /// - **`name: &amp;str`** - The name of the halo2 fixed column.
-    /// - **`column: Halo2Column&lt;Fixed&gt;`** - The fixed column to import.
-    /// # **Return:**
-    /// - **`Queriable&lt;F&gt;`** - A **`Queriable`** instance representing the imported halo2 fixed column.
+    <span class="doccomment">/// Imports a halo2 fixed column with a name string into the circuit and returns a
+    /// `Queriable` instance representing the imported column.
     </span><span class="kw">pub fn </span>import_halo2_fixed(<span class="kw-2">&amp;mut </span><span class="self">self</span>, name: <span class="kw-2">&amp;</span>str, column: Halo2Column&lt;Fixed&gt;) -&gt; Queriable&lt;F&gt; {
         Queriable::Halo2FixedQuery(<span class="self">self</span>.sc.add_halo2_fixed(name, column), <span class="number">0</span>)
     }
 
-    <span class="doccomment">/// # **Description:**
-    /// Adds a new step type with the specified name to the circuit and returns a **`StepTypeHandler`** instance.
-    /// # **Arguments:**
-    /// - **`name: &amp;str`** - The name of the new step type.
-    /// # **Return:**
-    /// - **`StepTypeHandler`** - A **`StepTypeHandler`** instance representing the added step type.
+    <span class="doccomment">/// Adds a new step type with the specified name to the circuit and returns a
+    /// `StepTypeHandler` instance. The `StepTypeHandler` instance can be used to define the
+    /// step type using the `step_type_def` function.
     </span><span class="kw">pub fn </span>step_type(<span class="kw-2">&amp;mut </span><span class="self">self</span>, name: <span class="kw-2">&amp;</span>str) -&gt; StepTypeHandler {
         <span class="kw">let </span>handler = StepTypeHandler::new(name.to_string());
 
@@ -329,11 +275,9 @@
         handler
     }
 
-    <span class="doccomment">/// # **Description:**
-    /// Defines a step type using the provided **`StepTypeHandler`** and a function that takes a mutable reference to a **`StepTypeContext`**. This function typically adds constraints to a step type and defines witness generation.
-    /// # **Arguments:**
-    /// - **`handler: StepTypeHandler`** - The **`StepTypeHandler`** instance representing the step type to define.
-    /// - **`def: D`** - The function that defines the step type by taking a mutable reference to a **`StepTypeContext`**.
+    <span class="doccomment">/// Defines a step type using the provided `StepTypeHandler` and a function that takes a
+    /// mutable reference to a `StepTypeContext`. This function typically adds constraints to a
+    /// step type and defines witness generation.
     </span><span class="kw">pub fn </span>step_type_def&lt;D&gt;(<span class="kw-2">&amp;mut </span><span class="self">self</span>, handler: StepTypeHandler, def: D)
     <span class="kw">where
         </span>D: FnOnce(<span class="kw-2">&amp;mut </span>StepTypeContext&lt;F, StepArgs&gt;),
@@ -346,10 +290,11 @@
         <span class="self">self</span>.sc.add_step_type_def(context.step_type);
     }
 
-    <span class="doccomment">/// # **Description:**
-    /// Sets the trace function for the circuit. The trace function is responsible for adding step instantiations defined in step_type_def.
-    /// # **Arguments:**
-    /// - **`def: D`** - The trace function, which takes a mutable reference to a **`TraceContext`** and a **`TraceArgs`** instance.
+    <span class="doccomment">/// Sets the trace function that builds the circuit. The trace function is responsible for
+    /// adding step instances defined in `step_type_def`. The function is entirely left for
+    /// the user to implement and is Turing complete. Users typically use external parameters
+    /// defined in `TraceArgs` to generate cell values for witness generation, and call the
+    /// `add` function to add step instances with witness values.
     </span><span class="kw">pub fn </span>trace&lt;D&gt;(<span class="kw-2">&amp;mut </span><span class="self">self</span>, def: D)
     <span class="kw">where
         </span>D: Fn(<span class="kw-2">&amp;mut </span><span class="kw">dyn </span>TraceContext&lt;StepArgs&gt;, TraceArgs) + <span class="lifetime">&#39;static</span>,
@@ -357,10 +302,10 @@
         <span class="self">self</span>.sc.set_trace(def);
     }
 
-    <span class="doccomment">/// # **Description:**
-    /// Sets the fixed generation function for the circuit. The fixed generation function is responsible for assigning fixed values to fixed column **`Queriable`**. It is entirely left for the user to implement and is Turing complete. Users typically generate cell values and call the `**assign**` function to fill the fixed columns.
-    /// # **Arguments:**
-    /// - **`def: D`** - The fixed generation function, which takes a mutable reference to a **`FixedGenContext`**. See more information about this trait and its assign function below.
+    <span class="doccomment">/// Sets the fixed generation function for the circuit. The fixed generation function is
+    /// responsible for assigning fixed values to fixed column `Queriable`. It is entirely left
+    /// for the user to implement and is Turing complete. Users typically generate cell values and
+    /// call the `assign` function to fill the fixed columns.
     </span><span class="kw">pub fn </span>fixed_gen&lt;D&gt;(<span class="kw-2">&amp;mut </span><span class="self">self</span>, def: D)
     <span class="kw">where
         </span>D: Fn(<span class="kw-2">&amp;mut </span><span class="kw">dyn </span>FixedGenContext&lt;F&gt;) + <span class="lifetime">&#39;static</span>,
@@ -368,27 +313,24 @@
         <span class="self">self</span>.sc.set_fixed_gen(def);
     }
 
-    <span class="doccomment">/// # **Description:**
-    /// Enforce the type of the first step by adding a constraint to the circuit.
-    /// # **Arguments:**
-    /// - **`step_type: StepTypeHandler`** - The **`StepTypeHandler`** instance representing the first step type to enforce.
+    <span class="doccomment">/// Enforce the type of the first step by adding a constraint to the circuit. Takes a
+    /// `StepTypeHandler` parameter that represents the step type.
     </span><span class="kw">pub fn </span>pragma_first_step(<span class="kw-2">&amp;mut </span><span class="self">self</span>, step_type: StepTypeHandler) {
         <span class="self">self</span>.sc.first_step = <span class="prelude-val">Some</span>(step_type);
     }
 
-    <span class="doccomment">/// # **Description:**
-    /// Enforce the type of the last step by adding a constraint to the circuit.
-    /// # **Arguments:**
-    /// - **`step_type: StepTypeHandler`** - The **`StepTypeHandler`** instance representing the last step type to enforce.
+    <span class="doccomment">/// Enforce the type of the last step by adding a constraint to the circuit. Takes a
+    /// `StepTypeHandler` parameter that represents the step type.
     </span><span class="kw">pub fn </span>pragma_last_step(<span class="kw-2">&amp;mut </span><span class="self">self</span>, step_type: StepTypeHandler) {
         <span class="self">self</span>.sc.last_step = <span class="prelude-val">Some</span>(step_type);
     }
 }
 
-<span class="doccomment">/// The **`StepTypeContext`** struct is a generic structure designed to handle the context of a step type for generic types **`F`** and **`Args`**. The struct contains a **`StepType`** instance and implements methods to build the step type, add components, and manipulate the step type.
-/// **Type Parameters**
-/// - **`F`**: A generic type representing the field of the step type.
-/// - **`Args`**: A generic type representing the arguments passed to the step type.
+<span class="doccomment">/// A generic structure designed to handle the context of a step type for generic types `F` and
+/// `Args`. The struct contains a `StepType` instance and implements methods to build the
+/// step type, add components, and manipulate the step type. `F` is a generic type representing
+/// the field of the step type. `Args` is a generic type representing the arguments passed to
+/// the step type.
 </span><span class="kw">pub struct </span>StepTypeContext&lt;F, Args&gt; {
     step_type: StepType&lt;F, Args&gt;,
 }
@@ -400,20 +342,15 @@
         }
     }
 
-    <span class="doccomment">/// # **Description:**
-    /// Adds an internal signal to the step type with the given name and returns a **`Queriable`** instance.
-    /// # **Arguments:**
-    /// - **`name: &amp;str`** - The name of the internal signal.
-    /// # **Return:**
-    /// - **`Queriable&lt;F&gt;`** - A **`Queriable`** instance representing the added internal signal.
+    <span class="doccomment">/// Adds an internal signal to the step type with the given name and returns a `Queriable`
+    /// instance representing the added signal.
     </span><span class="kw">pub fn </span>internal(<span class="kw-2">&amp;mut </span><span class="self">self</span>, name: <span class="kw-2">&amp;</span>str) -&gt; Queriable&lt;F&gt; {
         Queriable::Internal(<span class="self">self</span>.step_type.add_signal(name))
     }
 
-    <span class="doccomment">/// # **Description:**
-    /// Adds a constraint to the step type. Involves internal signal(s) only.
-    /// # **Arguments:**
-    /// - **`constraint: C`** - Accepts any type that can be converted into a **`Constraint&lt;F&gt;`**. Chiquito provides syntax sugar for defining complex constraints. Refer to **Constraint Builder DSL Functions** section for more information.    
+    <span class="doccomment">/// Adds a constraint to the step type. Involves internal signal(s) only. Chiquito provides
+    /// syntax sugar for defining complex constraints. Refer to the `cb` (constraint builder)
+    /// module for more information.
     </span><span class="kw">pub fn </span>constr&lt;C: Into&lt;Constraint&lt;F&gt;&gt;&gt;(<span class="kw-2">&amp;mut </span><span class="self">self</span>, constraint: C) {
         <span class="kw">let </span>constraint = constraint.into();
 
@@ -421,10 +358,10 @@
             .add_constr(constraint.annotation, constraint.expr);
     }
 
-    <span class="doccomment">/// # **Description:**
-    /// Adds a transition constraint to the step type. It’s the same as a regular constraint except that it can involve forward signal(s) as well.
-    /// # **Arguments:**
-    /// - **`constraint: C`** - Accepts any type that can be converted into a **`Constraint&lt;F&gt;`**. Chiquito provides syntax sugar for defining complex constraints. Refer to **Constraint Builder DSL Functions** section for more information.    
+    <span class="doccomment">/// Adds a transition constraint to the step type. It’s the same as a regular constraint except
+    /// that it can involve forward signal(s) as well. Chiquito provides syntax sugar for
+    /// defining complex constraints. Refer to the `cb` (constraint builder) module for more
+    /// information.
     </span><span class="kw">pub fn </span>transition&lt;C: Into&lt;Constraint&lt;F&gt;&gt;&gt;(<span class="kw-2">&amp;mut </span><span class="self">self</span>, constraint: C) {
         <span class="kw">let </span>constraint = constraint.into();
 
@@ -432,10 +369,11 @@
             .add_transition(constraint.annotation, constraint.expr);
     }
 
-    <span class="doccomment">/// # **Description:**
-    /// Sets the witness generation function for the step type. The witness generation function is responsible for assigning witness values to witness column **`Queriable`**. It is entirely left for the user to implement and is Turing complete. Users typically generate cell values and call the assign function to fill the witness columns.
-    /// # **Arguments:**
-    /// - **`def: D`** - The witness generation function, which takes a mutable reference to a **`WitnessGenContext`** and an **`Args`** instance, a generic type representing the arguments passed to the witness generation function. See more information about the **`WitnessGenContext`** trait and its assign function below.
+    <span class="doccomment">/// Sets the witness generation function for the step type. The witness generation function is
+    /// responsible for assigning witness values to witness column `Queriable`. It is entirely
+    /// left for the user to implement and is Turing complete. Users typically generate cell values
+    /// and call the assign function to fill the witness columns. `Args` is a generic type
+    /// representing the arguments passed to the witness generation function.
     </span><span class="kw">pub fn </span>wg&lt;D&gt;(<span class="kw-2">&amp;mut </span><span class="self">self</span>, def: D)
     <span class="kw">where
         </span>D: Fn(<span class="kw-2">&amp;mut </span><span class="kw">dyn </span>WitnessGenContext&lt;F&gt;, Args) + <span class="lifetime">&#39;static</span>,
@@ -445,10 +383,7 @@
 }
 
 <span class="kw">impl</span>&lt;F: Debug + Clone, Args&gt; StepTypeContext&lt;F, Args&gt; {
-    <span class="doccomment">/// # **Description:**
-    /// Adds a lookup table to the step type.
-    /// # **Arguments:**
-    /// - **`lookup_builder: &amp;mut LookupBuilder&lt;F&gt;`** - The lookup table builder from which to add the lookup table to the step type.
+    <span class="doccomment">/// Adds a lookup table to the step type.
     </span><span class="kw">pub fn </span>add_lookup(<span class="kw-2">&amp;mut </span><span class="self">self</span>, lookup_builder: <span class="kw-2">&amp;mut </span>LookupBuilder&lt;F&gt;) {
         <span class="self">self</span>.step_type.lookups.push(lookup_builder.lookup.clone());
     }
@@ -481,12 +416,11 @@
     <span class="comment">// fs: ForwardSignal,
 </span>}
 
-<span class="doccomment">/// Creates a `Circuit` instance by providing a name and a definition closure that is applied to a mutable `CircuitContext`. The user customizes the definition closure by calling `CircuitContext` functions. This is the main function that users call to define a Chiquito circuit.
-/// # **Arguments:**
-/// `_name: &amp;str`: The name of the circuit. (Note: Currently, the name is not used for annotation within the function, but it may be used in future implementations.)
-/// `def: D`: A closure that defines the circuit by modifying a `CircuitContext`. The closure has the following signature: `Fn(&amp;mut CircuitContext&lt;F, TraceArgs, StepArgs&gt;)`.
-/// # **Return:**
-/// `Circuit&lt;F, TraceArgs, StepArgs&gt;`: A new Circuit instance, as defined by the provided closure.
+<span class="doccomment">/// Creates a `Circuit` instance by providing a name and a definition closure that is applied to a
+/// mutable `CircuitContext`. The user customizes the definition closure by calling `CircuitContext`
+/// functions. This is the main function that users call to define a Chiquito circuit. Currently,
+/// the name is not used for annotation within the function, but it may be used in future
+/// implementations.
 </span><span class="kw">pub fn </span>circuit&lt;F, TraceArgs, StepArgs, D&gt;(_name: <span class="kw-2">&amp;</span>str, def: D) -&gt; Circuit&lt;F, TraceArgs, StepArgs&gt;
 <span class="kw">where
     </span>D: Fn(<span class="kw-2">&amp;mut </span>CircuitContext&lt;F, TraceArgs, StepArgs&gt;),

@@ -335,7 +335,6 @@
 <span id="335">335</span>
 <span id="336">336</span>
 <span id="337">337</span>
-<span id="338">338</span>
 </pre><pre class="rust"><code><span class="kw">use </span>std::{
     fmt::Debug,
     ops::{Add, Mul, Neg, Sub},
@@ -575,10 +574,9 @@
     }
 
     <span class="kw">impl</span>&lt;F&gt; Queriable&lt;F&gt; {
-        <span class="doccomment">/// # **Description:**
-        /// Call `**next**` function on a `**Querible**` forward signal to build constraints for forward signal with rotation. Cannot be called on an internal signal and must be used within a `**transition**` constraint.
-        /// # **Return:**
-        /// A new **`Queriable`** forward signal with rotation.
+        <span class="doccomment">/// Call `next` function on a `Querible` forward signal to build constraints for forward
+        /// signal with rotation. Cannot be called on an internal signal and must be used within a
+        /// `transition` constraint. Returns a new `Queriable` forward signal with rotation.
         </span><span class="kw">pub fn </span>next(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Queriable&lt;F&gt; {
             <span class="kw">use </span>Queriable::<span class="kw-2">*</span>;
             <span class="kw">match </span><span class="self">self </span>{

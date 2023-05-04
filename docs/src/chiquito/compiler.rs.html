@@ -472,6 +472,10 @@
 <span id="472">472</span>
 <span id="473">473</span>
 <span id="474">474</span>
+<span id="475">475</span>
+<span id="476">476</span>
+<span id="477">477</span>
+<span id="478">478</span>
 </pre><pre class="rust"><code><span class="kw">use </span>core::fmt::Debug;
 <span class="kw">use </span>std::{collections::HashMap, rc::Rc};
 
@@ -503,15 +507,19 @@
     <span class="kw">fn </span>set_height(<span class="kw-2">&amp;mut </span><span class="self">self</span>, height: usize);
 }
 
-<span class="doccomment">/// **`WitnessGenContext`** is a trait that represents a witness generation context. It provides an interface for assigning values to witness columns in a circuit.
+<span class="doccomment">/// A trait that represents a witness generation context. It provides an interface for assigning
+/// values to witness columns in a circuit.
 </span><span class="kw">pub trait </span>WitnessGenContext&lt;F&gt; {
-    <span class="doccomment">/// The assign function takes a **`Queriable`** object representing the witness column (lhs) and the value (rhs) to be assigned.    
+    <span class="doccomment">/// Takes a `Queriable` object representing the witness column (lhs) and the value (rhs) to be
+    /// assigned.
     </span><span class="kw">fn </span>assign(<span class="kw-2">&amp;mut </span><span class="self">self</span>, lhs: Queriable&lt;F&gt;, rhs: F);
 }
 
-<span class="doccomment">/// **`FixedGenContext`** is a trait that represents a fixed column generation context. It provides an interface for assigning values to fixed columns in a circuit at the specified offset.
+<span class="doccomment">/// A trait that represents a fixed column generation context. It provides an interface for
+/// assigning values to fixed columns in a circuit at the specified offset.
 </span><span class="kw">pub trait </span>FixedGenContext&lt;F&gt; {
-    <span class="doccomment">/// The assign function takes a **`Queriable`** object representing the fixed column (lhs) and the value (rhs) to be assigned.
+    <span class="doccomment">/// Takes a `Queriable` object representing the fixed column (lhs) and the value (rhs) to be
+    /// assigned.
     </span><span class="kw">fn </span>assign(<span class="kw-2">&amp;mut </span><span class="self">self</span>, offset: usize, lhs: Queriable&lt;F&gt;, rhs: F);
 }
 
