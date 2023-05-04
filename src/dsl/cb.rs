@@ -416,7 +416,6 @@ mod tests {
                             matches!(boxed_e.as_ref(), Expr::Const(c) if *c == 30u64.field())))))));
     }
 
-    // the intended input of `not` is 0 or 1, but there's no enforcement of that
     #[test]
     fn test_not_one() {
         let a = <u64 as ToExpr<Fr>>::expr(&1);
@@ -439,7 +438,6 @@ mod tests {
                 matches!(boxed_e.as_ref(), Expr::Const(c) if *c == 0u64.field()))));
     }
 
-    // TODO: xor should take Into<Constraint> and return a Constraint, not Expr?
     #[test]
     fn test_xor() {
         let a = <u64 as ToExpr<Fr>>::expr(&10);
@@ -529,7 +527,6 @@ mod tests {
             matches!(v[1], Expr::Const(c) if c == 10u64.field())));
     }
 
-    // why do we define isz as returning the constraint itself?
     #[test]
     fn test_isz() {
         let zero = <u64 as ToExpr<Fr>>::expr(&0);
