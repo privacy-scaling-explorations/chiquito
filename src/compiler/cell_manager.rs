@@ -152,3 +152,105 @@ impl CellManager for SingleRowCellManager {
         unit.placement = placement;
     }
 }
+
+#[derive(Debug, Default)]
+pub struct MaxWidthCellManager {
+    max_width: usize,
+}
+
+impl CellManager for MaxWidthCellManager {
+    fn place<F, TraceArgs, StepArgs>(
+        &self,
+        unit: &mut CompilationUnit<F, StepArgs>,
+        sc: &Circuit<F, TraceArgs, StepArgs>,
+    ) {
+        let mut placement = Placement::<F, StepArgs> {
+            forward: HashMap::new(),
+            steps: HashMap::new(),
+            columns: Vec::new(),
+        };
+
+        let mut forward_signal_column: usize = 0;
+        let mut forward_signal_row: usize = 0;
+
+        for forward_signal in sc.forward_signals.iter() {
+            let column = if placement.columns.len() <= forward_signal_column as usize {
+                let column = if let Some(annotation) = unit.annotations.get(&forward_signal.uuid())
+                {
+                    Column::advice(format!("mwcm forward signal {}", annotation), 0)
+                } else {
+                    Column::advice("mwcm forward signal", 0)
+                };
+
+                placement.columns.push(column.clone());
+                column
+            } else {
+                placement.columns[forward_signal_column as usize].clone()
+            };
+
+            placement.forward.insert(
+                *forward_signal,
+                SignalPlacement {
+                    column,
+                    rotation: forward_signal_row as i32,
+                },
+            );
+
+            forward_signal_column += 1;
+            if forward_signal_column >= self.max_width {
+                forward_signal_column = 0;
+                forward_signal_row += 1;
+            }
+        }
+
+        for step in unit.step_types.values() {
+            let mut step_placement = StepPlacement {
+                height: if forward_signal_column > 0 {
+                    (forward_signal_row + 1) as u32
+                } else {
+                    forward_signal_row as u32
+                },
+                signals: HashMap::new(),
+            };
+
+            let mut internal_signal_column = forward_signal_column;
+            let mut internal_signal_row = forward_signal_row;
+
+            for signal in step.signals.iter() {
+                let column = if placement.columns.len() <= internal_signal_column as usize {
+                    let column = if let Some(annotation) = unit.annotations.get(&signal.uuid()) {
+                        Column::advice(format!("mwcm forward signal {}", annotation), 0)
+                    } else {
+                        Column::advice("mwcm forward signal", 0)
+                    };
+
+                    placement.columns.push(column.clone());
+                    column
+                } else {
+                    placement.columns[internal_signal_column as usize].clone()
+                };
+
+                step_placement.signals.insert(
+                    *signal,
+                    SignalPlacement {
+                        column,
+                        rotation: internal_signal_row as i32,
+                    },
+                );
+
+                step_placement.height = (internal_signal_row + 1) as u32;
+
+                internal_signal_column += 1;
+                if internal_signal_column >= self.max_width {
+                    internal_signal_column = 0;
+                    internal_signal_row += 1;
+                }
+            }
+
+            placement.steps.insert(Rc::clone(step), step_placement);
+        }
+
+        unit.columns.extend_from_slice(&placement.columns);
+        unit.placement = placement;
+    }
+}
