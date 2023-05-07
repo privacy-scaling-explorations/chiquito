@@ -1,4 +1,4 @@
-use std::{collections::HashMap, rc::Rc};
+use std::{collections::HashMap, fmt::Debug, rc::Rc};
 
 use crate::ast::{ForwardSignal, InternalSignal, StepType};
 
@@ -240,5 +240,84 @@ impl CellManager for MaxWidthCellManager {
 
         unit.columns.extend_from_slice(&placement.columns);
         unit.placement = placement;
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::rc::Rc;
+
+    use crate::{
+        ast::{ForwardSignal, StepType},
+        compiler::CompilationUnit,
+    };
+
+    use super::{CellManager, MaxWidthCellManager};
+
+    #[test]
+    fn test_max_width_cm_2_columns() {
+        let mut unit = CompilationUnit::<(), ()> {
+            forward_signals: vec![
+                ForwardSignal::new_with_phase(0, "a".to_string()),
+                ForwardSignal::new_with_phase(0, "a".to_string()),
+            ],
+            ..Default::default()
+        };
+
+        let mut step1 = StepType::new(1500, "step1".to_string());
+        step1.add_signal("c1");
+        step1.add_signal("d");
+        step1.add_signal("e");
+        let mut step2 = StepType::new(1501, "step2".to_string());
+        step2.add_signal("c2");
+
+        let step1 = Rc::new(step1);
+        let step2 = Rc::new(step2);
+
+        unit.step_types.insert(1500, Rc::clone(&step1));
+        unit.step_types.insert(1501, Rc::clone(&step2));
+
+        // forward signals: a, b; step1 internal: c1, d, e; step2 internal c2
+
+        let cm = MaxWidthCellManager { max_width: 2 };
+
+        cm.place(&mut unit);
+
+        assert_eq!(unit.placement.columns.len(), 2);
+        assert_eq!(unit.placement.forward.len(), 2);
+        assert_eq!(
+            unit.placement
+                .steps
+                .get(&step1)
+                .expect("should be there")
+                .height,
+            3
+        );
+        assert_eq!(
+            unit.placement
+                .steps
+                .get(&step1)
+                .expect("should be there")
+                .signals
+                .len(),
+            3
+        );
+        assert_eq!(
+            unit.placement
+                .steps
+                .get(&step2)
+                .expect("should be there")
+                .height,
+            2
+        );
+        assert_eq!(
+            unit.placement
+                .steps
+                .get(&step2)
+                .expect("should be there")
+                .signals
+                .len(),
+            1
+        );
     }
 }
