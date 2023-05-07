@@ -476,6 +476,13 @@
 <span id="476">476</span>
 <span id="477">477</span>
 <span id="478">478</span>
+<span id="479">479</span>
+<span id="480">480</span>
+<span id="481">481</span>
+<span id="482">482</span>
+<span id="483">483</span>
+<span id="484">484</span>
+<span id="485">485</span>
 </pre><pre class="rust"><code><span class="kw">use </span>core::fmt::Debug;
 <span class="kw">use </span>std::{collections::HashMap, rc::Rc};
 
@@ -486,8 +493,8 @@
 
 <span class="kw">use crate</span>::{
     ast::{
-        query::Queriable, Circuit <span class="kw">as </span>astCircuit, Expr, ImportedHalo2Advice, ImportedHalo2Fixed,
-        StepType,
+        query::Queriable, Circuit <span class="kw">as </span>astCircuit, Expr, ForwardSignal, ImportedHalo2Advice,
+        ImportedHalo2Fixed, StepType,
     },
     dsl::StepTypeHandler,
     ir::{Circuit, Column, ColumnType, Poly, PolyExpr, PolyLookup},
@@ -527,9 +534,12 @@
 </span><span class="kw">pub struct </span>CompilationUnit&lt;F, StepArgs&gt; {
     <span class="kw">pub </span>placement: Placement&lt;F, StepArgs&gt;,
     <span class="kw">pub </span>selector: StepSelector&lt;F, StepArgs&gt;,
-    <span class="kw">pub </span>columns: Vec&lt;Column&gt;,
     <span class="kw">pub </span>step_types: HashMap&lt;u32, Rc&lt;StepType&lt;F, StepArgs&gt;&gt;&gt;,
+    <span class="kw">pub </span>forward_signals: Vec&lt;ForwardSignal&gt;,
+
     <span class="kw">pub </span>annotations: HashMap&lt;u32, String&gt;,
+
+    <span class="kw">pub </span>columns: Vec&lt;Column&gt;,
     <span class="kw">pub </span>polys: Vec&lt;Poly&lt;F&gt;&gt;,
     <span class="kw">pub </span>lookups: Vec&lt;PolyLookup&lt;F&gt;&gt;,
 }
@@ -539,9 +549,12 @@
         <span class="self">Self </span>{
             placement: Default::default(),
             selector: Default::default(),
-            columns: Default::default(),
             step_types: Default::default(),
+            forward_signals: Default::default(),
+
             annotations: Default::default(),
+
+            columns: Default::default(),
             polys: Default::default(),
             lookups: Default::default(),
         }
@@ -641,8 +654,9 @@
 
         unit.columns = <span class="macro">vec!</span>[halo2_advice_columns, halo2_fixed_columns].concat();
         unit.step_types = sc.step_types.clone();
+        unit.forward_signals = sc.forward_signals.clone();
 
-        <span class="self">self</span>.cell_manager.place(<span class="kw-2">&amp;mut </span>unit, sc);
+        <span class="self">self</span>.cell_manager.place(<span class="kw-2">&amp;mut </span>unit);
         <span class="self">self</span>.step_selector_builder
             .build::&lt;F, TraceArgs, StepArgs&gt;(<span class="kw-2">&amp;mut </span>unit);
 

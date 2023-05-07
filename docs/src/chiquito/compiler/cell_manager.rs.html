@@ -242,21 +242,9 @@
 <span id="242">242</span>
 <span id="243">243</span>
 <span id="244">244</span>
-<span id="245">245</span>
-<span id="246">246</span>
-<span id="247">247</span>
-<span id="248">248</span>
-<span id="249">249</span>
-<span id="250">250</span>
-<span id="251">251</span>
-<span id="252">252</span>
-<span id="253">253</span>
-<span id="254">254</span>
-<span id="255">255</span>
-<span id="256">256</span>
 </pre><pre class="rust"><code><span class="kw">use </span>std::{collections::HashMap, rc::Rc};
 
-<span class="kw">use </span><span class="kw">crate</span>::ast::{Circuit, ForwardSignal, InternalSignal, StepType};
+<span class="kw">use </span><span class="kw">crate</span>::ast::{ForwardSignal, InternalSignal, StepType};
 
 <span class="kw">use super</span>::{Column, CompilationUnit};
 
@@ -317,22 +305,14 @@
 }
 
 <span class="kw">pub trait </span>CellManager {
-    <span class="kw">fn </span>place&lt;F, TraceArgs, StepArgs&gt;(
-        <span class="kw-2">&amp;</span><span class="self">self</span>,
-        unit: <span class="kw-2">&amp;mut </span>CompilationUnit&lt;F, StepArgs&gt;,
-        sc: <span class="kw-2">&amp;</span>Circuit&lt;F, TraceArgs, StepArgs&gt;,
-    );
+    <span class="kw">fn </span>place&lt;F, StepArgs&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>, unit: <span class="kw-2">&amp;mut </span>CompilationUnit&lt;F, StepArgs&gt;);
 }
 
 <span class="attribute">#[derive(Debug, Default)]
 </span><span class="kw">pub struct </span>SingleRowCellManager {}
 
 <span class="kw">impl </span>CellManager <span class="kw">for </span>SingleRowCellManager {
-    <span class="kw">fn </span>place&lt;F, TraceArgs, StepArgs&gt;(
-        <span class="kw-2">&amp;</span><span class="self">self</span>,
-        unit: <span class="kw-2">&amp;mut </span>CompilationUnit&lt;F, StepArgs&gt;,
-        sc: <span class="kw-2">&amp;</span>Circuit&lt;F, TraceArgs, StepArgs&gt;,
-    ) {
+    <span class="kw">fn </span>place&lt;F, StepArgs&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>, unit: <span class="kw-2">&amp;mut </span>CompilationUnit&lt;F, StepArgs&gt;) {
         <span class="kw">let </span><span class="kw-2">mut </span>placement = Placement::&lt;F, StepArgs&gt; {
             forward: HashMap::new(),
             steps: HashMap::new(),
@@ -341,7 +321,7 @@
 
         <span class="kw">let </span><span class="kw-2">mut </span>forward_signals: u32 = <span class="number">0</span>;
 
-        <span class="kw">for </span>forward_signal <span class="kw">in </span>sc.forward_signals.iter() {
+        <span class="kw">for </span>forward_signal <span class="kw">in </span>unit.forward_signals.iter() {
             <span class="kw">let </span>column = <span class="kw">if let </span><span class="prelude-val">Some</span>(annotation) = unit.annotations.get(<span class="kw-2">&amp;</span>forward_signal.uuid()) {
                 Column::advice(
                     <span class="macro">format!</span>(<span class="string">&quot;srcm forward {}&quot;</span>, annotation),
@@ -415,11 +395,7 @@
 }
 
 <span class="kw">impl </span>CellManager <span class="kw">for </span>MaxWidthCellManager {
-    <span class="kw">fn </span>place&lt;F, TraceArgs, StepArgs&gt;(
-        <span class="kw-2">&amp;</span><span class="self">self</span>,
-        unit: <span class="kw-2">&amp;mut </span>CompilationUnit&lt;F, StepArgs&gt;,
-        sc: <span class="kw-2">&amp;</span>Circuit&lt;F, TraceArgs, StepArgs&gt;,
-    ) {
+    <span class="kw">fn </span>place&lt;F, StepArgs&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>, unit: <span class="kw-2">&amp;mut </span>CompilationUnit&lt;F, StepArgs&gt;) {
         <span class="kw">let </span><span class="kw-2">mut </span>placement = Placement::&lt;F, StepArgs&gt; {
             forward: HashMap::new(),
             steps: HashMap::new(),
@@ -429,7 +405,7 @@
         <span class="kw">let </span><span class="kw-2">mut </span>forward_signal_column: usize = <span class="number">0</span>;
         <span class="kw">let </span><span class="kw-2">mut </span>forward_signal_row: usize = <span class="number">0</span>;
 
-        <span class="kw">for </span>forward_signal <span class="kw">in </span>sc.forward_signals.iter() {
+        <span class="kw">for </span>forward_signal <span class="kw">in </span>unit.forward_signals.iter() {
             <span class="kw">let </span>column = <span class="kw">if </span>placement.columns.len() &lt;= forward_signal_column <span class="kw">as </span>usize {
                 <span class="kw">let </span>column = <span class="kw">if let </span><span class="prelude-val">Some</span>(annotation) = unit.annotations.get(<span class="kw-2">&amp;</span>forward_signal.uuid())
                 {
