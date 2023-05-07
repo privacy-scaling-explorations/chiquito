@@ -1,6 +1,6 @@
 use std::{collections::HashMap, rc::Rc};
 
-use crate::ast::{Circuit, ForwardSignal, InternalSignal, StepType};
+use crate::ast::{ForwardSignal, InternalSignal, StepType};
 
 use super::{Column, CompilationUnit};
 
@@ -61,22 +61,14 @@ impl<F, StepArgs> Placement<F, StepArgs> {
 }
 
 pub trait CellManager {
-    fn place<F, TraceArgs, StepArgs>(
-        &self,
-        unit: &mut CompilationUnit<F, StepArgs>,
-        sc: &Circuit<F, TraceArgs, StepArgs>,
-    );
+    fn place<F, StepArgs>(&self, unit: &mut CompilationUnit<F, StepArgs>);
 }
 
 #[derive(Debug, Default)]
 pub struct SingleRowCellManager {}
 
 impl CellManager for SingleRowCellManager {
-    fn place<F, TraceArgs, StepArgs>(
-        &self,
-        unit: &mut CompilationUnit<F, StepArgs>,
-        sc: &Circuit<F, TraceArgs, StepArgs>,
-    ) {
+    fn place<F, StepArgs>(&self, unit: &mut CompilationUnit<F, StepArgs>) {
         let mut placement = Placement::<F, StepArgs> {
             forward: HashMap::new(),
             steps: HashMap::new(),
@@ -85,7 +77,7 @@ impl CellManager for SingleRowCellManager {
 
         let mut forward_signals: u32 = 0;
 
-        for forward_signal in sc.forward_signals.iter() {
+        for forward_signal in unit.forward_signals.iter() {
             let column = if let Some(annotation) = unit.annotations.get(&forward_signal.uuid()) {
                 Column::advice(
                     format!("srcm forward {}", annotation),
@@ -159,11 +151,7 @@ pub struct MaxWidthCellManager {
 }
 
 impl CellManager for MaxWidthCellManager {
-    fn place<F, TraceArgs, StepArgs>(
-        &self,
-        unit: &mut CompilationUnit<F, StepArgs>,
-        sc: &Circuit<F, TraceArgs, StepArgs>,
-    ) {
+    fn place<F, StepArgs>(&self, unit: &mut CompilationUnit<F, StepArgs>) {
         let mut placement = Placement::<F, StepArgs> {
             forward: HashMap::new(),
             steps: HashMap::new(),
@@ -173,7 +161,7 @@ impl CellManager for MaxWidthCellManager {
         let mut forward_signal_column: usize = 0;
         let mut forward_signal_row: usize = 0;
 
-        for forward_signal in sc.forward_signals.iter() {
+        for forward_signal in unit.forward_signals.iter() {
             let column = if placement.columns.len() <= forward_signal_column as usize {
                 let column = if let Some(annotation) = unit.annotations.get(&forward_signal.uuid())
                 {

@@ -12,14 +12,15 @@ use crate::{
 pub struct Circuit<F, TraceArgs, StepArgs> {
     pub placement: Placement<F, StepArgs>,
     pub selector: StepSelector<F, StepArgs>,
-    pub columns: Vec<Column>,
-    pub polys: Vec<Poly<F>>,
-    pub lookups: Vec<PolyLookup<F>>,
     pub step_types: HashMap<u32, Rc<StepType<F, StepArgs>>>,
 
     pub q_enable: Column,
     pub q_first: Option<Column>,
     pub q_last: Option<Column>,
+
+    pub columns: Vec<Column>,
+    pub polys: Vec<Poly<F>>,
+    pub lookups: Vec<PolyLookup<F>>,
 
     pub trace: Option<Rc<Trace<TraceArgs, StepArgs>>>,
     pub fixed_gen: Option<Rc<FixedGen<F>>>,

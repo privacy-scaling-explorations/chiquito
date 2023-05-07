@@ -8,8 +8,8 @@ use halo2_proofs::{
 
 use crate::{
     ast::{
-        query::Queriable, Circuit as astCircuit, Expr, ImportedHalo2Advice, ImportedHalo2Fixed,
-        StepType,
+        query::Queriable, Circuit as astCircuit, Expr, ForwardSignal, ImportedHalo2Advice,
+        ImportedHalo2Fixed, StepType,
     },
     dsl::StepTypeHandler,
     ir::{Circuit, Column, ColumnType, Poly, PolyExpr, PolyLookup},
@@ -49,9 +49,12 @@ pub trait FixedGenContext<F> {
 pub struct CompilationUnit<F, StepArgs> {
     pub placement: Placement<F, StepArgs>,
     pub selector: StepSelector<F, StepArgs>,
-    pub columns: Vec<Column>,
     pub step_types: HashMap<u32, Rc<StepType<F, StepArgs>>>,
+    pub forward_signals: Vec<ForwardSignal>,
+
     pub annotations: HashMap<u32, String>,
+
+    pub columns: Vec<Column>,
     pub polys: Vec<Poly<F>>,
     pub lookups: Vec<PolyLookup<F>>,
 }
@@ -61,9 +64,12 @@ impl<F, StepArgs> Default for CompilationUnit<F, StepArgs> {
         Self {
             placement: Default::default(),
             selector: Default::default(),
-            columns: Default::default(),
             step_types: Default::default(),
+            forward_signals: Default::default(),
+
             annotations: Default::default(),
+
+            columns: Default::default(),
             polys: Default::default(),
             lookups: Default::default(),
         }
@@ -163,8 +169,9 @@ impl<CM: CellManager, SSB: StepSelectorBuilder> Compiler<CM, SSB> {
 
         unit.columns = vec![halo2_advice_columns, halo2_fixed_columns].concat();
         unit.step_types = sc.step_types.clone();
+        unit.forward_signals = sc.forward_signals.clone();
 
-        self.cell_manager.place(&mut unit, sc);
+        self.cell_manager.place(&mut unit);
         self.step_selector_builder
             .build::<F, TraceArgs, StepArgs>(&mut unit);
 
