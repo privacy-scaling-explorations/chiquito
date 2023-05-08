@@ -155,7 +155,14 @@ impl<F: Debug> Debug for PolyExpr<F> {
         };
 
         match self {
-            Self::Const(arg0) => write!(f, "{:?}", arg0),
+            Self::Const(arg0) => {
+                let mut s = format!("{:?}", arg0)
+                    .trim_start_matches("0x")
+                    .trim_start_matches('0')
+                    .to_string();
+                s.insert_str(0, "0x");
+                write!(f, "{}", s)
+            },
             Self::Query(_, _, annotation) => write!(f, "`{}`", annotation),
             Self::Sum(arg0) => write!(f, "({})", joiner(arg0, " + ")),
             Self::Mul(arg0) => write!(f, "({})", joiner(arg0, " * ")),
@@ -188,4 +195,36 @@ impl<F: Clone> PolyExpr<F> {
 pub struct PolyLookup<F> {
     pub annotation: String,
     pub exprs: Vec<(PolyExpr<F>, PolyExpr<F>)>,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::PolyExpr;
+    use halo2_proofs::halo2curves::bn256::Fr;
+
+    #[test]
+    fn test_poly_expr_fmt() {
+        let a: Fr = 10.into();
+        let b: Fr = 20.into();
+
+        let expr1 = PolyExpr::Const(&a);
+        println!("{:?}", expr1);
+        assert_eq!(format!("{:?}", expr1), "0xa");
+
+        let expr2 = PolyExpr::Sum(vec![PolyExpr::Const(&a), PolyExpr::Const(&b)]);
+        println!("{:?}", expr2);
+        assert_eq!(format!("{:?}", expr2), "(0xa + 0x14)");
+
+        let expr3 = PolyExpr::Mul(vec![PolyExpr::Const(&a), PolyExpr::Const(&b)]);
+        println!("{:?}", expr3);
+        assert_eq!(format!("{:?}", expr3), "(0xa * 0x14)");
+
+        let expr4 = PolyExpr::Neg(Box::new(PolyExpr::Const(&a)));
+        println!("{:?}", expr4);
+        assert_eq!(format!("{:?}", expr4), "(-0xa)");
+
+        let expr5 = PolyExpr::Pow(Box::new(PolyExpr::Const(&a)), 2);
+        println!("{:?}", expr5);
+        assert_eq!(format!("{:?}", expr5), "Pow(0xa, 2)");
+    }
 }
