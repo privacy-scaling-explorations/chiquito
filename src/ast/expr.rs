@@ -32,12 +32,16 @@ impl<F: Debug> Debug for Expr<F> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::Const(arg0) => {
-                let mut s = format!("{:?}", arg0)
-                    .trim_start_matches("0x")
-                    .trim_start_matches('0')
-                    .to_string();
-                s.insert_str(0, "0x");
-                write!(f, "{}", s)
+                let formatted = format!("{:?}", arg0);
+                if formatted.starts_with("0x") {
+                    let s = format!(
+                        "0x{}",
+                        formatted.trim_start_matches("0x").trim_start_matches('0')
+                    );
+                    write!(f, "{}", s)
+                } else {
+                    write!(f, "{}", formatted)
+                }
             },
             Self::Sum(arg0) => write!(
                 f,
@@ -354,23 +358,18 @@ mod tests {
         let b: Fr = 20.into();
 
         let expr1 = Expr::Const(&a);
-        println!("{:?}", expr1);
         assert_eq!(format!("{:?}", expr1), "0xa");
 
         let expr2 = Expr::Sum(vec![Expr::Const(&a), Expr::Const(&b)]);
-        println!("{:?}", expr2);
         assert_eq!(format!("{:?}", expr2), "(0xa + 0x14)");
 
         let expr3 = Expr::Mul(vec![Expr::Const(&a), Expr::Const(&b)]);
-        println!("{:?}", expr3);
         assert_eq!(format!("{:?}", expr3), "(0xa * 0x14)");
 
         let expr4 = Expr::Neg(Box::new(Expr::Const(&a)));
-        println!("{:?}", expr4);
         assert_eq!(format!("{:?}", expr4), "-0xa");
 
         let expr5 = Expr::Pow(Box::new(Expr::Const(&a)), 2);
-        println!("{:?}", expr5);
         assert_eq!(format!("{:?}", expr5), "(0xa)^2");
     }
 }
