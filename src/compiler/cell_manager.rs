@@ -147,7 +147,7 @@ impl CellManager for SingleRowCellManager {
 
 #[derive(Debug, Default)]
 pub struct MaxWidthCellManager {
-    max_width: usize,
+    pub max_width: usize,
 }
 
 impl CellManager for MaxWidthCellManager {

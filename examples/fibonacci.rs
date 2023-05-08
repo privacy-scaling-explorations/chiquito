@@ -4,9 +4,9 @@ use chiquito::{
                                                       * which can be integrated into Halo2
                                                       * circuit */
     compiler::{
-        cell_manager::SingleRowCellManager, // input for constructing the compiler
+        cell_manager::{MaxWidthCellManager, SingleRowCellManager}, /* input for constructing the compiler */
         step_selector::SimpleStepSelectorBuilder, // input for constructing the compiler
-        Compiler,                           // compiles AST to IR
+        Compiler,                                 // compiles AST to IR
     },
     dsl::{
         cb::*,   // functions for constraint building
@@ -26,7 +26,7 @@ use halo2_proofs::{
 // 1. type that implements a field trait
 // 2. empty trace arguments, i.e. (), because there are no external inputs to the Chiquito circuit
 // 3. two witness generation arguments both of u64 type, i.e. (u64, u64)
-fn fibo_circuit<F: FieldExt>() -> Circuit<F, (), (u64, u64)> {
+fn fibo_circuit<F: FieldExt>() -> (Circuit<F, (), (u64, u64)>, Circuit<F, (), (u64, u64)>) {
     // PLONKish table for the Fibonacci circuit:
     // | a | b | c |
     // | 1 | 1 | 2 |
@@ -126,9 +126,20 @@ fn fibo_circuit<F: FieldExt>() -> Circuit<F, (), (u64, u64)> {
         })
     });
 
-    let compiler = Compiler::new(SingleRowCellManager {}, SimpleStepSelectorBuilder {});
+    // single row cell manager places all signals of a step instance in one PLONKish table row, i.e.
+    // all super rows are height 1
+    let compiler_single_row = Compiler::new(SingleRowCellManager {}, SimpleStepSelectorBuilder {});
+    // max width cell manager customizes the maximum column width of step instances and adjust the
+    // number of PLONKish table rows accordingly
+    let compiler_max_width = Compiler::new(
+        MaxWidthCellManager { max_width: 1 },
+        SimpleStepSelectorBuilder {},
+    );
 
-    compiler.compile(&fibo)
+    (
+        compiler_single_row.compile(&fibo),
+        compiler_max_width.compile(&fibo),
+    )
 }
 
 // After compiling Chiquito AST to an IR, it is further parsed by a Chiquito Halo2 backend and
@@ -142,11 +153,16 @@ struct FiboConfig<F: FieldExt> {
 }
 
 impl<F: FieldExt> FiboConfig<F> {
-    fn new(meta: &mut ConstraintSystem<F>) -> FiboConfig<F> {
+    fn new(meta: &mut ConstraintSystem<F>, cell_manager: String) -> FiboConfig<F> {
         // chiquito2Halo2 function in Halo2 backend can convert ir::Circuit object to a
         // ChiquitoHalo2 object, which can be further integrated into a Halo2 circuit in the
         // example below
-        let mut compiled = chiquito2Halo2(fibo_circuit::<F>());
+        let mut compiled = if cell_manager == "single_row" {
+            chiquito2Halo2(fibo_circuit::<F>().0)
+        } else {
+            // MaxWidthCellManager with max_width = 1
+            chiquito2Halo2(fibo_circuit::<F>().1)
+        };
 
         // ChiquitoHalo2 objects have their own configure and synthesize functions defined in the
         // Chiquito Halo2 backend
@@ -156,52 +172,60 @@ impl<F: FieldExt> FiboConfig<F> {
     }
 }
 
-#[derive(Default)]
-struct FiboCircuit {}
+macro_rules! impl_fibo_circuit {
+    ($circuit_struct:ident, $cell_manager:expr) => {
+        #[derive(Default)]
+        struct $circuit_struct {}
 
-// integrate Chiquito circuit into a Halo2 circuit
-impl<F: FieldExt> halo2_proofs::plonk::Circuit<F> for FiboCircuit {
-    type Config = FiboConfig<F>;
+        impl<F: FieldExt> halo2_proofs::plonk::Circuit<F> for $circuit_struct {
+            type Config = FiboConfig<F>;
 
-    type FloorPlanner = SimpleFloorPlanner;
+            type FloorPlanner = SimpleFloorPlanner;
 
-    // function in Halo2 circuit interface
-    fn without_witnesses(&self) -> Self {
-        Self::default()
-    }
+            fn without_witnesses(&self) -> Self {
+                Self::default()
+            }
 
-    // function in Halo2 circuit interface
-    fn configure(meta: &mut halo2_proofs::plonk::ConstraintSystem<F>) -> Self::Config {
-        FiboConfig::<F>::new(meta)
-    }
+            fn configure(meta: &mut halo2_proofs::plonk::ConstraintSystem<F>) -> Self::Config {
+                FiboConfig::<F>::new(meta, $cell_manager.to_string())
+            }
 
-    // function in Halo2 circuit interface
-    fn synthesize(
-        &self,
-        config: Self::Config,
-        mut layouter: impl halo2_proofs::circuit::Layouter<F>,
-    ) -> Result<(), halo2_proofs::plonk::Error> {
-        // ChiquitoHalo2 objects have their own configure and synthesize functions defined in the
-        // Chiquito Halo2 backend
-        config.compiled.synthesize(&mut layouter, ());
+            fn synthesize(
+                &self,
+                config: Self::Config,
+                mut layouter: impl halo2_proofs::circuit::Layouter<F>,
+            ) -> Result<(), halo2_proofs::plonk::Error> {
+                config.compiled.synthesize(&mut layouter, ());
 
-        Ok(())
-    }
+                Ok(())
+            }
+        }
+    };
+}
+
+impl_fibo_circuit!(FiboCircuitSingleRowCellManager, "single_row");
+impl_fibo_circuit!(FiboCircuitMaxWidthCellManager, "max_width");
+
+macro_rules! run_circuit {
+    ($circuit_type:ty) => {{
+        let circuit = <$circuit_type>::default();
+
+        let prover = MockProver::<Fr>::run(7, &circuit, Vec::new()).unwrap();
+
+        let result = prover.verify_par();
+
+        println!("{:#?}", result);
+
+        if let Err(failures) = &result {
+            for failure in failures.iter() {
+                println!("{}", failure);
+            }
+        }
+    }};
 }
 
 // standard main function for a Halo2 circuit
 fn main() {
-    let circuit = FiboCircuit {};
-
-    let prover = MockProver::<Fr>::run(7, &circuit, Vec::new()).unwrap();
-
-    let result = prover.verify_par();
-
-    println!("{:#?}", result);
-
-    if let Err(failures) = &result {
-        for failure in failures.iter() {
-            println!("{}", failure);
-        }
-    }
+    run_circuit!(FiboCircuitSingleRowCellManager);
+    run_circuit!(FiboCircuitMaxWidthCellManager);
 }
