@@ -162,7 +162,7 @@ impl CellManager for MaxWidthCellManager {
         let mut forward_signal_row: usize = 0;
 
         for forward_signal in unit.forward_signals.iter() {
-            let column = if placement.columns.len() <= forward_signal_column as usize {
+            let column = if placement.columns.len() <= forward_signal_column {
                 let column = if let Some(annotation) = unit.annotations.get(&forward_signal.uuid())
                 {
                     Column::advice(format!("mwcm forward signal {}", annotation), 0)
@@ -173,7 +173,7 @@ impl CellManager for MaxWidthCellManager {
                 placement.columns.push(column.clone());
                 column
             } else {
-                placement.columns[forward_signal_column as usize].clone()
+                placement.columns[forward_signal_column].clone()
             };
 
             placement.forward.insert(
@@ -205,7 +205,7 @@ impl CellManager for MaxWidthCellManager {
             let mut internal_signal_row = forward_signal_row;
 
             for signal in step.signals.iter() {
-                let column = if placement.columns.len() <= internal_signal_column as usize {
+                let column = if placement.columns.len() <= internal_signal_column {
                     let column = if let Some(annotation) = unit.annotations.get(&signal.uuid()) {
                         Column::advice(format!("mwcm forward signal {}", annotation), 0)
                     } else {
@@ -215,7 +215,7 @@ impl CellManager for MaxWidthCellManager {
                     placement.columns.push(column.clone());
                     column
                 } else {
-                    placement.columns[internal_signal_column as usize].clone()
+                    placement.columns[internal_signal_column].clone()
                 };
 
                 step_placement.signals.insert(
