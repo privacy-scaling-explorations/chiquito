@@ -485,7 +485,7 @@
         <span class="kw">let </span><span class="kw-2">mut </span>forward_signal_row: usize = <span class="number">0</span>;
 
         <span class="kw">for </span>forward_signal <span class="kw">in </span>unit.forward_signals.iter() {
-            <span class="kw">let </span>column = <span class="kw">if </span>placement.columns.len() &lt;= forward_signal_column <span class="kw">as </span>usize {
+            <span class="kw">let </span>column = <span class="kw">if </span>placement.columns.len() &lt;= forward_signal_column {
                 <span class="kw">let </span>column = <span class="kw">if let </span><span class="prelude-val">Some</span>(annotation) = unit.annotations.get(<span class="kw-2">&amp;</span>forward_signal.uuid())
                 {
                     Column::advice(<span class="macro">format!</span>(<span class="string">&quot;mwcm forward signal {}&quot;</span>, annotation), <span class="number">0</span>)
@@ -496,7 +496,7 @@
                 placement.columns.push(column.clone());
                 column
             } <span class="kw">else </span>{
-                placement.columns[forward_signal_column <span class="kw">as </span>usize].clone()
+                placement.columns[forward_signal_column].clone()
             };
 
             placement.forward.insert(
@@ -528,7 +528,7 @@
             <span class="kw">let </span><span class="kw-2">mut </span>internal_signal_row = forward_signal_row;
 
             <span class="kw">for </span>signal <span class="kw">in </span>step.signals.iter() {
-                <span class="kw">let </span>column = <span class="kw">if </span>placement.columns.len() &lt;= internal_signal_column <span class="kw">as </span>usize {
+                <span class="kw">let </span>column = <span class="kw">if </span>placement.columns.len() &lt;= internal_signal_column {
                     <span class="kw">let </span>column = <span class="kw">if let </span><span class="prelude-val">Some</span>(annotation) = unit.annotations.get(<span class="kw-2">&amp;</span>signal.uuid()) {
                         Column::advice(<span class="macro">format!</span>(<span class="string">&quot;mwcm forward signal {}&quot;</span>, annotation), <span class="number">0</span>)
                     } <span class="kw">else </span>{
@@ -538,7 +538,7 @@
                     placement.columns.push(column.clone());
                     column
                 } <span class="kw">else </span>{
-                    placement.columns[internal_signal_column <span class="kw">as </span>usize].clone()
+                    placement.columns[internal_signal_column].clone()
                 };
 
                 step_placement.signals.insert(
