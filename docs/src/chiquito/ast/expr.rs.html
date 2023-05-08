@@ -335,6 +335,44 @@
 <span id="335">335</span>
 <span id="336">336</span>
 <span id="337">337</span>
+<span id="338">338</span>
+<span id="339">339</span>
+<span id="340">340</span>
+<span id="341">341</span>
+<span id="342">342</span>
+<span id="343">343</span>
+<span id="344">344</span>
+<span id="345">345</span>
+<span id="346">346</span>
+<span id="347">347</span>
+<span id="348">348</span>
+<span id="349">349</span>
+<span id="350">350</span>
+<span id="351">351</span>
+<span id="352">352</span>
+<span id="353">353</span>
+<span id="354">354</span>
+<span id="355">355</span>
+<span id="356">356</span>
+<span id="357">357</span>
+<span id="358">358</span>
+<span id="359">359</span>
+<span id="360">360</span>
+<span id="361">361</span>
+<span id="362">362</span>
+<span id="363">363</span>
+<span id="364">364</span>
+<span id="365">365</span>
+<span id="366">366</span>
+<span id="367">367</span>
+<span id="368">368</span>
+<span id="369">369</span>
+<span id="370">370</span>
+<span id="371">371</span>
+<span id="372">372</span>
+<span id="373">373</span>
+<span id="374">374</span>
+<span id="375">375</span>
 </pre><pre class="rust"><code><span class="kw">use </span>std::{
     fmt::Debug,
     ops::{Add, Mul, Neg, Sub},
@@ -368,7 +406,18 @@
 <span class="kw">impl</span>&lt;F: Debug&gt; Debug <span class="kw">for </span>Expr&lt;F&gt; {
     <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>std::fmt::Formatter&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; std::fmt::Result {
         <span class="kw">match </span><span class="self">self </span>{
-            <span class="self">Self</span>::Const(arg0) =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;{:?}&quot;</span>, arg0),
+            <span class="self">Self</span>::Const(arg0) =&gt; {
+                <span class="kw">let </span>formatted = <span class="macro">format!</span>(<span class="string">&quot;{:?}&quot;</span>, arg0);
+                <span class="kw">if </span>formatted.starts_with(<span class="string">&quot;0x&quot;</span>) {
+                    <span class="kw">let </span>s = <span class="macro">format!</span>(
+                        <span class="string">&quot;0x{}&quot;</span>,
+                        formatted.trim_start_matches(<span class="string">&quot;0x&quot;</span>).trim_start_matches(<span class="string">&#39;0&#39;</span>)
+                    );
+                    <span class="macro">write!</span>(f, <span class="string">&quot;{}&quot;</span>, s)
+                } <span class="kw">else </span>{
+                    <span class="macro">write!</span>(f, <span class="string">&quot;{}&quot;</span>, formatted)
+                }
+            }
             <span class="self">Self</span>::Sum(arg0) =&gt; <span class="macro">write!</span>(
                 f,
                 <span class="string">&quot;({})&quot;</span>,
@@ -670,6 +719,33 @@
         <span class="kw">fn </span>neg(<span class="self">self</span>) -&gt; <span class="self">Self</span>::Output {
             <span class="self">self</span>.expr().neg()
         }
+    }
+}
+
+<span class="attribute">#[cfg(test)]
+</span><span class="kw">mod </span>tests {
+    <span class="kw">use super</span>::<span class="kw-2">*</span>;
+    <span class="kw">use </span>halo2_proofs::halo2curves::bn256::Fr;
+
+    <span class="attribute">#[test]
+    </span><span class="kw">fn </span>test_expr_fmt() {
+        <span class="kw">let </span>a: Fr = <span class="number">10</span>.into();
+        <span class="kw">let </span>b: Fr = <span class="number">20</span>.into();
+
+        <span class="kw">let </span>expr1 = Expr::Const(<span class="kw-2">&amp;</span>a);
+        <span class="macro">assert_eq!</span>(<span class="macro">format!</span>(<span class="string">&quot;{:?}&quot;</span>, expr1), <span class="string">&quot;0xa&quot;</span>);
+
+        <span class="kw">let </span>expr2 = Expr::Sum(<span class="macro">vec!</span>[Expr::Const(<span class="kw-2">&amp;</span>a), Expr::Const(<span class="kw-2">&amp;</span>b)]);
+        <span class="macro">assert_eq!</span>(<span class="macro">format!</span>(<span class="string">&quot;{:?}&quot;</span>, expr2), <span class="string">&quot;(0xa + 0x14)&quot;</span>);
+
+        <span class="kw">let </span>expr3 = Expr::Mul(<span class="macro">vec!</span>[Expr::Const(<span class="kw-2">&amp;</span>a), Expr::Const(<span class="kw-2">&amp;</span>b)]);
+        <span class="macro">assert_eq!</span>(<span class="macro">format!</span>(<span class="string">&quot;{:?}&quot;</span>, expr3), <span class="string">&quot;(0xa * 0x14)&quot;</span>);
+
+        <span class="kw">let </span>expr4 = Expr::Neg(Box::new(Expr::Const(<span class="kw-2">&amp;</span>a)));
+        <span class="macro">assert_eq!</span>(<span class="macro">format!</span>(<span class="string">&quot;{:?}&quot;</span>, expr4), <span class="string">&quot;-0xa&quot;</span>);
+
+        <span class="kw">let </span>expr5 = Expr::Pow(Box::new(Expr::Const(<span class="kw-2">&amp;</span>a)), <span class="number">2</span>);
+        <span class="macro">assert_eq!</span>(<span class="macro">format!</span>(<span class="string">&quot;{:?}&quot;</span>, expr5), <span class="string">&quot;(0xa)^2&quot;</span>);
     }
 }
 </code></pre></div>

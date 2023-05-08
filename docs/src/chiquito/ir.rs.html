@@ -189,6 +189,44 @@
 <span id="189">189</span>
 <span id="190">190</span>
 <span id="191">191</span>
+<span id="192">192</span>
+<span id="193">193</span>
+<span id="194">194</span>
+<span id="195">195</span>
+<span id="196">196</span>
+<span id="197">197</span>
+<span id="198">198</span>
+<span id="199">199</span>
+<span id="200">200</span>
+<span id="201">201</span>
+<span id="202">202</span>
+<span id="203">203</span>
+<span id="204">204</span>
+<span id="205">205</span>
+<span id="206">206</span>
+<span id="207">207</span>
+<span id="208">208</span>
+<span id="209">209</span>
+<span id="210">210</span>
+<span id="211">211</span>
+<span id="212">212</span>
+<span id="213">213</span>
+<span id="214">214</span>
+<span id="215">215</span>
+<span id="216">216</span>
+<span id="217">217</span>
+<span id="218">218</span>
+<span id="219">219</span>
+<span id="220">220</span>
+<span id="221">221</span>
+<span id="222">222</span>
+<span id="223">223</span>
+<span id="224">224</span>
+<span id="225">225</span>
+<span id="226">226</span>
+<span id="227">227</span>
+<span id="228">228</span>
+<span id="229">229</span>
 </pre><pre class="rust"><code><span class="kw">use </span>std::{collections::HashMap, fmt::Debug, rc::Rc};
 
 <span class="kw">use </span>halo2_proofs::plonk::Expression;
@@ -346,7 +384,18 @@
         };
 
         <span class="kw">match </span><span class="self">self </span>{
-            <span class="self">Self</span>::Const(arg0) =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;{:?}&quot;</span>, arg0),
+            <span class="self">Self</span>::Const(arg0) =&gt; {
+                <span class="kw">let </span>formatted = <span class="macro">format!</span>(<span class="string">&quot;{:?}&quot;</span>, arg0);
+                <span class="kw">if </span>formatted.starts_with(<span class="string">&quot;0x&quot;</span>) {
+                    <span class="kw">let </span>s = <span class="macro">format!</span>(
+                        <span class="string">&quot;0x{}&quot;</span>,
+                        formatted.trim_start_matches(<span class="string">&quot;0x&quot;</span>).trim_start_matches(<span class="string">&#39;0&#39;</span>)
+                    );
+                    <span class="macro">write!</span>(f, <span class="string">&quot;{}&quot;</span>, s)
+                } <span class="kw">else </span>{
+                    <span class="macro">write!</span>(f, <span class="string">&quot;{}&quot;</span>, formatted)
+                }
+            }
             <span class="self">Self</span>::Query(<span class="kw">_</span>, <span class="kw">_</span>, annotation) =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;`{}`&quot;</span>, annotation),
             <span class="self">Self</span>::Sum(arg0) =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;({})&quot;</span>, joiner(arg0, <span class="string">&quot; + &quot;</span>)),
             <span class="self">Self</span>::Mul(arg0) =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;({})&quot;</span>, joiner(arg0, <span class="string">&quot; * &quot;</span>)),
@@ -379,6 +428,33 @@
 </span><span class="kw">pub struct </span>PolyLookup&lt;F&gt; {
     <span class="kw">pub </span>annotation: String,
     <span class="kw">pub </span>exprs: Vec&lt;(PolyExpr&lt;F&gt;, PolyExpr&lt;F&gt;)&gt;,
+}
+
+<span class="attribute">#[cfg(test)]
+</span><span class="kw">mod </span>tests {
+    <span class="kw">use </span><span class="kw">super</span>::PolyExpr;
+    <span class="kw">use </span>halo2_proofs::halo2curves::bn256::Fr;
+
+    <span class="attribute">#[test]
+    </span><span class="kw">fn </span>test_poly_expr_fmt() {
+        <span class="kw">let </span>a: Fr = <span class="number">10</span>.into();
+        <span class="kw">let </span>b: Fr = <span class="number">20</span>.into();
+
+        <span class="kw">let </span>expr1 = PolyExpr::Const(<span class="kw-2">&amp;</span>a);
+        <span class="macro">assert_eq!</span>(<span class="macro">format!</span>(<span class="string">&quot;{:?}&quot;</span>, expr1), <span class="string">&quot;0xa&quot;</span>);
+
+        <span class="kw">let </span>expr2 = PolyExpr::Sum(<span class="macro">vec!</span>[PolyExpr::Const(<span class="kw-2">&amp;</span>a), PolyExpr::Const(<span class="kw-2">&amp;</span>b)]);
+        <span class="macro">assert_eq!</span>(<span class="macro">format!</span>(<span class="string">&quot;{:?}&quot;</span>, expr2), <span class="string">&quot;(0xa + 0x14)&quot;</span>);
+
+        <span class="kw">let </span>expr3 = PolyExpr::Mul(<span class="macro">vec!</span>[PolyExpr::Const(<span class="kw-2">&amp;</span>a), PolyExpr::Const(<span class="kw-2">&amp;</span>b)]);
+        <span class="macro">assert_eq!</span>(<span class="macro">format!</span>(<span class="string">&quot;{:?}&quot;</span>, expr3), <span class="string">&quot;(0xa * 0x14)&quot;</span>);
+
+        <span class="kw">let </span>expr4 = PolyExpr::Neg(Box::new(PolyExpr::Const(<span class="kw-2">&amp;</span>a)));
+        <span class="macro">assert_eq!</span>(<span class="macro">format!</span>(<span class="string">&quot;{:?}&quot;</span>, expr4), <span class="string">&quot;(-0xa)&quot;</span>);
+
+        <span class="kw">let </span>expr5 = PolyExpr::Pow(Box::new(PolyExpr::Const(<span class="kw-2">&amp;</span>a)), <span class="number">2</span>);
+        <span class="macro">assert_eq!</span>(<span class="macro">format!</span>(<span class="string">&quot;{:?}&quot;</span>, expr5), <span class="string">&quot;Pow(0xa, 2)&quot;</span>);
+    }
 }
 </code></pre></div>
 </section></div></main><div id="rustdoc-vars" data-root-path="../../" data-current-crate="chiquito" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.65.0-nightly (015a824f2 2022-08-22)" ></div></body></html>
