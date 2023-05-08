@@ -42,7 +42,7 @@ impl<F: Debug> Debug for Expr<F> {
                 } else {
                     write!(f, "{}", formatted)
                 }
-            },
+            }
             Self::Sum(arg0) => write!(
                 f,
                 "({})",
@@ -349,8 +349,8 @@ pub mod query {
 
 #[cfg(test)]
 mod tests {
-    use halo2_proofs::halo2curves::bn256::Fr;
     use super::*;
+    use halo2_proofs::halo2curves::bn256::Fr;
 
     #[test]
     fn test_expr_fmt() {

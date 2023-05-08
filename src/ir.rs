@@ -166,7 +166,7 @@ impl<F: Debug> Debug for PolyExpr<F> {
                 } else {
                     write!(f, "{}", formatted)
                 }
-            },
+            }
             Self::Query(_, _, annotation) => write!(f, "`{}`", annotation),
             Self::Sum(arg0) => write!(f, "({})", joiner(arg0, " + ")),
             Self::Mul(arg0) => write!(f, "({})", joiner(arg0, " * ")),
