@@ -31,7 +31,18 @@ pub enum Expr<F> {
 impl<F: Debug> Debug for Expr<F> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::Const(arg0) => write!(f, "{:?}", arg0),
+            Self::Const(arg0) => {
+                let formatted = format!("{:?}", arg0);
+                if formatted.starts_with("0x") {
+                    let s = format!(
+                        "0x{}",
+                        formatted.trim_start_matches("0x").trim_start_matches('0')
+                    );
+                    write!(f, "{}", s)
+                } else {
+                    write!(f, "{}", formatted)
+                }
+            }
             Self::Sum(arg0) => write!(
                 f,
                 "({})",
@@ -333,5 +344,32 @@ pub mod query {
         fn neg(self) -> Self::Output {
             self.expr().neg()
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use halo2_proofs::halo2curves::bn256::Fr;
+
+    #[test]
+    fn test_expr_fmt() {
+        let a: Fr = 10.into();
+        let b: Fr = 20.into();
+
+        let expr1 = Expr::Const(&a);
+        assert_eq!(format!("{:?}", expr1), "0xa");
+
+        let expr2 = Expr::Sum(vec![Expr::Const(&a), Expr::Const(&b)]);
+        assert_eq!(format!("{:?}", expr2), "(0xa + 0x14)");
+
+        let expr3 = Expr::Mul(vec![Expr::Const(&a), Expr::Const(&b)]);
+        assert_eq!(format!("{:?}", expr3), "(0xa * 0x14)");
+
+        let expr4 = Expr::Neg(Box::new(Expr::Const(&a)));
+        assert_eq!(format!("{:?}", expr4), "-0xa");
+
+        let expr5 = Expr::Pow(Box::new(Expr::Const(&a)), 2);
+        assert_eq!(format!("{:?}", expr5), "(0xa)^2");
     }
 }
