@@ -262,7 +262,17 @@ fn poseidon_matrix(param_t: usize) -> Vec<&'static str>{
     }  
 }
 
-fn poseidon_circuit<F: FieldExt>(n_inputs: usize, n_outputs: usize)->irCircuit<F, (), (Vec<F>, Vec<F>, Vec<F>, Vec<F>, Vec<F>, Vec<F>)>{
+#[derive(Clone)]
+struct RoundValues<F: FieldExt>{
+   pub input_values: Vec<F>,
+   pub constant_values: Vec<F>,
+   pub matrix_values: Vec<F>,
+   pub x_values: Vec<F>,
+   pub sbox_values: Vec<F>,
+   pub out_values: Vec<F>,
+}
+
+fn poseidon_circuit<F: FieldExt>(n_inputs: usize, n_outputs: usize)->irCircuit<F, (), RoundValues<F>>{
 
     let n_rounds_p: Vec<usize> = vec![56, 57, 56, 60, 60, 63, 64, 63, 60, 66, 60, 65, 70, 60, 64, 68];
     let param_t: usize = n_inputs +1;
@@ -273,7 +283,7 @@ fn poseidon_circuit<F: FieldExt>(n_inputs: usize, n_outputs: usize)->irCircuit<F
     assert!(n_inputs < param_t);
     assert!(n_outputs < param_t);
 
-    let poseidon = circuit::<F, (), (Vec<F>, Vec<F>,  Vec<F>, Vec<F>, Vec<F>,  Vec<F>), _>("poseidon", |ctx|{
+    let poseidon = circuit::<F, (), RoundValues<F>, _>("poseidon", |ctx|{
         use chiquito::dsl::cb::*;
 
         let matrix: Vec<Queriable<F>> = (0..param_t*param_t).map(|i| ctx.forward(format!{"matrix_{:?}", i}.as_str())).collect();
@@ -318,24 +328,24 @@ fn poseidon_circuit<F: FieldExt>(n_inputs: usize, n_outputs: usize)->irCircuit<F
                 ctx.constr(eq(lc, outs[i]));
                 ctx.transition(eq(outs[i], inputs[i].next()));
             }
-            for i in 0..param_t * param_t {
-                ctx.transition(eq(matrix[i], matrix[i].next()));
+            for mvalue in matrix.iter().take(param_t * param_t) {
+                ctx.transition(eq(*mvalue, mvalue.next()));
             }
 
-            ctx.wg(move |ctx, (input_values, constant_values, matrix_values, x_values, sbox_values, out_values)| {
-                for i in 0..param_t * param_t{
-                    ctx.assign(matrix[i], matrix_values[i]);
+            ctx.wg(move |ctx, round_values| {
+                for (matrix, value) in matrix.iter().zip(round_values.matrix_values.iter()){
+                    ctx.assign(*matrix, *value);
                 }
                 for i in 0..param_t {
-                    ctx.assign(constants[i], constant_values[i]);
+                    ctx.assign(constants[i], round_values.constant_values[i]);
                     if i < n_inputs{
-                        ctx.assign(inputs[i], input_values[i]);
+                        ctx.assign(inputs[i], round_values.input_values[i]);
                     } else {
                         ctx.assign(inputs[i], F::zero());
                     }
-                    ctx.assign(x_vec[i], x_values[i]);
-                    ctx.assign(sboxs[i], sbox_values[i]);
-                    ctx.assign(outs[i], out_values[i]);
+                    ctx.assign(x_vec[i], round_values.x_values[i]);
+                    ctx.assign(sboxs[i], round_values.sbox_values[i]);
+                    ctx.assign(outs[i], round_values.out_values[i]);
                 }
             });
         });
@@ -364,20 +374,20 @@ fn poseidon_circuit<F: FieldExt>(n_inputs: usize, n_outputs: usize)->irCircuit<F
                 ctx.transition(eq(outs[i], inputs[i].next()));
             }
 
-            for i in 0..param_t * param_t {
-                ctx.transition(eq(matrix[i], matrix[i].next()));
+            for mvalue in matrix.iter().take(param_t * param_t) {
+                ctx.transition(eq(*mvalue, mvalue.next()));
             }
 
-            ctx.wg(move |ctx, (input_values, constant_values, matrix_values, x_values, sbox_values, out_values)| {
-                for i in 0..param_t * param_t{
-                    ctx.assign(matrix[i], matrix_values[i]);
+            ctx.wg(move |ctx, round_values| {
+                for (matrix, value) in matrix.iter().zip(round_values.matrix_values.iter()){
+                    ctx.assign(*matrix, *value);
                 }
                 for i in 0..param_t{
-                    ctx.assign(constants[i], constant_values[i]);
-                    ctx.assign(inputs[i], input_values[i]);
-                    ctx.assign(x_vec[i], x_values[i]);
-                    ctx.assign(sboxs[i], sbox_values[i]);
-                    ctx.assign(outs[i], out_values[i]);
+                    ctx.assign(constants[i], round_values.constant_values[i]);
+                    ctx.assign(inputs[i], round_values.input_values[i]);
+                    ctx.assign(x_vec[i], round_values.x_values[i]);
+                    ctx.assign(sboxs[i], round_values.sbox_values[i]);
+                    ctx.assign(outs[i], round_values.out_values[i]);
                 }
             });
         });
@@ -418,24 +428,23 @@ fn poseidon_circuit<F: FieldExt>(n_inputs: usize, n_outputs: usize)->irCircuit<F
                 ctx.transition(eq(outs[i], inputs[i].next()));
             }
 
-            for i in 0..param_t * param_t {
-                ctx.transition(eq(matrix[i], matrix[i].next()));
+            for mvalue in matrix.iter().take(param_t * param_t) {
+                ctx.transition(eq(*mvalue, mvalue.next()));
             }
 
-            ctx.wg(move |ctx, (input_values, constants_value, matrix_values, x_values, sbox_values, out_values)| {
-                for i in 0..param_t * param_t{
-                    ctx.assign(matrix[i], matrix_values[i]);
+            ctx.wg(move |ctx, round_values| {
+                for (matrix, value) in matrix.iter().zip(round_values.matrix_values.iter()){
+                    ctx.assign(*matrix, *value);
                 }
                 for i in 0..param_t {
-                    ctx.assign(constants[i], constants_value[i]);
-                    ctx.assign(inputs[i], input_values[i]);
-                    ctx.assign(outs[i], out_values[i]);
+                    ctx.assign(constants[i], round_values.constant_values[i]);
+                    ctx.assign(inputs[i], round_values.input_values[i]);
+                    ctx.assign(outs[i], round_values.out_values[i]);
                 }
 
-                //TODO
                 for i in 0..param_c {
-                    ctx.assign(x_vec[i], x_values[i]);
-                    ctx.assign(sboxs[i], sbox_values[i]);
+                    ctx.assign(x_vec[i], round_values.x_values[i]);
+                    ctx.assign(sboxs[i], round_values.sbox_values[i]);
                 }
             });
         });
@@ -454,7 +463,7 @@ fn poseidon_circuit<F: FieldExt>(n_inputs: usize, n_outputs: usize)->irCircuit<F
                 ctx.constr(eq(x_vec[i] * x_vec[i] * x_vec[i] * x_vec[i] * x_vec[i], sboxs[i]));
             }
 
-            for i in 0..n_outputs {
+            for (i, out) in outs.iter().enumerate().take(n_outputs) {
                 let m_offset = i * param_t;
                 let mut lc = sboxs[0] * matrix[m_offset];
                 for s in 1..param_c{
@@ -463,23 +472,22 @@ fn poseidon_circuit<F: FieldExt>(n_inputs: usize, n_outputs: usize)->irCircuit<F
                 for k in param_c..param_t{
                     lc = lc + inputs[k] * matrix[m_offset+k];
                 }
-                ctx.constr(eq(lc, outs[i]));
+                ctx.constr(eq(lc, *out));
             }
 
-            ctx.wg(move |ctx, (input_values, constant_values, matrix_values, x_values, sbox_values, out_values)| {
-                for i in 0..param_t * param_t{
-                    ctx.assign(matrix[i], matrix_values[i]);
+            ctx.wg(move |ctx, round_values| {
+                for (matrix, value) in matrix.iter().zip(round_values.matrix_values.iter()){
+                    ctx.assign(*matrix, *value);
                 }
-
                 for i in 0..param_t {
-                    ctx.assign(constants[i], constant_values[i]);
-                    ctx.assign(inputs[i], input_values[i]);
-                    ctx.assign(x_vec[i], x_values[i]);
-                    ctx.assign(sboxs[i], sbox_values[i]);
+                    ctx.assign(constants[i], round_values.constant_values[i]);
+                    ctx.assign(inputs[i], round_values.input_values[i]);
+                    ctx.assign(x_vec[i], round_values.x_values[i]);
+                    ctx.assign(sboxs[i], round_values.sbox_values[i]);
                 }
 
-                for i in 0..n_outputs{
-                    ctx.assign(outs[i], out_values[i]);
+                for (out, value) in outs.iter().zip(round_values.out_values.iter()){
+                    ctx.assign(*out, *value);
                 }
             });
         });
@@ -507,10 +515,9 @@ fn poseidon_circuit<F: FieldExt>(n_inputs: usize, n_outputs: usize)->irCircuit<F
             let matrix_values: Vec<F>= matrix_str.iter().map(|str| F::from_str_vartime(str).unwrap()).collect();
            
             let mut inputs = vec![F::zero(), F::one(), F::one(), F::zero(), F::one(), F::one()];
-            let mut outputs = Vec::new();
 
             let mut x_values: Vec<F> = (0..param_t).map(|i|{
-                let mut x_value = constant_values[i].clone();
+                let mut x_value = constant_values[i];
                 if i < n_inputs{
                     x_value = inputs[i] + constant_values[i];
                 }  
@@ -518,7 +525,7 @@ fn poseidon_circuit<F: FieldExt>(n_inputs: usize, n_outputs: usize)->irCircuit<F
             }).collect();
             let mut sbox_values: Vec<F> = x_values.iter().map(|x_value| *x_value * x_value * x_value * x_value * x_value).collect();
             
-            outputs = (0..param_t).map(|i|{
+            let mut outputs: Vec<F> = (0..param_t).map(|i|{
                 let m_offset = i * param_t;
                 let mut out_value =  sbox_values[0] * matrix_values[m_offset];
                 for s in 1..param_t{
@@ -529,10 +536,18 @@ fn poseidon_circuit<F: FieldExt>(n_inputs: usize, n_outputs: usize)->irCircuit<F
                 }
                 out_value
             }).collect();
-            ctx.add(&poseidon_step_first_round, (inputs.clone(), constant_values[0..param_t].to_vec(), matrix_values.clone(), x_values.clone(), sbox_values.clone(), outputs.clone()));
-            inputs = outputs.clone();
-            
 
+            let round_values = RoundValues::<F>{
+                input_values: inputs,
+                constant_values: constant_values[0..param_t].to_vec(),
+                matrix_values: matrix_values.clone(),
+                x_values,
+                sbox_values,
+                out_values: outputs.clone(),
+            };
+            ctx.add(&poseidon_step_first_round, round_values);
+            inputs = outputs;
+            
             for i in 1..param_f/2 {
                 x_values = (0..param_t).map(|j|{
                     inputs[j] + constant_values[i * param_t + j]
@@ -547,13 +562,22 @@ fn poseidon_circuit<F: FieldExt>(n_inputs: usize, n_outputs: usize)->irCircuit<F
                     }
                     out_value
                 }).collect();
-                ctx.add(&poseidon_step_full_round,(inputs.clone(), constant_values[i * param_t..(i+1) * param_t].to_vec(), matrix_values.clone(), x_values.clone(), sbox_values.clone(), outputs.clone()));
-                inputs = outputs.clone();
+
+                let round_values = RoundValues::<F>{
+                    input_values: inputs,
+                    constant_values: constant_values[i * param_t..(i+1) * param_t].to_vec(),
+                    matrix_values: matrix_values.clone(),
+                    x_values,
+                    sbox_values,
+                    out_values: outputs.clone(),
+                };
+                ctx.add(&poseidon_step_full_round,round_values);
+                inputs = outputs;
             }
 
             for i in 0..param_p {
                 x_values = (0..param_c).map(|j|{
-                    let mut x_value = constant_values[j+ (i + param_f/2) * param_t].clone();
+                    let mut x_value = constant_values[j+ (i + param_f/2) * param_t];
                     if j < param_t{
                         x_value = inputs[j] + constant_values[j + (i + param_f/2) * param_t];
                     } 
@@ -573,14 +597,21 @@ fn poseidon_circuit<F: FieldExt>(n_inputs: usize, n_outputs: usize)->irCircuit<F
                         out_value += sbox_values[s] * matrix_values[m_offset+s];
                     }
                     for k in param_c..param_t{
-                        out_value += outputs[k] * matrix_values[m_offset+k];
+                        out_value += inputs[k] * matrix_values[m_offset+k];
                     }
                     out_value
                 }).collect();
 
-                ctx.add(&poseidon_step_partial_round,(inputs.clone(), constant_values[(i + param_f/2) * param_t..(i + param_f/2 + 1) * param_t].to_vec(), matrix_values.clone(), x_values.clone(), sbox_values.clone(), outputs.clone()));
-
-                inputs = outputs.clone();
+                let round_values = RoundValues::<F>{
+                    input_values: inputs,
+                    constant_values: constant_values[(i + param_f/2) * param_t..(i + param_f/2 + 1) * param_t].to_vec(),
+                    matrix_values: matrix_values.clone(),
+                    x_values,
+                    sbox_values,
+                    out_values: outputs.clone(),
+                };
+                ctx.add(&poseidon_step_partial_round,round_values);
+                inputs = outputs;
             }
 
             for i in 0..param_f/2-1 {
@@ -598,9 +629,16 @@ fn poseidon_circuit<F: FieldExt>(n_inputs: usize, n_outputs: usize)->irCircuit<F
                     out_value
                 }).collect();
 
-                ctx.add(&poseidon_step_full_round,(inputs.clone(), constant_values[(i + param_f/2 + param_p) * param_t..(i + param_f/2 + param_p +1) * param_t].to_vec(), matrix_values.clone(), x_values.clone(), sbox_values.clone(), outputs.clone()));
-
-                inputs = outputs.clone();
+                let round_values = RoundValues::<F>{
+                    input_values: inputs,
+                    constant_values: constant_values[(i + param_f/2 + param_p) * param_t..(i + param_f/2 + param_p +1) * param_t].to_vec(),
+                    matrix_values: matrix_values.clone(),
+                    x_values,
+                    sbox_values,
+                    out_values: outputs.clone(),
+                };
+                ctx.add(&poseidon_step_full_round,round_values);
+                inputs = outputs;
             }
 
             x_values = (0..param_t).map(|i|{
@@ -619,7 +657,16 @@ fn poseidon_circuit<F: FieldExt>(n_inputs: usize, n_outputs: usize)->irCircuit<F
                 }
                 out_value
             }).collect();
-            ctx.add(&poseidon_step_last_round, (inputs.clone(), constant_values[(param_p + param_f -1) * param_t..(param_p + param_f) * param_t].to_vec(), matrix_values, x_values, sbox_values, outputs));
+
+            let round_values = RoundValues::<F>{
+                input_values: inputs,
+                constant_values: constant_values[(param_p + param_f -1) * param_t..(param_p + param_f) * param_t].to_vec(),
+                matrix_values,
+                x_values,
+                sbox_values,
+                out_values: outputs,
+            };
+            ctx.add(&poseidon_step_last_round, round_values);
         })
     });
 
@@ -629,7 +676,7 @@ fn poseidon_circuit<F: FieldExt>(n_inputs: usize, n_outputs: usize)->irCircuit<F
 
 #[derive(Clone)]
 struct PoseidonConfig<F: FieldExt>{
-    compiled: ChiquitoHalo2<F,(),(Vec<F>, Vec<F>, Vec<F>, Vec<F>, Vec<F>, Vec<F>)>,
+    compiled: ChiquitoHalo2<F,(),RoundValues<F>>,
 }
 
 impl <F: FieldExt> PoseidonConfig<F> {
