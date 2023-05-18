@@ -10,4 +10,4 @@ authors = ["Leo Lara <leo@leolara.me>"]
 [dependencies]
 halo2_proofs = { git = "https://github.com/privacy-scaling-explorations/halo2.git", tag = "v2023_02_02" }
 # eth-types = { git = "https://github.com/privacy-scaling-explorations/zkevm-circuits.git", package = "eth-types" }
-# need to update halo2_proofs dependency version to use eth-types
+# need to update halo2_proofs dependency version to use eth-types (or there's a rust analyzer dependency conflict error)
