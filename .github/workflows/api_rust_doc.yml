@@ -2,7 +2,7 @@ name: api rust doc
 
 on:
   push:
-    branches: [ "main" ]
+    branches: [ "main", "steve/issue_28-automate_gh_page_custom_url" ]
 
 permissions: {}
 jobs:
@@ -21,6 +21,11 @@ jobs:
         run: |
           mkdir -p ./target/doc
           echo '<meta http-equiv="refresh" content="0; url=chiquito">' > ./target/doc/index.html
+
+      - name: Add CNAME file to docs root
+        run: |
+          mkdir -p ./target/doc
+          echo 'apidocs.pecadorplonkish.xyz' > ./target/doc/index.html
 
       - name: Deploy to GitHub Pages
         uses: peaceiris/actions-gh-pages@v3
