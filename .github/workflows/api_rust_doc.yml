@@ -2,7 +2,7 @@ name: api rust doc
 
 on:
   push:
-    branches: [ "main", "steve/issue_28-automate_gh_page_custom_url" ]
+    branches: [ "main" ]
 
 permissions: {}
 jobs:
