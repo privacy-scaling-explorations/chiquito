@@ -2,7 +2,7 @@
 use halo2_proofs::halo2curves::group::ff::Field;
 
 use crate::{
-    ast::{query::Queriable, ToExpr},
+    ast::{query::Queriable, ToExpr, Expr},
     compiler::WitnessGenContext,
     dsl::{cb::Constraint, StepTypeContext},
 };
@@ -19,7 +19,7 @@ impl<F: Field> IsZero<F> {
         value_inv: Queriable<F>,
     ) -> IsZero<F> {
         let value: Constraint<F> = value.into();
-        let is_zero_expression = 1 - (value.expr.clone() * value_inv);
+        let is_zero_expression = Expr::Const(F::one()) - (value.expr.clone() * value_inv);
 
         ctx.constr(value.expr.clone() * is_zero_expression.clone());
 

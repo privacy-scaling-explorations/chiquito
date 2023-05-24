@@ -277,7 +277,7 @@ impl<F: Field, TraceArgs, StepArgs: Clone> ChiquitoHalo2<F, TraceArgs, StepArgs>
             PolyExpr::Neg(e) => -self.convert_poly(meta, e),
             PolyExpr::Pow(e, n) => {
                 if *n == 0 {
-                    Expression::Constant(1.field())
+                    Expression::Constant(F::one())
                 } else {
                     let e = self.convert_poly(meta, e);
                     (1..*n).fold(e.clone(), |acc, _| acc * e.clone())
