@@ -1,9 +1,10 @@
 use std::{collections::HashMap, rc::Rc};
 
 use halo2_proofs::{
-    arithmetic::Field,
+    // arithmetic::Field,
     circuit::{Layouter, Region, Value},
-    halo2curves::FieldExt,
+    // halo2curves::FieldExt,
+    halo2curves::group::ff::Field,
     plonk::{
         Advice, Column, ConstraintSystem, Expression, FirstPhase, Fixed, SecondPhase, ThirdPhase,
         VirtualCells,
@@ -26,7 +27,7 @@ use crate::{
 };
 
 #[allow(non_snake_case)]
-pub fn chiquito2Halo2<F: FieldExt, TraceArgs, StepArgs: Clone>(
+pub fn chiquito2Halo2<F: Field, TraceArgs, StepArgs: Clone>(
     circuit: Circuit<F, TraceArgs, StepArgs>,
 ) -> ChiquitoHalo2<F, TraceArgs, StepArgs> {
     ChiquitoHalo2::new(circuit)
@@ -42,7 +43,7 @@ pub struct ChiquitoHalo2<F: Field, TraceArgs, StepArgs: Clone> {
     fixed_columns: HashMap<u32, Column<Fixed>>,
 }
 
-impl<F: FieldExt, TraceArgs, StepArgs: Clone> ChiquitoHalo2<F, TraceArgs, StepArgs> {
+impl<F: Field, TraceArgs, StepArgs: Clone> ChiquitoHalo2<F, TraceArgs, StepArgs> {
     pub fn new(circuit: Circuit<F, TraceArgs, StepArgs>) -> ChiquitoHalo2<F, TraceArgs, StepArgs> {
         ChiquitoHalo2 {
             debug: true,

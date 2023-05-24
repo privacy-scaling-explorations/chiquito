@@ -1,7 +1,8 @@
 use std::{collections::HashMap, rc::Rc};
 
 use halo2_proofs::{
-    arithmetic::Field,
+    // arithmetic::Field,
+    halo2curves::group::ff::Field,
     plonk::{Advice, Column as Halo2Column},
 };
 

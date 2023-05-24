@@ -1,6 +1,8 @@
 use std::{fmt::Debug, vec};
 
-use halo2_proofs::arithmetic::Field;
+// use halo2_proofs::arithmetic::Field;
+use halo2_proofs::halo2curves::group::ff::Field;
+
 
 use crate::ast::{query::Queriable, Expr, Lookup, ToExpr};
 

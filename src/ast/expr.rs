@@ -3,7 +3,11 @@ use std::{
     ops::{Add, Mul, Neg, Sub},
 };
 
-use halo2_proofs::{arithmetic::Field, plonk::Expression};
+use halo2_proofs::{
+    // arithmetic::Field, 
+    plonk::Expression,
+    halo2curves::group::ff::Field,
+};
 
 use crate::dsl::cb::Constraint;
 

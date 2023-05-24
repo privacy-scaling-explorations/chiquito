@@ -1,4 +1,5 @@
-use halo2_proofs::{arithmetic::Field, halo2curves::FieldExt};
+// use halo2_proofs::{arithmetic::Field, halo2curves::FieldExt};
+use halo2_proofs::halo2curves::group::ff::Field;
 
 use crate::{
     ast::{query::Queriable, ToExpr},
@@ -11,14 +12,14 @@ pub struct IsZero<F> {
     is_zero_constraint: Constraint<F>,
 }
 
-impl<F: FieldExt> IsZero<F> {
+impl<F: Field> IsZero<F> {
     pub fn setup<V: Into<Constraint<F>>, StepArgs>(
         ctx: &mut StepTypeContext<F, StepArgs>,
         value: V,
         value_inv: Queriable<F>,
     ) -> IsZero<F> {
         let value: Constraint<F> = value.into();
-        let is_zero_expression = 1.expr() - (value.expr.clone() * value_inv);
+        let is_zero_expression = 1 - (value.expr.clone() * value_inv);
 
         ctx.constr(value.expr.clone() * is_zero_expression.clone());
 
