@@ -2,7 +2,8 @@ use core::fmt::Debug;
 use std::{collections::HashMap, rc::Rc};
 
 use halo2_proofs::{
-    arithmetic::Field,
+    // arithmetic::Field,
+    halo2curves::group::ff::{Field, PrimeField},
     plonk::{Advice, Column as Halo2Column},
 };
 
@@ -127,7 +128,7 @@ impl<CM: CellManager, SSB: StepSelectorBuilder> Compiler<CM, SSB> {
         }
     }
 
-    pub fn compile<F: Field + Clone, TraceArgs, StepArgs>(
+    pub fn compile<F: Field + PrimeField + Clone, TraceArgs, StepArgs>(
         &self,
         sc: &astCircuit<F, TraceArgs, StepArgs>,
     ) -> Circuit<F, TraceArgs, StepArgs> {

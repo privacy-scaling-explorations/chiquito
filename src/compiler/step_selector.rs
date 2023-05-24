@@ -1,7 +1,8 @@
 use std::{collections::HashMap, rc::Rc};
 
 use halo2_proofs::{
-    arithmetic::Field,
+    // arithmetic::Field,
+    halo2curves::group::ff::{Field, PrimeField},
     plonk::{Advice, Column as Halo2Column},
 };
 
@@ -51,14 +52,14 @@ impl<F: Clone, Args> StepSelector<F, Args> {
 }
 
 pub trait StepSelectorBuilder {
-    fn build<F: Field, TraceArgs, StepArgs>(&self, unit: &mut CompilationUnit<F, StepArgs>);
+    fn build<F: Field + PrimeField, TraceArgs, StepArgs>(&self, unit: &mut CompilationUnit<F, StepArgs>);
 }
 
 #[derive(Debug, Default)]
 pub struct SimpleStepSelectorBuilder {}
 
 impl StepSelectorBuilder for SimpleStepSelectorBuilder {
-    fn build<F: Field, TraceArgs, StepArgs>(&self, unit: &mut CompilationUnit<F, StepArgs>) {
+    fn build<F: Field + PrimeField, TraceArgs, StepArgs>(&self, unit: &mut CompilationUnit<F, StepArgs>) {
         let mut selector = StepSelector {
             selector_expr: HashMap::new(),
             selector_expr_not: HashMap::new(),
@@ -112,7 +113,7 @@ pub struct TwoStepsSelectorBuilder {
 }
 
 impl StepSelectorBuilder for TwoStepsSelectorBuilder {
-    fn build<F2: Field, TraceArgs, StepArgs>(&self, unit: &mut CompilationUnit<F2, StepArgs>) {
+    fn build<F2: Field + PrimeField, TraceArgs, StepArgs>(&self, unit: &mut CompilationUnit<F2, StepArgs>) {
         if unit.step_types.len() != 2 {
             panic!("jarll: must have two step types");
         }

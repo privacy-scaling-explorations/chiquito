@@ -1,6 +1,8 @@
 use std::{fmt::Debug, vec};
 
-use halo2_proofs::arithmetic::Field;
+// use halo2_proofs::arithmetic::Field;
+use halo2_proofs::halo2curves::group::ff::{Field, PrimeField};
+
 
 use crate::ast::{query::Queriable, Expr, Lookup, ToExpr};
 
@@ -26,7 +28,7 @@ impl<F> From<Queriable<F>> for Constraint<F> {
     }
 }
 
-impl<F: Field + From<u64> + Debug> From<i32> for Constraint<F> {
+impl<F: Field + PrimeField + From<u64> + Debug> From<i32> for Constraint<F> {
     fn from(v: i32) -> Self {
         v.expr().into()
     }

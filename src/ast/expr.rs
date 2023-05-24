@@ -3,7 +3,11 @@ use std::{
     ops::{Add, Mul, Neg, Sub},
 };
 
-use halo2_proofs::{arithmetic::Field, plonk::Expression};
+use halo2_proofs::{
+    // arithmetic::Field, 
+    plonk::Expression,
+    halo2curves::group::ff::{Field, PrimeField},
+};
 
 use crate::dsl::cb::Constraint;
 
@@ -168,7 +172,7 @@ impl_expr_like!(u32);
 impl_expr_like!(u64);
 impl_expr_like!(usize);
 
-impl<F: Field + From<u64>> From<i32> for Expr<F> {
+impl<F: Field + PrimeField + From<u64>> From<i32> for Expr<F> {
     #[inline]
     fn from(value: i32) -> Self {
         Expr::Const(
@@ -182,7 +186,7 @@ impl<F: Field + From<u64>> From<i32> for Expr<F> {
     }
 }
 
-impl<F: Field + From<u64>> ToExpr<F> for i32 {
+impl<F: Field + PrimeField + From<u64>> ToExpr<F> for i32 {
     #[inline]
     fn expr(&self) -> Expr<F> {
         Expr::Const(
@@ -196,7 +200,7 @@ impl<F: Field + From<u64>> ToExpr<F> for i32 {
     }
 }
 
-impl<F: Field + From<u64>> ToField<F> for i32 {
+impl<F: Field + PrimeField + From<u64>> ToField<F> for i32 {
     #[inline]
     fn field(&self) -> F {
         F::from(self.unsigned_abs() as u64)

@@ -1,9 +1,10 @@
 use std::{collections::HashMap, rc::Rc};
 
 use halo2_proofs::{
-    arithmetic::Field,
+    // arithmetic::Field,
     circuit::{Layouter, Region, Value},
-    halo2curves::FieldExt,
+    // halo2curves::FieldExt,
+    halo2curves::group::ff::{Field, PrimeField},
     plonk::{
         Advice, Column, ConstraintSystem, Expression, FirstPhase, Fixed, SecondPhase, ThirdPhase,
         VirtualCells,
@@ -26,14 +27,14 @@ use crate::{
 };
 
 #[allow(non_snake_case)]
-pub fn chiquito2Halo2<F: FieldExt, TraceArgs, StepArgs: Clone>(
+pub fn chiquito2Halo2<F: Field + PrimeField, TraceArgs, StepArgs: Clone>(
     circuit: Circuit<F, TraceArgs, StepArgs>,
 ) -> ChiquitoHalo2<F, TraceArgs, StepArgs> {
     ChiquitoHalo2::new(circuit)
 }
 
 #[derive(Clone, Debug)]
-pub struct ChiquitoHalo2<F: Field, TraceArgs, StepArgs: Clone> {
+pub struct ChiquitoHalo2<F: Field + PrimeField, TraceArgs, StepArgs: Clone> {
     pub debug: bool,
 
     circuit: Circuit<F, TraceArgs, StepArgs>,
@@ -42,7 +43,7 @@ pub struct ChiquitoHalo2<F: Field, TraceArgs, StepArgs: Clone> {
     fixed_columns: HashMap<u32, Column<Fixed>>,
 }
 
-impl<F: FieldExt, TraceArgs, StepArgs: Clone> ChiquitoHalo2<F, TraceArgs, StepArgs> {
+impl<F: Field + PrimeField, TraceArgs, StepArgs: Clone> ChiquitoHalo2<F, TraceArgs, StepArgs> {
     pub fn new(circuit: Circuit<F, TraceArgs, StepArgs>) -> ChiquitoHalo2<F, TraceArgs, StepArgs> {
         ChiquitoHalo2 {
             debug: true,
@@ -316,7 +317,7 @@ impl<F: FieldExt, TraceArgs, StepArgs: Clone> ChiquitoHalo2<F, TraceArgs, StepAr
 
 type Assignment<F, CT> = (Column<CT>, usize, Value<F>);
 
-struct TraceContextHalo2<F: Field, StepArgs> {
+struct TraceContextHalo2<F: Field + PrimeField, StepArgs> {
     advice_columns: HashMap<u32, Column<Advice>>,
     placement: Placement<F, StepArgs>,
     selector: StepSelector<F, StepArgs>,
@@ -331,7 +332,7 @@ struct TraceContextHalo2<F: Field, StepArgs> {
     height: usize,
 }
 
-impl<F: Field, StepArgs: Clone> TraceContextHalo2<F, StepArgs> {
+impl<F: Field + PrimeField, StepArgs: Clone> TraceContextHalo2<F, StepArgs> {
     fn find_halo2_placement(
         &self,
         step: &StepType<F, StepArgs>,
@@ -389,7 +390,7 @@ impl<F: Field, StepArgs: Clone> TraceContextHalo2<F, StepArgs> {
     }
 }
 
-impl<F: Field, StepArgs: Clone> TraceContext<StepArgs> for TraceContextHalo2<F, StepArgs> {
+impl<F: Field + PrimeField, StepArgs: Clone> TraceContext<StepArgs> for TraceContextHalo2<F, StepArgs> {
     fn add(&mut self, step: &StepTypeHandler, args: StepArgs) {
         if let Some(cur_step) = &self.cur_step {
             self.offset += self.placement.step_height(cur_step) as usize;
@@ -439,7 +440,7 @@ impl<F: Field, StepArgs: Clone> TraceContext<StepArgs> for TraceContextHalo2<F, 
     }
 }
 
-impl<F: Field, StepArgs: Clone> WitnessGenContext<F> for TraceContextHalo2<F, StepArgs> {
+impl<F: Field + PrimeField, StepArgs: Clone> WitnessGenContext<F> for TraceContextHalo2<F, StepArgs> {
     fn assign(&mut self, lhs: Queriable<F>, rhs: F) {
         if let Some(cur_step) = &self.cur_step {
             let (column, rotation) = self.find_halo2_placement(cur_step, lhs);
@@ -454,13 +455,13 @@ impl<F: Field, StepArgs: Clone> WitnessGenContext<F> for TraceContextHalo2<F, St
     }
 }
 
-struct FixedGenContextHalo2<F: Field> {
+struct FixedGenContextHalo2<F: Field + PrimeField> {
     assigments: Vec<Assignment<F, Fixed>>,
 
     max_offset: usize,
 }
 
-impl<F: Field> FixedGenContextHalo2<F> {
+impl<F: Field + PrimeField> FixedGenContextHalo2<F> {
     fn find_halo2_placement(query: Queriable<F>) -> (Column<Fixed>, i32) {
         match query {
             Queriable::Halo2FixedQuery(signal, rotation) => (signal.column, rotation),
@@ -469,7 +470,7 @@ impl<F: Field> FixedGenContextHalo2<F> {
     }
 }
 
-impl<F: Field> FixedGenContext<F> for FixedGenContextHalo2<F> {
+impl<F: Field + PrimeField> FixedGenContext<F> for FixedGenContextHalo2<F> {
     fn assign(&mut self, offset: usize, lhs: Queriable<F>, rhs: F) {
         let (column, rotation) = Self::find_halo2_placement(lhs);
 
@@ -483,7 +484,7 @@ impl<F: Field> FixedGenContext<F> for FixedGenContextHalo2<F> {
     }
 }
 
-pub fn to_halo2_advice<F: Field>(
+pub fn to_halo2_advice<F: Field + PrimeField>(
     meta: &mut ConstraintSystem<F>,
     column: &cColumn,
 ) -> Column<Advice> {
