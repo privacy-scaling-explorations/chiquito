@@ -8,4 +8,5 @@ authors = ["Leo Lara <leo@leolara.me>"]
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-halo2_proofs = { git = "https://github.com/privacy-scaling-explorations/halo2.git", features = ["circuit-params"], rev = "d3746109d7d38be53afc8ddae8fdfaf1f02ad1d7" }
+# halo2_proofs = { git = "https://github.com/privacy-scaling-explorations/halo2.git", features = ["circuit-params"], rev = "d3746109d7d38be53afc8ddae8fdfaf1f02ad1d7" }
+halo2_proofs = { git = "https://github.com/privacy-scaling-explorations/halo2.git", features = ["circuit-params"], tag = "v2023_04_20" }
