@@ -229,7 +229,7 @@ impl<F: Field, TraceArgs, StepArgs: Clone> ChiquitoHalo2<F, TraceArgs, StepArgs>
 
         for i in 0..height {
             region
-                .assign_fixed(|| "q_enable=1", *q_enable, i, || Value::known(F::one()))
+                .assign_fixed(|| "q_enable=1", *q_enable, i, || Value::known(F::ONE))
                 .expect("assignment of q_enable fixed column failed");
         }
 
@@ -240,7 +240,7 @@ impl<F: Field, TraceArgs, StepArgs: Clone> ChiquitoHalo2<F, TraceArgs, StepArgs>
                 .expect("q_enable column not found");
 
             region
-                .assign_fixed(|| "q_first=1", *q_first, 0, || Value::known(F::one()))
+                .assign_fixed(|| "q_first=1", *q_first, 0, || Value::known(F::ONE))
                 .expect("assignment of q_first fixed column failed");
         }
 
@@ -255,7 +255,7 @@ impl<F: Field, TraceArgs, StepArgs: Clone> ChiquitoHalo2<F, TraceArgs, StepArgs>
                     || "q_first=1",
                     *q_last,
                     height - 1,
-                    || Value::known(F::one()),
+                    || Value::known(F::ONE),
                 )
                 .expect("assignment of q_last fixed column failed");
         }
@@ -277,7 +277,7 @@ impl<F: Field, TraceArgs, StepArgs: Clone> ChiquitoHalo2<F, TraceArgs, StepArgs>
             PolyExpr::Neg(e) => -self.convert_poly(meta, e),
             PolyExpr::Pow(e, n) => {
                 if *n == 0 {
-                    Expression::Constant(F::one())
+                    Expression::Constant(F::ONE)
                 } else {
                     let e = self.convert_poly(meta, e);
                     (1..*n).fold(e.clone(), |acc, _| acc * e.clone())
