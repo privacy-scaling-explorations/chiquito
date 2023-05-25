@@ -309,7 +309,7 @@
             selector.selector_expr_not.insert(
                 Rc::clone(step),
                 PolyExpr::Sum(<span class="macro">vec!</span>[
-                    PolyExpr::Const(F::one()),
+                    PolyExpr::Const(F::ONE),
                     PolyExpr::Neg(Box::new(PolyExpr::Query(
                         column.clone(),
                         <span class="number">0</span>,
@@ -320,7 +320,7 @@
 
             selector.selector_assignment.insert(
                 Rc::clone(step),
-                <span class="macro">vec!</span>[(PolyExpr::Query(column, <span class="number">0</span>, annotation), F::one())],
+                <span class="macro">vec!</span>[(PolyExpr::Query(column, <span class="number">0</span>, annotation), F::ONE)],
             );
         }
 
@@ -384,7 +384,7 @@
         </span>unit.selector.selector_expr.insert(
             Rc::clone(<span class="kw-2">&amp;</span>step_zero),
             PolyExpr::Sum(<span class="macro">vec!</span>[
-                PolyExpr::Const(F2::one()),
+                PolyExpr::Const(F2::ONE),
                 PolyExpr::Neg(Box::new(PolyExpr::Query(
                     column.clone(),
                     <span class="number">0</span>,
@@ -402,7 +402,7 @@
             Rc::clone(<span class="kw-2">&amp;</span>step_zero),
             <span class="macro">vec!</span>[(
                 PolyExpr::Query(column.clone(), <span class="number">0</span>, <span class="string">&quot;select step zero&quot;</span>.to_string()),
-                F2::zero(),
+                F2::ZERO,
             )],
         );
 
@@ -415,7 +415,7 @@
         unit.selector.selector_expr_not.insert(
             Rc::clone(<span class="kw-2">&amp;</span>step_one),
             PolyExpr::Sum(<span class="macro">vec!</span>[
-                PolyExpr::Const(F2::one()),
+                PolyExpr::Const(F2::ONE),
                 PolyExpr::Neg(Box::new(PolyExpr::Query(
                     column.clone(),
                     <span class="number">0</span>,
@@ -428,7 +428,7 @@
             Rc::clone(<span class="kw-2">&amp;</span>step_one),
             <span class="macro">vec!</span>[(
                 PolyExpr::Query(column, <span class="number">0</span>, <span class="string">&quot;select step one&quot;</span>.to_string()),
-                F2::one(),
+                F2::ONE,
             )],
         );
     }
