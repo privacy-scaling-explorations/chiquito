@@ -83,7 +83,7 @@ impl StepSelectorBuilder for SimpleStepSelectorBuilder {
             selector.selector_expr_not.insert(
                 Rc::clone(step),
                 PolyExpr::Sum(vec![
-                    PolyExpr::Const(F::one()),
+                    PolyExpr::Const(F::ONE),
                     PolyExpr::Neg(Box::new(PolyExpr::Query(
                         column.clone(),
                         0,
@@ -94,7 +94,7 @@ impl StepSelectorBuilder for SimpleStepSelectorBuilder {
 
             selector.selector_assignment.insert(
                 Rc::clone(step),
-                vec![(PolyExpr::Query(column, 0, annotation), F::one())],
+                vec![(PolyExpr::Query(column, 0, annotation), F::ONE)],
             );
         }
 
@@ -158,7 +158,7 @@ impl StepSelectorBuilder for TwoStepsSelectorBuilder {
         unit.selector.selector_expr.insert(
             Rc::clone(&step_zero),
             PolyExpr::Sum(vec![
-                PolyExpr::Const(F2::one()),
+                PolyExpr::Const(F2::ONE),
                 PolyExpr::Neg(Box::new(PolyExpr::Query(
                     column.clone(),
                     0,
@@ -176,7 +176,7 @@ impl StepSelectorBuilder for TwoStepsSelectorBuilder {
             Rc::clone(&step_zero),
             vec![(
                 PolyExpr::Query(column.clone(), 0, "select step zero".to_string()),
-                F2::zero(),
+                F2::ZERO,
             )],
         );
 
@@ -189,7 +189,7 @@ impl StepSelectorBuilder for TwoStepsSelectorBuilder {
         unit.selector.selector_expr_not.insert(
             Rc::clone(&step_one),
             PolyExpr::Sum(vec![
-                PolyExpr::Const(F2::one()),
+                PolyExpr::Const(F2::ONE),
                 PolyExpr::Neg(Box::new(PolyExpr::Query(
                     column.clone(),
                     0,
@@ -202,7 +202,7 @@ impl StepSelectorBuilder for TwoStepsSelectorBuilder {
             Rc::clone(&step_one),
             vec![(
                 PolyExpr::Query(column, 0, "select step one".to_string()),
-                F2::one(),
+                F2::ONE,
             )],
         );
     }

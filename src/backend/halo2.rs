@@ -3,7 +3,6 @@ use std::{collections::HashMap, rc::Rc};
 use halo2_proofs::{
     arithmetic::Field,
     circuit::{Layouter, Region, Value},
-    halo2curves::FieldExt,
     plonk::{
         Advice, Column, ConstraintSystem, Expression, FirstPhase, Fixed, SecondPhase, ThirdPhase,
         VirtualCells,
@@ -25,7 +24,7 @@ use crate::{
 };
 
 #[allow(non_snake_case)]
-pub fn chiquito2Halo2<F: FieldExt, TraceArgs, StepArgs: Clone>(
+pub fn chiquito2Halo2<F: Field + From<u64>, TraceArgs, StepArgs: Clone>(
     circuit: Circuit<F, TraceArgs, StepArgs>,
 ) -> ChiquitoHalo2<F, TraceArgs, StepArgs> {
     ChiquitoHalo2::new(circuit)
@@ -41,7 +40,7 @@ pub struct ChiquitoHalo2<F: Field, TraceArgs, StepArgs: Clone> {
     fixed_columns: HashMap<u32, Column<Fixed>>,
 }
 
-impl<F: FieldExt, TraceArgs, StepArgs: Clone> ChiquitoHalo2<F, TraceArgs, StepArgs> {
+impl<F: Field + From<u64>, TraceArgs, StepArgs: Clone> ChiquitoHalo2<F, TraceArgs, StepArgs> {
     pub fn new(circuit: Circuit<F, TraceArgs, StepArgs>) -> ChiquitoHalo2<F, TraceArgs, StepArgs> {
         ChiquitoHalo2 {
             debug: true,
@@ -226,7 +225,7 @@ impl<F: FieldExt, TraceArgs, StepArgs: Clone> ChiquitoHalo2<F, TraceArgs, StepAr
             .expect("q_enable column not found");
 
         for i in 0..height {
-            region.assign_fixed(|| "q_enable=1", *q_enable, i, || Value::known(F::one()));
+            region.assign_fixed(|| "q_enable=1", *q_enable, i, || Value::known(F::ONE));
         }
 
         if let Some(q_first) = self.circuit.q_first.clone() {
@@ -235,7 +234,7 @@ impl<F: FieldExt, TraceArgs, StepArgs: Clone> ChiquitoHalo2<F, TraceArgs, StepAr
                 .get(&q_first.uuid())
                 .expect("q_enable column not found");
 
-            region.assign_fixed(|| "q_first=1", *q_first, 0, || Value::known(F::one()));
+            region.assign_fixed(|| "q_first=1", *q_first, 0, || Value::known(F::ONE));
         }
 
         if let Some(q_last) = self.circuit.q_last.clone() {
@@ -244,12 +243,7 @@ impl<F: FieldExt, TraceArgs, StepArgs: Clone> ChiquitoHalo2<F, TraceArgs, StepAr
                 .get(&q_last.uuid())
                 .expect("q_enable column not found");
 
-            region.assign_fixed(
-                || "q_first=1",
-                *q_last,
-                height - 1,
-                || Value::known(F::one()),
-            );
+            region.assign_fixed(|| "q_first=1", *q_last, height - 1, || Value::known(F::ONE));
         }
     }
 
