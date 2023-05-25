@@ -15,9 +15,7 @@ use chiquito::{
     ir::Circuit, // IR object that the compiler compiles to
 };
 use halo2_proofs::{
-    circuit::SimpleFloorPlanner,
-    dev::MockProver,
-    halo2curves::{bn256::Fr, FieldExt},
+    arithmetic::Field, circuit::SimpleFloorPlanner, dev::MockProver, halo2curves::bn256::Fr,
     plonk::ConstraintSystem,
 };
 
@@ -26,7 +24,7 @@ use halo2_proofs::{
 // 1. type that implements a field trait
 // 2. empty trace arguments, i.e. (), because there are no external inputs to the Chiquito circuit
 // 3. two witness generation arguments both of u64 type, i.e. (u64, u64)
-fn fibo_circuit<F: FieldExt>() -> Circuit<F, (), (u64, u64)> {
+fn fibo_circuit<F: Field + From<u64>>() -> Circuit<F, (), (u64, u64)> {
     // PLONKish table for the Fibonacci circuit:
     // | a | b | c |
     // | 1 | 1 | 2 |
@@ -136,12 +134,12 @@ fn fibo_circuit<F: FieldExt>() -> Circuit<F, (), (u64, u64)> {
 
 // *** Halo2 boilerplate ***
 #[derive(Clone)]
-struct FiboConfig<F: FieldExt> {
+struct FiboConfig<F: Field + From<u64>> {
     // ChiquitoHalo2 object in the bytecode circuit config struct
     compiled: ChiquitoHalo2<F, (), (u64, u64)>,
 }
 
-impl<F: FieldExt> FiboConfig<F> {
+impl<F: Field + From<u64>> FiboConfig<F> {
     fn new(meta: &mut ConstraintSystem<F>) -> FiboConfig<F> {
         // chiquito2Halo2 function in Halo2 backend can convert ir::Circuit object to a
         // ChiquitoHalo2 object, which can be further integrated into a Halo2 circuit in the
@@ -160,7 +158,7 @@ impl<F: FieldExt> FiboConfig<F> {
 struct FiboCircuit {}
 
 // integrate Chiquito circuit into a Halo2 circuit
-impl<F: FieldExt> halo2_proofs::plonk::Circuit<F> for FiboCircuit {
+impl<F: Field + From<u64>> halo2_proofs::plonk::Circuit<F> for FiboCircuit {
     type Config = FiboConfig<F>;
 
     type FloorPlanner = SimpleFloorPlanner;

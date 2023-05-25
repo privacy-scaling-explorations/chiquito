@@ -6,10 +6,7 @@ use chiquito::{
     },
     dsl::{circuit, StepTypeContext},
 };
-use halo2_proofs::{
-    arithmetic::Field,
-    halo2curves::{bn256::Fr, FieldExt},
-};
+use halo2_proofs::{arithmetic::Field, halo2curves::bn256::Fr};
 
 use std::fmt::Debug;
 
@@ -18,7 +15,7 @@ struct IsZero<F> {
     is_zero_expression: Expr<F>,
 }
 
-impl<F: FieldExt> IsZero<F> {
+impl<F: Field + From<u64>> IsZero<F> {
     pub fn setup<V: Into<Expr<F>>, StepArgs>(
         ctx: &mut StepTypeContext<F, StepArgs>,
         value: V,
@@ -42,7 +39,7 @@ impl<F: FieldExt> IsZero<F> {
 
 impl<F: Field> IsZero<F> {
     pub fn wg(&self, ctx: &mut dyn WitnessGenContext<F>, value: F) {
-        ctx.assign(self.value_inv, value.invert().unwrap_or(F::zero()));
+        ctx.assign(self.value_inv, value.invert().unwrap_or(F::ZERO));
     }
 }
 

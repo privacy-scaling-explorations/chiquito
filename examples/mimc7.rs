@@ -7,10 +7,11 @@ use chiquito::{
     dsl::{cb::*, circuit},
 };
 use halo2_proofs::{
+    arithmetic::Field,
     // arithmetic::Field,
     circuit::SimpleFloorPlanner,
     dev::MockProver,
-    halo2curves::{bn256::Fr, group::ff::PrimeField, FieldExt},
+    halo2curves::{bn256::Fr, group::ff::PrimeField},
     plonk::{Column, ConstraintSystem, Fixed},
 };
 use mimc7_constants::ROUND_KEYS;
@@ -18,7 +19,7 @@ use mimc7_constants::ROUND_KEYS;
 // MiMC7 always has 91 rounds
 pub const ROUNDS: usize = 91;
 
-fn mimc7_circuit<F: FieldExt>(
+fn mimc7_circuit<F: PrimeField>(
     row_value: Column<Fixed>, /* row index i, a fixed column allocated in circuit config, used
                                * as the first column of lookup table */
     c_value: Column<Fixed>, /* round constant C_i, fixed column allocated in circuit config,
@@ -169,11 +170,11 @@ fn mimc7_circuit<F: FieldExt>(
 
 // * Halo2 boilerplate *
 #[derive(Clone)]
-struct Mimc7Config<F: FieldExt> {
+struct Mimc7Config<F: Field + From<u64>> {
     compiled: ChiquitoHalo2<F, (F, F), (F, F, F, F)>, // halo2 backend object
 }
 
-impl<F: FieldExt> Mimc7Config<F> {
+impl<F: PrimeField> Mimc7Config<F> {
     fn new(meta: &mut ConstraintSystem<F>) -> Mimc7Config<F> {
         let row_value = meta.fixed_column();
         let c_value = meta.fixed_column();
@@ -186,13 +187,13 @@ impl<F: FieldExt> Mimc7Config<F> {
 }
 
 #[derive(Default)]
-struct Mimc7Circuit<F: FieldExt> {
+struct Mimc7Circuit<F: PrimeField> {
     // define trace inputs
     x_in_value: F,
     k_value: F,
 }
 
-impl<F: FieldExt> halo2_proofs::plonk::Circuit<F> for Mimc7Circuit<F> {
+impl<F: PrimeField> halo2_proofs::plonk::Circuit<F> for Mimc7Circuit<F> {
     type Config = Mimc7Config<F>;
     type FloorPlanner = SimpleFloorPlanner;
 
