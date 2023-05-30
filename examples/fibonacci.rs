@@ -56,17 +56,20 @@ fn fibo_circuit<F: Field + From<u64>>() -> Circuit<F, (), (u64, u64)> {
             // internal signals can only have constraints within the same step
             let c = ctx.internal("c");
 
-            // regular constraints are for internal signals only
-            // constrain that a + b == c by calling `eq` function from constraint builder
-            ctx.constr(eq(a + b, c));
+            // in setup we define the constraints of the step
+            ctx.setup(move |ctx| {
+                // regular constraints are for internal signals only
+                // constrain that a + b == c by calling `eq` function from constraint builder
+                ctx.constr(eq(a + b, c));
 
-            // transition constraints accepts forward signals as well
-            // constrain that b is equal to the next instance of a, by calling `next` on forward
-            // signal
-            ctx.transition(eq(b, a.next()));
-            // constrain that c is equal to the next instance of c, by calling `next` on forward
-            // signal
-            ctx.transition(eq(c, b.next()));
+                // transition constraints accepts forward signals as well
+                // constrain that b is equal to the next instance of a, by calling `next` on forward
+                // signal
+                ctx.transition(eq(b, a.next()));
+                // constrain that c is equal to the next instance of c, by calling `next` on forward
+                // signal
+                ctx.transition(eq(c, b.next()));
+            });
 
             // witness generation (wg) function is Turing complete and allows arbitrary user defined
             // logics for assigning witness values wg function is defined here but no
@@ -83,10 +86,12 @@ fn fibo_circuit<F: Field + From<u64>>() -> Circuit<F, (), (u64, u64)> {
         ctx.step_type_def(fibo_last_step, |ctx| {
             let c = ctx.internal("c");
 
-            // constrain that a + b == c by calling `eq` function from constraint builder
-            // no transition constraint needed for the next instances of a and b, because it's the
-            // last step
-            ctx.constr(eq(a + b, c));
+            ctx.setup(move |ctx| {
+                // constrain that a + b == c by calling `eq` function from constraint builder
+                // no transition constraint needed for the next instances of a and b, because it's
+                // the last step
+                ctx.constr(eq(a + b, c));
+            });
 
             ctx.wg(move |ctx, (a_value, b_value)| {
                 println!(

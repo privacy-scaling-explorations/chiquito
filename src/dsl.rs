@@ -129,25 +129,36 @@ impl<F, Args> StepTypeContext<F, Args> {
         Queriable::Internal(self.step_type.add_signal(name))
     }
 
-    /// Adds a constraint to the step type. Involves internal signal(s) only. Chiquito provides
-    /// syntax sugar for defining complex constraints. Refer to the `cb` (constraint builder)
-    /// module for more information.
+    /// DEPRECATED
     pub fn constr<C: Into<Constraint<F>>>(&mut self, constraint: C) {
+        println!("DEPRECATED constr: use setup for constraints in step types");
+
         let constraint = constraint.into();
 
         self.step_type
             .add_constr(constraint.annotation, constraint.expr);
     }
 
-    /// Adds a transition constraint to the step type. It’s the same as a regular constraint except
-    /// that it can involve forward signal(s) as well. Chiquito provides syntax sugar for
-    /// defining complex constraints. Refer to the `cb` (constraint builder) module for more
-    /// information.
+    /// DEPRECATED
     pub fn transition<C: Into<Constraint<F>>>(&mut self, constraint: C) {
+        println!("DEPRECATED transition: use setup for constraints in step types");
+
         let constraint = constraint.into();
 
         self.step_type
             .add_transition(constraint.annotation, constraint.expr);
+    }
+
+    /// Define step constraints.
+    pub fn setup<D>(&mut self, def: D)
+    where
+        D: Fn(&mut StepTypeSetupContext<F, Args>),
+    {
+        let mut ctx = StepTypeSetupContext {
+            step_type: &mut self.step_type,
+        };
+
+        def(&mut ctx);
     }
 
     /// Sets the witness generation function for the step type. The witness generation function is
@@ -164,7 +175,43 @@ impl<F, Args> StepTypeContext<F, Args> {
 }
 
 impl<F: Debug + Clone, Args> StepTypeContext<F, Args> {
-    /// Adds a lookup table to the step type.
+    /// DEPRECATED
+    pub fn add_lookup(&mut self, lookup_builder: &mut LookupBuilder<F>) {
+        println!("DEPRECATED add_lookup: use setup for constraints in step types");
+
+        self.step_type.lookups.push(lookup_builder.lookup.clone());
+    }
+}
+
+pub struct StepTypeSetupContext<'a, F, Args> {
+    step_type: &'a mut StepType<F, Args>,
+}
+
+impl<'a, F, Args> StepTypeSetupContext<'a, F, Args> {
+    /// Adds a constraint to the step type. Involves internal signal(s) and forward signals without
+    /// SuperRotation only. Chiquito provides syntax sugar for defining complex constraints.
+    /// Refer to the `cb` (constraint builder) module for more information.
+    pub fn constr<C: Into<Constraint<F>>>(&mut self, constraint: C) {
+        let constraint = constraint.into();
+
+        self.step_type
+            .add_constr(constraint.annotation, constraint.expr);
+    }
+
+    /// Adds a transition constraint to the step type. It’s the same as a regular constraint except
+    /// that it can involve forward signal(s) with SuperRotation as well. Chiquito provides syntax
+    /// sugar for defining complex constraints. Refer to the `cb` (constraint builder) module
+    /// for more information.
+    pub fn transition<C: Into<Constraint<F>>>(&mut self, constraint: C) {
+        let constraint = constraint.into();
+
+        self.step_type
+            .add_transition(constraint.annotation, constraint.expr);
+    }
+}
+
+impl<'a, F: Debug + Clone, Args> StepTypeSetupContext<'a, F, Args> {
+    /// Adds a lookup to the step type.
     pub fn add_lookup(&mut self, lookup_builder: &mut LookupBuilder<F>) {
         self.step_type.lookups.push(lookup_builder.lookup.clone());
     }

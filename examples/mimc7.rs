@@ -8,7 +8,6 @@ use chiquito::{
 };
 use halo2_proofs::{
     arithmetic::Field,
-    // arithmetic::Field,
     circuit::SimpleFloorPlanner,
     dev::MockProver,
     halo2curves::{bn256::Fr, group::ff::PrimeField},
@@ -62,15 +61,17 @@ fn mimc7_circuit<F: PrimeField>(
             let xkc = ctx.internal("xkc");
             let y = ctx.internal("y");
 
-            ctx.constr(eq(x + k + c, xkc));
-            ctx.constr(eq(xkc * xkc * xkc * xkc * xkc * xkc * xkc, y));
+            ctx.setup(move |ctx| {
+                ctx.constr(eq(x + k + c, xkc));
+                ctx.constr(eq(xkc * xkc * xkc * xkc * xkc * xkc * xkc, y));
 
-            ctx.transition(eq(y, x.next()));
-            ctx.transition(eq(k, k.next()));
-            ctx.transition(eq(row, 0));
-            ctx.transition(eq(row + 1, row.next()));
+                ctx.transition(eq(y, x.next()));
+                ctx.transition(eq(k, k.next()));
+                ctx.transition(eq(row, 0));
+                ctx.transition(eq(row + 1, row.next()));
 
-            ctx.add_lookup(lookup().add(row, lookup_row).add(c, lookup_c));
+                ctx.add_lookup(lookup().add(row, lookup_row).add(c, lookup_c));
+            });
 
             ctx.wg(move |ctx, (x_value, k_value, c_value, row_value)| {
                 ctx.assign(x, x_value);
@@ -90,14 +91,16 @@ fn mimc7_circuit<F: PrimeField>(
             let xkc = ctx.internal("xkc");
             let y = ctx.internal("y");
 
-            ctx.constr(eq(x + k + c, xkc));
-            ctx.constr(eq(xkc * xkc * xkc * xkc * xkc * xkc * xkc, y));
+            ctx.setup(move |ctx| {
+                ctx.constr(eq(x + k + c, xkc));
+                ctx.constr(eq(xkc * xkc * xkc * xkc * xkc * xkc * xkc, y));
 
-            ctx.transition(eq(y, x.next()));
-            ctx.transition(eq(k, k.next()));
-            ctx.transition(eq(row + 1, row.next()));
+                ctx.transition(eq(y, x.next()));
+                ctx.transition(eq(k, k.next()));
+                ctx.transition(eq(row + 1, row.next()));
 
-            ctx.add_lookup(lookup().add(row, lookup_row).add(c, lookup_c));
+                ctx.add_lookup(lookup().add(row, lookup_row).add(c, lookup_c));
+            });
 
             ctx.wg(move |ctx, (x_value, k_value, c_value, row_value)| {
                 ctx.assign(x, x_value);
@@ -116,7 +119,9 @@ fn mimc7_circuit<F: PrimeField>(
         ctx.step_type_def(mimc7_last_step, |ctx| {
             let out = ctx.internal("out");
 
-            ctx.constr(eq(x + k, out));
+            ctx.setup(move |ctx| {
+                ctx.constr(eq(x + k, out));
+            });
 
             ctx.wg(move |ctx, (x_value, k_value, _, row_value)| {
                 ctx.assign(x, x_value);
