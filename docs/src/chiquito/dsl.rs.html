@@ -217,6 +217,53 @@
 <span id="217">217</span>
 <span id="218">218</span>
 <span id="219">219</span>
+<span id="220">220</span>
+<span id="221">221</span>
+<span id="222">222</span>
+<span id="223">223</span>
+<span id="224">224</span>
+<span id="225">225</span>
+<span id="226">226</span>
+<span id="227">227</span>
+<span id="228">228</span>
+<span id="229">229</span>
+<span id="230">230</span>
+<span id="231">231</span>
+<span id="232">232</span>
+<span id="233">233</span>
+<span id="234">234</span>
+<span id="235">235</span>
+<span id="236">236</span>
+<span id="237">237</span>
+<span id="238">238</span>
+<span id="239">239</span>
+<span id="240">240</span>
+<span id="241">241</span>
+<span id="242">242</span>
+<span id="243">243</span>
+<span id="244">244</span>
+<span id="245">245</span>
+<span id="246">246</span>
+<span id="247">247</span>
+<span id="248">248</span>
+<span id="249">249</span>
+<span id="250">250</span>
+<span id="251">251</span>
+<span id="252">252</span>
+<span id="253">253</span>
+<span id="254">254</span>
+<span id="255">255</span>
+<span id="256">256</span>
+<span id="257">257</span>
+<span id="258">258</span>
+<span id="259">259</span>
+<span id="260">260</span>
+<span id="261">261</span>
+<span id="262">262</span>
+<span id="263">263</span>
+<span id="264">264</span>
+<span id="265">265</span>
+<span id="266">266</span>
 </pre><pre class="rust"><code><span class="kw">use crate</span>::{
     ast::{query::Queriable, Circuit, StepType, StepTypeUUID},
     compiler::{FixedGenContext, TraceContext, WitnessGenContext},
@@ -348,25 +395,36 @@
         Queriable::Internal(<span class="self">self</span>.step_type.add_signal(name))
     }
 
-    <span class="doccomment">/// Adds a constraint to the step type. Involves internal signal(s) only. Chiquito provides
-    /// syntax sugar for defining complex constraints. Refer to the `cb` (constraint builder)
-    /// module for more information.
+    <span class="doccomment">/// DEPRECATED
     </span><span class="kw">pub fn </span>constr&lt;C: Into&lt;Constraint&lt;F&gt;&gt;&gt;(<span class="kw-2">&amp;mut </span><span class="self">self</span>, constraint: C) {
+        <span class="macro">println!</span>(<span class="string">&quot;DEPRECATED constr: use setup for constraints in step types&quot;</span>);
+
         <span class="kw">let </span>constraint = constraint.into();
 
         <span class="self">self</span>.step_type
             .add_constr(constraint.annotation, constraint.expr);
     }
 
-    <span class="doccomment">/// Adds a transition constraint to the step type. It’s the same as a regular constraint except
-    /// that it can involve forward signal(s) as well. Chiquito provides syntax sugar for
-    /// defining complex constraints. Refer to the `cb` (constraint builder) module for more
-    /// information.
+    <span class="doccomment">/// DEPRECATED
     </span><span class="kw">pub fn </span>transition&lt;C: Into&lt;Constraint&lt;F&gt;&gt;&gt;(<span class="kw-2">&amp;mut </span><span class="self">self</span>, constraint: C) {
+        <span class="macro">println!</span>(<span class="string">&quot;DEPRECATED transition: use setup for constraints in step types&quot;</span>);
+
         <span class="kw">let </span>constraint = constraint.into();
 
         <span class="self">self</span>.step_type
             .add_transition(constraint.annotation, constraint.expr);
+    }
+
+    <span class="doccomment">/// Define step constraints.
+    </span><span class="kw">pub fn </span>setup&lt;D&gt;(<span class="kw-2">&amp;mut </span><span class="self">self</span>, def: D)
+    <span class="kw">where
+        </span>D: Fn(<span class="kw-2">&amp;mut </span>StepTypeSetupContext&lt;F, Args&gt;),
+    {
+        <span class="kw">let </span><span class="kw-2">mut </span>ctx = StepTypeSetupContext {
+            step_type: <span class="kw-2">&amp;mut </span><span class="self">self</span>.step_type,
+        };
+
+        def(<span class="kw-2">&amp;mut </span>ctx);
     }
 
     <span class="doccomment">/// Sets the witness generation function for the step type. The witness generation function is
@@ -383,7 +441,43 @@
 }
 
 <span class="kw">impl</span>&lt;F: Debug + Clone, Args&gt; StepTypeContext&lt;F, Args&gt; {
-    <span class="doccomment">/// Adds a lookup table to the step type.
+    <span class="doccomment">/// DEPRECATED
+    </span><span class="kw">pub fn </span>add_lookup(<span class="kw-2">&amp;mut </span><span class="self">self</span>, lookup_builder: <span class="kw-2">&amp;mut </span>LookupBuilder&lt;F&gt;) {
+        <span class="macro">println!</span>(<span class="string">&quot;DEPRECATED add_lookup: use setup for constraints in step types&quot;</span>);
+
+        <span class="self">self</span>.step_type.lookups.push(lookup_builder.lookup.clone());
+    }
+}
+
+<span class="kw">pub struct </span>StepTypeSetupContext&lt;<span class="lifetime">&#39;a</span>, F, Args&gt; {
+    step_type: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="kw-2">mut </span>StepType&lt;F, Args&gt;,
+}
+
+<span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>, F, Args&gt; StepTypeSetupContext&lt;<span class="lifetime">&#39;a</span>, F, Args&gt; {
+    <span class="doccomment">/// Adds a constraint to the step type. Involves internal signal(s) and forward signals without
+    /// SuperRotation only. Chiquito provides syntax sugar for defining complex constraints.
+    /// Refer to the `cb` (constraint builder) module for more information.
+    </span><span class="kw">pub fn </span>constr&lt;C: Into&lt;Constraint&lt;F&gt;&gt;&gt;(<span class="kw-2">&amp;mut </span><span class="self">self</span>, constraint: C) {
+        <span class="kw">let </span>constraint = constraint.into();
+
+        <span class="self">self</span>.step_type
+            .add_constr(constraint.annotation, constraint.expr);
+    }
+
+    <span class="doccomment">/// Adds a transition constraint to the step type. It’s the same as a regular constraint except
+    /// that it can involve forward signal(s) with SuperRotation as well. Chiquito provides syntax
+    /// sugar for defining complex constraints. Refer to the `cb` (constraint builder) module
+    /// for more information.
+    </span><span class="kw">pub fn </span>transition&lt;C: Into&lt;Constraint&lt;F&gt;&gt;&gt;(<span class="kw-2">&amp;mut </span><span class="self">self</span>, constraint: C) {
+        <span class="kw">let </span>constraint = constraint.into();
+
+        <span class="self">self</span>.step_type
+            .add_transition(constraint.annotation, constraint.expr);
+    }
+}
+
+<span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>, F: Debug + Clone, Args&gt; StepTypeSetupContext&lt;<span class="lifetime">&#39;a</span>, F, Args&gt; {
+    <span class="doccomment">/// Adds a lookup to the step type.
     </span><span class="kw">pub fn </span>add_lookup(<span class="kw-2">&amp;mut </span><span class="self">self</span>, lookup_builder: <span class="kw-2">&amp;mut </span>LookupBuilder&lt;F&gt;) {
         <span class="self">self</span>.step_type.lookups.push(lookup_builder.lookup.clone());
     }
