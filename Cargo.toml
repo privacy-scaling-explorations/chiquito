@@ -8,9 +8,9 @@ authors = ["Leo Lara <leo@leolara.me>"]
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-# halo2_proofs = { git = "https://github.com/privacy-scaling-explorations/halo2.git", tag = "v2023_04_20" }
-halo2_proofs = { git = "https://github.com/privacy-scaling-explorations/halo2.git", rev = "d3746109d7d38be53afc8ddae8fdfaf1f02ad1d7" }
-polyexen = { git =  "https://github.com/Dhole/polyexen.git", rev = "5f1eebd773e0e2ae82b1c8dc15d68f422b87c6e5" }
+halo2_proofs = { git = "https://github.com/privacy-scaling-explorations/halo2.git", tag = "v2023_04_20" }
+# halo2_proofs = { git = "https://github.com/privacy-scaling-explorations/halo2.git", rev = "d3746109d7d38be53afc8ddae8fdfaf1f02ad1d7" }
+# polyexen = { git =  "https://github.com/Dhole/polyexen.git", rev = "5f1eebd773e0e2ae82b1c8dc15d68f422b87c6e5" }
 
 # [patch."https://github.com/privacy-scaling-explorations/halo2.git"]
 # halo2_proofs = { git = "https://github.com/appliedzkp/halo2.git", rev = "d3746109d7d38be53afc8ddae8fdfaf1f02ad1d7" }
