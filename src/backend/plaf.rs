@@ -7,7 +7,7 @@ use halo2_proofs::{
         Advice, Column, ConstraintSystem, Expression, FirstPhase, Fixed, SecondPhase, ThirdPhase,
         VirtualCells,
     },
-    poly::Rotation,
+    poly::Rotation, halo2curves::ff::PrimeField,
 };
 
 use crate::{
@@ -28,7 +28,7 @@ use crate::{
 // use eth_types::{bytecode, geth_types::GethData, ToWord, Word};
 use halo2_proofs::{dev::MockProver, halo2curves::bn256::Fr, plonk::Circuit};
 // use mock::test_ctx::TestContext;
-// use num_bigint::BigUint;
+use num_bigint::{BigUint, ToBigInt};
 use polyexen::{
     analyze::{bound_base, find_bounds_poly, Analysis},
     expr::{ExprDisplay, Expr as pExpr, PlonkVar, ColumnQuery, ColumnKind, Column as pColumn, Var},
@@ -46,148 +46,145 @@ use std::{
     io::{self, Write},
 };
 
-// use demo::utils::{alias_replace, gen_empty_block, name_challanges};
-
 #[derive(Clone, Debug)]
-pub struct ChiquitoPlaf<F: Field + From<u64>, TraceArgs, StepArgs: Clone> {
-    // pub debug: bool,
+pub struct ChiquitoPlaf<F: PrimeField, TraceArgs, StepArgs: Clone> {
     circuit: cCircuit<F, TraceArgs, StepArgs>,
-    // advice_columns: HashMap<u32, Column<Advice>>,
-    // fixed_columns: HashMap<u32, Column<Fixed>>,
-    query_index: usize, 
 }
 
-impl<F: Field + From<u64>, TraceArgs, StepArgs: Clone> ChiquitoPlaf<F, TraceArgs, StepArgs> { // !!! Field doesn't satisfy the Var trait, which requires PartialEq and other traits
-    
-    pub fn chiquito2Plaf(circuit: cCircuit<F, TraceArgs, StepArgs>) -> Plaf {
-        let mut chiquito_plaf = Self::new(circuit);
+impl<F: PrimeField<Repr = [u8; 32]>, TraceArgs, StepArgs: Clone> ChiquitoPlaf<F, TraceArgs, StepArgs> { // ??? Field doesn't satisfy the Var trait, which requires PartialEq and other traits
+    // <Repr = [u8; 32]> is required by `from` function in the following line:
+    // cPolyExpr::Halo2Expr(e) => pExpr::from(e)
+    // this function converts a halo2 Expression<F> to a polyexen Expr<PlonkVar>
+    // F: PrimeField<Repr = [u8; 32] is required
+    fn new(circuit: cCircuit<F, TraceArgs, StepArgs>) -> ChiquitoPlaf<F, TraceArgs, StepArgs> {
+        ChiquitoPlaf {
+            circuit,
+        }
+    }
+
+    pub fn chiquito2Plaf(&self) -> Plaf {
+        // let mut chiquito_plaf = Self::new(circuit);
         let mut plaf = Plaf::default();
 
-        chiquito_plaf.convert_and_push_plaf_column(&chiquito_plaf.circuit.q_enable, &mut plaf);
+        self.convert_and_push_plaf_column(&self.circuit.q_enable, &mut plaf);
 
-        match chiquito_plaf.circuit.q_first {
+        match &self.circuit.q_first {
             Some(cColumn) => {
-                chiquito_plaf.convert_and_push_plaf_column(&cColumn, &mut plaf);
+                self.convert_and_push_plaf_column(&cColumn, &mut plaf);
             }
             None => {}
         }
 
-        match chiquito_plaf.circuit.q_last {
+        match &self.circuit.q_last {
             Some(cColumn) => {
-                chiquito_plaf.convert_and_push_plaf_column(&cColumn, &mut plaf);
+                self.convert_and_push_plaf_column(&cColumn, &mut plaf);
             }
             None => {}
         }
 
-        for column in chiquito_plaf.circuit.columns.iter() {
-            chiquito_plaf.convert_and_push_plaf_column(column, &mut plaf);
+        for column in self.circuit.columns.iter() {
+            self.convert_and_push_plaf_column(column, &mut plaf);
         }
 
-        if !chiquito_plaf.circuit.polys.is_empty() {
-            for cPoly in chiquito_plaf.circuit.polys.iter() {
+        if !self.circuit.polys.is_empty() {
+            for cPoly in self.circuit.polys.iter() {
                 let plaf_poly = pPoly {
-                    name: cPoly.annotation,
-                    exp: chiquito_plaf.to_plaf_poly(&cPoly.expr),
+                    name: cPoly.annotation.clone(),
+                    exp: self.convert_plaf_poly(&cPoly.expr),
                 };
                 plaf.polys.push(plaf_poly);
             }
         }
 
-        for lookup in chiquito_plaf.circuit.lookups.iter() {
+        for lookup in self.circuit.lookups.iter() {
             let v1 = lookup
                 .exprs
+                .clone()
                 .into_iter()
-                .map(|(e1, _)| chiquito_plaf.to_plaf_poly(&e1))
+                .map(|(e1, _)| self.convert_plaf_poly(&e1))
                 .collect::<Vec<pExpr<PlonkVar>>>();
 
             let v2 = lookup
                 .exprs
+                .clone()
                 .into_iter()
-                .map(|(_, e2)| chiquito_plaf.to_plaf_poly(&e2))
+                .map(|(_, e2)| self.convert_plaf_poly(&e2))
                 .collect::<Vec<pExpr<PlonkVar>>>();
             
             let plaf_lookup = pLookup {
-                name: lookup.annotation,
+                name: lookup.annotation.clone(),
                 exps: (v1, v2),
             };
 
             plaf.lookups.push(plaf_lookup);
         }
 
-
-
         plaf
-    }
-
-    fn new(circuit: cCircuit<F, TraceArgs, StepArgs>) -> ChiquitoPlaf<F, TraceArgs, StepArgs> {
-        ChiquitoPlaf {
-            circuit,
-            query_index: 0,
-        }
     }
 
     fn convert_and_push_plaf_column(&self, column: &cColumn, plaf: &mut Plaf) {
         match column.ctype {
             cAdvice => {
                 let plaf_witness = ColumnWitness::new( // advice is called witness in plaf
-                    column.annotation,
+                    column.annotation.clone(),
                     column.phase,
                 );
                 plaf.columns.witness.push(plaf_witness); 
             }
             cFixed => {
-                let plaf_fixed = ColumnFixed::new(column.annotation);
+                let plaf_fixed = ColumnFixed::new(column.annotation.clone());
                 plaf.columns.fixed.push(plaf_fixed);
             }
             Halo2Advice => { // ??? should terminate with error but only phase is missing so I defaulted to 0. is this good?
                 let plaf_witness = ColumnWitness::new(
-                    column.annotation,
+                    column.annotation.clone(),
                     0,
                 );
             }
             Halo2Fixed => { // ??? should terminate with error but nothing is missing. is this good?
-                let plaf_fixed = ColumnFixed::new(column.annotation);
+                let plaf_fixed = ColumnFixed::new(column.annotation.clone());
                 plaf.columns.fixed.push(plaf_fixed);
             }
         }
     }
 
-    fn to_plaf_poly(&self, chiquito_poly: &cPolyExpr<F>) -> pExpr<PlonkVar> { // !!! not sure if PlonkVar makes sense here
+    fn convert_plaf_poly(&self, chiquito_poly: &cPolyExpr<F>) -> pExpr<PlonkVar> { // !!! not sure if PlonkVar makes sense here
         match chiquito_poly {
-            cPolyExpr::Const(c) => pExpr::Const(*c),
+            cPolyExpr::Const(c) => pExpr::Const(BigUint::from_bytes_le(&c.to_repr())), // PrimeField uses little endian for bytes representation
             cPolyExpr::Sum(es) => {
                 let mut iter = es.iter();
-                let first = self.to_plaf_poly(iter.next().unwrap());
-                iter.fold(first, |acc, e| acc + self.to_plaf_poly(e))
+                let first = self.convert_plaf_poly(iter.next().unwrap());
+                iter.fold(first, |acc, e| acc + self.convert_plaf_poly(e))
             }
             cPolyExpr::Mul(es) => {
                 let mut iter = es.iter();
-                let first = self.to_plaf_poly(iter.next().unwrap());
-                iter.fold(first, |acc, e| acc * self.to_plaf_poly(e))
+                let first = self.convert_plaf_poly(iter.next().unwrap());
+                iter.fold(first, |acc, e| acc * self.convert_plaf_poly(e))
             }
-            cPolyExpr::Neg(e) => -self.to_plaf_poly(e),
+            cPolyExpr::Neg(e) => -self.convert_plaf_poly(e),
             cPolyExpr::Pow(e, n) => {
                 if *n == 0 {
-                    pExpr::Const(1.field())
+                    pExpr::Const(BigUint::from(1u32))
                 } else {
-                    let e = self.to_plaf_poly(e);
+                    let e = self.convert_plaf_poly(e);
                     (1..*n).fold(e.clone(), |acc, _| acc * e.clone())
                 }
             }
             cPolyExpr::Halo2Expr(e) => pExpr::from(e),
             cPolyExpr::Query(column, rotation, annotation) => {
-                let index = self.increment_query_index();
-                pExpr::Var(PlonkVar::Query(self.to_plaf_query(column, rotation, annotation, index)))
+                self.query_index.increment();
+                let index = self.query_index.number();
+                pExpr::Var(PlonkVar::Query(self.convert_plaf_query(column, rotation, annotation, index)))
             }
         }
     }
 
-    fn increment_query_index(&mut self) -> usize {
-        self.query_index += 1;
-        self.query_index
+    fn increment_query_index(&self) -> usize {
+        self.query_index.increment();
+        self.query_index.number()
     }
 
-    fn to_plaf_query(
+    fn convert_plaf_query(
         &self,
         column: &cColumn,
         rotation: &i32,
@@ -215,6 +212,26 @@ impl<F: Field + From<u64>, TraceArgs, StepArgs: Clone> ChiquitoPlaf<F, TraceArgs
             }
         }
     } 
+}
+
+
+#[derive(Clone, Debug)]
+pub struct Counter {
+    number: usize,
+}
+
+impl Counter {
+    pub fn new() -> Self {
+        Self { number: 0 }
+    }
+
+    pub fn increment(&mut self) {
+        self.number += 1;
+    }
+
+    pub fn number(&self) -> usize {
+        self.number
+    }
 }
 
 fn write_files(name: &str, plaf: &Plaf) -> Result<(), io::Error> {
