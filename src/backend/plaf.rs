@@ -31,11 +31,12 @@ use halo2_proofs::{dev::MockProver, halo2curves::bn256::Fr, plonk::Circuit};
 // use num_bigint::BigUint;
 use polyexen::{
     analyze::{bound_base, find_bounds_poly, Analysis},
-    expr::{ExprDisplay, Expr as pExpr, PlonkVar, ColumnQuery, ColumnKind, Column as pColumn},
+    expr::{ExprDisplay, Expr as pExpr, PlonkVar, ColumnQuery, ColumnKind, Column as pColumn, Var},
     plaf::{
         backends::halo2::PlafH2Circuit,
         frontends::halo2::{gen_witness, get_plaf},
-        Cell, CellDisplay, Plaf, Poly as pPoly, PlafDisplayBaseTOML, PlafDisplayFixedCSV, VarDisplay, ColumnWitness, ColumnFixed,
+        Cell, CellDisplay, Plaf, Poly as pPoly, PlafDisplayBaseTOML, PlafDisplayFixedCSV, VarDisplay, ColumnWitness, ColumnFixed, 
+        Lookup as pLookup
     },
 };
 use std::fmt;
@@ -56,10 +57,10 @@ pub struct ChiquitoPlaf<F: Field + From<u64>, TraceArgs, StepArgs: Clone> {
     query_index: usize, 
 }
 
-impl<F: Field + From<u64>, TraceArgs, StepArgs: Clone> ChiquitoPlaf<F, TraceArgs, StepArgs> {
+impl<F: Field + From<u64>, TraceArgs, StepArgs: Clone> ChiquitoPlaf<F, TraceArgs, StepArgs> { // !!! Field doesn't satisfy the Var trait, which requires PartialEq and other traits
     
     pub fn chiquito2Plaf(circuit: cCircuit<F, TraceArgs, StepArgs>) -> Plaf {
-        let mut chiquito_plaf = ChiquitoPlaf::new(circuit);
+        let mut chiquito_plaf = Self::new(circuit);
         let mut plaf = Plaf::default();
         for column in chiquito_plaf.circuit.columns.iter() {
             match column.ctype {
@@ -85,19 +86,40 @@ impl<F: Field + From<u64>, TraceArgs, StepArgs: Clone> ChiquitoPlaf<F, TraceArgs
                     plaf.columns.fixed.push(plaf_fixed);
                 }
             }
-
-            if !chiquito_plaf.circuit.polys.is_empty() {
-                for cPoly in chiquito_plaf.circuit.polys.iter() {
-                    let plaf_poly = pPoly {
-                        name: cPoly.annotation,
-                        exp: chiquito_plaf.to_plaf_poly(&cPoly),
-                    };
-                    plaf.polys.push(plaf_poly);
-                }
-            }
-
-            plaf
         }
+
+        if !chiquito_plaf.circuit.polys.is_empty() {
+            for cPoly in chiquito_plaf.circuit.polys.iter() {
+                let plaf_poly = pPoly {
+                    name: cPoly.annotation,
+                    exp: chiquito_plaf.to_plaf_poly(&cPoly.expr),
+                };
+                plaf.polys.push(plaf_poly);
+            }
+        }
+
+        for lookup in chiquito_plaf.circuit.lookups.iter() {
+            let v1 = lookup
+                .exprs
+                .into_iter()
+                .map(|(e1, _)| chiquito_plaf.to_plaf_poly(&e1))
+                .collect::<Vec<pExpr<PlonkVar>>>();
+
+            let v2 = lookup
+                .exprs
+                .into_iter()
+                .map(|(_, e2)| chiquito_plaf.to_plaf_poly(&e2))
+                .collect::<Vec<pExpr<PlonkVar>>>();
+            
+            let plaf_lookup = pLookup {
+                name: lookup.annotation,
+                exps: (v1, v2),
+            };
+
+            plaf.lookups.push(plaf_lookup);
+        }
+
+        plaf
     }
 
     fn new(circuit: cCircuit<F, TraceArgs, StepArgs>) -> ChiquitoPlaf<F, TraceArgs, StepArgs> {
@@ -107,7 +129,7 @@ impl<F: Field + From<u64>, TraceArgs, StepArgs: Clone> ChiquitoPlaf<F, TraceArgs
         }
     }
 
-    fn to_plaf_poly(&self, chiquito_poly: &cPolyExpr<F>) -> pExpr<F> {
+    fn to_plaf_poly(&self, chiquito_poly: &cPolyExpr<F>) -> pExpr<PlonkVar> { // !!! not sure if PlonkVar makes sense here
         match chiquito_poly {
             cPolyExpr::Const(c) => pExpr::Const(*c),
             cPolyExpr::Sum(es) => {
@@ -123,7 +145,7 @@ impl<F: Field + From<u64>, TraceArgs, StepArgs: Clone> ChiquitoPlaf<F, TraceArgs
             cPolyExpr::Neg(e) => -self.to_plaf_poly(e),
             cPolyExpr::Pow(e, n) => {
                 if *n == 0 {
-                    Expression::Constant(1.field())
+                    pExpr::Const(1.field())
                 } else {
                     let e = self.to_plaf_poly(e);
                     (1..*n).fold(e.clone(), |acc, _| acc * e.clone())
@@ -156,7 +178,7 @@ impl<F: Field + From<u64>, TraceArgs, StepArgs: Clone> ChiquitoPlaf<F, TraceArgs
                         kind: ColumnKind::Witness,
                         index,
                     }, 
-                    rotation,
+                    rotation: rotation.clone(),
                 }
             }
             cFixed | Halo2Fixed => {
@@ -165,13 +187,11 @@ impl<F: Field + From<u64>, TraceArgs, StepArgs: Clone> ChiquitoPlaf<F, TraceArgs
                         kind: ColumnKind::Fixed,
                         index,
                     }, 
-                    rotation,
+                    rotation: rotation.clone(),
                 }
             }
         }
-    }
-
-    
+    } 
 }
 
 fn write_files(name: &str, plaf: &Plaf) -> Result<(), io::Error> {
@@ -182,13 +202,13 @@ fn write_files(name: &str, plaf: &Plaf) -> Result<(), io::Error> {
     Ok(())
 }
 
-fn gen_circuit_plaf<C: Circuit<Fr> + SubCircuit<Fr>>(name: &str, k: u32, block: &Block<Fr>) {
-    let circuit = C::new_from_block(&block);
-    let mut plaf = get_plaf(k, &circuit).unwrap();
-    name_challanges(&mut plaf);
-    alias_replace(&mut plaf);
-    write_files(name, &plaf).unwrap();
-}
+// fn gen_circuit_plaf<C: Circuit<Fr> + SubCircuit<Fr>>(name: &str, k: u32, block: &Block<Fr>) {
+//     let circuit = C::new_from_block(&block);
+//     let mut plaf = get_plaf(k, &circuit).unwrap();
+//     name_challanges(&mut plaf);
+//     alias_replace(&mut plaf);
+//     write_files(name, &plaf).unwrap();
+// }
 
 // the following code snippet from Halo2 shows that index is simply an incrementing number
 // pub(crate) fn query_advice_index(&mut self, column: Column<Advice>, at: Rotation) -> usize {
