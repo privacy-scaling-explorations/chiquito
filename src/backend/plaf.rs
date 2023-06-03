@@ -62,30 +62,25 @@ impl<F: Field + From<u64>, TraceArgs, StepArgs: Clone> ChiquitoPlaf<F, TraceArgs
     pub fn chiquito2Plaf(circuit: cCircuit<F, TraceArgs, StepArgs>) -> Plaf {
         let mut chiquito_plaf = Self::new(circuit);
         let mut plaf = Plaf::default();
-        for column in chiquito_plaf.circuit.columns.iter() {
-            match column.ctype {
-                cAdvice => {
-                    let plaf_witness = ColumnWitness::new( // advice is called witness in plaf
-                        column.annotation,
-                        column.phase,
-                    );
-                    plaf.columns.witness.push(plaf_witness); 
-                }
-                cFixed => {
-                    let plaf_fixed = ColumnFixed::new(column.annotation);
-                    plaf.columns.fixed.push(plaf_fixed);
-                }
-                Halo2Advice => { // ??? should terminate with error but only phase is missing so I defaulted to 0. is this good?
-                    let plaf_witness = ColumnWitness::new(
-                        column.annotation,
-                        0,
-                    );
-                }
-                Halo2Fixed => { // ??? should terminate with error but nothing is missing. is this good?
-                    let plaf_fixed = ColumnFixed::new(column.annotation);
-                    plaf.columns.fixed.push(plaf_fixed);
-                }
+
+        chiquito_plaf.convert_and_push_plaf_column(&chiquito_plaf.circuit.q_enable, &mut plaf);
+
+        match chiquito_plaf.circuit.q_first {
+            Some(cColumn) => {
+                chiquito_plaf.convert_and_push_plaf_column(&cColumn, &mut plaf);
             }
+            None => {}
+        }
+
+        match chiquito_plaf.circuit.q_last {
+            Some(cColumn) => {
+                chiquito_plaf.convert_and_push_plaf_column(&cColumn, &mut plaf);
+            }
+            None => {}
+        }
+
+        for column in chiquito_plaf.circuit.columns.iter() {
+            chiquito_plaf.convert_and_push_plaf_column(column, &mut plaf);
         }
 
         if !chiquito_plaf.circuit.polys.is_empty() {
@@ -119,6 +114,8 @@ impl<F: Field + From<u64>, TraceArgs, StepArgs: Clone> ChiquitoPlaf<F, TraceArgs
             plaf.lookups.push(plaf_lookup);
         }
 
+
+
         plaf
     }
 
@@ -126,6 +123,32 @@ impl<F: Field + From<u64>, TraceArgs, StepArgs: Clone> ChiquitoPlaf<F, TraceArgs
         ChiquitoPlaf {
             circuit,
             query_index: 0,
+        }
+    }
+
+    fn convert_and_push_plaf_column(&self, column: &cColumn, plaf: &mut Plaf) {
+        match column.ctype {
+            cAdvice => {
+                let plaf_witness = ColumnWitness::new( // advice is called witness in plaf
+                    column.annotation,
+                    column.phase,
+                );
+                plaf.columns.witness.push(plaf_witness); 
+            }
+            cFixed => {
+                let plaf_fixed = ColumnFixed::new(column.annotation);
+                plaf.columns.fixed.push(plaf_fixed);
+            }
+            Halo2Advice => { // ??? should terminate with error but only phase is missing so I defaulted to 0. is this good?
+                let plaf_witness = ColumnWitness::new(
+                    column.annotation,
+                    0,
+                );
+            }
+            Halo2Fixed => { // ??? should terminate with error but nothing is missing. is this good?
+                let plaf_fixed = ColumnFixed::new(column.annotation);
+                plaf.columns.fixed.push(plaf_fixed);
+            }
         }
     }
 
