@@ -10,10 +10,7 @@ use halo2_proofs::{
 
 use chiquito::{
     ast::query::Queriable,
-    backend::{
-        halo2::{chiquito2Halo2, ChiquitoHalo2},
-        plaf::ChiquitoPlaf,
-    },
+    backend::halo2::{chiquito2Halo2, ChiquitoHalo2},
     compiler::{
         cell_manager::SingleRowCellManager, step_selector::SimpleStepSelectorBuilder, Compiler,
     },
@@ -352,11 +349,12 @@ mod tests {
     #[test]
     fn mimc7_plaf() {
         use polyexen::plaf::PlafDisplayBaseTOML;
+        use chiquito::backend::plaf::ChiquitoPlaf;
         let mut meta: ConstraintSystem<Fr> = ConstraintSystem::default();
         let row_value = meta.fixed_column();
         let c_value = meta.fixed_column();
         let circuit = mimc7_circuit::<Fr>(row_value, c_value);
-        let plaf = ChiquitoPlaf::new(circuit).chiquito2Plaf();
+        let plaf = ChiquitoPlaf::new(circuit, false).chiquito2Plaf();
         print!("{}", PlafDisplayBaseTOML(&plaf));
     }
 }

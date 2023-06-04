@@ -48,8 +48,12 @@ use std::{
 
 #[derive(Clone, Debug)]
 pub struct ChiquitoPlaf<F: PrimeField, TraceArgs, StepArgs: Clone> {
+    debug: bool,
     circuit: cCircuit<F, TraceArgs, StepArgs>,
     // query_index: Counter, 
+    c_column_id_to_p_column_index: HashMap<u32, usize>, // chiquito column id doesn't have fixed start; plaf column index starts from 0 for each of witness (advice), fixed, and public types; therefore a mapping is needed to convert chiquito query to plaf query
+    advice_index: Counter, // index of witness (advice) column in plaf
+    fixed_index: Counter, // index of fixed column in plaf
 }
 
 impl<F: PrimeField<Repr = [u8; 32]>, TraceArgs, StepArgs: Clone> ChiquitoPlaf<F, TraceArgs, StepArgs> { // ??? Field doesn't satisfy the Var trait, which requires PartialEq and other traits
@@ -57,10 +61,14 @@ impl<F: PrimeField<Repr = [u8; 32]>, TraceArgs, StepArgs: Clone> ChiquitoPlaf<F,
     // cPolyExpr::Halo2Expr(e) => pExpr::from(e)
     // this function converts a halo2 Expression<F> to a polyexen Expr<PlonkVar>
     // F: PrimeField<Repr = [u8; 32] is required
-    pub fn new(circuit: cCircuit<F, TraceArgs, StepArgs>) -> ChiquitoPlaf<F, TraceArgs, StepArgs> {
+    pub fn new(circuit: cCircuit<F, TraceArgs, StepArgs>, debug: bool) -> ChiquitoPlaf<F, TraceArgs, StepArgs> {
         ChiquitoPlaf {
+            debug,
             circuit,
             // query_index: Counter::new(),
+            c_column_id_to_p_column_index: HashMap::new(),
+            advice_index: Counter::new(),
+            fixed_index: Counter::new(),
         }
     }
 
@@ -68,25 +76,45 @@ impl<F: PrimeField<Repr = [u8; 32]>, TraceArgs, StepArgs: Clone> ChiquitoPlaf<F,
         // let mut chiquito_plaf = Self::new(circuit);
         let mut plaf = Plaf::default();
 
-        self.convert_and_push_plaf_column(&self.circuit.q_enable, &mut plaf);
+        let mut c_column_id_to_p_column_index = HashMap::<u32, usize>::new();
+        let mut advice_index = Counter::new();
+        let mut fixed_index = Counter::new();
 
-        match &self.circuit.q_first {
-            Some(cColumn) => {
-                self.convert_and_push_plaf_column(&cColumn, &mut plaf);
-            }
-            None => {}
-        }
+        // self.convert_and_push_plaf_column(&self.circuit.q_enable, &mut plaf);
 
-        match &self.circuit.q_last {
-            Some(cColumn) => {
-                self.convert_and_push_plaf_column(&cColumn, &mut plaf);
-            }
-            None => {}
-        }
+        // match &self.circuit.q_first {
+        //     Some(cColumn) => {
+        //         self.convert_and_push_plaf_column(&cColumn, &mut plaf);
+        //     }
+        //     None => {}
+        // }
+
+        // match &self.circuit.q_last {
+        //     Some(cColumn) => {
+        //         self.convert_and_push_plaf_column(&cColumn, &mut plaf);
+        //     }
+        //     None => {}
+        // }
 
         for column in self.circuit.columns.iter() {
-            self.convert_and_push_plaf_column(column, &mut plaf);
+            if self.debug {
+                println!("annotation: {}, id: {}", column.annotation, column.id);
+            }
+            self.convert_and_push_plaf_column(
+                column, 
+                &mut plaf, 
+                Some(&mut c_column_id_to_p_column_index), 
+                Some(&mut advice_index),
+                Some(&mut fixed_index),
+            );
+            if self.debug {
+                println!("MAP {:#?}", c_column_id_to_p_column_index);
+            }
         }
+
+        self.c_column_id_to_p_column_index = c_column_id_to_p_column_index;
+        self.advice_index = advice_index;
+        self.fixed_index = fixed_index;
 
         if !self.circuit.polys.is_empty() {
             let mut counter = Counter::new(); 
@@ -127,17 +155,26 @@ impl<F: PrimeField<Repr = [u8; 32]>, TraceArgs, StepArgs: Clone> ChiquitoPlaf<F,
         plaf
     }
 
-    fn convert_and_push_plaf_column(&self, column: &cColumn, plaf: &mut Plaf) {
+    fn convert_and_push_plaf_column(
+        &self, 
+        column: &cColumn, 
+        plaf: &mut Plaf, 
+        c_column_id_to_p_column_index: Option<&mut HashMap<u32, usize>>, // the three Option fields need to be all Some or all None; not the best practice but this function is only used interally
+        advice_index: Option<&mut Counter>,
+        fixed_index: Option<&mut Counter>,
+    ) {
         match column.ctype {
             cAdvice => {
                 let plaf_witness = ColumnWitness::new( // advice is called witness in plaf
                     column.annotation.clone(),
                     column.phase,
                 );
+                self.add_id_index_mapping(column, c_column_id_to_p_column_index, advice_index.unwrap()); // will panic if c_column_id_to_p_column_index is Some but advice_index is None
                 plaf.columns.witness.push(plaf_witness); 
             }
             cFixed => {
                 let plaf_fixed = ColumnFixed::new(column.annotation.clone());
+                self.add_id_index_mapping(column, c_column_id_to_p_column_index, fixed_index.unwrap());
                 plaf.columns.fixed.push(plaf_fixed);
             }
             Halo2Advice => { // ??? should terminate with error but only phase is missing so I defaulted to 0. is this good?
@@ -145,9 +182,12 @@ impl<F: PrimeField<Repr = [u8; 32]>, TraceArgs, StepArgs: Clone> ChiquitoPlaf<F,
                     column.annotation.clone(),
                     0,
                 );
+                self.add_id_index_mapping(column, c_column_id_to_p_column_index, advice_index.unwrap());
+                plaf.columns.witness.push(plaf_witness);
             }
             Halo2Fixed => { // ??? should terminate with error but nothing is missing. is this good?
                 let plaf_fixed = ColumnFixed::new(column.annotation.clone());
+                self.add_id_index_mapping(column, c_column_id_to_p_column_index, fixed_index.unwrap());
                 plaf.columns.fixed.push(plaf_fixed);
             }
         }
@@ -179,9 +219,14 @@ impl<F: PrimeField<Repr = [u8; 32]>, TraceArgs, StepArgs: Clone> ChiquitoPlaf<F,
             cPolyExpr::Query(column, rotation, annotation) => {
                 // self.query_index.increment();
                 // let index = self.query_index.number();
-                let index = counter.number();
-                counter.increment();
-                pExpr::Var(PlonkVar::Query(self.convert_plaf_query(column, rotation, annotation, index)))
+                // let index = counter.number();
+                // counter.increment();
+                let index = self.c_column_id_to_p_column_index.get(&column.uuid()).unwrap();
+                if self.debug {
+                    println!("GET c column id {} match p column index {}", column.uuid(), index);
+                    println!("MAP {:#?}", self.c_column_id_to_p_column_index);
+                }
+                pExpr::Var(PlonkVar::Query(self.convert_plaf_query(column, rotation, annotation, *index)))
             }
         }
     }
@@ -190,6 +235,19 @@ impl<F: PrimeField<Repr = [u8; 32]>, TraceArgs, StepArgs: Clone> ChiquitoPlaf<F,
     //     self.query_index.increment();
     //     self.query_index.number()
     // }
+
+    fn add_id_index_mapping(&self, column: &cColumn, c_column_id_to_p_column_index: Option<&mut HashMap<u32, usize>>, counter: &mut Counter) {
+        match c_column_id_to_p_column_index {
+            Some(c_column_id_to_p_column_index) => {
+                c_column_id_to_p_column_index.insert(column.uuid(), counter.number());
+                if self.debug {
+                    println!("c column id {} match p column index {}", column.uuid(), counter.number());
+                }
+                counter.increment();
+            }
+            None => {}
+        }
+    }
 
     fn convert_plaf_query(
         &self,

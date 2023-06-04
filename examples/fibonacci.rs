@@ -211,3 +211,20 @@ fn main() {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn fibo_plaf() {
+        use polyexen::plaf::PlafDisplayBaseTOML;
+        use chiquito::backend::plaf::ChiquitoPlaf;
+
+        let mut meta: ConstraintSystem<Fr> = ConstraintSystem::default();
+        let row_value = meta.fixed_column();
+        let c_value = meta.fixed_column();
+        let circuit = fibo_circuit::<Fr>();
+        let plaf = ChiquitoPlaf::new(circuit, false).chiquito2Plaf();
+        print!("{}", PlafDisplayBaseTOML(&plaf));
+    }
+}
