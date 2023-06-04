@@ -1,6 +1,9 @@
 use chiquito::{
     ast::query::Queriable,
-    backend::halo2::{chiquito2Halo2, ChiquitoHalo2},
+    backend::{
+        halo2::{chiquito2Halo2, ChiquitoHalo2},
+        plaf::ChiquitoPlaf,
+    },
     compiler::{
         cell_manager::SingleRowCellManager, step_selector::SimpleStepSelectorBuilder, Compiler,
     },
@@ -201,6 +204,7 @@ struct Mimc7Circuit<F: PrimeField> {
 impl<F: PrimeField> halo2_proofs::plonk::Circuit<F> for Mimc7Circuit<F> {
     type Config = Mimc7Config<F>;
     type FloorPlanner = SimpleFloorPlanner;
+    type Params = ();
 
     fn without_witnesses(&self) -> Self {
         Self::default()
@@ -336,4 +340,20 @@ mod mimc7_constants {
         "18979889247746272055963929241596362599320706910852082477600815822482192194401",
         "13602139229813231349386885113156901793661719180900395818909719758150455500533",
     ];
+}
+
+#[cfg(test)]
+mod tests {
+    use chiquito::ast::Circuit;
+
+    use super::*;
+    #[test]
+    fn mimc7_plaf() {
+        let mut meta: ConstraintSystem<Fr> = ConstraintSystem::default();
+        let row_value = meta.fixed_column();
+        let c_value = meta.fixed_column();
+        let circuit = mimc7_circuit::<Fr>(row_value, c_value);
+        let plaf = ChiquitoPlaf::new(circuit).chiquito2Plaf();
+        
+    }
 }

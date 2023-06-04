@@ -57,7 +57,7 @@ impl<F: PrimeField<Repr = [u8; 32]>, TraceArgs, StepArgs: Clone> ChiquitoPlaf<F,
     // cPolyExpr::Halo2Expr(e) => pExpr::from(e)
     // this function converts a halo2 Expression<F> to a polyexen Expr<PlonkVar>
     // F: PrimeField<Repr = [u8; 32] is required
-    fn new(circuit: cCircuit<F, TraceArgs, StepArgs>) -> ChiquitoPlaf<F, TraceArgs, StepArgs> {
+    pub fn new(circuit: cCircuit<F, TraceArgs, StepArgs>) -> ChiquitoPlaf<F, TraceArgs, StepArgs> {
         ChiquitoPlaf {
             circuit,
             // query_index: Counter::new(),
@@ -195,7 +195,7 @@ impl<F: PrimeField<Repr = [u8; 32]>, TraceArgs, StepArgs: Clone> ChiquitoPlaf<F,
         &self,
         column: &cColumn,
         rotation: &i32,
-        annotation: &String,
+        _annotation: &String,
         index: usize, // this is simply the number of queries starting from 0 according to Halo2, so we take an incrementing input
     ) -> ColumnQuery {
         match column.ctype {
@@ -241,6 +241,63 @@ impl Counter {
     }
 }
 
+// #[cfg(test)]
+// mod tests {
+//     use std::{collections::HashMap, rc::Rc};
+
+//     use halo2_proofs::{
+//         arithmetic::Field,
+//         circuit::{Layouter, Region, Value, self},
+//         plonk::{
+//             Advice, Column, ConstraintSystem, Expression, FirstPhase, Fixed, SecondPhase, ThirdPhase,
+//             VirtualCells,
+//         },
+//         poly::Rotation, halo2curves::ff::PrimeField,
+//     };
+
+//     use crate::{
+//         ast::{query::Queriable, ForwardSignal, InternalSignal, StepType, ToField},
+//         compiler::{
+//             cell_manager::Placement, step_selector::StepSelector, FixedGenContext, TraceContext,
+//             WitnessGenContext,
+//         },
+//         dsl::StepTypeHandler,
+//         ir::{
+//             Circuit as cCircuit, Column as cColumn,
+//             ColumnType::{Advice as cAdvice, Fixed as cFixed, Halo2Advice, Halo2Fixed},
+//             PolyExpr as cPolyExpr,
+//         },
+//     };
+
+//     // use bus_mapping::{circuit_input_builder::CircuitsParams, mock::BlockData};
+//     // use eth_types::{bytecode, geth_types::GethData, ToWord, Word};
+//     use halo2_proofs::{dev::MockProver, halo2curves::bn256::Fr, plonk::Circuit};
+//     // use mock::test_ctx::TestContext;
+//     use num_bigint::{BigUint, ToBigInt};
+//     use polyexen::{
+//         analyze::{bound_base, find_bounds_poly, Analysis},
+//         expr::{ExprDisplay, Expr as pExpr, PlonkVar, ColumnQuery, ColumnKind, Column as pColumn, Var},
+//         plaf::{
+//             backends::halo2::PlafH2Circuit,
+//             frontends::halo2::{gen_witness, get_plaf},
+//             Cell, CellDisplay, Plaf, Poly as pPoly, PlafDisplayBaseTOML, PlafDisplayFixedCSV, VarDisplay, ColumnWitness, ColumnFixed, 
+//             Lookup as pLookup
+//         },
+//     };
+//     use std::fmt;
+
+//     use std::{
+//         fs::File,
+//         io::{self, Write},
+//     };
+
+//     #[test]
+//     fn test_mimc7() {
+//         use 
+//         let circuit = Mimc7Circuit::new();
+//     }
+
+// }
 // fn write_files(name: &str, plaf: &Plaf) -> Result<(), io::Error> {
 //     let mut base_file = File::create(format!("out/{}.toml", name))?;
 //     let mut fixed_file = File::create(format!("out/{}_fixed.csv", name))?;
