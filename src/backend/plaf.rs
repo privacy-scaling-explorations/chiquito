@@ -49,6 +49,7 @@ use std::{
 #[derive(Clone, Debug)]
 pub struct ChiquitoPlaf<F: PrimeField, TraceArgs, StepArgs: Clone> {
     circuit: cCircuit<F, TraceArgs, StepArgs>,
+    // query_index: Counter, 
 }
 
 impl<F: PrimeField<Repr = [u8; 32]>, TraceArgs, StepArgs: Clone> ChiquitoPlaf<F, TraceArgs, StepArgs> { // ??? Field doesn't satisfy the Var trait, which requires PartialEq and other traits
@@ -59,10 +60,11 @@ impl<F: PrimeField<Repr = [u8; 32]>, TraceArgs, StepArgs: Clone> ChiquitoPlaf<F,
     fn new(circuit: cCircuit<F, TraceArgs, StepArgs>) -> ChiquitoPlaf<F, TraceArgs, StepArgs> {
         ChiquitoPlaf {
             circuit,
+            // query_index: Counter::new(),
         }
     }
 
-    pub fn chiquito2Plaf(&self) -> Plaf {
+    pub fn chiquito2Plaf(&mut self) -> Plaf {
         // let mut chiquito_plaf = Self::new(circuit);
         let mut plaf = Plaf::default();
 
@@ -87,28 +89,31 @@ impl<F: PrimeField<Repr = [u8; 32]>, TraceArgs, StepArgs: Clone> ChiquitoPlaf<F,
         }
 
         if !self.circuit.polys.is_empty() {
-            for cPoly in self.circuit.polys.iter() {
+            let mut counter = Counter::new(); 
+            for cPoly in &mut self.circuit.polys.iter() {
                 let plaf_poly = pPoly {
                     name: cPoly.annotation.clone(),
-                    exp: self.convert_plaf_poly(&cPoly.expr),
+                    exp: self.convert_plaf_poly(&cPoly.expr, &mut counter),
                 };
                 plaf.polys.push(plaf_poly);
             }
         }
 
         for lookup in self.circuit.lookups.iter() {
+            let mut counter = Counter::new();
+
             let v1 = lookup
                 .exprs
                 .clone()
                 .into_iter()
-                .map(|(e1, _)| self.convert_plaf_poly(&e1))
+                .map(|(e1, _)| self.convert_plaf_poly(&e1, &mut counter)) // counter needs to be supplied but not really used here
                 .collect::<Vec<pExpr<PlonkVar>>>();
 
             let v2 = lookup
                 .exprs
                 .clone()
                 .into_iter()
-                .map(|(_, e2)| self.convert_plaf_poly(&e2))
+                .map(|(_, e2)| self.convert_plaf_poly(&e2, &mut counter))  // counter needs to be supplied but not really used here
                 .collect::<Vec<pExpr<PlonkVar>>>();
             
             let plaf_lookup = pLookup {
@@ -148,41 +153,43 @@ impl<F: PrimeField<Repr = [u8; 32]>, TraceArgs, StepArgs: Clone> ChiquitoPlaf<F,
         }
     }
 
-    fn convert_plaf_poly(&self, chiquito_poly: &cPolyExpr<F>) -> pExpr<PlonkVar> { // !!! not sure if PlonkVar makes sense here
+    fn convert_plaf_poly(&self, chiquito_poly: &cPolyExpr<F>, counter: &mut Counter) -> pExpr<PlonkVar> { // !!! not sure if PlonkVar makes sense here
         match chiquito_poly {
             cPolyExpr::Const(c) => pExpr::Const(BigUint::from_bytes_le(&c.to_repr())), // PrimeField uses little endian for bytes representation
             cPolyExpr::Sum(es) => {
                 let mut iter = es.iter();
-                let first = self.convert_plaf_poly(iter.next().unwrap());
-                iter.fold(first, |acc, e| acc + self.convert_plaf_poly(e))
+                let first = self.convert_plaf_poly(iter.next().unwrap(), counter);
+                iter.fold(first, |acc, e| acc + self.convert_plaf_poly(e, counter))
             }
             cPolyExpr::Mul(es) => {
                 let mut iter = es.iter();
-                let first = self.convert_plaf_poly(iter.next().unwrap());
-                iter.fold(first, |acc, e| acc * self.convert_plaf_poly(e))
+                let first = self.convert_plaf_poly(iter.next().unwrap(), counter);
+                iter.fold(first, |acc, e| acc * self.convert_plaf_poly(e, counter))
             }
-            cPolyExpr::Neg(e) => -self.convert_plaf_poly(e),
+            cPolyExpr::Neg(e) => -self.convert_plaf_poly(e, counter),
             cPolyExpr::Pow(e, n) => {
                 if *n == 0 {
                     pExpr::Const(BigUint::from(1u32))
                 } else {
-                    let e = self.convert_plaf_poly(e);
+                    let e = self.convert_plaf_poly(e, counter);
                     (1..*n).fold(e.clone(), |acc, _| acc * e.clone())
                 }
             }
             cPolyExpr::Halo2Expr(e) => pExpr::from(e),
             cPolyExpr::Query(column, rotation, annotation) => {
-                self.query_index.increment();
-                let index = self.query_index.number();
+                // self.query_index.increment();
+                // let index = self.query_index.number();
+                counter.increment();
+                let index = counter.number();
                 pExpr::Var(PlonkVar::Query(self.convert_plaf_query(column, rotation, annotation, index)))
             }
         }
     }
 
-    fn increment_query_index(&self) -> usize {
-        self.query_index.increment();
-        self.query_index.number()
-    }
+    // fn increment_query_index(&mut self) -> usize {
+    //     self.query_index.increment();
+    //     self.query_index.number()
+    // }
 
     fn convert_plaf_query(
         &self,
@@ -234,13 +241,13 @@ impl Counter {
     }
 }
 
-fn write_files(name: &str, plaf: &Plaf) -> Result<(), io::Error> {
-    let mut base_file = File::create(format!("out/{}.toml", name))?;
-    let mut fixed_file = File::create(format!("out/{}_fixed.csv", name))?;
-    write!(base_file, "{}", PlafDisplayBaseTOML(plaf))?;
-    write!(fixed_file, "{}", PlafDisplayFixedCSV(plaf))?;
-    Ok(())
-}
+// fn write_files(name: &str, plaf: &Plaf) -> Result<(), io::Error> {
+//     let mut base_file = File::create(format!("out/{}.toml", name))?;
+//     let mut fixed_file = File::create(format!("out/{}_fixed.csv", name))?;
+//     write!(base_file, "{}", PlafDisplayBaseTOML(plaf))?;
+//     write!(fixed_file, "{}", PlafDisplayFixedCSV(plaf))?;
+//     Ok(())
+// }
 
 // fn gen_circuit_plaf<C: Circuit<Fr> + SubCircuit<Fr>>(name: &str, k: u32, block: &Block<Fr>) {
 //     let circuit = C::new_from_block(&block);
