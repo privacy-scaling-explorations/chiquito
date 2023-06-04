@@ -40,7 +40,12 @@ impl<F: Debug> From<Expr<F>> for Constraint<F> {
 
 impl<F> From<Queriable<F>> for Constraint<F> {
     fn from(query: Queriable<F>) -> Self {
-        annotate(query.annotation(), Expr::Query(query), Typing::Unknown)
+        match query {
+            Queriable::StepTypeNext(_) => {
+                annotate(query.annotation(), Expr::Query(query), Typing::Boolean)
+            }
+            _ => annotate(query.annotation(), Expr::Query(query), Typing::Unknown),
+        }
     }
 }
 
@@ -196,6 +201,11 @@ pub fn select<
     when_false: T3,
 ) -> Constraint<F> {
     let selector = selector.into();
+
+    match selector.typing {
+        
+    }
+
     let when_true = when_true.into();
     let when_false = when_false.into();
 
@@ -283,6 +293,7 @@ pub fn if_next_step<F: Clone, T: Into<Constraint<F>>>(
     Constraint {
         expr: step_type.next() * constraint.expr,
         annotation,
+        typing: constraint.typing,
     }
 }
 
