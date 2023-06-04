@@ -15,7 +15,7 @@ pub struct Constraint<F> {
 }
 
 #[derive(Clone)]
-enum Typing {
+pub enum Typing {
     Unknown,
     Boolean,
     AntiBooly

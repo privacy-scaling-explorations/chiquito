@@ -3,7 +3,7 @@ use halo2_proofs::arithmetic::Field;
 use crate::{
     ast::{query::Queriable, ToExpr},
     compiler::WitnessGenContext,
-    dsl::{cb::Constraint, StepTypeContext},
+    dsl::{cb::{Constraint, Typing}, StepTypeContext},
 };
 
 pub struct IsZero<F> {
@@ -25,6 +25,7 @@ impl<F: Field + From<u64>> IsZero<F> {
         let is_zero_constraint = Constraint {
             expr: is_zero_expression,
             annotation: format!("is_zero({:?})", value),
+            typing: Typing::Boolean,
         };
 
         IsZero {
