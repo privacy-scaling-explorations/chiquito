@@ -179,8 +179,8 @@ impl<F: PrimeField<Repr = [u8; 32]>, TraceArgs, StepArgs: Clone> ChiquitoPlaf<F,
             cPolyExpr::Query(column, rotation, annotation) => {
                 // self.query_index.increment();
                 // let index = self.query_index.number();
-                counter.increment();
                 let index = counter.number();
+                counter.increment();
                 pExpr::Var(PlonkVar::Query(self.convert_plaf_query(column, rotation, annotation, index)))
             }
         }

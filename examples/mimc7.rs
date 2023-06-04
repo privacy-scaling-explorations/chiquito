@@ -344,16 +344,15 @@ mod mimc7_constants {
 
 #[cfg(test)]
 mod tests {
-    use chiquito::ast::Circuit;
-
     use super::*;
     #[test]
     fn mimc7_plaf() {
+        use polyexen::plaf::PlafDisplayBaseTOML;
         let mut meta: ConstraintSystem<Fr> = ConstraintSystem::default();
         let row_value = meta.fixed_column();
         let c_value = meta.fixed_column();
         let circuit = mimc7_circuit::<Fr>(row_value, c_value);
         let plaf = ChiquitoPlaf::new(circuit).chiquito2Plaf();
-        
+        print!("{}", PlafDisplayBaseTOML(&plaf));
     }
 }
