@@ -60,7 +60,7 @@ impl<F: PrimeField<Repr = [u8; 32]>, TraceArgs, StepArgs: Clone> ChiquitoPlaf<F,
     // <Repr = [u8; 32]> is required by `from` function in the following line:
     // cPolyExpr::Halo2Expr(e) => pExpr::from(e)
     // this function converts a halo2 Expression<F> to a polyexen Expr<PlonkVar>
-    // F: PrimeField<Repr = [u8; 32] is required
+    // F: PrimeField<Repr = [u8; 32]> is required
     pub fn new(circuit: cCircuit<F, TraceArgs, StepArgs>, debug: bool) -> ChiquitoPlaf<F, TraceArgs, StepArgs> {
         ChiquitoPlaf {
             debug,
