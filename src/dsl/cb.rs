@@ -1,4 +1,4 @@
-use std::{fmt::Debug, vec};
+use std::{fmt::Debug, vec, sync::Arc};
 
 use halo2_proofs::arithmetic::Field;
 
@@ -11,18 +11,36 @@ use super::StepTypeHandler;
 pub struct Constraint<F> {
     pub annotation: String,
     pub expr: Expr<F>,
+    pub typing: Typing,
+}
+
+#[derive(Clone)]
+enum Typing {
+    Unknown,
+    Boolean,
+    AntiBooly
+}
+
+impl Debug for Typing {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Typing::Unknown => write!(f, "Unknown"),
+            Typing::Boolean => write!(f, "Boolean"),
+            Typing::AntiBooly => write!(f, "AntiBooly"),
+        }
+    }
 }
 
 impl<F: Debug> From<Expr<F>> for Constraint<F> {
     fn from(expr: Expr<F>) -> Self {
         let annotation = format!("{:?}", &expr);
-        Self { expr, annotation }
+        Self { expr, annotation, typing: Typing::Unknown }
     }
 }
 
 impl<F> From<Queriable<F>> for Constraint<F> {
     fn from(query: Queriable<F>) -> Self {
-        annotate(query.annotation(), Expr::Query(query))
+        annotate(query.annotation(), Expr::Query(query), Typing::Unknown)
     }
 }
 
@@ -66,14 +84,24 @@ pub fn and<F: From<u64>, E: Into<Constraint<F>>, I: IntoIterator<Item = E>>(
 
     for constraint in inputs.into_iter() {
         let constraint = constraint.into();
-        annotations.push(constraint.annotation);
-
-        expr = expr * constraint.expr;
+        match constraint.typing {
+            Typing::AntiBooly => {
+                annotations.push(constraint.annotation);
+                let constraint_expr = if constraint.expr == 0u64.expr() {1u64.expr()} else {0u64.expr()};
+                expr = expr * constraint_expr;
+            }
+            Typing::Boolean => {
+                annotations.push(constraint.annotation);
+                expr = expr * constraint.expr;
+            }
+            _ => panic!("Expected anti-booly or boolean constraint, got {:?}, constraint: {}", constraint.typing, constraint.annotation),
+        }
     }
 
     Constraint {
         annotation: format!("({})", annotations.join(" AND ")),
         expr,
+        typing: Typing::Boolean,
     }
 }
 
@@ -92,8 +120,13 @@ pub fn or<
 
     for constraint in inputs.into_iter() {
         let constraint = constraint.into();
-        annotations.push(constraint.annotation);
-        exprs.push(constraint.expr);
+        match constraint.typing {
+            Typing::AntiBooly | Typing::Boolean => {
+                annotations.push(constraint.annotation);
+                exprs.push(constraint.expr);
+            }
+            _ => panic!("Expected anti-booly or boolean constraint, got {:?}, constraint: {}", constraint.typing, constraint.annotation),
+        }
     }
 
     let result = not(and(exprs.into_iter().map(not)));
@@ -101,19 +134,36 @@ pub fn or<
     Constraint {
         annotation: format!("({})", annotations.join(" OR ")),
         expr: result.expr,
+        typing: Typing::Boolean,
     }
 }
 
 /// Takes two expressions and returns a new expression representing the logical XOR of the input
 /// expressions.
-pub fn xor<F: From<u64> + Clone, LHS: Into<Expr<F>>, RHS: Into<Expr<F>>>(
+pub fn xor<F: From<u64> + Clone, LHS: Into<Constraint<F>>, RHS: Into<Constraint<F>>>(
     lhs: LHS,
     rhs: RHS,
-) -> Expr<F> {
-    let lhs = lhs.into();
-    let rhs = rhs.into();
+) -> Constraint<F> {
+    let mut annotations: Vec<String> = vec![];
+    let mut expr: Expr<F>;
 
-    lhs.clone() + rhs.clone() - 2u64.expr() * lhs * rhs
+    let lhs: Constraint<F> = lhs.into();
+    let rhs: Constraint<F> = rhs.into();
+
+    match (lhs.typing, rhs.typing) {
+        (Typing::Boolean | Typing::AntiBooly, Typing::Boolean | Typing::AntiBooly) => {
+            annotations.push(lhs.annotation);
+            annotations.push(rhs.annotation);
+            expr = lhs.expr + rhs.expr - 2u64.expr() * lhs.expr * rhs.expr;
+        },
+        _ => panic!("Expected anti-booly or boolean constraints, got {:?} (lhs constraint: {}) and {:?} (rhs constraint: {})", lhs.typing, lhs.annotation, rhs.typing, rhs.annotation),
+    }
+
+    Constraint {
+        annotation: format!("({})", annotations.join(" XOR ")),
+        expr,
+        typing: Typing::Boolean,
+    }
 }
 
 /// Takes two constraints and returns a new constraint representing the equality of the input
@@ -128,6 +178,7 @@ pub fn eq<F, LHS: Into<Constraint<F>>, RHS: Into<Constraint<F>>>(
     Constraint {
         annotation: format!("{} == {}", lhs.annotation, rhs.annotation),
         expr: lhs.expr - rhs.expr,
+        typing: Typing::AntiBooly,
     }
 }
 
@@ -195,10 +246,14 @@ pub fn unless<F: From<u64> + Clone, T1: Into<Constraint<F>>, T2: Into<Constraint
 /// constraint. The input constraint must have a value of either 0 or 1.
 pub fn not<F: From<u64>, T: Into<Constraint<F>>>(constraint: T) -> Constraint<F> {
     let constraint = constraint.into();
+    match constraint.typing {
+        Typing::AntiBooly | Typing::Boolean => (),
+        _ => panic!("Expected anti-booly or boolean constraint, got {:?}, constraint: {}", constraint.typing, constraint.annotation),
+    }
     let annotation = format!("NOT({})", constraint.annotation);
     let expr = 1u64.expr() - constraint.expr;
 
-    Constraint { annotation, expr }
+    Constraint { annotation, expr, typing: Typing::Boolean }
 }
 
 /// Takes a constraint and returns a new constraint representing whether the input constraint is
@@ -251,10 +306,11 @@ pub fn next_step_must_not_be<F: From<u64>>(step_type: StepTypeHandler) -> Constr
 
 /// Takes a string annotation and an expression, and returns a new constraint with the given
 /// annotation and expression.
-pub fn annotate<F, E: Into<Expr<F>>>(annotation: String, expr: E) -> Constraint<F> {
+pub fn annotate<F, E: Into<Expr<F>>>(annotation: String, expr: E, typing: Typing) -> Constraint<F> {
     Constraint {
         annotation,
         expr: expr.into(),
+        typing,
     }
 }
 
