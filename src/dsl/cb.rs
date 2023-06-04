@@ -34,7 +34,12 @@ impl Debug for Typing {
 impl<F: Debug> From<Expr<F>> for Constraint<F> {
     fn from(expr: Expr<F>) -> Self {
         let annotation = format!("{:?}", &expr);
-        Self { expr, annotation, typing: Typing::Unknown }
+        match expr {
+            Expr::Query(Queriable::StepTypeNext(_)) => {
+                return Self { expr, annotation, typing: Typing::Boolean }
+            }
+            _ => return Self { expr, annotation, typing: Typing::Unknown }
+        }
     }
 }
 
@@ -201,13 +206,18 @@ pub fn select<
     when_false: T3,
 ) -> Constraint<F> {
     let selector = selector.into();
-
-    match selector.typing {
-        
-    }
-
     let when_true = when_true.into();
     let when_false = when_false.into();
+
+    match selector.typing {
+        Typing::Boolean => (),
+        _ => panic!("Expected boolean selector, got {:?}, selector: {}", selector.typing, selector.annotation)
+    }
+
+    match (when_true.typing, when_false.typing) {
+        (Typing::AntiBooly, Typing::AntiBooly) | (Typing::Boolean, Typing::Boolean) => (),
+        _ => panic!("Expected the same type for when_true and when_false, got {:?} for when_true (constraint: {}) and {:?} for when_false (constraint: {})", when_true.typing, when_true.annotation, when_false.typing, when_false.annotation),
+    }
 
     Constraint {
         annotation: format!(
@@ -216,6 +226,7 @@ pub fn select<
         ),
         expr: selector.expr.clone() * when_true.expr
             + (1u64.expr() - selector.expr) * when_false.expr,
+        typing: when_true.typing,
     }
 }
 
@@ -228,9 +239,15 @@ pub fn when<F: From<u64> + Clone, T1: Into<Constraint<F>>, T2: Into<Constraint<F
     let selector = selector.into();
     let when_true = when_true.into();
 
+    match selector.typing {
+        Typing::Boolean => (),
+        _ => panic!("Expected boolean selector, got {:?}, selector: {}", selector.typing, selector.annotation)
+    }
+
     Constraint {
         annotation: format!("if({})then({})", selector.annotation, when_true.annotation),
         expr: selector.expr * when_true.expr,
+        typing: when_true.typing, // bytecode example used `when` as an AntiBooly, but I think we can also use it as a Boolean
     }
 }
 
@@ -243,12 +260,18 @@ pub fn unless<F: From<u64> + Clone, T1: Into<Constraint<F>>, T2: Into<Constraint
     let selector = selector.into();
     let when_false = when_false.into();
 
+    match selector.typing {
+        Typing::Boolean => (),
+        _ => panic!("Expected boolean selector, got {:?}, selector: {}", selector.typing, selector.annotation)
+    }
+
     Constraint {
         annotation: format!(
             "unless({})then({})",
             selector.annotation, when_false.annotation
         ),
         expr: (1u64.expr() - selector.expr) * when_false.expr,
+        typing: when_false.typing, // can be used for both boolean and antibooly
     }
 }
 
@@ -271,9 +294,15 @@ pub fn not<F: From<u64>, T: Into<Constraint<F>>>(constraint: T) -> Constraint<F>
 pub fn isz<F, T: Into<Constraint<F>>>(constraint: T) -> Constraint<F> {
     let constraint = constraint.into();
 
+    match constraint.typing {
+        Typing::AntiBooly => (),
+        _ => panic!("Expected anti-booly constraint, got {:?}, constraint: {}", constraint.typing, constraint.annotation),
+    }
+
     Constraint {
         annotation: format!("0 == {}", constraint.annotation),
         expr: constraint.expr,
+        typing: Typing::AntiBooly,
     }
 }
 
@@ -302,7 +331,8 @@ pub fn if_next_step<F: Clone, T: Into<Constraint<F>>>(
 pub fn next_step_must_be<F: From<u64>>(step_type: StepTypeHandler) -> Constraint<F> {
     annotate(
         format!("next_step_must_be({})", step_type.annotation),
-        not(step_type.next()),
+        not(step_type.next()), // returns 1 - Expr
+        Typing::AntiBooly, // this is really an AntiBoolean
     )
 }
 
@@ -312,6 +342,7 @@ pub fn next_step_must_not_be<F: From<u64>>(step_type: StepTypeHandler) -> Constr
     annotate(
         format!("next_step_must_not_be({})", step_type.annotation),
         step_type.next(),
+        Typing::AntiBooly, // this is really an AntiBoolean
     )
 }
 
@@ -512,7 +543,7 @@ mod tests {
         let result = xor(a, b);
 
         // returns "10 + 20 - 2 * 10 * 20"
-        assert!(matches!(result, Expr::Sum(v) if v.len() == 3 &&
+        assert!(matches!(result.expr, Expr::Sum(v) if v.len() == 3 &&
             matches!(v[0], Expr::Const(c) if c == 10u64.field()) &&
             matches!(v[1], Expr::Const(c) if c == 20u64.field()) &&
             matches!(&v[2], Expr::Neg(boxed_mul) if 
@@ -654,10 +685,11 @@ mod tests {
     #[test]
     fn test_annotate() {
         let expr = <u64 as ToExpr<Fr>>::expr(&10);
-        let result = annotate("my_constraint".to_string(), expr);
+        let result = annotate("my_constraint".to_string(), expr, Typing::Unknown);
 
         assert_eq!(result.annotation, "my_constraint");
         assert!(matches!(result.expr, Expr::Const(c) if c == 10u64.field()));
+        assert!(matches!(result.typing, Typing::Unknown));
     }
 
     #[test]
