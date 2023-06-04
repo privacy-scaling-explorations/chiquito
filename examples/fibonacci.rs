@@ -167,6 +167,7 @@ struct FiboCircuit {}
 // integrate Chiquito circuit into a Halo2 circuit
 impl<F: Field + From<u64> + Hash> halo2_proofs::plonk::Circuit<F> for FiboCircuit {
     type Config = FiboConfig<F>;
+    type Params = ();
 
     type FloorPlanner = SimpleFloorPlanner;
 
