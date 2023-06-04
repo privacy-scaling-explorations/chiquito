@@ -11,6 +11,7 @@ authors = ["Leo Lara <leo@leolara.me>"]
 # halo2_proofs = { git = "https://github.com/privacy-scaling-explorations/halo2.git", tag = "v2023_04_20" }
 halo2_proofs = { git = "https://github.com/privacy-scaling-explorations/halo2.git", rev = "d3746109d7d38be53afc8ddae8fdfaf1f02ad1d7" }
 polyexen = { git =  "https://github.com/Dhole/polyexen.git", rev = "5f1eebd773e0e2ae82b1c8dc15d68f422b87c6e5" }
+demo = { git = "https://github.com/ed255/polyexen-demo.git", rev = "4a4e57a50a7bb89ae2cd03b532969949d4197b16" }
 num-bigint = { version = "0.4", features = [ "rand" ] }
 
 # [patch."https://github.com/privacy-scaling-explorations/halo2.git"]
