@@ -349,12 +349,13 @@ mod tests {
     #[test]
     fn mimc7_plaf() {
         use polyexen::plaf::PlafDisplayBaseTOML;
-        use chiquito::backend::plaf::ChiquitoPlaf;
+        use chiquito::backend::plaf::{ChiquitoPlaf, utils::alias_replace, write_files};
+
         let mut meta: ConstraintSystem<Fr> = ConstraintSystem::default();
         let row_value = meta.fixed_column();
         let c_value = meta.fixed_column();
+
         let circuit = mimc7_circuit::<Fr>(row_value, c_value);
-        let plaf = ChiquitoPlaf::new(circuit, false).chiquito2Plaf();
-        print!("{}", PlafDisplayBaseTOML(&plaf));
+        write_files("mimc7", circuit).unwrap();
     }
 }

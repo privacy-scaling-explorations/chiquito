@@ -1,0 +1,71 @@
+[info]
+num_rows = 0
+p = 0
+
+[info.challenges]
+
+[columns.public]
+
+[columns.fixed]
+halo2 fixed lookup row = { aliases = [] }
+halo2 fixed lookup row = { aliases = [] }
+q_enable = { aliases = [] }
+q_first = { aliases = [] }
+q_last = { aliases = [] }
+
+[columns.witness]
+srcm forward x = { phase = 0, aliases = [] }
+srcm forward k = { phase = 0, aliases = [] }
+srcm forward c = { phase = 0, aliases = [] }
+srcm forward row = { phase = 0, aliases = [] }
+srcm internal signal xkc = { phase = 0, aliases = [] }
+srcm internal signal y = { phase = 0, aliases = [] }
+'step selector for mimc7 step' = { phase = 0, aliases = [] }
+'step selector for mimc7 last step' = { phase = 0, aliases = [] }
+'step selector for mimc7 first step' = { phase = 0, aliases = [] }
+
+[constraints.polys."mimc7 step::(x + k + c) == xkc => (x + k + c + -xkc)"]
+c = "q_enable*('step selector for mimc7 step'*(srcm forward x + srcm forward k + srcm forward c - srcm internal signal xkc))"
+[constraints.polys."mimc7 step::(xkc * xkc * xkc * xkc * xkc * xkc * xkc) == y => ((xkc * xkc * xkc * xkc * xkc * xkc * xkc) + -y)"]
+c = "q_enable*('step selector for mimc7 step'*(srcm internal signal xkc*srcm internal signal xkc*srcm internal signal xkc*srcm internal signal xkc*srcm internal signal xkc*srcm internal signal xkc*srcm internal signal xkc - srcm internal signal y))"
+[constraints.polys."mimc7 step::y == next(x) => (y + -next(x))"]
+c = "q_enable*('step selector for mimc7 step'*(srcm internal signal y - srcm forward x[1]))"
+[constraints.polys."mimc7 step::k == next(k) => (k + -next(k))"]
+c = "q_enable*('step selector for mimc7 step'*(srcm forward k - srcm forward k[1]))"
+[constraints.polys."mimc7 step::(row + 0x1) == next(row) => (row + 0x1 + -next(row))"]
+c = "q_enable*('step selector for mimc7 step'*(srcm forward row + 1 - srcm forward row[1]))"
+[constraints.polys."mimc7 last step::(x + k) == out => (x + k + -out)"]
+c = "q_enable*('step selector for mimc7 last step'*(srcm forward x + srcm forward k - srcm internal signal xkc))"
+[constraints.polys."mimc7 first step::(x + k + c) == xkc => (x + k + c + -xkc)"]
+c = "q_enable*('step selector for mimc7 first step'*(srcm forward x + srcm forward k + srcm forward c - srcm internal signal xkc))"
+[constraints.polys."mimc7 first step::(xkc * xkc * xkc * xkc * xkc * xkc * xkc) == y => ((xkc * xkc * xkc * xkc * xkc * xkc * xkc) + -y)"]
+c = "q_enable*('step selector for mimc7 first step'*(srcm internal signal xkc*srcm internal signal xkc*srcm internal signal xkc*srcm internal signal xkc*srcm internal signal xkc*srcm internal signal xkc*srcm internal signal xkc - srcm internal signal y))"
+[constraints.polys."mimc7 first step::y == next(x) => (y + -next(x))"]
+c = "q_enable*('step selector for mimc7 first step'*(srcm internal signal y - srcm forward x[1]))"
+[constraints.polys."mimc7 first step::k == next(k) => (k + -next(k))"]
+c = "q_enable*('step selector for mimc7 first step'*(srcm forward k - srcm forward k[1]))"
+[constraints.polys."mimc7 first step::row == 0x => (row + -0x)"]
+c = "q_enable*('step selector for mimc7 first step'*(srcm forward row - 0))"
+[constraints.polys."mimc7 first step::(row + 0x1) == next(row) => (row + 0x1 + -next(row))"]
+c = "q_enable*('step selector for mimc7 first step'*(srcm forward row + 1 - srcm forward row[1]))"
+[constraints.polys."q_first"]
+c = "q_first*(1 - 'step selector for mimc7 first step')"
+[constraints.polys."q_last"]
+c = "q_last*(1 - 'step selector for mimc7 last step')"
+
+[constraints.lookups."match(row => lookup row) match(c => lookup row) "]
+l = [
+  ["q_enable*('step selector for mimc7 step'*srcm forward row)",
+   "halo2 fixed lookup row"],
+  ["q_enable*('step selector for mimc7 step'*srcm forward c)",
+   "halo2 fixed lookup row"],
+]
+[constraints.lookups."match(row => lookup row) match(c => lookup row) "]
+l = [
+  ["q_enable*('step selector for mimc7 first step'*srcm forward row)",
+   "halo2 fixed lookup row"],
+  ["q_enable*('step selector for mimc7 first step'*srcm forward c)",
+   "halo2 fixed lookup row"],
+]
+
+

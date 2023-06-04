@@ -1,45 +1,30 @@
-use std::{collections::HashMap, rc::Rc};
+use std::{collections::HashMap, env, path::PathBuf};
 
-use halo2_proofs::{
-    arithmetic::Field,
-    circuit::{Layouter, Region, Value},
-    plonk::{
-        Advice, Column, ConstraintSystem, Expression, FirstPhase, Fixed, SecondPhase, ThirdPhase,
-        VirtualCells,
-    },
-    poly::Rotation, halo2curves::ff::PrimeField,
-};
+use halo2_proofs::halo2curves::ff::PrimeField;
 
 use crate::{
-    ast::{query::Queriable, ForwardSignal, InternalSignal, StepType, ToField},
-    compiler::{
-        cell_manager::Placement, step_selector::StepSelector, FixedGenContext, TraceContext,
-        WitnessGenContext,
-    },
-    dsl::StepTypeHandler,
     ir::{
-        Circuit as cCircuit, Column as cColumn,
+        Circuit as cCircuit, 
+        Column as cColumn,
         ColumnType::{Advice as cAdvice, Fixed as cFixed, Halo2Advice, Halo2Fixed},
         PolyExpr as cPolyExpr,
     },
+    backend::plaf::utils::alias_replace,
 };
 
-// use bus_mapping::{circuit_input_builder::CircuitsParams, mock::BlockData};
-// use eth_types::{bytecode, geth_types::GethData, ToWord, Word};
-use halo2_proofs::{dev::MockProver, halo2curves::bn256::Fr, plonk::Circuit};
-// use mock::test_ctx::TestContext;
-use num_bigint::{BigUint, ToBigInt};
+use num_bigint::BigUint;
 use polyexen::{
-    analyze::{bound_base, find_bounds_poly, Analysis},
-    expr::{ExprDisplay, Expr as pExpr, PlonkVar, ColumnQuery, ColumnKind, Column as pColumn, Var},
+    expr::{
+        Expr as pExpr, PlonkVar, 
+        ColumnQuery, ColumnKind, Column as pColumn
+    },
     plaf::{
-        backends::halo2::PlafH2Circuit,
-        frontends::halo2::{gen_witness, get_plaf},
-        Cell, CellDisplay, Plaf, Poly as pPoly, PlafDisplayBaseTOML, PlafDisplayFixedCSV, VarDisplay, ColumnWitness, ColumnFixed, 
-        Lookup as pLookup
+        Plaf, Poly as pPoly, 
+        ColumnWitness, ColumnFixed, 
+        Lookup as pLookup, 
+        PlafDisplayBaseTOML, PlafDisplayFixedCSV
     },
 };
-use std::fmt;
 
 use std::{
     fs::File,
@@ -50,13 +35,15 @@ use std::{
 pub struct ChiquitoPlaf<F: PrimeField, TraceArgs, StepArgs: Clone> {
     debug: bool,
     circuit: cCircuit<F, TraceArgs, StepArgs>,
-    // query_index: Counter, 
-    c_column_id_to_p_column_index: HashMap<u32, usize>, // chiquito column id doesn't have fixed start; plaf column index starts from 0 for each of witness (advice), fixed, and public types; therefore a mapping is needed to convert chiquito query to plaf query
+    // chiquito column id doesn't start from zero; 
+    // plaf column index starts from 0 for each column type (advice, fixed, and instance); 
+    // therefore a mapping is needed to convert chiquito column id to plaf index
+    c_column_id_to_p_column_index: HashMap<u32, usize>, 
     advice_index: Counter, // index of witness (advice) column in plaf
     fixed_index: Counter, // index of fixed column in plaf
 }
 
-impl<F: PrimeField<Repr = [u8; 32]>, TraceArgs, StepArgs: Clone> ChiquitoPlaf<F, TraceArgs, StepArgs> { // ??? Field doesn't satisfy the Var trait, which requires PartialEq and other traits
+impl<F: PrimeField<Repr = [u8; 32]>, TraceArgs, StepArgs: Clone> ChiquitoPlaf<F, TraceArgs, StepArgs> {
     // <Repr = [u8; 32]> is required by `from` function in the following line:
     // cPolyExpr::Halo2Expr(e) => pExpr::from(e)
     // this function converts a halo2 Expression<F> to a polyexen Expr<PlonkVar>
@@ -65,7 +52,6 @@ impl<F: PrimeField<Repr = [u8; 32]>, TraceArgs, StepArgs: Clone> ChiquitoPlaf<F,
         ChiquitoPlaf {
             debug,
             circuit,
-            // query_index: Counter::new(),
             c_column_id_to_p_column_index: HashMap::new(),
             advice_index: Counter::new(),
             fixed_index: Counter::new(),
@@ -73,28 +59,11 @@ impl<F: PrimeField<Repr = [u8; 32]>, TraceArgs, StepArgs: Clone> ChiquitoPlaf<F,
     }
 
     pub fn chiquito2Plaf(&mut self) -> Plaf {
-        // let mut chiquito_plaf = Self::new(circuit);
         let mut plaf = Plaf::default();
 
         let mut c_column_id_to_p_column_index = HashMap::<u32, usize>::new();
         let mut advice_index = Counter::new();
         let mut fixed_index = Counter::new();
-
-        // self.convert_and_push_plaf_column(&self.circuit.q_enable, &mut plaf);
-
-        // match &self.circuit.q_first {
-        //     Some(cColumn) => {
-        //         self.convert_and_push_plaf_column(&cColumn, &mut plaf);
-        //     }
-        //     None => {}
-        // }
-
-        // match &self.circuit.q_last {
-        //     Some(cColumn) => {
-        //         self.convert_and_push_plaf_column(&cColumn, &mut plaf);
-        //     }
-        //     None => {}
-        // }
 
         for column in self.circuit.columns.iter() {
             if self.debug {
@@ -118,10 +87,10 @@ impl<F: PrimeField<Repr = [u8; 32]>, TraceArgs, StepArgs: Clone> ChiquitoPlaf<F,
 
         if !self.circuit.polys.is_empty() {
             let mut counter = Counter::new(); 
-            for cPoly in &mut self.circuit.polys.iter() {
+            for c_poly in &mut self.circuit.polys.iter() {
                 let plaf_poly = pPoly {
-                    name: cPoly.annotation.clone(),
-                    exp: self.convert_plaf_poly(&cPoly.expr, &mut counter),
+                    name: c_poly.annotation.clone(),
+                    exp: self.convert_plaf_poly(&c_poly.expr, &mut counter),
                 };
                 plaf.polys.push(plaf_poly);
             }
@@ -159,7 +128,9 @@ impl<F: PrimeField<Repr = [u8; 32]>, TraceArgs, StepArgs: Clone> ChiquitoPlaf<F,
         &self, 
         column: &cColumn, 
         plaf: &mut Plaf, 
-        c_column_id_to_p_column_index: Option<&mut HashMap<u32, usize>>, // the three Option fields need to be all Some or all None; not the best practice but this function is only used interally
+        // the three Option fields need to be all Some or all None; 
+        // not the best practice but this function is only used interally
+        c_column_id_to_p_column_index: Option<&mut HashMap<u32, usize>>, 
         advice_index: Option<&mut Counter>,
         fixed_index: Option<&mut Counter>,
     ) {
@@ -169,7 +140,8 @@ impl<F: PrimeField<Repr = [u8; 32]>, TraceArgs, StepArgs: Clone> ChiquitoPlaf<F,
                     column.annotation.clone(),
                     column.phase,
                 );
-                self.add_id_index_mapping(column, c_column_id_to_p_column_index, advice_index.unwrap()); // will panic if c_column_id_to_p_column_index is Some but advice_index is None
+                // will panic if c_column_id_to_p_column_index is Some but advice_index is None
+                self.add_id_index_mapping(column, c_column_id_to_p_column_index, advice_index.unwrap()); 
                 plaf.columns.witness.push(plaf_witness); 
             }
             cFixed => {
@@ -177,7 +149,7 @@ impl<F: PrimeField<Repr = [u8; 32]>, TraceArgs, StepArgs: Clone> ChiquitoPlaf<F,
                 self.add_id_index_mapping(column, c_column_id_to_p_column_index, fixed_index.unwrap());
                 plaf.columns.fixed.push(plaf_fixed);
             }
-            Halo2Advice => { // ??? should terminate with error but only phase is missing so I defaulted to 0. is this good?
+            Halo2Advice => { // ??? QUESTION: should terminate with error but only phase is missing from chiquito imported halo2 advice, so I defaulted phase to 0. is this good?
                 let plaf_witness = ColumnWitness::new(
                     column.annotation.clone(),
                     0,
@@ -185,7 +157,7 @@ impl<F: PrimeField<Repr = [u8; 32]>, TraceArgs, StepArgs: Clone> ChiquitoPlaf<F,
                 self.add_id_index_mapping(column, c_column_id_to_p_column_index, advice_index.unwrap());
                 plaf.columns.witness.push(plaf_witness);
             }
-            Halo2Fixed => { // ??? should terminate with error but nothing is missing. is this good?
+            Halo2Fixed => { // ??? QUESTION: should terminate with error but nothing is missing from chiquito imported halo2 fixed. is this good?
                 let plaf_fixed = ColumnFixed::new(column.annotation.clone());
                 self.add_id_index_mapping(column, c_column_id_to_p_column_index, fixed_index.unwrap());
                 plaf.columns.fixed.push(plaf_fixed);
@@ -193,7 +165,7 @@ impl<F: PrimeField<Repr = [u8; 32]>, TraceArgs, StepArgs: Clone> ChiquitoPlaf<F,
         }
     }
 
-    fn convert_plaf_poly(&self, chiquito_poly: &cPolyExpr<F>, counter: &mut Counter) -> pExpr<PlonkVar> { // !!! not sure if PlonkVar makes sense here
+    fn convert_plaf_poly(&self, chiquito_poly: &cPolyExpr<F>, counter: &mut Counter) -> pExpr<PlonkVar> {
         match chiquito_poly {
             cPolyExpr::Const(c) => pExpr::Const(BigUint::from_bytes_le(&c.to_repr())), // PrimeField uses little endian for bytes representation
             cPolyExpr::Sum(es) => {
@@ -217,10 +189,6 @@ impl<F: PrimeField<Repr = [u8; 32]>, TraceArgs, StepArgs: Clone> ChiquitoPlaf<F,
             }
             cPolyExpr::Halo2Expr(e) => pExpr::from(e),
             cPolyExpr::Query(column, rotation, annotation) => {
-                // self.query_index.increment();
-                // let index = self.query_index.number();
-                // let index = counter.number();
-                // counter.increment();
                 let index = self.c_column_id_to_p_column_index.get(&column.uuid()).unwrap();
                 if self.debug {
                     println!("GET c column id {} match p column index {}", column.uuid(), index);
@@ -230,11 +198,6 @@ impl<F: PrimeField<Repr = [u8; 32]>, TraceArgs, StepArgs: Clone> ChiquitoPlaf<F,
             }
         }
     }
-
-    // fn increment_query_index(&mut self) -> usize {
-    //     self.query_index.increment();
-    //     self.query_index.number()
-    // }
 
     fn add_id_index_mapping(&self, column: &cColumn, c_column_id_to_p_column_index: Option<&mut HashMap<u32, usize>>, counter: &mut Counter) {
         match c_column_id_to_p_column_index {
@@ -254,7 +217,7 @@ impl<F: PrimeField<Repr = [u8; 32]>, TraceArgs, StepArgs: Clone> ChiquitoPlaf<F,
         column: &cColumn,
         rotation: &i32,
         _annotation: &String,
-        index: usize, // this is simply the number of queries starting from 0 according to Halo2, so we take an incrementing input
+        index: usize, // plaf index starts from 0 for each column type
     ) -> ColumnQuery {
         match column.ctype {
             cAdvice | Halo2Advice => {
@@ -299,92 +262,24 @@ impl Counter {
     }
 }
 
-// #[cfg(test)]
-// mod tests {
-//     use std::{collections::HashMap, rc::Rc};
+pub fn write_files<F: PrimeField<Repr = [u8; 32]>, TraceArgs, StepArgs: Clone>(
+    name: &str, 
+    circuit: cCircuit<F, TraceArgs, StepArgs>
+) -> Result<(), io::Error> {
+    let mut plaf = ChiquitoPlaf::new(circuit, false).chiquito2Plaf();
+    alias_replace(&mut plaf);
+    let mut base_file_path = env::current_dir().expect("Failed to get current directory");
+    let mut fixed_file_path = base_file_path.clone();
+    println!("base file path: {:?}", base_file_path);
+    base_file_path.push(format!("{}.toml", name));
+    println!("base file path: {:?}", base_file_path);
+    fixed_file_path.push(format!("{}_fixed.csv", name)); 
+    let mut base_file = File::create(&base_file_path)?;
+    let mut fixed_file = File::create(&fixed_file_path)?;
+    write!(base_file, "{}", PlafDisplayBaseTOML(&plaf))?;
+    // fixed assignment file current has nothing in it, because it's not stored in chiquito ir
+    write!(fixed_file, "{}", PlafDisplayFixedCSV(&plaf))?;
+    Ok(())
+}
 
-//     use halo2_proofs::{
-//         arithmetic::Field,
-//         circuit::{Layouter, Region, Value, self},
-//         plonk::{
-//             Advice, Column, ConstraintSystem, Expression, FirstPhase, Fixed, SecondPhase, ThirdPhase,
-//             VirtualCells,
-//         },
-//         poly::Rotation, halo2curves::ff::PrimeField,
-//     };
-
-//     use crate::{
-//         ast::{query::Queriable, ForwardSignal, InternalSignal, StepType, ToField},
-//         compiler::{
-//             cell_manager::Placement, step_selector::StepSelector, FixedGenContext, TraceContext,
-//             WitnessGenContext,
-//         },
-//         dsl::StepTypeHandler,
-//         ir::{
-//             Circuit as cCircuit, Column as cColumn,
-//             ColumnType::{Advice as cAdvice, Fixed as cFixed, Halo2Advice, Halo2Fixed},
-//             PolyExpr as cPolyExpr,
-//         },
-//     };
-
-//     // use bus_mapping::{circuit_input_builder::CircuitsParams, mock::BlockData};
-//     // use eth_types::{bytecode, geth_types::GethData, ToWord, Word};
-//     use halo2_proofs::{dev::MockProver, halo2curves::bn256::Fr, plonk::Circuit};
-//     // use mock::test_ctx::TestContext;
-//     use num_bigint::{BigUint, ToBigInt};
-//     use polyexen::{
-//         analyze::{bound_base, find_bounds_poly, Analysis},
-//         expr::{ExprDisplay, Expr as pExpr, PlonkVar, ColumnQuery, ColumnKind, Column as pColumn, Var},
-//         plaf::{
-//             backends::halo2::PlafH2Circuit,
-//             frontends::halo2::{gen_witness, get_plaf},
-//             Cell, CellDisplay, Plaf, Poly as pPoly, PlafDisplayBaseTOML, PlafDisplayFixedCSV, VarDisplay, ColumnWitness, ColumnFixed, 
-//             Lookup as pLookup
-//         },
-//     };
-//     use std::fmt;
-
-//     use std::{
-//         fs::File,
-//         io::{self, Write},
-//     };
-
-//     #[test]
-//     fn test_mimc7() {
-//         use 
-//         let circuit = Mimc7Circuit::new();
-//     }
-
-// }
-// fn write_files(name: &str, plaf: &Plaf) -> Result<(), io::Error> {
-//     let mut base_file = File::create(format!("out/{}.toml", name))?;
-//     let mut fixed_file = File::create(format!("out/{}_fixed.csv", name))?;
-//     write!(base_file, "{}", PlafDisplayBaseTOML(plaf))?;
-//     write!(fixed_file, "{}", PlafDisplayFixedCSV(plaf))?;
-//     Ok(())
-// }
-
-// fn gen_circuit_plaf<C: Circuit<Fr> + SubCircuit<Fr>>(name: &str, k: u32, block: &Block<Fr>) {
-//     let circuit = C::new_from_block(&block);
-//     let mut plaf = get_plaf(k, &circuit).unwrap();
-//     name_challanges(&mut plaf);
-//     alias_replace(&mut plaf);
-//     write_files(name, &plaf).unwrap();
-// }
-
-// the following code snippet from Halo2 shows that index is simply an incrementing number
-// pub(crate) fn query_advice_index(&mut self, column: Column<Advice>, at: Rotation) -> usize {
-//     // Return existing query, if it exists
-//     for (index, advice_query) in self.advice_queries.iter().enumerate() {
-//         if advice_query == &(column, at) {
-//             return index;
-//         }
-//     }
-
-//     // Make a new query
-//     let index = self.advice_queries.len();
-//     self.advice_queries.push((column, at));
-//     self.num_advice_queries[column.index] += 1;
-
-//     index
-// }
+pub mod utils;

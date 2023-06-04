@@ -218,15 +218,9 @@ mod tests {
     #[test]
     fn fibo_plaf() {
         use polyexen::plaf::PlafDisplayBaseTOML;
-        use chiquito::backend::plaf::ChiquitoPlaf;
-        use demo::utils::alias_replace;
+        use chiquito::backend::plaf::{ChiquitoPlaf, utils::alias_replace, write_files};
 
-        let mut meta: ConstraintSystem<Fr> = ConstraintSystem::default();
-        let row_value = meta.fixed_column();
-        let c_value = meta.fixed_column();
         let circuit = fibo_circuit::<Fr>();
-        let plaf = ChiquitoPlaf::new(circuit, false).chiquito2Plaf();
-        alias_replace(&mut plaf);
-        print!("{}", PlafDisplayBaseTOML(&plaf));
+        write_files("fibo", circuit).unwrap();
     }
 }
