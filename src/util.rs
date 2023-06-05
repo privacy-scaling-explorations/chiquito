@@ -1,6 +1,6 @@
 use std::sync::atomic::{AtomicU32, Ordering};
 
-use halo2_proofs::{arithmetic::Field, halo2curves::FieldExt};
+use halo2_proofs::arithmetic::Field;
 
 use crate::{
     ast::{query::Queriable, ToExpr, Expr},
@@ -14,12 +14,12 @@ pub fn uuid() -> u32 {
 
 /// Given a bytes-representation of an expression, it computes and returns the
 /// single expression.
-pub fn expr_from_bytes<F: FieldExt>(bytes: Vec<Queriable<F>>) -> Expr<F> {
+pub fn expr_from_bytes<F: Field + From<u64>>(bytes: Vec<Queriable<F>>) -> Expr<F> {
     let mut value = 0u64.expr();
-    let mut multiplier = Expr::from(1);
+    let mut multiplier = 1u64.expr();
     for byte in bytes.iter() {
         value = value + byte.expr() * multiplier;
-        multiplier = multiplier * Expr::from(256);
+        multiplier = multiplier * 256u64.expr();
     }
     value
 }
