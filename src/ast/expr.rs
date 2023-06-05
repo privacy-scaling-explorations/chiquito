@@ -173,11 +173,7 @@ impl<F: Field + From<u64>> From<i32> for Expr<F> {
     fn from(value: i32) -> Self {
         Expr::Const(
             F::from(value.unsigned_abs() as u64)
-                * if value.is_negative() {
-                    -F::one()
-                } else {
-                    F::one()
-                },
+                * if value.is_negative() { -F::ONE } else { F::ONE },
         )
     }
 }
@@ -186,12 +182,7 @@ impl<F: Field + From<u64>> ToExpr<F> for i32 {
     #[inline]
     fn expr(&self) -> Expr<F> {
         Expr::Const(
-            F::from(self.unsigned_abs() as u64)
-                * if self.is_negative() {
-                    -F::one()
-                } else {
-                    F::one()
-                },
+            F::from(self.unsigned_abs() as u64) * if self.is_negative() { -F::ONE } else { F::ONE },
         )
     }
 }
@@ -199,12 +190,7 @@ impl<F: Field + From<u64>> ToExpr<F> for i32 {
 impl<F: Field + From<u64>> ToField<F> for i32 {
     #[inline]
     fn field(&self) -> F {
-        F::from(self.unsigned_abs() as u64)
-            * if self.is_negative() {
-                -F::one()
-            } else {
-                F::one()
-            }
+        F::from(self.unsigned_abs() as u64) * if self.is_negative() { -F::ONE } else { F::ONE }
     }
 }
 

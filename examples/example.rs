@@ -18,11 +18,13 @@ fn main() {
             let d = ctx.internal("d");
             let f = ctx.internal("f");
 
-            ctx.constr((a + b) * (c - 1));
-            ctx.constr(1.expr() + (a + b) * (c - 1));
-            ctx.transition(a + 1);
+            ctx.setup(move |ctx| {
+                ctx.constr((a + b) * (c - 1));
+                ctx.constr(1.expr() + (a + b) * (c - 1));
+                ctx.transition(a + 1);
 
-            ctx.add_lookup(lookup().add(a, b).enable(d).add(d + a, f * c));
+                ctx.add_lookup(lookup().add(a, b).enable(d).add(d + a, f * c));
+            });
 
             ctx.wg(move |ctx, _| {
                 ctx.assign(a, 13.field());

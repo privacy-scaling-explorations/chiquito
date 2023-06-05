@@ -15,9 +15,7 @@ use chiquito::{
     ir::Circuit, // IR object that the compiler compiles to
 };
 use halo2_proofs::{
-    circuit::SimpleFloorPlanner,
-    dev::MockProver,
-    halo2curves::{bn256::Fr, FieldExt},
+    arithmetic::Field, circuit::SimpleFloorPlanner, dev::MockProver, halo2curves::bn256::Fr,
     plonk::ConstraintSystem,
 };
 
@@ -26,7 +24,7 @@ use halo2_proofs::{
 // 1. type that implements a field trait
 // 2. empty trace arguments, i.e. (), because there are no external inputs to the Chiquito circuit
 // 3. two witness generation arguments both of u64 type, i.e. (u64, u64)
-fn fibo_circuit<F: FieldExt>() -> Circuit<F, (), (u64, u64)> {
+fn fibo_circuit<F: Field + From<u64>>() -> Circuit<F, (), (u64, u64)> {
     // PLONKish table for the Fibonacci circuit:
     // | a | b | c |
     // | 1 | 1 | 2 |
@@ -58,17 +56,20 @@ fn fibo_circuit<F: FieldExt>() -> Circuit<F, (), (u64, u64)> {
             // internal signals can only have constraints within the same step
             let c = ctx.internal("c");
 
-            // regular constraints are for internal signals only
-            // constrain that a + b == c by calling `eq` function from constraint builder
-            ctx.constr(eq(a + b, c));
+            // in setup we define the constraints of the step
+            ctx.setup(move |ctx| {
+                // regular constraints are for internal signals only
+                // constrain that a + b == c by calling `eq` function from constraint builder
+                ctx.constr(eq(a + b, c));
 
-            // transition constraints accepts forward signals as well
-            // constrain that b is equal to the next instance of a, by calling `next` on forward
-            // signal
-            ctx.transition(eq(b, a.next()));
-            // constrain that c is equal to the next instance of c, by calling `next` on forward
-            // signal
-            ctx.transition(eq(c, b.next()));
+                // transition constraints accepts forward signals as well
+                // constrain that b is equal to the next instance of a, by calling `next` on forward
+                // signal
+                ctx.transition(eq(b, a.next()));
+                // constrain that c is equal to the next instance of c, by calling `next` on forward
+                // signal
+                ctx.transition(eq(c, b.next()));
+            });
 
             // witness generation (wg) function is Turing complete and allows arbitrary user defined
             // logics for assigning witness values wg function is defined here but no
@@ -85,10 +86,12 @@ fn fibo_circuit<F: FieldExt>() -> Circuit<F, (), (u64, u64)> {
         ctx.step_type_def(fibo_last_step, |ctx| {
             let c = ctx.internal("c");
 
-            // constrain that a + b == c by calling `eq` function from constraint builder
-            // no transition constraint needed for the next instances of a and b, because it's the
-            // last step
-            ctx.constr(eq(a + b, c));
+            ctx.setup(move |ctx| {
+                // constrain that a + b == c by calling `eq` function from constraint builder
+                // no transition constraint needed for the next instances of a and b, because it's
+                // the last step
+                ctx.constr(eq(a + b, c));
+            });
 
             ctx.wg(move |ctx, (a_value, b_value)| {
                 println!(
@@ -136,12 +139,12 @@ fn fibo_circuit<F: FieldExt>() -> Circuit<F, (), (u64, u64)> {
 
 // *** Halo2 boilerplate ***
 #[derive(Clone)]
-struct FiboConfig<F: FieldExt> {
+struct FiboConfig<F: Field + From<u64>> {
     // ChiquitoHalo2 object in the bytecode circuit config struct
     compiled: ChiquitoHalo2<F, (), (u64, u64)>,
 }
 
-impl<F: FieldExt> FiboConfig<F> {
+impl<F: Field + From<u64>> FiboConfig<F> {
     fn new(meta: &mut ConstraintSystem<F>) -> FiboConfig<F> {
         // chiquito2Halo2 function in Halo2 backend can convert ir::Circuit object to a
         // ChiquitoHalo2 object, which can be further integrated into a Halo2 circuit in the
@@ -160,7 +163,7 @@ impl<F: FieldExt> FiboConfig<F> {
 struct FiboCircuit {}
 
 // integrate Chiquito circuit into a Halo2 circuit
-impl<F: FieldExt> halo2_proofs::plonk::Circuit<F> for FiboCircuit {
+impl<F: Field + From<u64>> halo2_proofs::plonk::Circuit<F> for FiboCircuit {
     type Config = FiboConfig<F>;
 
     type FloorPlanner = SimpleFloorPlanner;

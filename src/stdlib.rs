@@ -1,4 +1,4 @@
-use halo2_proofs::{arithmetic::Field, halo2curves::FieldExt};
+use halo2_proofs::arithmetic::Field;
 
 use crate::{
     ast::{query::Queriable, ToExpr, Expr},
@@ -15,7 +15,7 @@ pub struct IsZero<F> {
     is_zero_constraint: Constraint<F>,
 }
 
-impl<F: FieldExt> IsZero<F> {
+impl<F: Field + From<u64>> IsZero<F> {
     pub fn setup<V: Into<Constraint<F>>, StepArgs>(
         ctx: &mut StepTypeContext<F, StepArgs>,
         value: V,
@@ -44,7 +44,7 @@ impl<F: FieldExt> IsZero<F> {
 
 impl<F: Field> IsZero<F> {
     pub fn wg(&self, ctx: &mut dyn WitnessGenContext<F>, value: F) {
-        ctx.assign(self.value_inv, value.invert().unwrap_or(F::zero()));
+        ctx.assign(self.value_inv, value.invert().unwrap_or(F::ZERO));
     }
 }
 
