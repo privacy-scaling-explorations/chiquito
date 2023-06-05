@@ -193,7 +193,7 @@ impl<'a, F, Args> StepTypeSetupContext<'a, F, Args> {
     /// Refer to the `cb` (constraint builder) module for more information.
     pub fn constr<C: Into<Constraint<F>>>(&mut self, constraint: C) {
         let constraint = constraint.into();
-        Self::enforce_constraint_typing(constraint);
+        Self::enforce_constraint_typing(&constraint);
 
         self.step_type
             .add_constr(constraint.annotation, constraint.expr);
@@ -205,16 +205,16 @@ impl<'a, F, Args> StepTypeSetupContext<'a, F, Args> {
     /// for more information.
     pub fn transition<C: Into<Constraint<F>>>(&mut self, constraint: C) {
         let constraint = constraint.into();
-        Self::enforce_constraint_typing(constraint);
+        Self::enforce_constraint_typing(&constraint);
 
         self.step_type
             .add_transition(constraint.annotation, constraint.expr);
     }
 
-    fn enforce_constraint_typing(constraint: Constraint<F>) {
+    fn enforce_constraint_typing(constraint: &Constraint<F>) {
         match constraint.typing {
             Typing::AntiBooly => (),
-            _ => panic!("Expected anti-booly constraint, got {:?}, constraint: {}", constraint.typing, constraint.annotation)
+            _ => panic!("Expected AntiBooly constraint, got {:?} (constraint: {})", constraint.typing, constraint.annotation)
         }
     }
 }

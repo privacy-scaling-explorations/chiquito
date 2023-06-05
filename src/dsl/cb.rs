@@ -1,4 +1,4 @@
-use std::{fmt::Debug, vec, sync::Arc};
+use std::{fmt::Debug, vec};
 
 use halo2_proofs::arithmetic::Field;
 
@@ -14,21 +14,11 @@ pub struct Constraint<F> {
     pub typing: Typing,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub enum Typing {
     Unknown,
     Boolean,
     AntiBooly
-}
-
-impl Debug for Typing {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Typing::Unknown => write!(f, "Unknown"),
-            Typing::Boolean => write!(f, "Boolean"),
-            Typing::AntiBooly => write!(f, "AntiBooly"),
-        }
-    }
 }
 
 impl<F: Debug> From<Expr<F>> for Constraint<F> {
@@ -95,16 +85,11 @@ pub fn and<F: From<u64>, E: Into<Constraint<F>>, I: IntoIterator<Item = E>>(
     for constraint in inputs.into_iter() {
         let constraint = constraint.into();
         match constraint.typing {
-            Typing::AntiBooly => {
-                annotations.push(constraint.annotation);
-                let constraint_expr = if constraint.expr == 0u64.expr() {1u64.expr()} else {0u64.expr()};
-                expr = expr * constraint_expr;
-            }
-            Typing::Boolean => {
+            Typing::Boolean | Typing::Unknown => {
                 annotations.push(constraint.annotation);
                 expr = expr * constraint.expr;
             }
-            _ => panic!("Expected anti-booly or boolean constraint, got {:?}, constraint: {}", constraint.typing, constraint.annotation),
+            Typing::AntiBooly => panic!("Expected Boolean or Unknown constraint, got AntiBooly (constraint: {})", constraint.annotation),
         }
     }
 
@@ -131,11 +116,11 @@ pub fn or<
     for constraint in inputs.into_iter() {
         let constraint = constraint.into();
         match constraint.typing {
-            Typing::AntiBooly | Typing::Boolean => {
+            Typing::Boolean | Typing::Unknown => {
                 annotations.push(constraint.annotation);
                 exprs.push(constraint.expr);
             }
-            _ => panic!("Expected anti-booly or boolean constraint, got {:?}, constraint: {}", constraint.typing, constraint.annotation),
+            Typing::AntiBooly => panic!("Expected Boolean or Unknown constraint, got AntiBooly (constraint: {})", constraint.annotation),
         }
     }
 
@@ -155,18 +140,18 @@ pub fn xor<F: From<u64> + Clone, LHS: Into<Constraint<F>>, RHS: Into<Constraint<
     rhs: RHS,
 ) -> Constraint<F> {
     let mut annotations: Vec<String> = vec![];
-    let mut expr: Expr<F>;
+    let expr: Expr<F>;
 
     let lhs: Constraint<F> = lhs.into();
     let rhs: Constraint<F> = rhs.into();
 
     match (lhs.typing, rhs.typing) {
-        (Typing::Boolean | Typing::AntiBooly, Typing::Boolean | Typing::AntiBooly) => {
+        (Typing::Boolean | Typing::Unknown, Typing::Boolean | Typing::Unknown) => {
             annotations.push(lhs.annotation);
             annotations.push(rhs.annotation);
-            expr = lhs.expr + rhs.expr - 2u64.expr() * lhs.expr * rhs.expr;
+            expr = lhs.expr.clone() + rhs.expr.clone() - 2u64.expr() * lhs.expr * rhs.expr;
         },
-        _ => panic!("Expected anti-booly or boolean constraints, got {:?} (lhs constraint: {}) and {:?} (rhs constraint: {})", lhs.typing, lhs.annotation, rhs.typing, rhs.annotation),
+        _ => panic!("Expected Boolean or Unknown constraints, got AntiBooly in one of lhs or rhs constraints (lhs constraint: {}) (rhs constraint: {})", lhs.annotation, rhs.annotation),
     }
 
     Constraint {
@@ -210,14 +195,14 @@ pub fn select<
     let when_false = when_false.into();
 
     match selector.typing {
-        Typing::Boolean => (),
-        _ => panic!("Expected boolean selector, got {:?}, selector: {}", selector.typing, selector.annotation)
+        Typing::Boolean | Typing::Unknown => (),
+        _ => panic!("Expected Boolean or Unknown selector, got AntiBooly (selector: {})", selector.annotation)
     }
 
-    match (when_true.typing, when_false.typing) {
-        (Typing::AntiBooly, Typing::AntiBooly) | (Typing::Boolean, Typing::Boolean) => (),
-        _ => panic!("Expected the same type for when_true and when_false, got {:?} for when_true (constraint: {}) and {:?} for when_false (constraint: {})", when_true.typing, when_true.annotation, when_false.typing, when_false.annotation),
-    }
+    let typing: Typing = match (when_true.typing.clone(), when_false.typing) {
+        (Typing::AntiBooly, Typing::AntiBooly) | (Typing::Boolean, Typing::Boolean) => when_true.typing,
+        _ => Typing::Unknown,
+    };
 
     Constraint {
         annotation: format!(
@@ -226,7 +211,7 @@ pub fn select<
         ),
         expr: selector.expr.clone() * when_true.expr
             + (1u64.expr() - selector.expr) * when_false.expr,
-        typing: when_true.typing,
+        typing,
     }
 }
 
@@ -240,14 +225,14 @@ pub fn when<F: From<u64> + Clone, T1: Into<Constraint<F>>, T2: Into<Constraint<F
     let when_true = when_true.into();
 
     match selector.typing {
-        Typing::Boolean => (),
-        _ => panic!("Expected boolean selector, got {:?}, selector: {}", selector.typing, selector.annotation)
+        Typing::Boolean | Typing::Unknown => (),
+        _ => panic!("Expected Boolean or Unknown selector, got AntiBooly (selector: {})", selector.annotation)
     }
 
     Constraint {
         annotation: format!("if({})then({})", selector.annotation, when_true.annotation),
         expr: selector.expr * when_true.expr,
-        typing: when_true.typing, // bytecode example used `when` as an AntiBooly, but I think we can also use it as a Boolean
+        typing: when_true.typing,
     }
 }
 
@@ -261,8 +246,8 @@ pub fn unless<F: From<u64> + Clone, T1: Into<Constraint<F>>, T2: Into<Constraint
     let when_false = when_false.into();
 
     match selector.typing {
-        Typing::Boolean => (),
-        _ => panic!("Expected boolean selector, got {:?}, selector: {}", selector.typing, selector.annotation)
+        Typing::Boolean | Typing::Unknown => (),
+        _ => panic!("Expected Boolean or Unknown selector, got AntiBooly (selector: {})", selector.annotation)
     }
 
     Constraint {
@@ -271,7 +256,7 @@ pub fn unless<F: From<u64> + Clone, T1: Into<Constraint<F>>, T2: Into<Constraint
             selector.annotation, when_false.annotation
         ),
         expr: (1u64.expr() - selector.expr) * when_false.expr,
-        typing: when_false.typing, // can be used for both boolean and antibooly
+        typing: when_false.typing,
     }
 }
 
@@ -280,8 +265,8 @@ pub fn unless<F: From<u64> + Clone, T1: Into<Constraint<F>>, T2: Into<Constraint
 pub fn not<F: From<u64>, T: Into<Constraint<F>>>(constraint: T) -> Constraint<F> {
     let constraint = constraint.into();
     match constraint.typing {
-        Typing::AntiBooly | Typing::Boolean => (),
-        _ => panic!("Expected anti-booly or boolean constraint, got {:?}, constraint: {}", constraint.typing, constraint.annotation),
+        Typing::Boolean | Typing::Unknown => (),
+        _ => panic!("Expected Boolean or Unknown constraint, got AntiBooly (constraint: {})", constraint.annotation),
     }
     let annotation = format!("NOT({})", constraint.annotation);
     let expr = 1u64.expr() - constraint.expr;
@@ -293,11 +278,6 @@ pub fn not<F: From<u64>, T: Into<Constraint<F>>>(constraint: T) -> Constraint<F>
 /// zero.
 pub fn isz<F, T: Into<Constraint<F>>>(constraint: T) -> Constraint<F> {
     let constraint = constraint.into();
-
-    match constraint.typing {
-        Typing::AntiBooly => (),
-        _ => panic!("Expected anti-booly constraint, got {:?}, constraint: {}", constraint.typing, constraint.annotation),
-    }
 
     Constraint {
         annotation: format!("0 == {}", constraint.annotation),
@@ -331,8 +311,8 @@ pub fn if_next_step<F: Clone, T: Into<Constraint<F>>>(
 pub fn next_step_must_be<F: From<u64>>(step_type: StepTypeHandler) -> Constraint<F> {
     annotate(
         format!("next_step_must_be({})", step_type.annotation),
-        not(step_type.next()), // returns 1 - Expr
-        Typing::AntiBooly, // this is really an AntiBoolean
+        not(step_type.next()),
+        Typing::AntiBooly,
     )
 }
 
@@ -342,7 +322,7 @@ pub fn next_step_must_not_be<F: From<u64>>(step_type: StepTypeHandler) -> Constr
     annotate(
         format!("next_step_must_not_be({})", step_type.annotation),
         step_type.next(),
-        Typing::AntiBooly, // this is really an AntiBoolean
+        Typing::AntiBooly,
     )
 }
 
