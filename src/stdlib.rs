@@ -51,7 +51,7 @@ impl<F: Field> IsZero<F> {
 pub struct Lt<F, const N_BYTES: usize> {
     lt: Queriable<F>,
     diff: Vec<Queriable<F>>, // length is N_BYTES
-    u8: Queriable<F>,
+    // u8: Queriable<F>, // in original gadget; commented out here because it's an imported halo2 column in chiquito and not used in wg
     range: u32,
 }
 
@@ -79,7 +79,7 @@ impl<F: PrimeField, const N_BYTES: usize> Lt<F, N_BYTES> {
         Lt {
             lt, 
             diff: diff_bytes,
-            u8,
+            // u8,
             range,
         }
     }
