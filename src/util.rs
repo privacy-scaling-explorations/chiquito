@@ -18,7 +18,7 @@ pub fn expr_from_bytes<F: Field + From<u64>>(bytes: Vec<Queriable<F>>) -> Expr<F
     let mut value = 0u64.expr();
     let mut multiplier = 1u64.expr();
     for byte in bytes.iter() {
-        value = value + byte.expr() * multiplier;
+        value = value + byte.expr() * multiplier.clone();
         multiplier = multiplier * 256u64.expr();
     }
     value
