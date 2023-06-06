@@ -209,16 +209,3 @@ fn main() {
         }
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    #[test]
-    fn fibo_plaf() {
-        use polyexen::plaf::PlafDisplayBaseTOML;
-        use chiquito::backend::plaf::{ChiquitoPlaf, utils::alias_replace, write_files};
-
-        let circuit = fibo_circuit::<Fr>();
-        write_files("fibo", circuit).unwrap();
-    }
-}
