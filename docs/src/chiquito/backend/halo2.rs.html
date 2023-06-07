@@ -482,13 +482,7 @@
 <span id="482">482</span>
 <span id="483">483</span>
 <span id="484">484</span>
-<span id="485">485</span>
-<span id="486">486</span>
-<span id="487">487</span>
-<span id="488">488</span>
-<span id="489">489</span>
-<span id="490">490</span>
-</pre><pre class="rust"><code><span class="kw">use </span>std::{collections::HashMap, rc::Rc};
+</pre><pre class="rust"><code><span class="kw">use </span>std::{collections::HashMap, hash::Hash, rc::Rc};
 
 <span class="kw">use </span>halo2_proofs::{
     arithmetic::Field,
@@ -502,20 +496,17 @@
 
 <span class="kw">use crate</span>::{
     ast::{query::Queriable, ForwardSignal, InternalSignal, StepType, ToField},
-    compiler::{
-        cell_manager::Placement, step_selector::StepSelector, FixedGenContext, TraceContext,
-        WitnessGenContext,
-    },
-    dsl::StepTypeHandler,
+    compiler::{cell_manager::Placement, step_selector::StepSelector, FixedGenContext},
     ir::{
         Circuit, Column <span class="kw">as </span>cColumn,
         ColumnType::{Advice <span class="kw">as </span>cAdvice, Fixed <span class="kw">as </span>cFixed, Halo2Advice, Halo2Fixed},
         PolyExpr,
     },
+    wit_gen::{GenericTraceContext, TraceWitness},
 };
 
 <span class="attribute">#[allow(non_snake_case)]
-</span><span class="kw">pub fn </span>chiquito2Halo2&lt;F: Field + From&lt;u64&gt;, TraceArgs, StepArgs: Clone&gt;(
+</span><span class="kw">pub fn </span>chiquito2Halo2&lt;F: Field + From&lt;u64&gt; + Hash, TraceArgs, StepArgs: Clone&gt;(
     circuit: Circuit&lt;F, TraceArgs, StepArgs&gt;,
 ) -&gt; ChiquitoHalo2&lt;F, TraceArgs, StepArgs&gt; {
     ChiquitoHalo2::new(circuit)
@@ -531,7 +522,9 @@
     fixed_columns: HashMap&lt;u32, Column&lt;Fixed&gt;&gt;,
 }
 
-<span class="kw">impl</span>&lt;F: Field + From&lt;u64&gt;, TraceArgs, StepArgs: Clone&gt; ChiquitoHalo2&lt;F, TraceArgs, StepArgs&gt; {
+<span class="kw">impl</span>&lt;F: Field + From&lt;u64&gt; + Hash, TraceArgs, StepArgs: Clone&gt;
+    ChiquitoHalo2&lt;F, TraceArgs, StepArgs&gt;
+{
     <span class="kw">pub fn </span>new(circuit: Circuit&lt;F, TraceArgs, StepArgs&gt;) -&gt; ChiquitoHalo2&lt;F, TraceArgs, StepArgs&gt; {
         ChiquitoHalo2 {
             debug: <span class="bool-val">true</span>,
@@ -660,7 +653,14 @@
         }
 
         <span class="kw">if let </span><span class="prelude-val">Some</span>(trace) = <span class="kw-2">&amp;</span><span class="self">self</span>.circuit.trace {
-            <span class="kw">let </span><span class="kw-2">mut </span>ctx = TraceContextHalo2::&lt;F, StepArgs&gt; {
+            <span class="kw">let </span><span class="kw-2">mut </span>ctx = GenericTraceContext::new(<span class="kw-2">&amp;</span><span class="self">self</span>.circuit.step_types);
+
+            trace(<span class="kw-2">&amp;mut </span>ctx, args);
+
+            <span class="kw">let </span>witness = ctx.get_witness();
+            <span class="kw">let </span>height = witness.height;
+
+            <span class="kw">let </span><span class="kw-2">mut </span>processor = WitnessProcessor::&lt;F, StepArgs&gt; {
                 assigments: Default::default(),
                 advice_columns: <span class="self">self</span>.advice_columns.clone(),
                 placement: <span class="self">self</span>.circuit.placement.clone(),
@@ -669,18 +669,17 @@
                 offset: <span class="number">0</span>,
                 cur_step: <span class="prelude-val">None</span>,
                 max_offset: <span class="number">0</span>,
-                height: <span class="number">0</span>,
             };
 
-            trace(<span class="kw-2">&amp;mut </span>ctx, args);
+            processor.process(witness);
 
-            <span class="kw">let </span>height = <span class="kw">if </span>ctx.height &gt; <span class="number">0 </span>{
-                ctx.height
+            <span class="kw">let </span>height = <span class="kw">if </span>height &gt; <span class="number">0 </span>{
+                height
             } <span class="kw">else </span>{
-                ctx.max_offset + <span class="number">1
+                processor.max_offset + <span class="number">1
             </span>};
 
-            (ctx.assigments, height)
+            (processor.assigments, height)
         } <span class="kw">else </span>{
             (<span class="macro">vec!</span>[], <span class="number">0</span>)
         }
@@ -800,7 +799,7 @@
 
 <span class="kw">type </span>Assignment&lt;F, CT&gt; = (Column&lt;CT&gt;, usize, Value&lt;F&gt;);
 
-<span class="kw">struct </span>TraceContextHalo2&lt;F: Field, StepArgs&gt; {
+<span class="kw">struct </span>WitnessProcessor&lt;F: Field, StepArgs&gt; {
     advice_columns: HashMap&lt;u32, Column&lt;Advice&gt;&gt;,
     placement: Placement&lt;F, StepArgs&gt;,
     selector: StepSelector&lt;F, StepArgs&gt;,
@@ -812,10 +811,51 @@
     assigments: Vec&lt;Assignment&lt;F, Advice&gt;&gt;,
 
     max_offset: usize,
-    height: usize,
 }
 
-<span class="kw">impl</span>&lt;F: Field, StepArgs: Clone&gt; TraceContextHalo2&lt;F, StepArgs&gt; {
+<span class="kw">impl</span>&lt;F: Field, StepArgs: Clone&gt; WitnessProcessor&lt;F, StepArgs&gt; {
+    <span class="kw">fn </span>process(<span class="kw-2">&amp;mut </span><span class="self">self</span>, witness: TraceWitness&lt;F&gt;) {
+        <span class="kw">for </span>step_instance <span class="kw">in </span>witness.step_instances {
+            <span class="kw">let </span>cur_step = Rc::clone(
+                <span class="self">self</span>.step_types
+                    .get(<span class="kw-2">&amp;</span>step_instance.step_type_uuid)
+                    .expect(<span class="string">&quot;step type not found&quot;</span>),
+            );
+
+            <span class="self">self</span>.cur_step = <span class="prelude-val">Some</span>(Rc::clone(<span class="kw-2">&amp;</span>cur_step));
+
+            <span class="kw">for </span>assigment <span class="kw">in </span>step_instance.assignments {
+                <span class="self">self</span>.assign(assigment.<span class="number">0</span>, assigment.<span class="number">1</span>);
+            }
+
+            <span class="kw">let </span>selector_assignment = <span class="self">self
+                </span>.selector
+                .selector_assignment
+                .get(<span class="kw-2">&amp;</span>cur_step)
+                .expect(<span class="string">&quot;selector assignment for step not found&quot;</span>);
+
+            <span class="kw">for </span>(expr, value) <span class="kw">in </span>selector_assignment.iter() {
+                <span class="kw">match </span>expr {
+                    PolyExpr::Query(column, rot, <span class="kw">_</span>) =&gt; {
+                        <span class="kw">let </span>column = <span class="self">self
+                            </span>.advice_columns
+                            .get(<span class="kw-2">&amp;</span>column.uuid())
+                            .expect(<span class="string">&quot;selector expression column not found&quot;</span>);
+
+                        <span class="self">self</span>.assigments.push((
+                            <span class="kw-2">*</span>column,
+                            <span class="self">self</span>.offset + <span class="kw-2">*</span>rot <span class="kw">as </span>usize,
+                            Value::known(<span class="kw-2">*</span>value),
+                        ))
+                    }
+                    <span class="kw">_ </span>=&gt; <span class="macro">panic!</span>(<span class="string">&quot;wrong type of expresion is selector assignment&quot;</span>),
+                }
+            }
+
+            <span class="self">self</span>.offset += <span class="self">self</span>.placement.step_height(<span class="kw-2">&amp;</span>cur_step) <span class="kw">as </span>usize;
+        }
+    }
+
     <span class="kw">fn </span>find_halo2_placement(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         step: <span class="kw-2">&amp;</span>StepType&lt;F, StepArgs&gt;,
@@ -871,59 +911,7 @@
 
         (<span class="kw-2">*</span>column, super_rotation)
     }
-}
 
-<span class="kw">impl</span>&lt;F: Field, StepArgs: Clone&gt; TraceContext&lt;StepArgs&gt; <span class="kw">for </span>TraceContextHalo2&lt;F, StepArgs&gt; {
-    <span class="kw">fn </span>add(<span class="kw-2">&amp;mut </span><span class="self">self</span>, step: <span class="kw-2">&amp;</span>StepTypeHandler, args: StepArgs) {
-        <span class="kw">if let </span><span class="prelude-val">Some</span>(cur_step) = <span class="kw-2">&amp;</span><span class="self">self</span>.cur_step {
-            <span class="self">self</span>.offset += <span class="self">self</span>.placement.step_height(cur_step) <span class="kw">as </span>usize;
-        } <span class="kw">else </span>{
-            <span class="self">self</span>.offset = <span class="number">0</span>;
-        }
-
-        <span class="kw">let </span>cur_step = Rc::clone(
-            <span class="self">self</span>.step_types
-                .get(<span class="kw-2">&amp;</span>step.uuid())
-                .expect(<span class="string">&quot;step type not found&quot;</span>),
-        );
-
-        <span class="self">self</span>.cur_step = <span class="prelude-val">Some</span>(Rc::clone(<span class="kw-2">&amp;</span>cur_step));
-
-        (<span class="kw-2">*</span>cur_step.wg)(<span class="self">self</span>, args);
-
-        <span class="comment">// activate selector
-
-        </span><span class="kw">let </span>selector_assignment = <span class="self">self
-            </span>.selector
-            .selector_assignment
-            .get(<span class="kw-2">&amp;</span>cur_step)
-            .expect(<span class="string">&quot;selector assignment for step not found&quot;</span>);
-
-        <span class="kw">for </span>(expr, value) <span class="kw">in </span>selector_assignment.iter() {
-            <span class="kw">match </span>expr {
-                PolyExpr::Query(column, rot, <span class="kw">_</span>) =&gt; {
-                    <span class="kw">let </span>column = <span class="self">self
-                        </span>.advice_columns
-                        .get(<span class="kw-2">&amp;</span>column.uuid())
-                        .expect(<span class="string">&quot;selector expression column not found&quot;</span>);
-
-                    <span class="self">self</span>.assigments.push((
-                        <span class="kw-2">*</span>column,
-                        <span class="self">self</span>.offset + <span class="kw-2">*</span>rot <span class="kw">as </span>usize,
-                        Value::known(<span class="kw-2">*</span>value),
-                    ))
-                }
-                <span class="kw">_ </span>=&gt; <span class="macro">panic!</span>(<span class="string">&quot;wrong type of expresion is selector assignment&quot;</span>),
-            }
-        }
-    }
-
-    <span class="kw">fn </span>set_height(<span class="kw-2">&amp;mut </span><span class="self">self</span>, height: usize) {
-        <span class="self">self</span>.height = height;
-    }
-}
-
-<span class="kw">impl</span>&lt;F: Field, StepArgs: Clone&gt; WitnessGenContext&lt;F&gt; <span class="kw">for </span>TraceContextHalo2&lt;F, StepArgs&gt; {
     <span class="kw">fn </span>assign(<span class="kw-2">&amp;mut </span><span class="self">self</span>, lhs: Queriable&lt;F&gt;, rhs: F) {
         <span class="kw">if let </span><span class="prelude-val">Some</span>(cur_step) = <span class="kw-2">&amp;</span><span class="self">self</span>.cur_step {
             <span class="kw">let </span>(column, rotation) = <span class="self">self</span>.find_halo2_placement(cur_step, lhs);

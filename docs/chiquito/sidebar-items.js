@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"mod":[["ast",""],["backend",""],["compiler",""],["dsl",""],["ir",""],["stdlib",""]]};
+window.SIDEBAR_ITEMS = {"mod":[["ast",""],["backend",""],["compiler",""],["dsl",""],["ir",""],["stdlib",""],["wit_gen",""]]};
