@@ -216,7 +216,7 @@ pub mod query {
     use super::{Expr, ToExpr};
 
     // Queriable
-    #[derive(Clone, Copy, PartialEq, Eq)]
+    #[derive(Clone, Copy, PartialEq, Eq, Hash)]
     pub enum Queriable<F> {
         Internal(InternalSignal),
         Forward(ForwardSignal, bool),
