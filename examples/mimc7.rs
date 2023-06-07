@@ -288,7 +288,6 @@ fn main() {
     //         println!("{}", failure);
     //     }
     // }
-
 }
 
 mod mimc7_constants {

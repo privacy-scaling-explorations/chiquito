@@ -1,5 +1,5 @@
-use polyexen::plaf::Plaf;
 use convert_case::{Case, Casing};
+use polyexen::plaf::Plaf;
 
 // adapted from polyexen-demo
 // keep a version for Chiquito plaf backend that we can maintain independently

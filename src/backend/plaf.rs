@@ -1,33 +1,23 @@
 use std::collections::HashMap;
 
-use halo2_proofs::{halo2curves::ff::PrimeField};
+use halo2_proofs::halo2curves::ff::PrimeField;
 
-use crate::{
-    ir::{
-        Circuit as cCircuit, 
-        Column as cColumn,
-        ColumnType::{Advice as cAdvice, Fixed as cFixed, Halo2Advice, Halo2Fixed},
-        PolyExpr as cPolyExpr,
-    },
+use crate::ir::{
+    Circuit as cCircuit, Column as cColumn,
+    ColumnType::{Advice as cAdvice, Fixed as cFixed, Halo2Advice, Halo2Fixed},
+    PolyExpr as cPolyExpr,
 };
 
 use num_bigint::BigUint;
 use polyexen::{
-    expr::{
-        Expr as pExpr, PlonkVar, 
-        ColumnQuery, ColumnKind, Column as pColumn
-    },
-    plaf::{
-        Plaf, Poly as pPoly, 
-        ColumnWitness, ColumnFixed, 
-        Lookup as pLookup, 
-    },
+    expr::{Column as pColumn, ColumnKind, ColumnQuery, Expr as pExpr, PlonkVar},
+    plaf::{ColumnFixed, ColumnWitness, Lookup as pLookup, Plaf, Poly as pPoly},
 };
 
 #[allow(non_snake_case)]
 pub fn chiquito2Plaf<F: PrimeField<Repr = [u8; 32]>, TraceArgs, StepArgs: Clone>(
-    circuit: cCircuit<F, TraceArgs, StepArgs>, 
-    debug: bool
+    circuit: cCircuit<F, TraceArgs, StepArgs>,
+    debug: bool,
 ) -> Plaf {
     let mut chiquito_plaf = ChiquitoPlaf::new(circuit, debug);
     chiquito_plaf.get_plaf()
@@ -37,20 +27,25 @@ pub fn chiquito2Plaf<F: PrimeField<Repr = [u8; 32]>, TraceArgs, StepArgs: Clone>
 pub struct ChiquitoPlaf<F: PrimeField, TraceArgs, StepArgs: Clone> {
     debug: bool,
     circuit: cCircuit<F, TraceArgs, StepArgs>,
-    // chiquito column id doesn't start from zero; 
-    // plaf column index starts from 0 for each column type (advice, fixed, and instance); 
+    // chiquito column id doesn't start from zero;
+    // plaf column index starts from 0 for each column type (advice, fixed, and instance);
     // therefore a mapping is needed to convert chiquito column id to plaf index
-    c_column_id_to_p_column_index: HashMap<u32, usize>, 
+    c_column_id_to_p_column_index: HashMap<u32, usize>,
     advice_index: usize, // index of witness (advice) column in plaf
-    fixed_index: usize, // index of fixed column in plaf
+    fixed_index: usize,  // index of fixed column in plaf
 }
 
-impl<F: PrimeField<Repr = [u8; 32]>, TraceArgs, StepArgs: Clone> ChiquitoPlaf<F, TraceArgs, StepArgs> {
+impl<F: PrimeField<Repr = [u8; 32]>, TraceArgs, StepArgs: Clone>
+    ChiquitoPlaf<F, TraceArgs, StepArgs>
+{
     // <Repr = [u8; 32]> is required by `from` function in the following line:
     // cPolyExpr::Halo2Expr(e) => pExpr::from(e)
     // this function converts a halo2 Expression<F> to a polyexen Expr<PlonkVar>
     // F: PrimeField<Repr = [u8; 32]> is required
-    pub fn new(circuit: cCircuit<F, TraceArgs, StepArgs>, debug: bool) -> ChiquitoPlaf<F, TraceArgs, StepArgs> {
+    pub fn new(
+        circuit: cCircuit<F, TraceArgs, StepArgs>,
+        debug: bool,
+    ) -> ChiquitoPlaf<F, TraceArgs, StepArgs> {
         ChiquitoPlaf {
             debug,
             circuit,
@@ -72,9 +67,9 @@ impl<F: PrimeField<Repr = [u8; 32]>, TraceArgs, StepArgs: Clone> ChiquitoPlaf<F,
                 println!("annotation: {}, id: {}", column.annotation, column.id);
             }
             self.convert_and_push_plaf_column(
-                column, 
-                &mut plaf, 
-                Some(&mut c_column_id_to_p_column_index), 
+                column,
+                &mut plaf,
+                Some(&mut c_column_id_to_p_column_index),
                 Some(&mut advice_index),
                 Some(&mut fixed_index),
             );
@@ -109,9 +104,9 @@ impl<F: PrimeField<Repr = [u8; 32]>, TraceArgs, StepArgs: Clone> ChiquitoPlaf<F,
                 .exprs
                 .clone()
                 .into_iter()
-                .map(|(_, e2)| self.convert_plaf_poly(&e2)) 
+                .map(|(_, e2)| self.convert_plaf_poly(&e2))
                 .collect::<Vec<pExpr<PlonkVar>>>();
-            
+
             let plaf_lookup = pLookup {
                 name: lookup.annotation.clone(),
                 exps: (v1, v2),
@@ -124,28 +119,37 @@ impl<F: PrimeField<Repr = [u8; 32]>, TraceArgs, StepArgs: Clone> ChiquitoPlaf<F,
     }
 
     fn convert_and_push_plaf_column(
-        &self, 
-        column: &cColumn, 
-        plaf: &mut Plaf, 
-        // the three Option fields need to be all Some or all None; 
+        &self,
+        column: &cColumn,
+        plaf: &mut Plaf,
+        // the three Option fields need to be all Some or all None;
         // not the best practice but this function is only used interally
-        c_column_id_to_p_column_index: Option<&mut HashMap<u32, usize>>, 
+        c_column_id_to_p_column_index: Option<&mut HashMap<u32, usize>>,
         advice_index: Option<&mut usize>,
         fixed_index: Option<&mut usize>,
     ) {
         match column.ctype {
             cAdvice => {
-                let plaf_witness = ColumnWitness::new( // advice is called witness in plaf
+                let plaf_witness = ColumnWitness::new(
+                    // advice is called witness in plaf
                     column.annotation.clone(),
                     column.phase,
                 );
                 // will panic if c_column_id_to_p_column_index is Some but advice_index is None
-                self.add_id_index_mapping(column, c_column_id_to_p_column_index, advice_index.unwrap()); 
-                plaf.columns.witness.push(plaf_witness); 
+                self.add_id_index_mapping(
+                    column,
+                    c_column_id_to_p_column_index,
+                    advice_index.unwrap(),
+                );
+                plaf.columns.witness.push(plaf_witness);
             }
             cFixed => {
                 let plaf_fixed = ColumnFixed::new(column.annotation.clone());
-                self.add_id_index_mapping(column, c_column_id_to_p_column_index, fixed_index.unwrap());
+                self.add_id_index_mapping(
+                    column,
+                    c_column_id_to_p_column_index,
+                    fixed_index.unwrap(),
+                );
                 plaf.columns.fixed.push(plaf_fixed);
             }
             Halo2Advice => {
@@ -181,26 +185,41 @@ impl<F: PrimeField<Repr = [u8; 32]>, TraceArgs, StepArgs: Clone> ChiquitoPlaf<F,
             }
             cPolyExpr::Halo2Expr(e) => pExpr::from(e),
             cPolyExpr::Query(column, rotation, annotation) => {
-                let index = self.c_column_id_to_p_column_index.get(&column.uuid()).unwrap();
+                let index = self
+                    .c_column_id_to_p_column_index
+                    .get(&column.uuid())
+                    .unwrap();
                 if self.debug {
-                    println!("GET c column id {} match p column index {}", column.uuid(), index);
+                    println!(
+                        "GET c column id {} match p column index {}",
+                        column.uuid(),
+                        index
+                    );
                     println!("MAP {:#?}", self.c_column_id_to_p_column_index);
                 }
-                pExpr::Var(PlonkVar::Query(self.convert_plaf_query(column, rotation, annotation, *index)))
+                pExpr::Var(PlonkVar::Query(
+                    self.convert_plaf_query(column, rotation, annotation, *index),
+                ))
             }
         }
     }
 
-    fn add_id_index_mapping(&self, column: &cColumn, c_column_id_to_p_column_index: Option<&mut HashMap<u32, usize>>, counter: &mut usize) {
-        match c_column_id_to_p_column_index {
-            Some(c_column_id_to_p_column_index) => {
-                c_column_id_to_p_column_index.insert(column.uuid(), *counter);
-                if self.debug {
-                    println!("c column id {} match p column index {}", column.uuid(), counter);
-                }
-                *counter += 1;
+    fn add_id_index_mapping(
+        &self,
+        column: &cColumn,
+        c_column_id_to_p_column_index: Option<&mut HashMap<u32, usize>>,
+        counter: &mut usize,
+    ) {
+        if let Some(c_column_id_to_p_column_index) = c_column_id_to_p_column_index {
+            c_column_id_to_p_column_index.insert(column.uuid(), *counter);
+            if self.debug {
+                println!(
+                    "c column id {} match p column index {}",
+                    column.uuid(),
+                    counter
+                );
             }
-            None => {}
+            *counter += 1;
         }
     }
 
@@ -208,39 +227,35 @@ impl<F: PrimeField<Repr = [u8; 32]>, TraceArgs, StepArgs: Clone> ChiquitoPlaf<F,
         &self,
         column: &cColumn,
         rotation: &i32,
-        _annotation: &String,
+        _annotation: &str,
         index: usize, // plaf index starts from 0 for each column type
     ) -> ColumnQuery {
         match column.ctype {
-            cAdvice => {
-                ColumnQuery {
-                    column: pColumn {
-                        kind: ColumnKind::Witness,
-                        index,
-                    }, 
-                    rotation: rotation.clone(),
-                }
-            }
-            cFixed => {
-                ColumnQuery {
-                    column: pColumn {
-                        kind: ColumnKind::Fixed,
-                        index,
-                    }, 
-                    rotation: rotation.clone(),
-                }
-            }
+            cAdvice => ColumnQuery {
+                column: pColumn {
+                    kind: ColumnKind::Witness,
+                    index,
+                },
+                rotation: *rotation,
+            },
+            cFixed => ColumnQuery {
+                column: pColumn {
+                    kind: ColumnKind::Fixed,
+                    index,
+                },
+                rotation: *rotation,
+            },
             Halo2Advice | Halo2Fixed => {
                 panic!("Imported Halo2Advice and Halo2Fixed are not supported")
             }
         }
-    } 
+    }
 }
 
 // FOR DEBUGGING ONLY: output Plaf's toml representation of the circuit and csv representation of fixed assignments to top level directory
 // use std::io::Error;
 // pub fn write_files<F: PrimeField<Repr = [u8; 32]>, TraceArgs, StepArgs: Clone>(
-//     name: &str, 
+//     name: &str,
 //     circuit: cCircuit<F, TraceArgs, StepArgs>
 // ) -> Result<(), Error> {
 //     use std::env;
@@ -257,7 +272,7 @@ impl<F: PrimeField<Repr = [u8; 32]>, TraceArgs, StepArgs: Clone> ChiquitoPlaf<F,
 //     println!("base file path: {:?}", base_file_path);
 //     base_file_path.push(format!("output/{}.toml", name));
 //     println!("base file path: {:?}", base_file_path);
-//     fixed_file_path.push(format!("output/{}_fixed.csv", name)); 
+//     fixed_file_path.push(format!("output/{}_fixed.csv", name));
 //     let mut base_file = File::create(&base_file_path)?;
 //     let mut fixed_file = File::create(&fixed_file_path)?;
 //     write!(base_file, "{}", PlafDisplayBaseTOML(&plaf))?;
