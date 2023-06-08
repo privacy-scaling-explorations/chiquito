@@ -1,26 +1,49 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, hash::Hash, rc::Rc, ops::BitAnd, os::unix::process};
 
 use halo2_proofs::halo2curves::ff::PrimeField;
 
-use crate::ir::{
-    Circuit as cCircuit, Column as cColumn,
-    ColumnType::{Advice as cAdvice, Fixed as cFixed, Halo2Advice, Halo2Fixed},
-    PolyExpr as cPolyExpr,
+use crate::{
+    ir::{
+        Circuit as cCircuit, Column as cColumn,
+        ColumnType::{Advice as cAdvice, Fixed as cFixed, Halo2Advice, Halo2Fixed},
+        PolyExpr as cPolyExpr,
+    }, 
+    compiler::{
+        cell_manager::{
+            Placement, CellManager, SingleRowCellManager
+        }, 
+        step_selector::StepSelector, TraceContext
+    }, 
+    ast::{StepType, Trace, query::Queriable, InternalSignal, ForwardSignal}, wit_gen::{GenericTraceContext, TraceWitness},
 };
 
 use num_bigint::BigUint;
 use polyexen::{
-    expr::{Column as pColumn, ColumnKind, ColumnQuery, Expr as pExpr, PlonkVar},
-    plaf::{ColumnFixed, ColumnWitness, Lookup as pLookup, Plaf, Poly as pPoly},
+    expr::{Column as pColumn, ColumnKind, ColumnQuery, Expr as pExpr, PlonkVar, get_field_p},
+    plaf::{ColumnFixed, ColumnWitness, Lookup as pLookup, Plaf, Poly as pPoly, Witness as pWitness},
 };
 
 #[allow(non_snake_case)]
-pub fn chiquito2Plaf<F: PrimeField<Repr = [u8; 32]>, TraceArgs, StepArgs: Clone>(
+pub fn chiquito2Plaf<F: PrimeField<Repr = [u8; 32]>, TraceArgs: Clone, StepArgs: Clone, CM: CellManager>(
     circuit: cCircuit<F, TraceArgs, StepArgs>,
+    k: u32,
     debug: bool,
-) -> Plaf {
-    let mut chiquito_plaf = ChiquitoPlaf::new(circuit, debug);
-    chiquito_plaf.get_plaf()
+) -> (Plaf, ChiquitoPlafWitGen<F, TraceArgs, StepArgs
+    // , CM
+    >) {
+    let mut chiquito_plaf = ChiquitoPlaf::new(circuit.clone(), debug);
+    let plaf = chiquito_plaf.get_plaf(k);
+    let mut empty_witness = plaf.gen_empty_witness();
+    let wit_gen = ChiquitoPlafWitGen {
+        trace: circuit.trace,
+        placement: circuit.placement,
+        selector: circuit.selector,
+        step_types: circuit.step_types,
+        plaf_witness: empty_witness,
+        c_column_id_to_p_column_index: chiquito_plaf.c_column_id_to_p_column_index,
+    };
+
+    (plaf, wit_gen)
 }
 
 #[derive(Clone, Debug)]
@@ -55,8 +78,12 @@ impl<F: PrimeField<Repr = [u8; 32]>, TraceArgs, StepArgs: Clone>
         }
     }
 
-    pub fn get_plaf(&mut self) -> Plaf {
+    pub fn get_plaf(&mut self, k: u32) -> Plaf {
         let mut plaf = Plaf::default();
+        let p = get_field_p::<F>();
+        plaf.info.p = p;
+
+        plaf.info.num_rows = 2usize.pow(k);
 
         let mut c_column_id_to_p_column_index = HashMap::<u32, usize>::new();
         let mut advice_index = 0;
@@ -251,6 +278,246 @@ impl<F: PrimeField<Repr = [u8; 32]>, TraceArgs, StepArgs: Clone>
         }
     }
 }
+
+pub struct ChiquitoPlafWitGen<F, TraceArgs, StepArgs
+// , CM: CellManager
+> { // ??? determine the pub/private property of fields later
+    pub trace: Option<Rc<Trace<TraceArgs, StepArgs>>>,
+    pub placement: Placement<F, StepArgs>,
+    // pub cell_manager: CM,
+    pub selector: StepSelector<F, StepArgs>,
+    pub step_types: HashMap<u32, Rc<StepType<F, StepArgs>>>,
+    pub plaf_witness: pWitness,
+    pub c_column_id_to_p_column_index: HashMap<u32, usize>,
+} 
+
+impl <F: PrimeField<Repr = [u8; 32]> + Hash, TraceArgs, StepArgs: Clone
+// , CM: CellManager
+>
+    ChiquitoPlafWitGen<F, TraceArgs, StepArgs
+    // , CM
+    > 
+{
+    pub fn generate(&self, input: TraceArgs) -> pWitness {
+        if let Some(trace) = &self.trace {
+            // let mut ctx = PlafTraceContext::new(self.columns.clone());
+            let mut plaf_witness = pWitness {
+                num_rows: Default::default(),
+                columns: Default::default(),
+                witness: Default::default(),
+            };
+            let mut ctx = GenericTraceContext::new(&self.step_types);
+            
+            trace(&mut ctx, input);
+
+            let witness = ctx.get_witness();
+
+            let mut processor = WitnessProcessor::<F, StepArgs> {
+                plaf_witness: self.plaf_witness,
+                placement: self.placement.clone(),
+                c_column_id_to_p_column_index: self.c_column_id_to_p_column_index.clone(),
+                selector: self.selector.clone(),
+                step_types: self.step_types.clone(),
+                // offset: usize,
+                cur_step: None,
+            }; 
+            // TODO
+
+            processor.process(witness);
+            
+            processor.plaf_witness
+        } else {
+            pWitness {
+                num_rows: Default::default(),
+                columns: Default::default(),
+                witness: Default::default(),
+            }
+        }
+    }
+}
+
+struct WitnessProcessor<F: PrimeField<Repr = [u8; 32]> + Hash, StepArgs> {
+    plaf_witness: pWitness,
+    placement: Placement<F, StepArgs>,
+    c_column_id_to_p_column_index: HashMap<u32, usize>,
+    selector: StepSelector<F, StepArgs>,
+    step_types: HashMap<u32, Rc<StepType<F, StepArgs>>>,
+    // offset: usize,
+    cur_step: Option<Rc<StepType<F, StepArgs>>>,
+    // assigments: Vec<Assignment<F, Advice>>,
+    // max_offset: usize,
+}
+
+impl<F: PrimeField<Repr = [u8; 32]> + Hash, StepArgs: Clone> WitnessProcessor<F, StepArgs> {
+    fn process(&mut self, witness: TraceWitness<F>) {
+        for step_instance in witness.step_instances {
+            let cur_step = Rc::clone(
+                self.step_types
+                    .get(&step_instance.step_type_uuid)
+                    .expect("step type not found"),
+            );
+
+            self.cur_step = Some(Rc::clone(&cur_step));
+
+            for assignment in step_instance.assignments {
+                self.assign(assignment.0, assignment.1);
+            }
+
+            let selector_assignment = self
+                .selector
+                .selector_assignment
+                .get(&cur_step)
+                .expect("selector assignment for step not found");
+
+            for (expr, value) in selector_assignment.iter() {
+                match expr {
+                    PolyExpr::Query(column, rot, _) => {
+                        let column = self
+                            .advice_columns
+                            .get(&column.uuid())
+                            .expect("selector expression column not found");
+
+                        self.assigments.push((
+                            *column,
+                            self.offset + *rot as usize,
+                            Value::known(*value),
+                        ))
+                    }
+                    _ => panic!("wrong type of expresion is selector assignment"),
+                }
+            }
+
+            self.offset += self.placement.step_height(&cur_step) as usize;
+        }
+
+        
+    }
+
+    fn assign(&mut self, lhs: Queriable<F>, rhs: F) {
+        if let Some(cur_step) = &self.cur_step {
+            let (column, rotation) = self.find_halo2_placement(cur_step, lhs);
+
+            // let offset = (self.offset as i32 + rotation) as usize;
+            self.plaf_witness.push((column, rotation, Value::known(rhs)));
+
+            self.max_offset = self.max_offset.max(offset);
+        } else {
+            panic!("jarrl assigning outside a step");
+        }
+    }
+
+    // pub struct Witness {
+    //     pub num_rows: usize,
+    //     pub columns: Vec<ColumnWitness>,
+    //     // The advice cells in the circuit, arranged as [column][row].
+    //     pub witness: Vec<Vec<Option<BigUint>>>,
+    // }
+
+    // pub fn gen_empty_witness(&self) -> Witness {
+    //     let mut witness = Vec::with_capacity(self.columns.witness.len());
+    //     for _i in 0..self.columns.witness.len() {
+    //         witness.push(vec![None; self.info.num_rows]);
+    //     }
+    //     Witness {
+    //         num_rows: self.info.num_rows,
+    //         columns: self.columns.witness.clone(),
+    //         witness,
+    //     }
+    // }
+
+    fn find_halo2_placement(
+        &self,
+        step: &StepType<F, StepArgs>,
+        query: Queriable<F>,
+    ) -> (usize, i32) {
+        match query {
+            Queriable::Internal(signal) => self.find_halo2_placement_internal(step, signal),
+
+            Queriable::Forward(forward, next) => {
+                self.find_halo2_placement_forward(step, forward, next)
+            }
+
+            Queriable::Halo2AdviceQuery(signal, rotation) => (signal.column, rotation),
+
+            _ => panic!("invalid advice assignment on queriable {:?}", query),
+        }
+    }
+
+    fn find_halo2_placement_internal(
+        &self,
+        step: &StepType<F, StepArgs>,
+        signal: InternalSignal,
+    ) -> (usize, i32) {
+        let placement = self.placement.find_internal_signal_placement(step, &signal);
+
+        let p_column_index = self
+            .c_column_id_to_p_column_index
+            .get(&placement.column.uuid())
+            .unwrap_or_else(|| panic!("plaf column not found for internal signal {:?}", signal));
+    
+        (*p_column_index, placement.rotation)
+    }
+
+    fn find_halo2_placement_forward(
+        &self,
+        step: &StepType<F, StepArgs>,
+        forward: ForwardSignal,
+        next: bool,
+    ) -> (usize, i32) {
+        let placement = self.placement.get_forward_placement(&forward);
+
+        let super_rotation = placement.rotation
+            + if next {
+                self.placement.step_height(step) as i32
+            } else {
+                0
+            };
+
+        let p_column_index = self
+            .c_column_id_to_p_column_index
+            .get(&placement.column.uuid())
+            .unwrap_or_else(|| panic!("plaf column not found for forward signal {:?}", signal));
+
+        (*p_column_index, super_rotation)
+    }
+}
+
+// pub struct PlafTraceContext {
+//     witness: pWitness,
+// }
+
+// impl PlafTraceContext {
+//     pub fn new(columns: Vec<ColumnWitness>) -> Self {
+//         Self {
+//             witness: pWitness {
+//                 num_rows: Default::default(),
+//                 columns,
+//                 witness: Default::default(),
+//             }
+//         }
+//     }   
+// }
+
+// impl TraceContext<StepArgs> for PlafTraceContext {
+//     fn add(&mut self, step: &StepTypeHandler, args: StepArgs) {
+//         let step = Rc::clone(
+//             self.step_types
+//                 .get(&step.uuid())
+//                 .expect("sxtep type not found"),
+//         );
+
+//         let mut witness = StepInstance::new(step.uuid());
+
+//         (*step.wg)(&mut witness, args);
+
+//         self.witness.step_instances.push(witness);
+//     }
+
+//     fn set_height(&mut self, height: usize) {
+//         // self.witness.height = height;
+//     }
+// }
+
 
 // FOR DEBUGGING ONLY: output Plaf's toml representation of the circuit and csv representation of fixed assignments to top level directory
 // use std::io::Error;
