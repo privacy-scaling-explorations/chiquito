@@ -395,12 +395,10 @@ impl<F: PrimeField<Repr = [u8; 32]> + Hash, StepArgs: Clone> WitnessProcessor<F,
 
     fn assign(&mut self, lhs: Queriable<F>, rhs: F) {
         if let Some(cur_step) = &self.cur_step {
-            let (column, rotation) = self.find_halo2_placement(cur_step, lhs);
+            let (p_column_index, rotation) = self.find_halo2_placement(cur_step, lhs);
 
             // let offset = (self.offset as i32 + rotation) as usize;
-            self.plaf_witness.push((column, rotation, Value::known(rhs)));
-
-            self.max_offset = self.max_offset.max(offset);
+            self.plaf_witness.witness[p_column_index][rotation as usize] = Some(BigUint::from_bytes_le(&rhs.to_repr()));
         } else {
             panic!("jarrl assigning outside a step");
         }
