@@ -171,7 +171,8 @@ impl<F: PrimeField<Repr = [u8; 32]>, TraceArgs, StepArgs: Clone>
                     column.annotation.clone(),
                     column.phase,
                 );
-                // Will panic if `c_column_id_to_p_column_index` is `Some` but `advice_index` is `None`.
+                // Will panic if `c_column_id_to_p_column_index` is `Some` but `advice_index` is
+                // `None`.
                 self.add_id_index_mapping(
                     column,
                     c_column_id_to_p_column_index,
@@ -199,7 +200,7 @@ impl<F: PrimeField<Repr = [u8; 32]>, TraceArgs, StepArgs: Clone>
 
     fn convert_plaf_poly(&self, chiquito_poly: &cPolyExpr<F>) -> pExpr<PlonkVar> {
         match chiquito_poly {
-            cPolyExpr::Const(c) => pExpr::Const(BigUint::from_bytes_le(&c.to_repr())), // PrimeField uses little endian for bytes representation.
+            cPolyExpr::Const(c) => pExpr::Const(BigUint::from_bytes_le(&c.to_repr())), /* PrimeField uses little endian for bytes representation. */
             cPolyExpr::Sum(es) => {
                 let mut iter = es.iter();
                 let first = self.convert_plaf_poly(iter.next().unwrap());
@@ -290,7 +291,9 @@ impl<F: PrimeField<Repr = [u8; 32]>, TraceArgs, StepArgs: Clone>
 
 pub struct ChiquitoPlafFixedGen {
     fixed: Vec<Vec<Option<BigUint>>>,
-    pub c_column_id_to_p_column_index: HashMap<u32, usize>, // TODO: Use this field and make it private after we have Chiquito native fixed column type.
+    pub c_column_id_to_p_column_index: HashMap<u32, usize>, /* TODO: Use this field and make it
+                                                             * private after we have Chiquito
+                                                             * native fixed column type. */
 }
 
 impl<F: PrimeField<Repr = [u8; 32]>> FixedGenContext<F> for ChiquitoPlafFixedGen {
@@ -308,11 +311,14 @@ impl<F: PrimeField<Repr = [u8; 32]>> FixedGenContext<F> for ChiquitoPlafFixedGen
 impl ChiquitoPlafFixedGen {
     fn find_plaf_placement<F: PrimeField>(&self, query: Queriable<F>) -> (usize, i32) {
         match query {
-            // TODO: Add Chiquito native fixed column type for fixed assignments. Currently we rely on imported Halo2 fixed.
-            // Replace Halo2FixedQuery with Chiquito native fixed column type and lookup p_column_index from self.c_column_id_to_p_column_index.
-            // Currently it won't work because we cannot find p_column_index for ImportedHalo2Column, which are not ported over to Plaf.
+            // TODO: Add Chiquito native fixed column type for fixed assignments. Currently we rely
+            // on imported Halo2 fixed. Replace Halo2FixedQuery with Chiquito native
+            // fixed column type and lookup p_column_index from self.c_column_id_to_p_column_index.
+            // Currently it won't work because we cannot find p_column_index for
+            // ImportedHalo2Column, which are not ported over to Plaf.
             Queriable::Halo2FixedQuery(_signal, rotation) => {
-                // TODO: Halo2FixedQuery should panic! after Chiquito native fixed column type is added.
+                // TODO: Halo2FixedQuery should panic! after Chiquito native fixed column type is
+                // added.
                 let p_column_index: usize = 0;
                 (p_column_index, rotation)
             }

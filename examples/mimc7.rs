@@ -260,10 +260,10 @@ fn main() {
     // let mut plaf = chiquito2Plaf(circuit, false);
     // alias_replace(&mut plaf);
     // // TODO: get Plaf witness directly from Chiquito plaf backend
-    // // Plaf has `gen_witness` function in halo2 front end that can take a halo2 circuit and generate Plaf witness
-    // // so we can technically go from Chiquito -> halo2 -> Plaf witness -> Plaf backends (including halo2)
-    // // but this is against our purpose of creating a Plaf backend for Chiquito
-    // // and Chiquito already has a halo2 backend
+    // // Plaf has `gen_witness` function in halo2 front end that can take a halo2 circuit and
+    // generate Plaf witness // so we can technically go from Chiquito -> halo2 -> Plaf witness
+    // -> Plaf backends (including halo2) // but this is against our purpose of creating a Plaf
+    // backend for Chiquito // and Chiquito already has a halo2 backend
     // let mut wit = Witness {
     //     num_rows: 0,
     //     columns: Vec::default(),
