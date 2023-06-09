@@ -24,7 +24,9 @@ use polyexen::{
 };
 
 #[allow(non_snake_case)]
-pub fn chiquito2Plaf<F: PrimeField<Repr = [u8; 32]>, TraceArgs: Clone, StepArgs: Clone, CM: CellManager>(
+pub fn chiquito2Plaf<F: PrimeField<Repr = [u8; 32]>, TraceArgs: Clone, StepArgs: Clone
+// , CM: CellManager
+>(
     circuit: cCircuit<F, TraceArgs, StepArgs>,
     k: u32,
     debug: bool,
@@ -325,7 +327,6 @@ impl <F: PrimeField<Repr = [u8; 32]> + Hash, TraceArgs, StepArgs: Clone
                 cur_step: None,
                 // max_offset: 0,
             }; 
-            // TODO
 
             processor.process(witness);
             
@@ -457,9 +458,9 @@ impl<F: PrimeField<Repr = [u8; 32]> + Hash, StepArgs: Clone> WitnessProcessor<F,
     }
 }
 
-pub fn print_witness(plaf_witness: pWitness) {
+pub fn print_witness(plaf_witness: &pWitness) {
     use polyexen::plaf::WitnessDisplayCSV;
-    println!("{}", format!("{}", WitnessDisplayCSV(&plaf_witness)));
+    println!("{}", format!("{}", WitnessDisplayCSV(plaf_witness)));
 }
 
 // FOR DEBUGGING ONLY: output Plaf's toml representation of the circuit and csv representation of fixed assignments to top level directory
