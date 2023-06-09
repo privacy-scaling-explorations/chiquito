@@ -1,4 +1,4 @@
-use std::{collections::HashMap, hash::Hash, rc::Rc, ops::BitAnd, os::unix::process};
+use std::{collections::HashMap, hash::Hash, rc::Rc};
 
 use halo2_proofs::halo2curves::ff::PrimeField;
 
@@ -9,10 +9,8 @@ use crate::{
         PolyExpr as cPolyExpr,
     }, 
     compiler::{
-        cell_manager::{
-            Placement, CellManager, SingleRowCellManager
-        }, 
-        step_selector::StepSelector, TraceContext
+        cell_manager::Placement, 
+        step_selector::StepSelector, FixedGenContext
     }, 
     ast::{StepType, Trace, query::Queriable, InternalSignal, ForwardSignal}, wit_gen::{GenericTraceContext, TraceWitness},
 };
@@ -35,7 +33,7 @@ pub fn chiquito2Plaf<F: PrimeField<Repr = [u8; 32]>, TraceArgs: Clone, StepArgs:
     >) {
     let mut chiquito_plaf = ChiquitoPlaf::new(circuit.clone(), debug);
     let plaf = chiquito_plaf.get_plaf(k);
-    let mut empty_witness = plaf.gen_empty_witness();
+    let empty_witness = plaf.gen_empty_witness();
     let wit_gen = ChiquitoPlafWitGen {
         trace: circuit.trace,
         placement: circuit.placement,
@@ -143,6 +141,19 @@ impl<F: PrimeField<Repr = [u8; 32]>, TraceArgs, StepArgs: Clone>
 
             plaf.lookups.push(plaf_lookup);
         }
+
+        let mut fixed: Vec<Vec<Option<BigUint>>> = Vec::with_capacity(plaf.columns.fixed.len());
+        for _i in 0..plaf.columns.fixed.len() {
+            fixed.push(vec![None; plaf.info.num_rows]);
+        }
+        let mut plaf_fixed_gen = ChiquitoPlafFixedGen {
+            fixed,
+            c_column_id_to_p_column_index: self.c_column_id_to_p_column_index.clone(),
+        };
+        if let Some(fg) = &self.circuit.fixed_gen {
+            fg(&mut plaf_fixed_gen);
+        };
+        plaf.fixed = plaf_fixed_gen.fixed;
 
         plaf
     }
@@ -281,6 +292,38 @@ impl<F: PrimeField<Repr = [u8; 32]>, TraceArgs, StepArgs: Clone>
     }
 }
 
+pub struct ChiquitoPlafFixedGen {
+    pub fixed: Vec<Vec<Option<BigUint>>>,
+    pub c_column_id_to_p_column_index: HashMap<u32, usize>,
+}
+
+impl<F: PrimeField<Repr = [u8; 32]>> FixedGenContext<F> for ChiquitoPlafFixedGen {
+    fn assign(&mut self, offset: usize, lhs: Queriable<F>, rhs: F) {
+        let (p_column_index, rotation) = self.find_halo2_placement(lhs);
+
+        if rotation != 0 {
+            panic!("cannot assign fixed value with rotation");
+        }
+
+        self.fixed[p_column_index][offset as usize] = Some(BigUint::from_bytes_le(&rhs.to_repr()));
+    }
+}
+
+impl ChiquitoPlafFixedGen {
+    fn find_halo2_placement<F: PrimeField>(&self, query: Queriable<F>) -> (usize, i32) {
+        match query {
+            // TODO: Add Chiquito native fixed column type for fixed assignments. Currently we rely on imported Halo2 fixed.
+            // TODO: Replace Halo2FixedQuery with Chiquito native fixed column type and lookup p_column_index from self.c_column_id_to_p_column_index. 
+            // Currently it won't work because we cannot find p_column_index for ImportedHalo2Column, which are not ported over to Plaf.
+            Queriable::Halo2FixedQuery(_signal, rotation) => {
+                let p_column_index: usize = 0;
+                (p_column_index, rotation)
+            },
+            _ => panic!("invalid fixed assignment on queriable {:?}", query),
+        }
+    }
+}
+
 pub struct ChiquitoPlafWitGen<F, TraceArgs, StepArgs
 // , CM: CellManager
 > { // ??? determine the pub/private property of fields later
@@ -293,23 +336,18 @@ pub struct ChiquitoPlafWitGen<F, TraceArgs, StepArgs
     pub c_column_id_to_p_column_index: HashMap<u32, usize>,
 } 
 
-impl <F: PrimeField<Repr = [u8; 32]> + Hash, TraceArgs, StepArgs: Clone
-// , CM: CellManager
->
-    ChiquitoPlafWitGen<F, TraceArgs, StepArgs
-    // , CM
-    > 
+impl <F: PrimeField<Repr = [u8; 32]> + Hash, TraceArgs, StepArgs: Clone>
+    ChiquitoPlafWitGen<F, TraceArgs, StepArgs> 
 {
     pub fn generate(&self, input: TraceArgs) -> pWitness {
 
-        let mut plaf_witness = pWitness {
+        let plaf_witness = pWitness {
             num_rows: self.plaf_witness.num_rows.clone(),
             columns: self.plaf_witness.columns.clone(),
             witness: self.plaf_witness.witness.clone(),
         };
 
         if let Some(trace) = &self.trace {
-            // let mut ctx = PlafTraceContext::new(self.columns.clone());
             let mut ctx = GenericTraceContext::new(&self.step_types);
             
             trace(&mut ctx, input);
@@ -323,9 +361,7 @@ impl <F: PrimeField<Repr = [u8; 32]> + Hash, TraceArgs, StepArgs: Clone
                 selector: self.selector.clone(),
                 step_types: self.step_types.clone(),
                 offset: 0,
-                // offset: usize,
                 cur_step: None,
-                // max_offset: 0,
             }; 
 
             processor.process(witness);
@@ -345,8 +381,6 @@ struct WitnessProcessor<F: PrimeField<Repr = [u8; 32]> + Hash, StepArgs> {
     step_types: HashMap<u32, Rc<StepType<F, StepArgs>>>,
     offset: usize,
     cur_step: Option<Rc<StepType<F, StepArgs>>>,
-    // assigments: Vec<Assignment<F, Advice>>,
-    // max_offset: usize,
 }
 
 impl<F: PrimeField<Repr = [u8; 32]> + Hash, StepArgs: Clone> WitnessProcessor<F, StepArgs> {
@@ -394,8 +428,6 @@ impl<F: PrimeField<Repr = [u8; 32]> + Hash, StepArgs: Clone> WitnessProcessor<F,
 
             let offset = (self.offset as i32 + rotation) as usize;
             self.plaf_witness.witness[p_column_index][offset as usize] = Some(BigUint::from_bytes_le(&rhs.to_repr()));
-
-            // self.max_offset = self.max_offset.max(offset);
         } else {
             panic!("jarrl assigning outside a step");
         }
@@ -458,12 +490,13 @@ impl<F: PrimeField<Repr = [u8; 32]> + Hash, StepArgs: Clone> WitnessProcessor<F,
     }
 }
 
+// For debugging only
 pub fn print_witness(plaf_witness: &pWitness) {
     use polyexen::plaf::WitnessDisplayCSV;
     println!("{}", format!("{}", WitnessDisplayCSV(plaf_witness)));
 }
 
-// FOR DEBUGGING ONLY: output Plaf's toml representation of the circuit and csv representation of fixed assignments to top level directory
+// For debugging only: output Plaf's toml representation of the circuit and csv representation of fixed assignments to top level directory
 // use std::io::Error;
 // pub fn write_files<F: PrimeField<Repr = [u8; 32]>, TraceArgs, StepArgs: Clone>(
 //     name: &str,
