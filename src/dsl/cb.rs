@@ -14,7 +14,7 @@ pub struct Constraint<F> {
     pub typing: Typing,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum Typing {
     Unknown,
     Boolean,
@@ -140,19 +140,18 @@ pub fn xor<F: From<u64> + Clone, LHS: Into<Constraint<F>>, RHS: Into<Constraint<
     rhs: RHS,
 ) -> Constraint<F> {
     let mut annotations: Vec<String> = vec![];
-    let expr: Expr<F>;
 
     let lhs: Constraint<F> = lhs.into();
     let rhs: Constraint<F> = rhs.into();
 
-    match (lhs.typing, rhs.typing) {
+    let expr = match (lhs.typing, rhs.typing) {
         (Typing::Boolean | Typing::Unknown, Typing::Boolean | Typing::Unknown) => {
             annotations.push(lhs.annotation);
             annotations.push(rhs.annotation);
-            expr = lhs.expr.clone() + rhs.expr.clone() - 2u64.expr() * lhs.expr * rhs.expr;
+            lhs.expr.clone() + rhs.expr.clone() - 2u64.expr() * lhs.expr * rhs.expr
         },
         _ => panic!("Expected Boolean or Unknown constraints, got AntiBooly in one of lhs or rhs constraints (lhs constraint: {}) (rhs constraint: {})", lhs.annotation, rhs.annotation),
-    }
+    };
 
     Constraint {
         annotation: format!("({})", annotations.join(" XOR ")),
@@ -194,14 +193,14 @@ pub fn select<
     let when_true = when_true.into();
     let when_false = when_false.into();
 
-    match selector.typing {
-        Typing::Boolean | Typing::Unknown => (),
-        _ => panic!("Expected Boolean or Unknown selector, got AntiBooly (selector: {})", selector.annotation)
+    if selector.typing == Typing::AntiBooly {
+        panic!("Expected Boolean or Unknown selector, got AntiBooly (selector: {})", selector.annotation)
     }
 
-    let typing: Typing = match (when_true.typing.clone(), when_false.typing) {
-        (Typing::AntiBooly, Typing::AntiBooly) | (Typing::Boolean, Typing::Boolean) => when_true.typing,
-        _ => Typing::Unknown,
+    let typing = if when_true.typing == when_false.typing {
+        when_true.typing
+    } else {
+        Typing::Unknown
     };
 
     Constraint {
@@ -224,9 +223,8 @@ pub fn when<F: From<u64> + Clone, T1: Into<Constraint<F>>, T2: Into<Constraint<F
     let selector = selector.into();
     let when_true = when_true.into();
 
-    match selector.typing {
-        Typing::Boolean | Typing::Unknown => (),
-        _ => panic!("Expected Boolean or Unknown selector, got AntiBooly (selector: {})", selector.annotation)
+    if selector.typing == Typing::AntiBooly {
+        panic!("Expected Boolean or Unknown selector, got AntiBooly (selector: {})", selector.annotation)
     }
 
     Constraint {
@@ -245,9 +243,8 @@ pub fn unless<F: From<u64> + Clone, T1: Into<Constraint<F>>, T2: Into<Constraint
     let selector = selector.into();
     let when_false = when_false.into();
 
-    match selector.typing {
-        Typing::Boolean | Typing::Unknown => (),
-        _ => panic!("Expected Boolean or Unknown selector, got AntiBooly (selector: {})", selector.annotation)
+    if selector.typing == Typing::AntiBooly {
+        panic!("Expected Boolean or Unknown selector, got AntiBooly (selector: {})", selector.annotation)
     }
 
     Constraint {
@@ -264,9 +261,8 @@ pub fn unless<F: From<u64> + Clone, T1: Into<Constraint<F>>, T2: Into<Constraint
 /// constraint. The input constraint must have a value of either 0 or 1.
 pub fn not<F: From<u64>, T: Into<Constraint<F>>>(constraint: T) -> Constraint<F> {
     let constraint = constraint.into();
-    match constraint.typing {
-        Typing::Boolean | Typing::Unknown => (),
-        _ => panic!("Expected Boolean or Unknown constraint, got AntiBooly (constraint: {})", constraint.annotation),
+    if constraint.typing == Typing::AntiBooly {
+        panic!("Expected Boolean or Unknown constraint, got AntiBooly (constraint: {})", constraint.annotation);
     }
     let annotation = format!("NOT({})", constraint.annotation);
     let expr = 1u64.expr() - constraint.expr;
