@@ -3,7 +3,10 @@ use halo2_proofs::arithmetic::Field;
 use crate::{
     ast::{query::Queriable, ToExpr},
     compiler::WitnessGenContext,
-    dsl::{cb::{Constraint, Typing}, StepTypeContext},
+    dsl::{
+        cb::{Constraint, Typing},
+        StepTypeContext,
+    },
 };
 
 pub struct IsZero<F> {

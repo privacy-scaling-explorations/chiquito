@@ -213,7 +213,10 @@ impl<'a, F, Args> StepTypeSetupContext<'a, F, Args> {
 
     fn enforce_constraint_typing(constraint: &Constraint<F>) {
         if constraint.typing != Typing::AntiBooly {
-            panic!("Expected AntiBooly constraint, got {:?} (constraint: {})", constraint.typing, constraint.annotation);
+            panic!(
+                "Expected AntiBooly constraint, got {:?} (constraint: {})",
+                constraint.typing, constraint.annotation
+            );
         }
     }
 }

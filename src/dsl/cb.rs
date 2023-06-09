@@ -18,17 +18,23 @@ pub struct Constraint<F> {
 pub enum Typing {
     Unknown,
     Boolean,
-    AntiBooly
+    AntiBooly,
 }
 
 impl<F: Debug> From<Expr<F>> for Constraint<F> {
     fn from(expr: Expr<F>) -> Self {
         let annotation = format!("{:?}", &expr);
         match expr {
-            Expr::Query(Queriable::StepTypeNext(_)) => {
-                return Self { expr, annotation, typing: Typing::Boolean }
-            }
-            _ => return Self { expr, annotation, typing: Typing::Unknown }
+            Expr::Query(Queriable::StepTypeNext(_)) => Self {
+                expr,
+                annotation,
+                typing: Typing::Boolean,
+            },
+            _ => Self {
+                expr,
+                annotation,
+                typing: Typing::Unknown,
+            },
         }
     }
 }
@@ -89,7 +95,10 @@ pub fn and<F: From<u64>, E: Into<Constraint<F>>, I: IntoIterator<Item = E>>(
                 annotations.push(constraint.annotation);
                 expr = expr * constraint.expr;
             }
-            Typing::AntiBooly => panic!("Expected Boolean or Unknown constraint, got AntiBooly (constraint: {})", constraint.annotation),
+            Typing::AntiBooly => panic!(
+                "Expected Boolean or Unknown constraint, got AntiBooly (constraint: {})",
+                constraint.annotation
+            ),
         }
     }
 
@@ -120,7 +129,10 @@ pub fn or<
                 annotations.push(constraint.annotation);
                 exprs.push(constraint.expr);
             }
-            Typing::AntiBooly => panic!("Expected Boolean or Unknown constraint, got AntiBooly (constraint: {})", constraint.annotation),
+            Typing::AntiBooly => panic!(
+                "Expected Boolean or Unknown constraint, got AntiBooly (constraint: {})",
+                constraint.annotation
+            ),
         }
     }
 
@@ -194,7 +206,10 @@ pub fn select<
     let when_false = when_false.into();
 
     if selector.typing == Typing::AntiBooly {
-        panic!("Expected Boolean or Unknown selector, got AntiBooly (selector: {})", selector.annotation)
+        panic!(
+            "Expected Boolean or Unknown selector, got AntiBooly (selector: {})",
+            selector.annotation
+        )
     }
 
     let typing = if when_true.typing == when_false.typing {
@@ -224,7 +239,10 @@ pub fn when<F: From<u64> + Clone, T1: Into<Constraint<F>>, T2: Into<Constraint<F
     let when_true = when_true.into();
 
     if selector.typing == Typing::AntiBooly {
-        panic!("Expected Boolean or Unknown selector, got AntiBooly (selector: {})", selector.annotation)
+        panic!(
+            "Expected Boolean or Unknown selector, got AntiBooly (selector: {})",
+            selector.annotation
+        )
     }
 
     Constraint {
@@ -244,7 +262,10 @@ pub fn unless<F: From<u64> + Clone, T1: Into<Constraint<F>>, T2: Into<Constraint
     let when_false = when_false.into();
 
     if selector.typing == Typing::AntiBooly {
-        panic!("Expected Boolean or Unknown selector, got AntiBooly (selector: {})", selector.annotation)
+        panic!(
+            "Expected Boolean or Unknown selector, got AntiBooly (selector: {})",
+            selector.annotation
+        )
     }
 
     Constraint {
@@ -262,12 +283,19 @@ pub fn unless<F: From<u64> + Clone, T1: Into<Constraint<F>>, T2: Into<Constraint
 pub fn not<F: From<u64>, T: Into<Constraint<F>>>(constraint: T) -> Constraint<F> {
     let constraint = constraint.into();
     if constraint.typing == Typing::AntiBooly {
-        panic!("Expected Boolean or Unknown constraint, got AntiBooly (constraint: {})", constraint.annotation);
+        panic!(
+            "Expected Boolean or Unknown constraint, got AntiBooly (constraint: {})",
+            constraint.annotation
+        );
     }
     let annotation = format!("NOT({})", constraint.annotation);
     let expr = 1u64.expr() - constraint.expr;
 
-    Constraint { annotation, expr, typing: Typing::Boolean }
+    Constraint {
+        annotation,
+        expr,
+        typing: Typing::Boolean,
+    }
 }
 
 /// Takes a constraint and returns a new constraint representing whether the input constraint is
@@ -427,8 +455,8 @@ mod tests {
 
         assert!(matches!(result.expr, Expr::Mul(v) if v.len() == 4 &&
             matches!(v[0], Expr::Const(c) if c == 1u64.field()) &&
-            matches!(v[1], Expr::Const(c) if c == 10u64.field()) && 
-            matches!(v[2], Expr::Const(c) if c == 20u64.field()) && 
+            matches!(v[1], Expr::Const(c) if c == 10u64.field()) &&
+            matches!(v[2], Expr::Const(c) if c == 20u64.field()) &&
             matches!(v[3], Expr::Const(c) if c == 30u64.field())));
     }
 
@@ -442,7 +470,7 @@ mod tests {
         assert_eq!(result.annotation, "()");
         assert!(matches!(result.expr, Expr::Sum(v) if v.len() == 2 &&
         matches!(v[0], Expr::Const(c) if c == 1u64.field()) &&
-        matches!(&v[1], Expr::Neg(boxed_e) if 
+        matches!(&v[1], Expr::Neg(boxed_e) if
             matches!(boxed_e.as_ref(), Expr::Const(c) if *c == 1u64.field()))));
     }
 
@@ -454,7 +482,7 @@ mod tests {
         // returns "1 - (1 * (1 - 10))"
         assert!(matches!(result.expr, Expr::Sum(v) if v.len() == 2 &&
             matches!(v[0], Expr::Const(c) if c == 1u64.field()) &&
-            matches!(&v[1], Expr::Neg(mul) if 
+            matches!(&v[1], Expr::Neg(mul) if
                 matches!(mul.as_ref(), Expr::Mul(v) if v.len() == 2 &&
                     matches!(v[0], Expr::Const(c) if c == 1u64.field()) && 
                     matches!(&v[1], Expr::Sum(v) if v.len() == 2 &&
@@ -473,7 +501,7 @@ mod tests {
         // returns "1 - (1 * (1 - 10) * (1 - 20) * (1 - 30))"
         assert!(matches!(result.expr, Expr::Sum(v) if v.len() == 2 &&
             matches!(v[0], Expr::Const(c) if c == 1u64.field()) &&
-            matches!(&v[1], Expr::Neg(boxed_mul) if 
+            matches!(&v[1], Expr::Neg(boxed_mul) if
                 matches!(boxed_mul.as_ref(), Expr::Mul(v) if v.len() == 4 &&
                     matches!(v[0], Expr::Const(c) if c == 1u64.field()) && 
                     matches!(&v[1], Expr::Sum(v) if v.len() == 2 &&
@@ -497,7 +525,7 @@ mod tests {
 
         assert!(matches!(result.expr, Expr::Sum(v) if v.len() == 2 &&
             matches!(v[0], Expr::Const(c) if c == 1u64.field()) &&
-            matches!(&v[1], Expr::Neg(boxed_e) if 
+            matches!(&v[1], Expr::Neg(boxed_e) if
                 matches!(boxed_e.as_ref(), Expr::Const(c) if *c == 1u64.field()))));
     }
 
@@ -508,7 +536,7 @@ mod tests {
 
         assert!(matches!(result.expr, Expr::Sum(v) if v.len() == 2 &&
             matches!(v[0], Expr::Const(c) if c == 1u64.field()) &&
-            matches!(&v[1], Expr::Neg(boxed_e) if 
+            matches!(&v[1], Expr::Neg(boxed_e) if
                 matches!(boxed_e.as_ref(), Expr::Const(c) if *c == 0u64.field()))));
     }
 
@@ -522,7 +550,7 @@ mod tests {
         assert!(matches!(result.expr, Expr::Sum(v) if v.len() == 3 &&
             matches!(v[0], Expr::Const(c) if c == 10u64.field()) &&
             matches!(v[1], Expr::Const(c) if c == 20u64.field()) &&
-            matches!(&v[2], Expr::Neg(boxed_mul) if 
+            matches!(&v[2], Expr::Neg(boxed_mul) if
                 matches!(boxed_mul.as_ref(), Expr::Mul(v) if v.len() == 3 &&
                     matches!(v[0], Expr::Const(c) if c == 2u64.field()) &&
                     matches!(v[1], Expr::Const(c) if c == 10u64.field()) &&
@@ -538,7 +566,7 @@ mod tests {
         // returns "10 - 20"
         assert!(matches!(result.expr, Expr::Sum(v) if v.len() == 2 &&
             matches!(v[0], Expr::Const(c) if c == 10u64.field()) &&
-            matches!(&v[1], Expr::Neg(boxed_e) if 
+            matches!(&v[1], Expr::Neg(boxed_e) if
                 matches!(boxed_e.as_ref(), Expr::Const(c) if *c == 20u64.field()))));
     }
 
@@ -596,7 +624,7 @@ mod tests {
         assert!(matches!(result.expr, Expr::Mul(v) if v.len() == 2 &&
             matches!(&v[0], Expr::Sum(v) if v.len() == 2 &&
                 matches!(v[0], Expr::Const(c) if c == 1u64.field()) &&
-                matches!(&v[1], Expr::Neg(boxed_e) if 
+                matches!(&v[1], Expr::Neg(boxed_e) if
                     matches!(boxed_e.as_ref(), Expr::Const(c) if *c == 1u64.field()))) &&
             matches!(v[1], Expr::Const(c) if c == 10u64.field())));
     }
@@ -640,7 +668,7 @@ mod tests {
         assert!(matches!(result.expr, Expr::Sum(v) if v.len() == 2 &&
                     matches!(v[0], Expr::Const(c) if c == 1u64.field()) &&
                     matches!(&v[1], Expr::Neg(boxed_e) if
-                        matches!(boxed_e.as_ref(), Expr::Query(Queriable::StepTypeNext(s)) if 
+                        matches!(boxed_e.as_ref(), Expr::Query(Queriable::StepTypeNext(s)) if
                             matches!(s, StepTypeHandler {id: _id, annotation: "test_step"})))));
     }
 
@@ -653,7 +681,7 @@ mod tests {
         // annotation}))"
         assert_eq!(result.annotation, "next_step_must_not_be(test_step)");
         assert!(
-            matches!(result.expr, Expr::Query(Queriable::StepTypeNext(s)) if 
+            matches!(result.expr, Expr::Query(Queriable::StepTypeNext(s)) if
                         matches!(s, StepTypeHandler {id: _id, annotation: "test_step"}))
         );
     }
