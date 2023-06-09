@@ -22,22 +22,11 @@ use polyexen::{
 };
 
 #[allow(non_snake_case)]
-pub fn chiquito2Plaf<
-    F: PrimeField<Repr = [u8; 32]>,
-    TraceArgs: Clone,
-    StepArgs: Clone, // , CM: CellManager
->(
+pub fn chiquito2Plaf<F: PrimeField<Repr = [u8; 32]>, TraceArgs: Clone, StepArgs: Clone>(
     circuit: cCircuit<F, TraceArgs, StepArgs>,
     k: u32,
     debug: bool,
-) -> (
-    Plaf,
-    ChiquitoPlafWitGen<
-        F,
-        TraceArgs,
-        StepArgs, // , CM
-    >,
-) {
+) -> (Plaf, ChiquitoPlafWitGen<F, TraceArgs, StepArgs>) {
     let mut chiquito_plaf = ChiquitoPlaf::new(circuit.clone(), debug);
     let plaf = chiquito_plaf.get_plaf(k);
     let empty_witness = plaf.gen_empty_witness();
@@ -57,21 +46,21 @@ pub fn chiquito2Plaf<
 pub struct ChiquitoPlaf<F: PrimeField, TraceArgs, StepArgs: Clone> {
     debug: bool,
     circuit: cCircuit<F, TraceArgs, StepArgs>,
-    // chiquito column id doesn't start from zero;
-    // plaf column index starts from 0 for each column type (advice, fixed, and instance);
-    // therefore a mapping is needed to convert chiquito column id to plaf index
+    // Chiquito column id doesn't start from zero.
+    // Plaf column index starts from 0 for each column type (advice, fixed, and instance).
+    // Therefore a mapping is needed to convert chiquito column id to plaf index.
     c_column_id_to_p_column_index: HashMap<u32, usize>,
-    advice_index: usize, // index of witness (advice) column in plaf
-    fixed_index: usize,  // index of fixed column in plaf
+    advice_index: usize, // This is Plaf's index of witness (advice) column.
+    fixed_index: usize,  // This is Plaf's index of fixed column.
 }
 
 impl<F: PrimeField<Repr = [u8; 32]>, TraceArgs, StepArgs: Clone>
     ChiquitoPlaf<F, TraceArgs, StepArgs>
 {
     // <Repr = [u8; 32]> is required by `from` function in the following line:
-    // cPolyExpr::Halo2Expr(e) => pExpr::from(e)
-    // this function converts a halo2 Expression<F> to a polyexen Expr<PlonkVar>
-    // F: PrimeField<Repr = [u8; 32]> is required
+    // `cPolyExpr::Halo2Expr(e) => pExpr::from(e)`.
+    // This function converts a halo2 Expression<F> to a polyexen `Expr<PlonkVar>`.
+    // Therefore, `F: PrimeField<Repr = [u8; 32]>` is required.
     pub fn new(
         circuit: cCircuit<F, TraceArgs, StepArgs>,
         debug: bool,
@@ -169,8 +158,8 @@ impl<F: PrimeField<Repr = [u8; 32]>, TraceArgs, StepArgs: Clone>
         &self,
         column: &cColumn,
         plaf: &mut Plaf,
-        // the three Option fields need to be all Some or all None;
-        // not the best practice but this function is only used interally
+        // The three Option fields need to be all `Some` or all `None`.
+        // This is not the best practice but this function is only used interally.
         c_column_id_to_p_column_index: Option<&mut HashMap<u32, usize>>,
         advice_index: Option<&mut usize>,
         fixed_index: Option<&mut usize>,
@@ -178,11 +167,11 @@ impl<F: PrimeField<Repr = [u8; 32]>, TraceArgs, StepArgs: Clone>
         match column.ctype {
             cAdvice => {
                 let plaf_witness = ColumnWitness::new(
-                    // advice is called witness in plaf
+                    // Advice is called Witness in Plaf.
                     column.annotation.clone(),
                     column.phase,
                 );
-                // will panic if c_column_id_to_p_column_index is Some but advice_index is None
+                // Will panic if `c_column_id_to_p_column_index` is `Some` but `advice_index` is `None`.
                 self.add_id_index_mapping(
                     column,
                     c_column_id_to_p_column_index,
@@ -210,7 +199,7 @@ impl<F: PrimeField<Repr = [u8; 32]>, TraceArgs, StepArgs: Clone>
 
     fn convert_plaf_poly(&self, chiquito_poly: &cPolyExpr<F>) -> pExpr<PlonkVar> {
         match chiquito_poly {
-            cPolyExpr::Const(c) => pExpr::Const(BigUint::from_bytes_le(&c.to_repr())), // PrimeField uses little endian for bytes representation
+            cPolyExpr::Const(c) => pExpr::Const(BigUint::from_bytes_le(&c.to_repr())), // PrimeField uses little endian for bytes representation.
             cPolyExpr::Sum(es) => {
                 let mut iter = es.iter();
                 let first = self.convert_plaf_poly(iter.next().unwrap());
@@ -275,7 +264,7 @@ impl<F: PrimeField<Repr = [u8; 32]>, TraceArgs, StepArgs: Clone>
         column: &cColumn,
         rotation: &i32,
         _annotation: &str,
-        index: usize, // plaf index starts from 0 for each column type
+        index: usize, // Plaf index starts from 0 for each column type.
     ) -> ColumnQuery {
         match column.ctype {
             cAdvice => ColumnQuery {
@@ -300,8 +289,8 @@ impl<F: PrimeField<Repr = [u8; 32]>, TraceArgs, StepArgs: Clone>
 }
 
 pub struct ChiquitoPlafFixedGen {
-    pub fixed: Vec<Vec<Option<BigUint>>>,
-    pub c_column_id_to_p_column_index: HashMap<u32, usize>,
+    fixed: Vec<Vec<Option<BigUint>>>,
+    pub c_column_id_to_p_column_index: HashMap<u32, usize>, // TODO: Use this field and make it private after we have Chiquito native fixed column type.
 }
 
 impl<F: PrimeField<Repr = [u8; 32]>> FixedGenContext<F> for ChiquitoPlafFixedGen {
@@ -320,7 +309,7 @@ impl ChiquitoPlafFixedGen {
     fn find_plaf_placement<F: PrimeField>(&self, query: Queriable<F>) -> (usize, i32) {
         match query {
             // TODO: Add Chiquito native fixed column type for fixed assignments. Currently we rely on imported Halo2 fixed.
-            // TODO: Replace Halo2FixedQuery with Chiquito native fixed column type and lookup p_column_index from self.c_column_id_to_p_column_index.
+            // Replace Halo2FixedQuery with Chiquito native fixed column type and lookup p_column_index from self.c_column_id_to_p_column_index.
             // Currently it won't work because we cannot find p_column_index for ImportedHalo2Column, which are not ported over to Plaf.
             Queriable::Halo2FixedQuery(_signal, rotation) => {
                 // TODO: Halo2FixedQuery should panic! after Chiquito native fixed column type is added.
@@ -332,19 +321,13 @@ impl ChiquitoPlafFixedGen {
     }
 }
 
-pub struct ChiquitoPlafWitGen<
-    F,
-    TraceArgs,
-    StepArgs, // , CM: CellManager
-> {
-    // ??? determine the pub/private property of fields later
-    pub trace: Option<Rc<Trace<TraceArgs, StepArgs>>>,
-    pub placement: Placement<F, StepArgs>,
-    // pub cell_manager: CM,
-    pub selector: StepSelector<F, StepArgs>,
-    pub step_types: HashMap<u32, Rc<StepType<F, StepArgs>>>,
-    pub plaf_witness: pWitness,
-    pub c_column_id_to_p_column_index: HashMap<u32, usize>,
+pub struct ChiquitoPlafWitGen<F, TraceArgs, StepArgs> {
+    trace: Option<Rc<Trace<TraceArgs, StepArgs>>>,
+    placement: Placement<F, StepArgs>,
+    selector: StepSelector<F, StepArgs>,
+    step_types: HashMap<u32, Rc<StepType<F, StepArgs>>>,
+    plaf_witness: pWitness,
+    c_column_id_to_p_column_index: HashMap<u32, usize>,
 }
 
 impl<F: PrimeField<Repr = [u8; 32]> + Hash, TraceArgs, StepArgs: Clone>
@@ -509,7 +492,7 @@ impl<F: PrimeField<Repr = [u8; 32]> + Hash, StepArgs: Clone> WitnessProcessor<F,
     }
 }
 
-// For debugging only
+// This is for debugging only.
 pub fn print_witness(plaf_witness: &pWitness) {
     use polyexen::plaf::WitnessDisplayCSV;
     println!("{}", WitnessDisplayCSV(plaf_witness));
