@@ -2,9 +2,7 @@ use std::sync::atomic::{AtomicU32, Ordering};
 
 use halo2_proofs::arithmetic::Field;
 
-use crate::{
-    ast::{query::Queriable, ToExpr, Expr},
-};
+use crate::ast::{query::Queriable, Expr, ToExpr};
 
 static UUID_GEN: AtomicU32 = AtomicU32::new(1);
 
