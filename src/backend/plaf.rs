@@ -3,34 +3,41 @@ use std::{collections::HashMap, hash::Hash, rc::Rc};
 use halo2_proofs::halo2curves::ff::PrimeField;
 
 use crate::{
+    ast::{query::Queriable, ForwardSignal, InternalSignal, StepType, Trace},
+    compiler::{cell_manager::Placement, step_selector::StepSelector, FixedGenContext},
     ir::{
         Circuit as cCircuit, Column as cColumn,
         ColumnType::{Advice as cAdvice, Fixed as cFixed, Halo2Advice, Halo2Fixed},
         PolyExpr as cPolyExpr,
-    }, 
-    compiler::{
-        cell_manager::Placement, 
-        step_selector::StepSelector, FixedGenContext
-    }, 
-    ast::{StepType, Trace, query::Queriable, InternalSignal, ForwardSignal}, wit_gen::{GenericTraceContext, TraceWitness},
+    },
+    wit_gen::{GenericTraceContext, TraceWitness},
 };
 
 use num_bigint::BigUint;
 use polyexen::{
-    expr::{Column as pColumn, ColumnKind, ColumnQuery, Expr as pExpr, PlonkVar, get_field_p},
-    plaf::{ColumnFixed, ColumnWitness, Lookup as pLookup, Plaf, Poly as pPoly, Witness as pWitness},
+    expr::{get_field_p, Column as pColumn, ColumnKind, ColumnQuery, Expr as pExpr, PlonkVar},
+    plaf::{
+        ColumnFixed, ColumnWitness, Lookup as pLookup, Plaf, Poly as pPoly, Witness as pWitness,
+    },
 };
 
 #[allow(non_snake_case)]
-pub fn chiquito2Plaf<F: PrimeField<Repr = [u8; 32]>, TraceArgs: Clone, StepArgs: Clone
-// , CM: CellManager
+pub fn chiquito2Plaf<
+    F: PrimeField<Repr = [u8; 32]>,
+    TraceArgs: Clone,
+    StepArgs: Clone, // , CM: CellManager
 >(
     circuit: cCircuit<F, TraceArgs, StepArgs>,
     k: u32,
     debug: bool,
-) -> (Plaf, ChiquitoPlafWitGen<F, TraceArgs, StepArgs
-    // , CM
-    >) {
+) -> (
+    Plaf,
+    ChiquitoPlafWitGen<
+        F,
+        TraceArgs,
+        StepArgs, // , CM
+    >,
+) {
     let mut chiquito_plaf = ChiquitoPlaf::new(circuit.clone(), debug);
     let plaf = chiquito_plaf.get_plaf(k);
     let empty_witness = plaf.gen_empty_witness();
@@ -299,34 +306,38 @@ pub struct ChiquitoPlafFixedGen {
 
 impl<F: PrimeField<Repr = [u8; 32]>> FixedGenContext<F> for ChiquitoPlafFixedGen {
     fn assign(&mut self, offset: usize, lhs: Queriable<F>, rhs: F) {
-        let (p_column_index, rotation) = self.find_halo2_placement(lhs);
+        let (p_column_index, rotation) = self.find_plaf_placement(lhs);
 
         if rotation != 0 {
             panic!("cannot assign fixed value with rotation");
         }
 
-        self.fixed[p_column_index][offset as usize] = Some(BigUint::from_bytes_le(&rhs.to_repr()));
+        self.fixed[p_column_index][offset] = Some(BigUint::from_bytes_le(&rhs.to_repr()));
     }
 }
 
 impl ChiquitoPlafFixedGen {
-    fn find_halo2_placement<F: PrimeField>(&self, query: Queriable<F>) -> (usize, i32) {
+    fn find_plaf_placement<F: PrimeField>(&self, query: Queriable<F>) -> (usize, i32) {
         match query {
             // TODO: Add Chiquito native fixed column type for fixed assignments. Currently we rely on imported Halo2 fixed.
-            // TODO: Replace Halo2FixedQuery with Chiquito native fixed column type and lookup p_column_index from self.c_column_id_to_p_column_index. 
+            // TODO: Replace Halo2FixedQuery with Chiquito native fixed column type and lookup p_column_index from self.c_column_id_to_p_column_index.
             // Currently it won't work because we cannot find p_column_index for ImportedHalo2Column, which are not ported over to Plaf.
             Queriable::Halo2FixedQuery(_signal, rotation) => {
+                // TODO: Halo2FixedQuery should panic! after Chiquito native fixed column type is added.
                 let p_column_index: usize = 0;
                 (p_column_index, rotation)
-            },
+            }
             _ => panic!("invalid fixed assignment on queriable {:?}", query),
         }
     }
 }
 
-pub struct ChiquitoPlafWitGen<F, TraceArgs, StepArgs
-// , CM: CellManager
-> { // ??? determine the pub/private property of fields later
+pub struct ChiquitoPlafWitGen<
+    F,
+    TraceArgs,
+    StepArgs, // , CM: CellManager
+> {
+    // ??? determine the pub/private property of fields later
     pub trace: Option<Rc<Trace<TraceArgs, StepArgs>>>,
     pub placement: Placement<F, StepArgs>,
     // pub cell_manager: CM,
@@ -334,22 +345,21 @@ pub struct ChiquitoPlafWitGen<F, TraceArgs, StepArgs
     pub step_types: HashMap<u32, Rc<StepType<F, StepArgs>>>,
     pub plaf_witness: pWitness,
     pub c_column_id_to_p_column_index: HashMap<u32, usize>,
-} 
+}
 
-impl <F: PrimeField<Repr = [u8; 32]> + Hash, TraceArgs, StepArgs: Clone>
-    ChiquitoPlafWitGen<F, TraceArgs, StepArgs> 
+impl<F: PrimeField<Repr = [u8; 32]> + Hash, TraceArgs, StepArgs: Clone>
+    ChiquitoPlafWitGen<F, TraceArgs, StepArgs>
 {
     pub fn generate(&self, input: TraceArgs) -> pWitness {
-
         let plaf_witness = pWitness {
-            num_rows: self.plaf_witness.num_rows.clone(),
+            num_rows: self.plaf_witness.num_rows,
             columns: self.plaf_witness.columns.clone(),
             witness: self.plaf_witness.witness.clone(),
         };
 
         if let Some(trace) = &self.trace {
             let mut ctx = GenericTraceContext::new(&self.step_types);
-            
+
             trace(&mut ctx, input);
 
             let witness = ctx.get_witness();
@@ -362,10 +372,10 @@ impl <F: PrimeField<Repr = [u8; 32]> + Hash, TraceArgs, StepArgs: Clone>
                 step_types: self.step_types.clone(),
                 offset: 0,
                 cur_step: None,
-            }; 
+            };
 
             processor.process(witness);
-            
+
             processor.plaf_witness
         } else {
             plaf_witness
@@ -410,9 +420,15 @@ impl<F: PrimeField<Repr = [u8; 32]> + Hash, StepArgs: Clone> WitnessProcessor<F,
                         let p_column_index = self
                             .c_column_id_to_p_column_index
                             .get(&column.uuid())
-                            .expect(format!("plaf column not found for selector expression {}", annotation).as_str());
+                            .unwrap_or_else(|| {
+                                panic!(
+                                    "plaf column not found for selector expression {}",
+                                    annotation
+                                )
+                            });
                         let offset = (self.offset as i32 + rotation) as usize;
-                        self.plaf_witness.witness[*p_column_index][offset as usize] = Some(BigUint::from_bytes_le(&value.to_repr()));
+                        self.plaf_witness.witness[*p_column_index][offset] =
+                            Some(BigUint::from_bytes_le(&value.to_repr()));
                     }
                     _ => panic!("selector expression has wrong cPolyExpr enum type"),
                 }
@@ -424,34 +440,37 @@ impl<F: PrimeField<Repr = [u8; 32]> + Hash, StepArgs: Clone> WitnessProcessor<F,
 
     fn assign(&mut self, lhs: Queriable<F>, rhs: F) {
         if let Some(cur_step) = &self.cur_step {
-            let (p_column_index, rotation) = self.find_halo2_placement(cur_step, lhs);
+            let (p_column_index, rotation) = self.find_plaf_placement(cur_step, lhs);
 
             let offset = (self.offset as i32 + rotation) as usize;
-            self.plaf_witness.witness[p_column_index][offset as usize] = Some(BigUint::from_bytes_le(&rhs.to_repr()));
+            self.plaf_witness.witness[p_column_index][offset] =
+                Some(BigUint::from_bytes_le(&rhs.to_repr()));
         } else {
             panic!("jarrl assigning outside a step");
         }
     }
 
-    fn find_halo2_placement(
+    fn find_plaf_placement(
         &self,
         step: &StepType<F, StepArgs>,
         query: Queriable<F>,
     ) -> (usize, i32) {
         match query {
-            Queriable::Internal(signal) => self.find_halo2_placement_internal(step, signal),
+            Queriable::Internal(signal) => self.find_plaf_placement_internal(step, signal),
 
             Queriable::Forward(forward, next) => {
-                self.find_halo2_placement_forward(step, forward, next)
+                self.find_plaf_placement_forward(step, forward, next)
             }
 
-            Queriable::Halo2AdviceQuery(_signal, _rotation) => panic!("Imported Halo2Advice is not supported"),
+            Queriable::Halo2AdviceQuery(_signal, _rotation) => {
+                panic!("Imported Halo2Advice is not supported")
+            }
 
             _ => panic!("invalid advice assignment on queriable {:?}", query),
         }
     }
 
-    fn find_halo2_placement_internal(
+    fn find_plaf_placement_internal(
         &self,
         step: &StepType<F, StepArgs>,
         signal: InternalSignal,
@@ -462,11 +481,11 @@ impl<F: PrimeField<Repr = [u8; 32]> + Hash, StepArgs: Clone> WitnessProcessor<F,
             .c_column_id_to_p_column_index
             .get(&placement.column.uuid())
             .unwrap_or_else(|| panic!("plaf column not found for internal signal {:?}", signal));
-    
+
         (*p_column_index, placement.rotation)
     }
 
-    fn find_halo2_placement_forward(
+    fn find_plaf_placement_forward(
         &self,
         step: &StepType<F, StepArgs>,
         forward: ForwardSignal,
@@ -493,36 +512,7 @@ impl<F: PrimeField<Repr = [u8; 32]> + Hash, StepArgs: Clone> WitnessProcessor<F,
 // For debugging only
 pub fn print_witness(plaf_witness: &pWitness) {
     use polyexen::plaf::WitnessDisplayCSV;
-    println!("{}", format!("{}", WitnessDisplayCSV(plaf_witness)));
+    println!("{}", WitnessDisplayCSV(plaf_witness));
 }
-
-// For debugging only: output Plaf's toml representation of the circuit and csv representation of fixed assignments to top level directory
-// use std::io::Error;
-// pub fn write_files<F: PrimeField<Repr = [u8; 32]>, TraceArgs, StepArgs: Clone>(
-//     name: &str,
-//     circuit: cCircuit<F, TraceArgs, StepArgs>
-// ) -> Result<(), Error> {
-//     use std::env;
-//     use crate::backend::plaf::utils::alias_replace;
-//     use polyexen::plaf::{PlafDisplayBaseTOML, PlafDisplayFixedCSV};
-//     use std::{
-//         fs::File,
-//         io::Write,
-//     };
-//     let mut plaf = chiquito2Plaf(circuit, false);
-//     alias_replace(&mut plaf);
-//     let mut base_file_path = env::current_dir().expect("Failed to get current directory");
-//     let mut fixed_file_path = base_file_path.clone();
-//     println!("base file path: {:?}", base_file_path);
-//     base_file_path.push(format!("output/{}.toml", name));
-//     println!("base file path: {:?}", base_file_path);
-//     fixed_file_path.push(format!("output/{}_fixed.csv", name));
-//     let mut base_file = File::create(&base_file_path)?;
-//     let mut fixed_file = File::create(&fixed_file_path)?;
-//     write!(base_file, "{}", PlafDisplayBaseTOML(&plaf))?;
-//     // fixed assignment file current has nothing in it, because it's not stored in chiquito ir
-//     write!(fixed_file, "{}", PlafDisplayFixedCSV(&plaf))?;
-//     Ok(())
-// }
 
 pub mod utils;

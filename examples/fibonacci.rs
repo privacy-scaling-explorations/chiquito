@@ -212,27 +212,22 @@ fn main() {
     }
 
     // plaf boilerplate
-    use chiquito::backend::plaf::{ChiquitoPlaf, utils::alias_replace, chiquito2Plaf, print_witness};
-    use polyexen::plaf::{Witness, backends::halo2::PlafH2Circuit};
+    use chiquito::backend::plaf::{chiquito2Plaf, print_witness};
+    use polyexen::plaf::backends::halo2::PlafH2Circuit;
 
     // get Chiquito ir
     let circuit = fibo_circuit::<Fr>();
     // get Plaf
-    let mut plaf_output = chiquito2Plaf(circuit, 8, false);
-    let plaf = plaf_output.0;
-    let mut plaf_wit_gen = plaf_output.1;
+    let (plaf, plaf_wit_gen) = chiquito2Plaf(circuit, 8, false);
     let wit = plaf_wit_gen.generate(());
 
     // debug only: print witness
     print_witness(&wit);
-    
+
     // get Plaf halo2 circuit from Plaf's halo2 backend
     // this is just a proof of concept, because Plaf only has backend for halo2
     // this is unnecessary because Chiquito has a halo2 backend already
-    let plaf_circuit = PlafH2Circuit {
-        plaf,
-        wit,
-    };
+    let plaf_circuit = PlafH2Circuit { plaf, wit };
 
     // same as halo2 boilerplate above
     let prover_plaf = MockProver::<Fr>::run(8, &plaf_circuit, Vec::new()).unwrap();
