@@ -5,3 +5,4 @@ pub mod dsl;
 pub mod ir;
 pub mod stdlib;
 mod util;
+pub mod wit_gen;

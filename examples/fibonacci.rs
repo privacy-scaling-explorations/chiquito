@@ -1,3 +1,5 @@
+use std::hash::Hash;
+
 use chiquito::{
     ast::expr::*,
     backend::halo2::{chiquito2Halo2, ChiquitoHalo2}, /* compiles to Chiquito Halo2 backend,
@@ -144,7 +146,7 @@ struct FiboConfig<F: Field + From<u64>> {
     compiled: ChiquitoHalo2<F, (), (u64, u64)>,
 }
 
-impl<F: Field + From<u64>> FiboConfig<F> {
+impl<F: Field + From<u64> + Hash> FiboConfig<F> {
     fn new(meta: &mut ConstraintSystem<F>) -> FiboConfig<F> {
         // chiquito2Halo2 function in Halo2 backend can convert ir::Circuit object to a
         // ChiquitoHalo2 object, which can be further integrated into a Halo2 circuit in the
@@ -163,7 +165,7 @@ impl<F: Field + From<u64>> FiboConfig<F> {
 struct FiboCircuit {}
 
 // integrate Chiquito circuit into a Halo2 circuit
-impl<F: Field + From<u64>> halo2_proofs::plonk::Circuit<F> for FiboCircuit {
+impl<F: Field + From<u64> + Hash> halo2_proofs::plonk::Circuit<F> for FiboCircuit {
     type Config = FiboConfig<F>;
 
     type FloorPlanner = SimpleFloorPlanner;
