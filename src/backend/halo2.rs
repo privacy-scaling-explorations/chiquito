@@ -1,9 +1,8 @@
-use std::{collections::HashMap, rc::Rc};
+use std::{collections::HashMap, hash::Hash, rc::Rc};
 
 use halo2_proofs::{
     arithmetic::Field,
     circuit::{Layouter, Region, Value},
-    halo2curves::FieldExt,
     plonk::{
         Advice, Column, ConstraintSystem, Expression, FirstPhase, Fixed, SecondPhase, ThirdPhase,
         VirtualCells,
@@ -13,27 +12,24 @@ use halo2_proofs::{
 
 use crate::{
     ast::{query::Queriable, ForwardSignal, InternalSignal, StepType, ToField},
-    compiler::{
-        cell_manager::Placement, step_selector::StepSelector, FixedGenContext, TraceContext,
-        WitnessGenContext,
-    },
-    dsl::StepTypeHandler,
+    compiler::{cell_manager::Placement, step_selector::StepSelector, FixedGenContext},
     ir::{
         Circuit, Column as cColumn,
         ColumnType::{Advice as cAdvice, Fixed as cFixed, Halo2Advice, Halo2Fixed},
         PolyExpr,
     },
+    wit_gen::{GenericTraceContext, TraceWitness},
 };
 
 #[allow(non_snake_case)]
-pub fn chiquito2Halo2<F: FieldExt, TraceArgs, StepArgs: Clone>(
+pub fn chiquito2Halo2<F: Field + From<u64> + Hash, TraceArgs, StepArgs: Clone>(
     circuit: Circuit<F, TraceArgs, StepArgs>,
 ) -> ChiquitoHalo2<F, TraceArgs, StepArgs> {
     ChiquitoHalo2::new(circuit)
 }
 
 #[derive(Clone, Debug)]
-pub struct ChiquitoHalo2<F: Field, TraceArgs, StepArgs: Clone> {
+pub struct ChiquitoHalo2<F: Field + From<u64>, TraceArgs, StepArgs: Clone> {
     pub debug: bool,
 
     circuit: Circuit<F, TraceArgs, StepArgs>,
@@ -42,7 +38,9 @@ pub struct ChiquitoHalo2<F: Field, TraceArgs, StepArgs: Clone> {
     fixed_columns: HashMap<u32, Column<Fixed>>,
 }
 
-impl<F: FieldExt, TraceArgs, StepArgs: Clone> ChiquitoHalo2<F, TraceArgs, StepArgs> {
+impl<F: Field + From<u64> + Hash, TraceArgs, StepArgs: Clone>
+    ChiquitoHalo2<F, TraceArgs, StepArgs>
+{
     pub fn new(circuit: Circuit<F, TraceArgs, StepArgs>) -> ChiquitoHalo2<F, TraceArgs, StepArgs> {
         ChiquitoHalo2 {
             debug: true,
@@ -171,7 +169,14 @@ impl<F: FieldExt, TraceArgs, StepArgs: Clone> ChiquitoHalo2<F, TraceArgs, StepAr
         }
 
         if let Some(trace) = &self.circuit.trace {
-            let mut ctx = TraceContextHalo2::<F, StepArgs> {
+            let mut ctx = GenericTraceContext::new(&self.circuit.step_types);
+
+            trace(&mut ctx, args);
+
+            let witness = ctx.get_witness();
+            let height = witness.height;
+
+            let mut processor = WitnessProcessor::<F, StepArgs> {
                 assigments: Default::default(),
                 advice_columns: self.advice_columns.clone(),
                 placement: self.circuit.placement.clone(),
@@ -180,18 +185,17 @@ impl<F: FieldExt, TraceArgs, StepArgs: Clone> ChiquitoHalo2<F, TraceArgs, StepAr
                 offset: 0,
                 cur_step: None,
                 max_offset: 0,
-                height: 0,
             };
 
-            trace(&mut ctx, args);
+            processor.process(witness);
 
-            let height = if ctx.height > 0 {
-                ctx.height
+            let height = if height > 0 {
+                height
             } else {
-                ctx.max_offset + 1
+                processor.max_offset + 1
             };
 
-            (ctx.assigments, height)
+            (processor.assigments, height)
         } else {
             (vec![], 0)
         }
@@ -228,7 +232,7 @@ impl<F: FieldExt, TraceArgs, StepArgs: Clone> ChiquitoHalo2<F, TraceArgs, StepAr
 
         for i in 0..height {
             region
-                .assign_fixed(|| "q_enable=1", *q_enable, i, || Value::known(F::one()))
+                .assign_fixed(|| "q_enable=1", *q_enable, i, || Value::known(F::ONE))
                 .expect("assignment of q_enable fixed column failed");
         }
 
@@ -239,7 +243,7 @@ impl<F: FieldExt, TraceArgs, StepArgs: Clone> ChiquitoHalo2<F, TraceArgs, StepAr
                 .expect("q_enable column not found");
 
             region
-                .assign_fixed(|| "q_first=1", *q_first, 0, || Value::known(F::one()))
+                .assign_fixed(|| "q_first=1", *q_first, 0, || Value::known(F::ONE))
                 .expect("assignment of q_first fixed column failed");
         }
 
@@ -250,12 +254,7 @@ impl<F: FieldExt, TraceArgs, StepArgs: Clone> ChiquitoHalo2<F, TraceArgs, StepAr
                 .expect("q_enable column not found");
 
             region
-                .assign_fixed(
-                    || "q_first=1",
-                    *q_last,
-                    height - 1,
-                    || Value::known(F::one()),
-                )
+                .assign_fixed(|| "q_first=1", *q_last, height - 1, || Value::known(F::ONE))
                 .expect("assignment of q_last fixed column failed");
         }
     }
@@ -316,7 +315,7 @@ impl<F: FieldExt, TraceArgs, StepArgs: Clone> ChiquitoHalo2<F, TraceArgs, StepAr
 
 type Assignment<F, CT> = (Column<CT>, usize, Value<F>);
 
-struct TraceContextHalo2<F: Field, StepArgs> {
+struct WitnessProcessor<F: Field, StepArgs> {
     advice_columns: HashMap<u32, Column<Advice>>,
     placement: Placement<F, StepArgs>,
     selector: StepSelector<F, StepArgs>,
@@ -328,10 +327,51 @@ struct TraceContextHalo2<F: Field, StepArgs> {
     assigments: Vec<Assignment<F, Advice>>,
 
     max_offset: usize,
-    height: usize,
 }
 
-impl<F: Field, StepArgs: Clone> TraceContextHalo2<F, StepArgs> {
+impl<F: Field, StepArgs: Clone> WitnessProcessor<F, StepArgs> {
+    fn process(&mut self, witness: TraceWitness<F>) {
+        for step_instance in witness.step_instances {
+            let cur_step = Rc::clone(
+                self.step_types
+                    .get(&step_instance.step_type_uuid)
+                    .expect("step type not found"),
+            );
+
+            self.cur_step = Some(Rc::clone(&cur_step));
+
+            for assigment in step_instance.assignments {
+                self.assign(assigment.0, assigment.1);
+            }
+
+            let selector_assignment = self
+                .selector
+                .selector_assignment
+                .get(&cur_step)
+                .expect("selector assignment for step not found");
+
+            for (expr, value) in selector_assignment.iter() {
+                match expr {
+                    PolyExpr::Query(column, rot, _) => {
+                        let column = self
+                            .advice_columns
+                            .get(&column.uuid())
+                            .expect("selector expression column not found");
+
+                        self.assigments.push((
+                            *column,
+                            self.offset + *rot as usize,
+                            Value::known(*value),
+                        ))
+                    }
+                    _ => panic!("wrong type of expresion is selector assignment"),
+                }
+            }
+
+            self.offset += self.placement.step_height(&cur_step) as usize;
+        }
+    }
+
     fn find_halo2_placement(
         &self,
         step: &StepType<F, StepArgs>,
@@ -387,59 +427,7 @@ impl<F: Field, StepArgs: Clone> TraceContextHalo2<F, StepArgs> {
 
         (*column, super_rotation)
     }
-}
 
-impl<F: Field, StepArgs: Clone> TraceContext<StepArgs> for TraceContextHalo2<F, StepArgs> {
-    fn add(&mut self, step: &StepTypeHandler, args: StepArgs) {
-        if let Some(cur_step) = &self.cur_step {
-            self.offset += self.placement.step_height(cur_step) as usize;
-        } else {
-            self.offset = 0;
-        }
-
-        let cur_step = Rc::clone(
-            self.step_types
-                .get(&step.uuid())
-                .expect("step type not found"),
-        );
-
-        self.cur_step = Some(Rc::clone(&cur_step));
-
-        (*cur_step.wg)(self, args);
-
-        // activate selector
-
-        let selector_assignment = self
-            .selector
-            .selector_assignment
-            .get(&cur_step)
-            .expect("selector assignment for step not found");
-
-        for (expr, value) in selector_assignment.iter() {
-            match expr {
-                PolyExpr::Query(column, rot, _) => {
-                    let column = self
-                        .advice_columns
-                        .get(&column.uuid())
-                        .expect("selector expression column not found");
-
-                    self.assigments.push((
-                        *column,
-                        self.offset + *rot as usize,
-                        Value::known(*value),
-                    ))
-                }
-                _ => panic!("wrong type of expresion is selector assignment"),
-            }
-        }
-    }
-
-    fn set_height(&mut self, height: usize) {
-        self.height = height;
-    }
-}
-
-impl<F: Field, StepArgs: Clone> WitnessGenContext<F> for TraceContextHalo2<F, StepArgs> {
     fn assign(&mut self, lhs: Queriable<F>, rhs: F) {
         if let Some(cur_step) = &self.cur_step {
             let (column, rotation) = self.find_halo2_placement(cur_step, lhs);
