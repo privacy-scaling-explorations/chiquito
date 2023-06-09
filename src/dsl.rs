@@ -226,7 +226,7 @@ impl<'a, F: Debug + Clone, Args> StepTypeSetupContext<'a, F, Args> {
     }
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct StepTypeHandler {
     id: StepTypeUUID,
     pub annotation: &'static str,
