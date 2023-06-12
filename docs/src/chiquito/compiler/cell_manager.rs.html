@@ -321,6 +321,17 @@
 <span id="321">321</span>
 <span id="322">322</span>
 <span id="323">323</span>
+<span id="324">324</span>
+<span id="325">325</span>
+<span id="326">326</span>
+<span id="327">327</span>
+<span id="328">328</span>
+<span id="329">329</span>
+<span id="330">330</span>
+<span id="331">331</span>
+<span id="332">332</span>
+<span id="333">333</span>
+<span id="334">334</span>
 </pre><pre class="rust"><code><span class="kw">use </span>std::{collections::HashMap, fmt::Debug, rc::Rc};
 
 <span class="kw">use </span><span class="kw">crate</span>::ast::{ForwardSignal, InternalSignal, StepType};
@@ -380,6 +391,17 @@
 
     <span class="kw">pub fn </span>step_height(<span class="kw-2">&amp;</span><span class="self">self</span>, step: <span class="kw-2">&amp;</span>StepType&lt;F, StepArgs&gt;) -&gt; u32 {
         <span class="self">self</span>.steps.get(step).expect(<span class="string">&quot;step not found&quot;</span>).height
+    }
+
+    <span class="comment">// Returns true iff all steps have the same height.
+    </span><span class="kw">pub fn </span>same_height(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
+        <span class="kw">if </span><span class="self">self</span>.steps.len() == <span class="number">0 </span>{
+            <span class="kw">return </span><span class="bool-val">true</span>;
+        }
+
+        <span class="kw">let </span>first = <span class="self">self</span>.steps.values().next().unwrap().height;
+
+        <span class="self">self</span>.steps.values().all(|step| step.height == first)
     }
 }
 
