@@ -33,6 +33,10 @@ impl<F, TraceArgs, StepArgs> CircuitContext<F, TraceArgs, StepArgs> {
         Queriable::Forward(self.sc.add_forward(name, phase), false)
     }
 
+    pub fn public_column(&mut self, name: &str) -> PublicSignalHandler {
+        Queriable::Public(self.sc.add_public(name), false)
+    }
+
     /// Imports a halo2 advice column with a name string into the circuit and returns a
     /// `Queriable` instance representing the imported column.
     pub fn import_halo2_advice(&mut self, name: &str, column: Halo2Column<Advice>) -> Queriable<F> {

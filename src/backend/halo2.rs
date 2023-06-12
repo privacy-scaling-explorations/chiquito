@@ -5,7 +5,7 @@ use halo2_proofs::{
     circuit::{Layouter, Region, Value},
     plonk::{
         Advice, Column, ConstraintSystem, Expression, FirstPhase, Fixed, SecondPhase, ThirdPhase,
-        VirtualCells,
+        VirtualCells, Instance,
     },
     poly::Rotation,
 };
@@ -138,6 +138,13 @@ impl<F: Field + From<u64> + Hash, TraceArgs, StepArgs: Clone>
                     region.assign_advice(|| "", *column, *offset, || *value)?;
                 }
 
+                let public_assignments = self.synthesize_public();
+                for (forward, forward_offset, public, public_offset) in public_assignments.iter() {
+                    // In `assign_advice_from_instance` call, instance is Chiquito forward signal, row is its absolute row number, 
+                    // advice is Chiquito public signal, offset is its absolute row number.
+                    region.assign_advice_from_instance(|| "", instance, row, advice, offset)
+                }
+
                 if height > 0 {
                     self.default_fixed(&mut region, height);
                 }
@@ -161,6 +168,10 @@ impl<F: Field + From<u64> + Hash, TraceArgs, StepArgs: Clone>
         } else {
             vec![]
         }
+    }
+
+    fn synthesize_public(&self) -> Vec<PublicAssignment<Advice, Instance>> {
+        
     }
 
     fn synthesize_advice(&self, args: TraceArgs) -> (Vec<Assignment<F, Advice>>, usize) {
@@ -314,6 +325,7 @@ impl<F: Field + From<u64> + Hash, TraceArgs, StepArgs: Clone>
 }
 
 type Assignment<F, CT> = (Column<CT>, usize, Value<F>);
+type PublicAssignment<CTF, CTP> = (Column<CTF>, usize, Column<CTP>, usize); // Format is (forward, offset, public, offset).
 
 struct WitnessProcessor<F: Field, StepArgs> {
     advice_columns: HashMap<u32, Column<Advice>>,
