@@ -58,6 +58,17 @@ impl<F, StepArgs> Placement<F, StepArgs> {
     pub fn step_height(&self, step: &StepType<F, StepArgs>) -> u32 {
         self.steps.get(step).expect("step not found").height
     }
+
+    // Returns true iff all steps have the same height.
+    pub fn same_height(&self) -> bool {
+        if self.steps.is_empty() {
+            return true;
+        }
+
+        let first = self.steps.values().next().unwrap().height;
+
+        self.steps.values().all(|step| step.height == first)
+    }
 }
 
 pub trait CellManager {
