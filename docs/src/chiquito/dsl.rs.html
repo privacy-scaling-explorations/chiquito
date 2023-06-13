@@ -264,6 +264,17 @@
 <span id="264">264</span>
 <span id="265">265</span>
 <span id="266">266</span>
+<span id="267">267</span>
+<span id="268">268</span>
+<span id="269">269</span>
+<span id="270">270</span>
+<span id="271">271</span>
+<span id="272">272</span>
+<span id="273">273</span>
+<span id="274">274</span>
+<span id="275">275</span>
+<span id="276">276</span>
+<span id="277">277</span>
 </pre><pre class="rust"><code><span class="kw">use crate</span>::{
     ast::{query::Queriable, Circuit, StepType, StepTypeUUID},
     compiler::{FixedGenContext, TraceContext, WitnessGenContext},
@@ -274,7 +285,7 @@
 
 <span class="kw">use </span>core::fmt::Debug;
 
-<span class="kw">use </span><span class="self">self</span>::cb::{Constraint, LookupBuilder};
+<span class="kw">use </span><span class="self">self</span>::cb::{Constraint, LookupBuilder, Typing};
 
 <span class="doccomment">/// A generic structure designed to handle the context of a circuit for generic types `F`,
 /// `TraceArgs` and `StepArgs`. The struct contains a `Circuit` instance and implements
@@ -459,6 +470,7 @@
     /// Refer to the `cb` (constraint builder) module for more information.
     </span><span class="kw">pub fn </span>constr&lt;C: Into&lt;Constraint&lt;F&gt;&gt;&gt;(<span class="kw-2">&amp;mut </span><span class="self">self</span>, constraint: C) {
         <span class="kw">let </span>constraint = constraint.into();
+        <span class="self">Self</span>::enforce_constraint_typing(<span class="kw-2">&amp;</span>constraint);
 
         <span class="self">self</span>.step_type
             .add_constr(constraint.annotation, constraint.expr);
@@ -470,9 +482,19 @@
     /// for more information.
     </span><span class="kw">pub fn </span>transition&lt;C: Into&lt;Constraint&lt;F&gt;&gt;&gt;(<span class="kw-2">&amp;mut </span><span class="self">self</span>, constraint: C) {
         <span class="kw">let </span>constraint = constraint.into();
+        <span class="self">Self</span>::enforce_constraint_typing(<span class="kw-2">&amp;</span>constraint);
 
         <span class="self">self</span>.step_type
             .add_transition(constraint.annotation, constraint.expr);
+    }
+
+    <span class="kw">fn </span>enforce_constraint_typing(constraint: <span class="kw-2">&amp;</span>Constraint&lt;F&gt;) {
+        <span class="kw">if </span>constraint.typing != Typing::AntiBooly {
+            <span class="macro">panic!</span>(
+                <span class="string">&quot;Expected AntiBooly constraint, got {:?} (constraint: {})&quot;</span>,
+                constraint.typing, constraint.annotation
+            );
+        }
     }
 }
 

@@ -43,12 +43,19 @@
 <span id="43">43</span>
 <span id="44">44</span>
 <span id="45">45</span>
+<span id="46">46</span>
+<span id="47">47</span>
+<span id="48">48</span>
+<span id="49">49</span>
 </pre><pre class="rust"><code><span class="kw">use </span>halo2_proofs::arithmetic::Field;
 
 <span class="kw">use crate</span>::{
     ast::{query::Queriable, ToExpr},
     compiler::WitnessGenContext,
-    dsl::{cb::Constraint, StepTypeContext},
+    dsl::{
+        cb::{Constraint, Typing},
+        StepTypeContext,
+    },
 };
 
 <span class="kw">pub struct </span>IsZero&lt;F&gt; {
@@ -70,6 +77,7 @@
         <span class="kw">let </span>is_zero_constraint = Constraint {
             expr: is_zero_expression,
             annotation: <span class="macro">format!</span>(<span class="string">&quot;is_zero({:?})&quot;</span>, value),
+            typing: Typing::Boolean,
         };
 
         IsZero {

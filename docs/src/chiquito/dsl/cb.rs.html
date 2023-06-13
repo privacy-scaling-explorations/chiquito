@@ -630,6 +630,109 @@
 <span id="630">630</span>
 <span id="631">631</span>
 <span id="632">632</span>
+<span id="633">633</span>
+<span id="634">634</span>
+<span id="635">635</span>
+<span id="636">636</span>
+<span id="637">637</span>
+<span id="638">638</span>
+<span id="639">639</span>
+<span id="640">640</span>
+<span id="641">641</span>
+<span id="642">642</span>
+<span id="643">643</span>
+<span id="644">644</span>
+<span id="645">645</span>
+<span id="646">646</span>
+<span id="647">647</span>
+<span id="648">648</span>
+<span id="649">649</span>
+<span id="650">650</span>
+<span id="651">651</span>
+<span id="652">652</span>
+<span id="653">653</span>
+<span id="654">654</span>
+<span id="655">655</span>
+<span id="656">656</span>
+<span id="657">657</span>
+<span id="658">658</span>
+<span id="659">659</span>
+<span id="660">660</span>
+<span id="661">661</span>
+<span id="662">662</span>
+<span id="663">663</span>
+<span id="664">664</span>
+<span id="665">665</span>
+<span id="666">666</span>
+<span id="667">667</span>
+<span id="668">668</span>
+<span id="669">669</span>
+<span id="670">670</span>
+<span id="671">671</span>
+<span id="672">672</span>
+<span id="673">673</span>
+<span id="674">674</span>
+<span id="675">675</span>
+<span id="676">676</span>
+<span id="677">677</span>
+<span id="678">678</span>
+<span id="679">679</span>
+<span id="680">680</span>
+<span id="681">681</span>
+<span id="682">682</span>
+<span id="683">683</span>
+<span id="684">684</span>
+<span id="685">685</span>
+<span id="686">686</span>
+<span id="687">687</span>
+<span id="688">688</span>
+<span id="689">689</span>
+<span id="690">690</span>
+<span id="691">691</span>
+<span id="692">692</span>
+<span id="693">693</span>
+<span id="694">694</span>
+<span id="695">695</span>
+<span id="696">696</span>
+<span id="697">697</span>
+<span id="698">698</span>
+<span id="699">699</span>
+<span id="700">700</span>
+<span id="701">701</span>
+<span id="702">702</span>
+<span id="703">703</span>
+<span id="704">704</span>
+<span id="705">705</span>
+<span id="706">706</span>
+<span id="707">707</span>
+<span id="708">708</span>
+<span id="709">709</span>
+<span id="710">710</span>
+<span id="711">711</span>
+<span id="712">712</span>
+<span id="713">713</span>
+<span id="714">714</span>
+<span id="715">715</span>
+<span id="716">716</span>
+<span id="717">717</span>
+<span id="718">718</span>
+<span id="719">719</span>
+<span id="720">720</span>
+<span id="721">721</span>
+<span id="722">722</span>
+<span id="723">723</span>
+<span id="724">724</span>
+<span id="725">725</span>
+<span id="726">726</span>
+<span id="727">727</span>
+<span id="728">728</span>
+<span id="729">729</span>
+<span id="730">730</span>
+<span id="731">731</span>
+<span id="732">732</span>
+<span id="733">733</span>
+<span id="734">734</span>
+<span id="735">735</span>
 </pre><pre class="rust"><code><span class="kw">use </span>std::{fmt::Debug, vec};
 
 <span class="kw">use </span>halo2_proofs::arithmetic::Field;
@@ -643,18 +746,42 @@
 </span><span class="kw">pub struct </span>Constraint&lt;F&gt; {
     <span class="kw">pub </span>annotation: String,
     <span class="kw">pub </span>expr: Expr&lt;F&gt;,
+    <span class="kw">pub </span>typing: Typing,
+}
+
+<span class="attribute">#[derive(Clone, Debug, PartialEq)]
+</span><span class="kw">pub enum </span>Typing {
+    Unknown,
+    Boolean,
+    AntiBooly,
 }
 
 <span class="kw">impl</span>&lt;F: Debug&gt; From&lt;Expr&lt;F&gt;&gt; <span class="kw">for </span>Constraint&lt;F&gt; {
     <span class="kw">fn </span>from(expr: Expr&lt;F&gt;) -&gt; <span class="self">Self </span>{
         <span class="kw">let </span>annotation = <span class="macro">format!</span>(<span class="string">&quot;{:?}&quot;</span>, <span class="kw-2">&amp;</span>expr);
-        <span class="self">Self </span>{ expr, annotation }
+        <span class="kw">match </span>expr {
+            Expr::Query(Queriable::StepTypeNext(<span class="kw">_</span>)) =&gt; <span class="self">Self </span>{
+                expr,
+                annotation,
+                typing: Typing::Boolean,
+            },
+            <span class="kw">_ </span>=&gt; <span class="self">Self </span>{
+                expr,
+                annotation,
+                typing: Typing::Unknown,
+            },
+        }
     }
 }
 
 <span class="kw">impl</span>&lt;F&gt; From&lt;Queriable&lt;F&gt;&gt; <span class="kw">for </span>Constraint&lt;F&gt; {
     <span class="kw">fn </span>from(query: Queriable&lt;F&gt;) -&gt; <span class="self">Self </span>{
-        annotate(query.annotation(), Expr::Query(query))
+        <span class="kw">match </span>query {
+            Queriable::StepTypeNext(<span class="kw">_</span>) =&gt; {
+                annotate(query.annotation(), Expr::Query(query), Typing::Boolean)
+            }
+            <span class="kw">_ </span>=&gt; annotate(query.annotation(), Expr::Query(query), Typing::Unknown),
+        }
     }
 }
 
@@ -698,14 +825,22 @@
 
     <span class="kw">for </span>constraint <span class="kw">in </span>inputs.into_iter() {
         <span class="kw">let </span>constraint = constraint.into();
-        annotations.push(constraint.annotation);
-
-        expr = expr * constraint.expr;
+        <span class="kw">match </span>constraint.typing {
+            Typing::Boolean | Typing::Unknown =&gt; {
+                annotations.push(constraint.annotation);
+                expr = expr * constraint.expr;
+            }
+            Typing::AntiBooly =&gt; <span class="macro">panic!</span>(
+                <span class="string">&quot;Expected Boolean or Unknown constraint, got AntiBooly (constraint: {})&quot;</span>,
+                constraint.annotation
+            ),
+        }
     }
 
     Constraint {
         annotation: <span class="macro">format!</span>(<span class="string">&quot;({})&quot;</span>, annotations.join(<span class="string">&quot; AND &quot;</span>)),
         expr,
+        typing: Typing::Boolean,
     }
 }
 
@@ -724,8 +859,16 @@
 
     <span class="kw">for </span>constraint <span class="kw">in </span>inputs.into_iter() {
         <span class="kw">let </span>constraint = constraint.into();
-        annotations.push(constraint.annotation);
-        exprs.push(constraint.expr);
+        <span class="kw">match </span>constraint.typing {
+            Typing::Boolean | Typing::Unknown =&gt; {
+                annotations.push(constraint.annotation);
+                exprs.push(constraint.expr);
+            }
+            Typing::AntiBooly =&gt; <span class="macro">panic!</span>(
+                <span class="string">&quot;Expected Boolean or Unknown constraint, got AntiBooly (constraint: {})&quot;</span>,
+                constraint.annotation
+            ),
+        }
     }
 
     <span class="kw">let </span>result = not(and(exprs.into_iter().map(not)));
@@ -733,19 +876,35 @@
     Constraint {
         annotation: <span class="macro">format!</span>(<span class="string">&quot;({})&quot;</span>, annotations.join(<span class="string">&quot; OR &quot;</span>)),
         expr: result.expr,
+        typing: Typing::Boolean,
     }
 }
 
 <span class="doccomment">/// Takes two expressions and returns a new expression representing the logical XOR of the input
 /// expressions.
-</span><span class="kw">pub fn </span>xor&lt;F: From&lt;u64&gt; + Clone, LHS: Into&lt;Expr&lt;F&gt;&gt;, RHS: Into&lt;Expr&lt;F&gt;&gt;&gt;(
+</span><span class="kw">pub fn </span>xor&lt;F: From&lt;u64&gt; + Clone, LHS: Into&lt;Constraint&lt;F&gt;&gt;, RHS: Into&lt;Constraint&lt;F&gt;&gt;&gt;(
     lhs: LHS,
     rhs: RHS,
-) -&gt; Expr&lt;F&gt; {
-    <span class="kw">let </span>lhs = lhs.into();
-    <span class="kw">let </span>rhs = rhs.into();
+) -&gt; Constraint&lt;F&gt; {
+    <span class="kw">let </span><span class="kw-2">mut </span>annotations: Vec&lt;String&gt; = <span class="macro">vec!</span>[];
 
-    lhs.clone() + rhs.clone() - <span class="number">2u64</span>.expr() * lhs * rhs
+    <span class="kw">let </span>lhs: Constraint&lt;F&gt; = lhs.into();
+    <span class="kw">let </span>rhs: Constraint&lt;F&gt; = rhs.into();
+
+    <span class="kw">let </span>expr = <span class="kw">match </span>(lhs.typing, rhs.typing) {
+        (Typing::Boolean | Typing::Unknown, Typing::Boolean | Typing::Unknown) =&gt; {
+            annotations.push(lhs.annotation);
+            annotations.push(rhs.annotation);
+            lhs.expr.clone() + rhs.expr.clone() - <span class="number">2u64</span>.expr() * lhs.expr * rhs.expr
+        },
+        <span class="kw">_ </span>=&gt; <span class="macro">panic!</span>(<span class="string">&quot;Expected Boolean or Unknown constraints, got AntiBooly in one of lhs or rhs constraints (lhs constraint: {}) (rhs constraint: {})&quot;</span>, lhs.annotation, rhs.annotation),
+    };
+
+    Constraint {
+        annotation: <span class="macro">format!</span>(<span class="string">&quot;({})&quot;</span>, annotations.join(<span class="string">&quot; XOR &quot;</span>)),
+        expr,
+        typing: Typing::Boolean,
+    }
 }
 
 <span class="doccomment">/// Takes two constraints and returns a new constraint representing the equality of the input
@@ -760,6 +919,7 @@
     Constraint {
         annotation: <span class="macro">format!</span>(<span class="string">&quot;{} == {}&quot;</span>, lhs.annotation, rhs.annotation),
         expr: lhs.expr - rhs.expr,
+        typing: Typing::AntiBooly,
     }
 }
 
@@ -780,6 +940,19 @@
     <span class="kw">let </span>when_true = when_true.into();
     <span class="kw">let </span>when_false = when_false.into();
 
+    <span class="kw">if </span>selector.typing == Typing::AntiBooly {
+        <span class="macro">panic!</span>(
+            <span class="string">&quot;Expected Boolean or Unknown selector, got AntiBooly (selector: {})&quot;</span>,
+            selector.annotation
+        )
+    }
+
+    <span class="kw">let </span>typing = <span class="kw">if </span>when_true.typing == when_false.typing {
+        when_true.typing
+    } <span class="kw">else </span>{
+        Typing::Unknown
+    };
+
     Constraint {
         annotation: <span class="macro">format!</span>(
             <span class="string">&quot;if({})then({})else({})&quot;</span>,
@@ -787,6 +960,7 @@
         ),
         expr: selector.expr.clone() * when_true.expr
             + (<span class="number">1u64</span>.expr() - selector.expr) * when_false.expr,
+        typing,
     }
 }
 
@@ -799,9 +973,17 @@
     <span class="kw">let </span>selector = selector.into();
     <span class="kw">let </span>when_true = when_true.into();
 
+    <span class="kw">if </span>selector.typing == Typing::AntiBooly {
+        <span class="macro">panic!</span>(
+            <span class="string">&quot;Expected Boolean or Unknown selector, got AntiBooly (selector: {})&quot;</span>,
+            selector.annotation
+        )
+    }
+
     Constraint {
         annotation: <span class="macro">format!</span>(<span class="string">&quot;if({})then({})&quot;</span>, selector.annotation, when_true.annotation),
         expr: selector.expr * when_true.expr,
+        typing: when_true.typing,
     }
 }
 
@@ -814,12 +996,20 @@
     <span class="kw">let </span>selector = selector.into();
     <span class="kw">let </span>when_false = when_false.into();
 
+    <span class="kw">if </span>selector.typing == Typing::AntiBooly {
+        <span class="macro">panic!</span>(
+            <span class="string">&quot;Expected Boolean or Unknown selector, got AntiBooly (selector: {})&quot;</span>,
+            selector.annotation
+        )
+    }
+
     Constraint {
         annotation: <span class="macro">format!</span>(
             <span class="string">&quot;unless({})then({})&quot;</span>,
             selector.annotation, when_false.annotation
         ),
         expr: (<span class="number">1u64</span>.expr() - selector.expr) * when_false.expr,
+        typing: when_false.typing,
     }
 }
 
@@ -827,10 +1017,20 @@
 /// constraint. The input constraint must have a value of either 0 or 1.
 </span><span class="kw">pub fn </span>not&lt;F: From&lt;u64&gt;, T: Into&lt;Constraint&lt;F&gt;&gt;&gt;(constraint: T) -&gt; Constraint&lt;F&gt; {
     <span class="kw">let </span>constraint = constraint.into();
+    <span class="kw">if </span>constraint.typing == Typing::AntiBooly {
+        <span class="macro">panic!</span>(
+            <span class="string">&quot;Expected Boolean or Unknown constraint, got AntiBooly (constraint: {})&quot;</span>,
+            constraint.annotation
+        );
+    }
     <span class="kw">let </span>annotation = <span class="macro">format!</span>(<span class="string">&quot;NOT({})&quot;</span>, constraint.annotation);
     <span class="kw">let </span>expr = <span class="number">1u64</span>.expr() - constraint.expr;
 
-    Constraint { annotation, expr }
+    Constraint {
+        annotation,
+        expr,
+        typing: Typing::Boolean,
+    }
 }
 
 <span class="doccomment">/// Takes a constraint and returns a new constraint representing whether the input constraint is
@@ -841,6 +1041,7 @@
     Constraint {
         annotation: <span class="macro">format!</span>(<span class="string">&quot;0 == {}&quot;</span>, constraint.annotation),
         expr: constraint.expr,
+        typing: Typing::AntiBooly,
     }
 }
 
@@ -860,6 +1061,7 @@
     Constraint {
         expr: step_type.next() * constraint.expr,
         annotation,
+        typing: constraint.typing,
     }
 }
 
@@ -869,6 +1071,7 @@
     annotate(
         <span class="macro">format!</span>(<span class="string">&quot;next_step_must_be({})&quot;</span>, step_type.annotation),
         not(step_type.next()),
+        Typing::AntiBooly,
     )
 }
 
@@ -878,15 +1081,17 @@
     annotate(
         <span class="macro">format!</span>(<span class="string">&quot;next_step_must_not_be({})&quot;</span>, step_type.annotation),
         step_type.next(),
+        Typing::AntiBooly,
     )
 }
 
 <span class="doccomment">/// Takes a string annotation and an expression, and returns a new constraint with the given
 /// annotation and expression.
-</span><span class="kw">pub fn </span>annotate&lt;F, E: Into&lt;Expr&lt;F&gt;&gt;&gt;(annotation: String, expr: E) -&gt; Constraint&lt;F&gt; {
+</span><span class="kw">pub fn </span>annotate&lt;F, E: Into&lt;Expr&lt;F&gt;&gt;&gt;(annotation: String, expr: E, typing: Typing) -&gt; Constraint&lt;F&gt; {
     Constraint {
         annotation,
         expr: expr.into(),
+        typing,
     }
 }
 
@@ -985,8 +1190,8 @@
 
         <span class="macro">assert!</span>(<span class="macro">matches!</span>(result.expr, Expr::Mul(v) <span class="kw">if </span>v.len() == <span class="number">4 </span>&amp;&amp;
             <span class="macro">matches!</span>(v[<span class="number">0</span>], Expr::Const(c) <span class="kw">if </span>c == <span class="number">1u64</span>.field()) &amp;&amp;
-            <span class="macro">matches!</span>(v[<span class="number">1</span>], Expr::Const(c) <span class="kw">if </span>c == <span class="number">10u64</span>.field()) &amp;&amp; 
-            <span class="macro">matches!</span>(v[<span class="number">2</span>], Expr::Const(c) <span class="kw">if </span>c == <span class="number">20u64</span>.field()) &amp;&amp; 
+            <span class="macro">matches!</span>(v[<span class="number">1</span>], Expr::Const(c) <span class="kw">if </span>c == <span class="number">10u64</span>.field()) &amp;&amp;
+            <span class="macro">matches!</span>(v[<span class="number">2</span>], Expr::Const(c) <span class="kw">if </span>c == <span class="number">20u64</span>.field()) &amp;&amp;
             <span class="macro">matches!</span>(v[<span class="number">3</span>], Expr::Const(c) <span class="kw">if </span>c == <span class="number">30u64</span>.field())));
     }
 
@@ -1000,7 +1205,7 @@
         </span><span class="macro">assert_eq!</span>(result.annotation, <span class="string">&quot;()&quot;</span>);
         <span class="macro">assert!</span>(<span class="macro">matches!</span>(result.expr, Expr::Sum(v) <span class="kw">if </span>v.len() == <span class="number">2 </span>&amp;&amp;
         <span class="macro">matches!</span>(v[<span class="number">0</span>], Expr::Const(c) <span class="kw">if </span>c == <span class="number">1u64</span>.field()) &amp;&amp;
-        <span class="macro">matches!</span>(<span class="kw-2">&amp;</span>v[<span class="number">1</span>], Expr::Neg(boxed_e) <span class="kw">if 
+        <span class="macro">matches!</span>(<span class="kw-2">&amp;</span>v[<span class="number">1</span>], Expr::Neg(boxed_e) <span class="kw">if
             </span><span class="macro">matches!</span>(boxed_e.as_ref(), Expr::Const(c) <span class="kw">if </span><span class="kw-2">*</span>c == <span class="number">1u64</span>.field()))));
     }
 
@@ -1012,7 +1217,7 @@
         <span class="comment">// returns &quot;1 - (1 * (1 - 10))&quot;
         </span><span class="macro">assert!</span>(<span class="macro">matches!</span>(result.expr, Expr::Sum(v) <span class="kw">if </span>v.len() == <span class="number">2 </span>&amp;&amp;
             <span class="macro">matches!</span>(v[<span class="number">0</span>], Expr::Const(c) <span class="kw">if </span>c == <span class="number">1u64</span>.field()) &amp;&amp;
-            <span class="macro">matches!</span>(<span class="kw-2">&amp;</span>v[<span class="number">1</span>], Expr::Neg(mul) <span class="kw">if 
+            <span class="macro">matches!</span>(<span class="kw-2">&amp;</span>v[<span class="number">1</span>], Expr::Neg(mul) <span class="kw">if
                 </span><span class="macro">matches!</span>(mul.as_ref(), Expr::Mul(v) <span class="kw">if </span>v.len() == <span class="number">2 </span>&amp;&amp;
                     <span class="macro">matches!</span>(v[<span class="number">0</span>], Expr::Const(c) <span class="kw">if </span>c == <span class="number">1u64</span>.field()) &amp;&amp; 
                     <span class="macro">matches!</span>(<span class="kw-2">&amp;</span>v[<span class="number">1</span>], Expr::Sum(v) <span class="kw">if </span>v.len() == <span class="number">2 </span>&amp;&amp;
@@ -1031,7 +1236,7 @@
         <span class="comment">// returns &quot;1 - (1 * (1 - 10) * (1 - 20) * (1 - 30))&quot;
         </span><span class="macro">assert!</span>(<span class="macro">matches!</span>(result.expr, Expr::Sum(v) <span class="kw">if </span>v.len() == <span class="number">2 </span>&amp;&amp;
             <span class="macro">matches!</span>(v[<span class="number">0</span>], Expr::Const(c) <span class="kw">if </span>c == <span class="number">1u64</span>.field()) &amp;&amp;
-            <span class="macro">matches!</span>(<span class="kw-2">&amp;</span>v[<span class="number">1</span>], Expr::Neg(boxed_mul) <span class="kw">if 
+            <span class="macro">matches!</span>(<span class="kw-2">&amp;</span>v[<span class="number">1</span>], Expr::Neg(boxed_mul) <span class="kw">if
                 </span><span class="macro">matches!</span>(boxed_mul.as_ref(), Expr::Mul(v) <span class="kw">if </span>v.len() == <span class="number">4 </span>&amp;&amp;
                     <span class="macro">matches!</span>(v[<span class="number">0</span>], Expr::Const(c) <span class="kw">if </span>c == <span class="number">1u64</span>.field()) &amp;&amp; 
                     <span class="macro">matches!</span>(<span class="kw-2">&amp;</span>v[<span class="number">1</span>], Expr::Sum(v) <span class="kw">if </span>v.len() == <span class="number">2 </span>&amp;&amp;
@@ -1055,7 +1260,7 @@
 
         <span class="macro">assert!</span>(<span class="macro">matches!</span>(result.expr, Expr::Sum(v) <span class="kw">if </span>v.len() == <span class="number">2 </span>&amp;&amp;
             <span class="macro">matches!</span>(v[<span class="number">0</span>], Expr::Const(c) <span class="kw">if </span>c == <span class="number">1u64</span>.field()) &amp;&amp;
-            <span class="macro">matches!</span>(<span class="kw-2">&amp;</span>v[<span class="number">1</span>], Expr::Neg(boxed_e) <span class="kw">if 
+            <span class="macro">matches!</span>(<span class="kw-2">&amp;</span>v[<span class="number">1</span>], Expr::Neg(boxed_e) <span class="kw">if
                 </span><span class="macro">matches!</span>(boxed_e.as_ref(), Expr::Const(c) <span class="kw">if </span><span class="kw-2">*</span>c == <span class="number">1u64</span>.field()))));
     }
 
@@ -1066,7 +1271,7 @@
 
         <span class="macro">assert!</span>(<span class="macro">matches!</span>(result.expr, Expr::Sum(v) <span class="kw">if </span>v.len() == <span class="number">2 </span>&amp;&amp;
             <span class="macro">matches!</span>(v[<span class="number">0</span>], Expr::Const(c) <span class="kw">if </span>c == <span class="number">1u64</span>.field()) &amp;&amp;
-            <span class="macro">matches!</span>(<span class="kw-2">&amp;</span>v[<span class="number">1</span>], Expr::Neg(boxed_e) <span class="kw">if 
+            <span class="macro">matches!</span>(<span class="kw-2">&amp;</span>v[<span class="number">1</span>], Expr::Neg(boxed_e) <span class="kw">if
                 </span><span class="macro">matches!</span>(boxed_e.as_ref(), Expr::Const(c) <span class="kw">if </span><span class="kw-2">*</span>c == <span class="number">0u64</span>.field()))));
     }
 
@@ -1077,10 +1282,10 @@
         <span class="kw">let </span>result = xor(a, b);
 
         <span class="comment">// returns &quot;10 + 20 - 2 * 10 * 20&quot;
-        </span><span class="macro">assert!</span>(<span class="macro">matches!</span>(result, Expr::Sum(v) <span class="kw">if </span>v.len() == <span class="number">3 </span>&amp;&amp;
+        </span><span class="macro">assert!</span>(<span class="macro">matches!</span>(result.expr, Expr::Sum(v) <span class="kw">if </span>v.len() == <span class="number">3 </span>&amp;&amp;
             <span class="macro">matches!</span>(v[<span class="number">0</span>], Expr::Const(c) <span class="kw">if </span>c == <span class="number">10u64</span>.field()) &amp;&amp;
             <span class="macro">matches!</span>(v[<span class="number">1</span>], Expr::Const(c) <span class="kw">if </span>c == <span class="number">20u64</span>.field()) &amp;&amp;
-            <span class="macro">matches!</span>(<span class="kw-2">&amp;</span>v[<span class="number">2</span>], Expr::Neg(boxed_mul) <span class="kw">if 
+            <span class="macro">matches!</span>(<span class="kw-2">&amp;</span>v[<span class="number">2</span>], Expr::Neg(boxed_mul) <span class="kw">if
                 </span><span class="macro">matches!</span>(boxed_mul.as_ref(), Expr::Mul(v) <span class="kw">if </span>v.len() == <span class="number">3 </span>&amp;&amp;
                     <span class="macro">matches!</span>(v[<span class="number">0</span>], Expr::Const(c) <span class="kw">if </span>c == <span class="number">2u64</span>.field()) &amp;&amp;
                     <span class="macro">matches!</span>(v[<span class="number">1</span>], Expr::Const(c) <span class="kw">if </span>c == <span class="number">10u64</span>.field()) &amp;&amp;
@@ -1096,7 +1301,7 @@
         <span class="comment">// returns &quot;10 - 20&quot;
         </span><span class="macro">assert!</span>(<span class="macro">matches!</span>(result.expr, Expr::Sum(v) <span class="kw">if </span>v.len() == <span class="number">2 </span>&amp;&amp;
             <span class="macro">matches!</span>(v[<span class="number">0</span>], Expr::Const(c) <span class="kw">if </span>c == <span class="number">10u64</span>.field()) &amp;&amp;
-            <span class="macro">matches!</span>(<span class="kw-2">&amp;</span>v[<span class="number">1</span>], Expr::Neg(boxed_e) <span class="kw">if 
+            <span class="macro">matches!</span>(<span class="kw-2">&amp;</span>v[<span class="number">1</span>], Expr::Neg(boxed_e) <span class="kw">if
                 </span><span class="macro">matches!</span>(boxed_e.as_ref(), Expr::Const(c) <span class="kw">if </span><span class="kw-2">*</span>c == <span class="number">20u64</span>.field()))));
     }
 
@@ -1154,7 +1359,7 @@
         </span><span class="macro">assert!</span>(<span class="macro">matches!</span>(result.expr, Expr::Mul(v) <span class="kw">if </span>v.len() == <span class="number">2 </span>&amp;&amp;
             <span class="macro">matches!</span>(<span class="kw-2">&amp;</span>v[<span class="number">0</span>], Expr::Sum(v) <span class="kw">if </span>v.len() == <span class="number">2 </span>&amp;&amp;
                 <span class="macro">matches!</span>(v[<span class="number">0</span>], Expr::Const(c) <span class="kw">if </span>c == <span class="number">1u64</span>.field()) &amp;&amp;
-                <span class="macro">matches!</span>(<span class="kw-2">&amp;</span>v[<span class="number">1</span>], Expr::Neg(boxed_e) <span class="kw">if 
+                <span class="macro">matches!</span>(<span class="kw-2">&amp;</span>v[<span class="number">1</span>], Expr::Neg(boxed_e) <span class="kw">if
                     </span><span class="macro">matches!</span>(boxed_e.as_ref(), Expr::Const(c) <span class="kw">if </span><span class="kw-2">*</span>c == <span class="number">1u64</span>.field()))) &amp;&amp;
             <span class="macro">matches!</span>(v[<span class="number">1</span>], Expr::Const(c) <span class="kw">if </span>c == <span class="number">10u64</span>.field())));
     }
@@ -1198,7 +1403,7 @@
         <span class="macro">assert!</span>(<span class="macro">matches!</span>(result.expr, Expr::Sum(v) <span class="kw">if </span>v.len() == <span class="number">2 </span>&amp;&amp;
                     <span class="macro">matches!</span>(v[<span class="number">0</span>], Expr::Const(c) <span class="kw">if </span>c == <span class="number">1u64</span>.field()) &amp;&amp;
                     <span class="macro">matches!</span>(<span class="kw-2">&amp;</span>v[<span class="number">1</span>], Expr::Neg(boxed_e) <span class="kw">if
-                        </span><span class="macro">matches!</span>(boxed_e.as_ref(), Expr::Query(Queriable::StepTypeNext(s)) <span class="kw">if 
+                        </span><span class="macro">matches!</span>(boxed_e.as_ref(), Expr::Query(Queriable::StepTypeNext(s)) <span class="kw">if
                             </span><span class="macro">matches!</span>(s, StepTypeHandler {id: _id, annotation: <span class="string">&quot;test_step&quot;</span>})))));
     }
 
@@ -1211,7 +1416,7 @@
         // annotation}))&quot;
         </span><span class="macro">assert_eq!</span>(result.annotation, <span class="string">&quot;next_step_must_not_be(test_step)&quot;</span>);
         <span class="macro">assert!</span>(
-            <span class="macro">matches!</span>(result.expr, Expr::Query(Queriable::StepTypeNext(s)) <span class="kw">if 
+            <span class="macro">matches!</span>(result.expr, Expr::Query(Queriable::StepTypeNext(s)) <span class="kw">if
                         </span><span class="macro">matches!</span>(s, StepTypeHandler {id: _id, annotation: <span class="string">&quot;test_step&quot;</span>}))
         );
     }
@@ -1219,10 +1424,11 @@
     <span class="attribute">#[test]
     </span><span class="kw">fn </span>test_annotate() {
         <span class="kw">let </span>expr = &lt;u64 <span class="kw">as </span>ToExpr&lt;Fr&gt;&gt;::expr(<span class="kw-2">&amp;</span><span class="number">10</span>);
-        <span class="kw">let </span>result = annotate(<span class="string">&quot;my_constraint&quot;</span>.to_string(), expr);
+        <span class="kw">let </span>result = annotate(<span class="string">&quot;my_constraint&quot;</span>.to_string(), expr, Typing::Unknown);
 
         <span class="macro">assert_eq!</span>(result.annotation, <span class="string">&quot;my_constraint&quot;</span>);
         <span class="macro">assert!</span>(<span class="macro">matches!</span>(result.expr, Expr::Const(c) <span class="kw">if </span>c == <span class="number">10u64</span>.field()));
+        <span class="macro">assert!</span>(<span class="macro">matches!</span>(result.typing, Typing::Unknown));
     }
 
     <span class="attribute">#[test]
