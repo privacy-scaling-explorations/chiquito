@@ -265,6 +265,11 @@ impl PublicSignalHandler {
     pub fn uuid(&self) -> u32 {
         self.id
     }
+
+    /// Assigns row of the public sigal to a forward signal at a step instance index.
+    pub fn assign<F>(&self, row: u32, forward_signal: Queriable<F>, index: u32) {
+        
+    }
 }
 
 pub struct ForwardSignalHandler {

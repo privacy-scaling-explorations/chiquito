@@ -15,6 +15,7 @@ use halo2_proofs::plonk::{Advice, Column as Halo2Column, ColumnType, Fixed};
 /// SuperCircuit
 pub struct Circuit<F, TraceArgs, StepArgs> {
     pub forward_signals: Vec<ForwardSignal>,
+    pub public_columns: Vec<PublicSignal>,
     pub halo2_advice: Vec<ImportedHalo2Advice>,
     pub halo2_fixed: Vec<ImportedHalo2Fixed>,
     pub step_types: HashMap<u32, Rc<StepType<F, StepArgs>>>,
@@ -42,6 +43,7 @@ impl<F, TraceArgs, StepArgs> Default for Circuit<F, TraceArgs, StepArgs> {
     fn default() -> Self {
         Self {
             forward_signals: Default::default(),
+            public_columns: Default::default(),
             halo2_advice: Default::default(),
             halo2_fixed: Default::default(),
             step_types: Default::default(),
@@ -105,6 +107,9 @@ impl<F, TraceArgs, StepArgs> Circuit<F, TraceArgs, StepArgs> {
 
     pub fn add_public_column<N: Into<String>>(&mut self, handler: PublicSignalHandler, name: N) {
         self.annotations.insert(handler.uuid(), name.into());
+        
+        let public_column = PublicSignal::new(handler.uuid(), handler.annotation);
+        self.public_columns.push(public_column);
     }
 
     pub fn set_trace<D>(&mut self, def: D)
@@ -345,6 +350,37 @@ impl ForwardSignal {
 
     pub fn phase(&self) -> usize {
         self.phase
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+pub struct PublicSignal {
+    id: u32,
+    annotation: &'static str,
+    row: Vec<u32>,
+    forward: Vec<u32>,
+    index: Vec<u32>,
+}
+
+impl PublicSignal {
+    pub fn new(uuid: u32, annotation: &'static str) -> PublicSignal {
+        PublicSignal {
+            id: uuid,
+            annotation,
+            row: Default::default(),
+            forward: Default::default(),
+            index: Default::default(),
+        }
+    }
+
+    pub fn uuid(&self) -> u32 {
+        self.id
+    }
+
+    pub fn assign(&self, row: u32, forward_signal: u32, index: u32) {
+        self.row.push(row);
+        self.forward.push(forward_signal);
+        self.index.push(index);
     }
 }
 
