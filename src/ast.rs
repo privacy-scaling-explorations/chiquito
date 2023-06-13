@@ -4,7 +4,7 @@ use std::{collections::HashMap, fmt::Debug, rc::Rc};
 
 use crate::{
     compiler::{FixedGenContext, TraceContext, WitnessGenContext},
-    dsl::StepTypeHandler,
+    dsl::{StepTypeHandler, PublicSignalHandler},
     util::uuid,
 };
 
@@ -101,6 +101,10 @@ impl<F, TraceArgs, StepArgs> Circuit<F, TraceArgs, StepArgs> {
         self.step_types.insert(uuid, step_rc);
 
         uuid
+    }
+
+    pub fn add_public_column<N: Into<String>>(&mut self, handler: PublicSignalHandler, name: N) {
+        self.annotations.insert(handler.uuid(), name.into());
     }
 
     pub fn set_trace<D>(&mut self, def: D)

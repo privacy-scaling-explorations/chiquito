@@ -34,7 +34,11 @@ impl<F, TraceArgs, StepArgs> CircuitContext<F, TraceArgs, StepArgs> {
     }
 
     pub fn public_column(&mut self, name: &str) -> PublicSignalHandler {
-        Queriable::Public(self.sc.add_public(name), false)
+        let handler = PublicSignalHandler::new(name.to_string());
+
+        self.sc.add_public_column(handler, name);
+
+        handler
     }
 
     /// Imports a halo2 advice column with a name string into the circuit and returns a
@@ -241,6 +245,25 @@ impl StepTypeHandler {
 
     pub fn next<F>(&self) -> Queriable<F> {
         Queriable::StepTypeNext(*self)
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct PublicSignalHandler {
+    id: u32,
+    pub annotation: &'static str,
+}
+
+impl PublicSignalHandler {
+    fn new(annotation: String) -> Self {
+        Self {
+            id: uuid(),
+            annotation: Box::leak(annotation.into_boxed_str()),
+        }
+    }
+
+    pub fn uuid(&self) -> u32 {
+        self.id
     }
 }
 

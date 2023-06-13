@@ -140,8 +140,8 @@ impl<F: Field + From<u64> + Hash, TraceArgs, StepArgs: Clone>
 
                 let public_assignments = self.synthesize_public();
                 for (forward, forward_offset, public, public_offset) in public_assignments.iter() {
-                    // In `assign_advice_from_instance` call, instance is Chiquito forward signal, row is its absolute row number, 
-                    // advice is Chiquito public signal, offset is its absolute row number.
+                    // In `assign_advice_from_instance` call, instance is Chiquito public signal, row is its absolute row number, 
+                    // advice is Chiquito forward signal, offset is its absolute row number.
                     region.assign_advice_from_instance(|| "", instance, row, advice, offset)
                 }
 
@@ -171,7 +171,7 @@ impl<F: Field + From<u64> + Hash, TraceArgs, StepArgs: Clone>
     }
 
     fn synthesize_public(&self) -> Vec<PublicAssignment<Advice, Instance>> {
-        
+
     }
 
     fn synthesize_advice(&self, args: TraceArgs) -> (Vec<Assignment<F, Advice>>, usize) {
