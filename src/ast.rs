@@ -355,9 +355,6 @@ impl ForwardSignal {
 pub struct PublicColumn {
     id: u32,
     annotation: &'static str,
-    // row: Vec<u32>,
-    // forward: Vec<u32>,
-    // index: Vec<u32>,
 }
 
 impl PublicColumn {
@@ -375,18 +372,18 @@ impl PublicColumn {
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct PublicColumnAssignment {
-    pub public_column: u32,
+    pub public_column_uuid: u32,
     pub row: u32,
-    pub forward_signal: u32,
+    pub forward_signal_uuid: u32,
     pub index: u32,
 }
 
 impl PublicColumnAssignment {
-    pub fn new(public_column: u32, row: u32, forward_signal: u32, index: u32) -> Self {
+    pub fn new(public_column_uuid: u32, row: u32, forward_signal_uuid: u32, index: u32) -> Self {
         PublicColumnAssignment {
-            public_column,
+            public_column_uuid,
             row,
-            forward_signal,
+            forward_signal_uuid,
             index,
         }
     }
