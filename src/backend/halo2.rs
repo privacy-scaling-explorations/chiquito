@@ -171,7 +171,7 @@ impl<F: Field + From<u64> + Hash, TraceArgs, StepArgs: Clone>
     }
 
     fn synthesize_public(&self) -> Vec<PublicAssignment<Advice, Instance>> {
-
+        
     }
 
     fn synthesize_advice(&self, args: TraceArgs) -> (Vec<Assignment<F, Advice>>, usize) {

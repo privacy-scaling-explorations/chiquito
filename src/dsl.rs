@@ -1,5 +1,5 @@
 use crate::{
-    ast::{query::Queriable, Circuit, StepType, StepTypeUUID},
+    ast::{query::Queriable, Circuit, StepType, StepTypeUUID, PublicColumnAssignment, PublicColumn},
     compiler::{FixedGenContext, TraceContext, WitnessGenContext},
     util::uuid,
 };
@@ -33,12 +33,14 @@ impl<F, TraceArgs, StepArgs> CircuitContext<F, TraceArgs, StepArgs> {
         Queriable::Forward(self.sc.add_forward(name, phase), false)
     }
 
-    pub fn public_column(&mut self, name: &str) -> PublicSignalHandler {
-        let handler = PublicSignalHandler::new(name.to_string());
-
-        self.sc.add_public_column(handler, name);
+    pub fn public_column(&mut self, name: &str) -> PublicColumnHandler {
+        let handler = PublicColumnHandler::new(name);
 
         handler
+    }
+
+    pub fn add_public_column(&mut self, handler: &mut PublicColumnHandler) {
+        self.sc.add_public_column(handler);
     }
 
     /// Imports a halo2 advice column with a name string into the circuit and returns a
@@ -248,27 +250,27 @@ impl StepTypeHandler {
     }
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
-pub struct PublicSignalHandler {
-    id: u32,
-    pub annotation: &'static str,
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+pub struct PublicColumnHandler {
+    pub public_column: PublicColumn,
+    pub public_column_assignments: Vec<PublicColumnAssignment>,
 }
 
-impl PublicSignalHandler {
-    fn new(annotation: String) -> Self {
+impl PublicColumnHandler {
+    fn new(annotation: &'static str) -> Self {
+        let public_column = PublicColumn::new(annotation);
         Self {
-            id: uuid(),
-            annotation: Box::leak(annotation.into_boxed_str()),
+            public_column,
+            public_column_assignments: Default::default(),
         }
     }
 
-    pub fn uuid(&self) -> u32 {
-        self.id
-    }
-
     /// Assigns row of the public sigal to a forward signal at a step instance index.
-    pub fn assign<F>(&self, row: u32, forward_signal: Queriable<F>, index: u32) {
-        let mut public_column = 
+    pub fn assign<F>(&mut self, row: u32, forward_signal: Queriable<F>, index: u32) -> &mut Self {
+        let public_column_assignment = PublicColumnAssignment::new(self.public_column.uuid(), row, forward_signal.uuid(), index);
+        self.public_column_assignments
+            .push(public_column_assignment);
+        self
     }
 }
 

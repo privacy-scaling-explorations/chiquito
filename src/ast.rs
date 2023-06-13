@@ -4,7 +4,7 @@ use std::{collections::HashMap, fmt::Debug, rc::Rc};
 
 use crate::{
     compiler::{FixedGenContext, TraceContext, WitnessGenContext},
-    dsl::{StepTypeHandler, PublicSignalHandler},
+    dsl::{StepTypeHandler, PublicColumnHandler},
     util::uuid,
 };
 
@@ -15,7 +15,7 @@ use halo2_proofs::plonk::{Advice, Column as Halo2Column, ColumnType, Fixed};
 /// SuperCircuit
 pub struct Circuit<F, TraceArgs, StepArgs> {
     pub forward_signals: Vec<ForwardSignal>,
-    pub public_columns: HashMap<u32, PublicSignal>,
+    pub public_column_assignments: Vec<PublicColumnAssignment>,
     pub halo2_advice: Vec<ImportedHalo2Advice>,
     pub halo2_fixed: Vec<ImportedHalo2Fixed>,
     pub step_types: HashMap<u32, Rc<StepType<F, StepArgs>>>,
@@ -43,7 +43,7 @@ impl<F, TraceArgs, StepArgs> Default for Circuit<F, TraceArgs, StepArgs> {
     fn default() -> Self {
         Self {
             forward_signals: Default::default(),
-            public_columns: Default::default(),
+            public_column_assignments: Default::default(),
             halo2_advice: Default::default(),
             halo2_fixed: Default::default(),
             step_types: Default::default(),
@@ -105,13 +105,9 @@ impl<F, TraceArgs, StepArgs> Circuit<F, TraceArgs, StepArgs> {
         uuid
     }
 
-    pub fn add_public_column<N: Into<String>>(&mut self, handler: PublicSignalHandler, name: N) {
-        let uuid = handler.uuid();
-
-        self.annotations.insert(uuid, name.into());
-        
-        let public_column = PublicSignal::new(uuid, handler.annotation);
-        self.public_columns.insert(uuid, public_column);
+    pub fn add_public_column(&mut self, handler: &mut PublicColumnHandler) {
+        self.annotations.insert(handler.public_column.uuid(), handler.public_column.annotation.to_string());
+        self.public_column_assignments = handler.public_column_assignments;
     }
 
     pub fn set_trace<D>(&mut self, def: D)
@@ -356,33 +352,43 @@ impl ForwardSignal {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
-pub struct PublicSignal {
+pub struct PublicColumn {
     id: u32,
     annotation: &'static str,
-    row: Vec<u32>,
-    forward: Vec<u32>,
-    index: Vec<u32>,
+    // row: Vec<u32>,
+    // forward: Vec<u32>,
+    // index: Vec<u32>,
 }
 
-impl PublicSignal {
-    pub fn new(uuid: u32, annotation: &'static str) -> PublicSignal {
-        PublicSignal {
-            id: uuid,
+impl PublicColumn {
+    pub fn new(annotation: &'static str) -> PublicColumn {
+        PublicColumn {
+            id: uuid(),
             annotation,
-            row: Default::default(),
-            forward: Default::default(),
-            index: Default::default(),
         }
     }
 
     pub fn uuid(&self) -> u32 {
         self.id
     }
+}
 
-    pub fn assign(&mut self, row: u32, forward_signal: u32, index: u32) {
-        self.row.push(row);
-        self.forward.push(forward_signal);
-        self.index.push(index);
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+pub struct PublicColumnAssignment {
+    pub public_column: u32,
+    pub row: u32,
+    pub forward_signal: u32,
+    pub index: u32,
+}
+
+impl PublicColumnAssignment {
+    pub fn new(public_column: u32, row: u32, forward_signal: u32, index: u32) -> Self {
+        PublicColumnAssignment {
+            public_column,
+            row,
+            forward_signal,
+            index,
+        }
     }
 }
 
