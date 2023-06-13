@@ -268,7 +268,7 @@ impl PublicSignalHandler {
 
     /// Assigns row of the public sigal to a forward signal at a step instance index.
     pub fn assign<F>(&self, row: u32, forward_signal: Queriable<F>, index: u32) {
-        
+        let mut public_column = 
     }
 }
 

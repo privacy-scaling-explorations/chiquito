@@ -15,7 +15,7 @@ use halo2_proofs::plonk::{Advice, Column as Halo2Column, ColumnType, Fixed};
 /// SuperCircuit
 pub struct Circuit<F, TraceArgs, StepArgs> {
     pub forward_signals: Vec<ForwardSignal>,
-    pub public_columns: Vec<PublicSignal>,
+    pub public_columns: HashMap<u32, PublicSignal>,
     pub halo2_advice: Vec<ImportedHalo2Advice>,
     pub halo2_fixed: Vec<ImportedHalo2Fixed>,
     pub step_types: HashMap<u32, Rc<StepType<F, StepArgs>>>,
@@ -106,10 +106,12 @@ impl<F, TraceArgs, StepArgs> Circuit<F, TraceArgs, StepArgs> {
     }
 
     pub fn add_public_column<N: Into<String>>(&mut self, handler: PublicSignalHandler, name: N) {
-        self.annotations.insert(handler.uuid(), name.into());
+        let uuid = handler.uuid();
+
+        self.annotations.insert(uuid, name.into());
         
-        let public_column = PublicSignal::new(handler.uuid(), handler.annotation);
-        self.public_columns.push(public_column);
+        let public_column = PublicSignal::new(uuid, handler.annotation);
+        self.public_columns.insert(uuid, public_column);
     }
 
     pub fn set_trace<D>(&mut self, def: D)
@@ -377,7 +379,7 @@ impl PublicSignal {
         self.id
     }
 
-    pub fn assign(&self, row: u32, forward_signal: u32, index: u32) {
+    pub fn assign(&mut self, row: u32, forward_signal: u32, index: u32) {
         self.row.push(row);
         self.forward.push(forward_signal);
         self.index.push(index);
