@@ -246,48 +246,6 @@ fn main() {
             println!("{}", failure);
         }
     }
-
-    // // plaf boilerplate
-    // use chiquito::backend::plaf::{ChiquitoPlaf, utils::alias_replace, chiquito2Plaf};
-    // use polyexen::plaf::{Witness, backends::halo2::PlafH2Circuit};
-
-    // let mut meta: ConstraintSystem<Fr> = ConstraintSystem::default();
-    // let row_value = meta.fixed_column();
-    // let c_value = meta.fixed_column();
-    // // get Chiquito ir
-    // let circuit = mimc7_circuit::<Fr>(row_value, c_value);
-    // // get Plaf
-    // let mut plaf = chiquito2Plaf(circuit, false);
-    // alias_replace(&mut plaf);
-    // // TODO: get Plaf witness directly from Chiquito plaf backend
-    // // Plaf has `gen_witness` function in halo2 front end that can take a halo2 circuit and
-    // generate Plaf witness // so we can technically go from Chiquito -> halo2 -> Plaf witness
-    // -> Plaf backends (including halo2) // but this is against our purpose of creating a Plaf
-    // backend for Chiquito // and Chiquito already has a halo2 backend
-    // let mut wit = Witness {
-    //     num_rows: 0,
-    //     columns: Vec::default(),
-    //     witness: Vec::default(), // should be Vec of Vec
-    // };
-    // // get Plaf halo2 circuit from Plaf's halo2 backend
-    // // this is just a proof of concept, because Plaf only has backend for halo2
-    // // this is unnecessary because Chiquito has a halo2 backend already
-    // let plaf_circuit = PlafH2Circuit {
-    //     plaf,
-    //     wit,
-    // };
-    // // same as halo2 boilerplate above
-    // let prover_plaf = MockProver::<Fr>::run(10, &plaf_circuit, Vec::new()).unwrap();
-
-    // let result_plaf = prover_plaf.verify_par();
-
-    // println!("result = {:#?}", result);
-
-    // if let Err(failures) = &result_plaf {
-    //     for failure in failures.iter() {
-    //         println!("{}", failure);
-    //     }
-    // }
 }
 
 mod mimc7_constants {
