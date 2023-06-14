@@ -15,6 +15,7 @@ use halo2_proofs::plonk::{Advice, Column as Halo2Column, ColumnType, Fixed};
 /// SuperCircuit
 pub struct Circuit<F, TraceArgs, StepArgs> {
     pub forward_signals: Vec<ForwardSignal>,
+    pub exposed: Vec<ForwardSignal>,
     pub halo2_advice: Vec<ImportedHalo2Advice>,
     pub halo2_fixed: Vec<ImportedHalo2Fixed>,
     pub step_types: HashMap<u32, Rc<StepType<F, StepArgs>>>,
@@ -42,6 +43,7 @@ impl<F, TraceArgs, StepArgs> Default for Circuit<F, TraceArgs, StepArgs> {
     fn default() -> Self {
         Self {
             forward_signals: Default::default(),
+            exposed: Default::default(),
             halo2_advice: Default::default(),
             halo2_fixed: Default::default(),
             step_types: Default::default(),
@@ -63,6 +65,10 @@ impl<F, TraceArgs, StepArgs> Circuit<F, TraceArgs, StepArgs> {
         self.annotations.insert(signal.uuid(), name);
 
         signal
+    }
+
+    pub fn expose(&mut self, forward_signal: ForwardSignal) {
+        self.exposed.push(forward_signal);
     }
 
     pub fn add_halo2_advice(
