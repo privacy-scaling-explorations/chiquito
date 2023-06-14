@@ -2,10 +2,10 @@ use std::{collections::HashMap, hash::Hash, rc::Rc};
 
 use halo2_proofs::{
     arithmetic::Field,
-    circuit::{Layouter, Region, Value},
+    circuit::{Layouter, Region, Value, Cell, RegionIndex},
     plonk::{
         Advice, Column, ConstraintSystem, Expression, FirstPhase, Fixed, SecondPhase, ThirdPhase,
-        VirtualCells,
+        VirtualCells, Instance, Any,
     },
     poly::Rotation,
 };
@@ -36,6 +36,7 @@ pub struct ChiquitoHalo2<F: Field + From<u64>, TraceArgs, StepArgs: Clone> {
 
     advice_columns: HashMap<u32, Column<Advice>>,
     fixed_columns: HashMap<u32, Column<Fixed>>,
+    instance_column: Option<Column<Instance>>, // the option is only ever Some enum after the configure function, but I can't invoke Default on Instance if I don't use Option
 }
 
 impl<F: Field + From<u64> + Hash, TraceArgs, StepArgs: Clone>
@@ -47,6 +48,7 @@ impl<F: Field + From<u64> + Hash, TraceArgs, StepArgs: Clone>
             circuit,
             advice_columns: Default::default(),
             fixed_columns: Default::default(),
+            instance_column: Default::default(),
         }
     }
 
@@ -91,6 +93,7 @@ impl<F: Field + From<u64> + Hash, TraceArgs, StepArgs: Clone>
 
         self.advice_columns = advice_columns;
         self.fixed_columns = fixed_columns;
+        self.instance_column = Some(meta.instance_column()); // this is only ever Some enum type
 
         if !self.circuit.polys.is_empty() {
             meta.create_gate("main", |meta| {
@@ -145,6 +148,20 @@ impl<F: Field + From<u64> + Hash, TraceArgs, StepArgs: Clone>
                 Ok(())
             },
         );
+
+        let mut instance_column_row: usize = 0;
+        for (column, rotation) in self.circuit.exposed.clone() {
+            let halo2_column = Column::<Any>::from(
+                (*self.advice_columns.get(&column.uuid()).unwrap()).clone()
+            );
+            let cell = new_cell(
+                halo2_column,
+                rotation as usize, // TODO: Convert rotation to offset.
+            );
+            let _ = layouter.constrain_instance(cell, self.instance_column.unwrap(), instance_column_row); // Unwrap won't error because the Option is Some from configure.
+            instance_column_row += 1;
+        }
+
     }
 
     fn synthesize_fixed(&self) -> Vec<Assignment<F, Fixed>> {
@@ -311,6 +328,28 @@ impl<F: Field + From<u64> + Hash, TraceArgs, StepArgs: Clone>
             }
         }
     }
+}
+
+
+#[allow(dead_code)]
+/// From Plaf Halo2 backend.
+/// _Cell is a helper struct used for constructing Halo2 Cell, all of whose fields are private and there's no public constructor method.
+struct _Cell {
+    region_index: RegionIndex,
+    row_offset: usize,
+    column: Column<Any>,
+}
+/// From Plaf Halo2 backend.
+fn new_cell(column: Column<Any>, offset: usize) -> Cell {
+    let cell = _Cell {
+        region_index: RegionIndex::from(0),
+        row_offset: offset,
+        column,
+    };
+    // NOTE: We use unsafe here to construct a Cell, which doesn't have a public constructor.  This
+    // helps us set the copy constraints easily (without having to store all assigned cells
+    // previously)
+    unsafe { std::mem::transmute::<_Cell, Cell>(cell) }
 }
 
 type Assignment<F, CT> = (Column<CT>, usize, Value<F>);
