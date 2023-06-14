@@ -3,8 +3,10 @@ use std::{collections::HashMap, hash::Hash, rc::Rc};
 use halo2_proofs::{
     arithmetic::Field,
     circuit::{Layouter, Region, Value, Cell, RegionIndex},
+    circuit::{Layouter, Region, Value, Cell, RegionIndex},
     plonk::{
         Advice, Column, ConstraintSystem, Expression, FirstPhase, Fixed, SecondPhase, ThirdPhase,
+        VirtualCells, Instance, Any,
         VirtualCells, Instance, Any,
     },
     poly::Rotation,
