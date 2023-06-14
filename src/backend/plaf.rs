@@ -50,8 +50,6 @@ pub struct ChiquitoPlaf<F: PrimeField, TraceArgs, StepArgs: Clone> {
     // Plaf column index starts from 0 for each column type (advice, fixed, and instance).
     // Therefore a mapping is needed to convert chiquito column id to plaf index.
     c_column_id_to_p_column_index: HashMap<u32, usize>,
-    advice_index: usize, // This is Plaf's index of witness (advice) column.
-    fixed_index: usize,  // This is Plaf's index of fixed column.
 }
 
 impl<F: PrimeField<Repr = [u8; 32]>, TraceArgs, StepArgs: Clone>
@@ -69,8 +67,6 @@ impl<F: PrimeField<Repr = [u8; 32]>, TraceArgs, StepArgs: Clone>
             debug,
             circuit,
             c_column_id_to_p_column_index: HashMap::new(),
-            advice_index: 0,
-            fixed_index: 0,
         }
     }
 
@@ -92,9 +88,9 @@ impl<F: PrimeField<Repr = [u8; 32]>, TraceArgs, StepArgs: Clone>
             self.convert_and_push_plaf_column(
                 column,
                 &mut plaf,
-                Some(&mut c_column_id_to_p_column_index),
-                Some(&mut advice_index),
-                Some(&mut fixed_index),
+                &mut c_column_id_to_p_column_index,
+                &mut advice_index,
+                &mut fixed_index,
             );
             if self.debug {
                 println!("MAP {:#?}", c_column_id_to_p_column_index);
@@ -102,37 +98,29 @@ impl<F: PrimeField<Repr = [u8; 32]>, TraceArgs, StepArgs: Clone>
         }
 
         self.c_column_id_to_p_column_index = c_column_id_to_p_column_index;
-        self.advice_index = advice_index;
-        self.fixed_index = fixed_index;
 
-        if !self.circuit.polys.is_empty() {
-            for c_poly in &mut self.circuit.polys.iter() {
-                let plaf_poly = pPoly {
-                    name: c_poly.annotation.clone(),
-                    exp: self.convert_plaf_poly(&c_poly.expr),
-                };
-                plaf.polys.push(plaf_poly);
-            }
+        for c_poly in &mut self.circuit.polys.iter() {
+            let plaf_poly = pPoly {
+                name: c_poly.annotation.clone(),
+                exp: self.convert_plaf_poly(&c_poly.expr),
+            };
+            plaf.polys.push(plaf_poly);
         }
 
         for lookup in self.circuit.lookups.iter() {
-            let v1 = lookup
+            let exps = lookup
                 .exprs
                 .clone()
                 .into_iter()
-                .map(|(e1, _)| self.convert_plaf_poly(&e1))
-                .collect::<Vec<pExpr<PlonkVar>>>();
-
-            let v2 = lookup
-                .exprs
-                .clone()
-                .into_iter()
-                .map(|(_, e2)| self.convert_plaf_poly(&e2))
-                .collect::<Vec<pExpr<PlonkVar>>>();
+                .fold((Vec::default(), Vec::default()), |mut result, tuple| {
+                    result.0.push(self.convert_plaf_poly(&tuple.0));
+                    result.1.push(self.convert_plaf_poly(&tuple.1));
+                    result
+                });
 
             let plaf_lookup = pLookup {
                 name: lookup.annotation.clone(),
-                exps: (v1, v2),
+                exps,
             };
 
             plaf.lookups.push(plaf_lookup);
@@ -160,9 +148,9 @@ impl<F: PrimeField<Repr = [u8; 32]>, TraceArgs, StepArgs: Clone>
         plaf: &mut Plaf,
         // The three Option fields need to be all `Some` or all `None`.
         // This is not the best practice but this function is only used interally.
-        c_column_id_to_p_column_index: Option<&mut HashMap<u32, usize>>,
-        advice_index: Option<&mut usize>,
-        fixed_index: Option<&mut usize>,
+        c_column_id_to_p_column_index: &mut HashMap<u32, usize>,
+        advice_index: &mut usize,
+        fixed_index: &mut usize,
     ) {
         match column.ctype {
             cAdvice => {
@@ -176,7 +164,7 @@ impl<F: PrimeField<Repr = [u8; 32]>, TraceArgs, StepArgs: Clone>
                 self.add_id_index_mapping(
                     column,
                     c_column_id_to_p_column_index,
-                    advice_index.unwrap(),
+                    advice_index,
                 );
                 plaf.columns.witness.push(plaf_witness);
             }
@@ -185,7 +173,7 @@ impl<F: PrimeField<Repr = [u8; 32]>, TraceArgs, StepArgs: Clone>
                 self.add_id_index_mapping(
                     column,
                     c_column_id_to_p_column_index,
-                    fixed_index.unwrap(),
+                    fixed_index,
                 );
                 plaf.columns.fixed.push(plaf_fixed);
             }
@@ -244,20 +232,18 @@ impl<F: PrimeField<Repr = [u8; 32]>, TraceArgs, StepArgs: Clone>
     fn add_id_index_mapping(
         &self,
         column: &cColumn,
-        c_column_id_to_p_column_index: Option<&mut HashMap<u32, usize>>,
+        c_column_id_to_p_column_index: &mut HashMap<u32, usize>,
         counter: &mut usize,
     ) {
-        if let Some(c_column_id_to_p_column_index) = c_column_id_to_p_column_index {
-            c_column_id_to_p_column_index.insert(column.uuid(), *counter);
-            if self.debug {
-                println!(
-                    "c column id {} match p column index {}",
-                    column.uuid(),
-                    counter
-                );
-            }
-            *counter += 1;
+        c_column_id_to_p_column_index.insert(column.uuid(), *counter);
+        if self.debug {
+            println!(
+                "c column id {} match p column index {}",
+                column.uuid(),
+                counter
+            );
         }
+        *counter += 1;
     }
 
     fn convert_plaf_query(

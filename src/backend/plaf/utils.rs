@@ -1,4 +1,3 @@
-use convert_case::{Case, Casing};
 use polyexen::plaf::Plaf;
 
 // adapted from polyexen-demo
@@ -61,7 +60,6 @@ pub fn alias_replace(plaf: &mut Plaf) {
             ] {
                 *alias = alias.replace(before, after);
             }
-            *alias = alias.to_case(Case::Camel);
         }
     }
 }
