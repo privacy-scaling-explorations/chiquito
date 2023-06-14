@@ -157,6 +157,9 @@ impl<F: Field + From<u64> + Hash, TraceArgs, StepArgs: Clone>
             let cell = new_cell(
                 halo2_column,
                 rotation as usize, // TODO: Convert rotation to offset.
+                // For single row cell manager, forward signal rotation is always zero.
+                // For max width cell manager, rotation can be non-zero.
+                // Offset is 0 + rotation for the first step instance.
             );
             let _ = layouter.constrain_instance(cell, self.instance_column.unwrap(), instance_column_row); // Unwrap won't error because the Option is Some from configure.
             instance_column_row += 1;
