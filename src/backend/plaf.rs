@@ -108,15 +108,14 @@ impl<F: PrimeField<Repr = [u8; 32]>, TraceArgs, StepArgs: Clone>
         }
 
         for lookup in self.circuit.lookups.iter() {
-            let exps = lookup
-                .exprs
-                .clone()
-                .into_iter()
-                .fold((Vec::default(), Vec::default()), |mut result, tuple| {
+            let exps = lookup.exprs.clone().into_iter().fold(
+                (Vec::default(), Vec::default()),
+                |mut result, tuple| {
                     result.0.push(self.convert_plaf_poly(&tuple.0));
                     result.1.push(self.convert_plaf_poly(&tuple.1));
                     result
-                });
+                },
+            );
 
             let plaf_lookup = pLookup {
                 name: lookup.annotation.clone(),
@@ -161,20 +160,12 @@ impl<F: PrimeField<Repr = [u8; 32]>, TraceArgs, StepArgs: Clone>
                 );
                 // Will panic if `c_column_id_to_p_column_index` is `Some` but `advice_index` is
                 // `None`.
-                self.add_id_index_mapping(
-                    column,
-                    c_column_id_to_p_column_index,
-                    advice_index,
-                );
+                self.add_id_index_mapping(column, c_column_id_to_p_column_index, advice_index);
                 plaf.columns.witness.push(plaf_witness);
             }
             cFixed => {
                 let plaf_fixed = ColumnFixed::new(column.annotation.clone());
-                self.add_id_index_mapping(
-                    column,
-                    c_column_id_to_p_column_index,
-                    fixed_index,
-                );
+                self.add_id_index_mapping(column, c_column_id_to_p_column_index, fixed_index);
                 plaf.columns.fixed.push(plaf_fixed);
             }
             Halo2Advice => {
