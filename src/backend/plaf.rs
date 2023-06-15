@@ -147,10 +147,7 @@ impl<F: PrimeField<Repr = [u8; 32]>, TraceArgs, StepArgs: Clone>
     ) {
         match column.ctype {
             cAdvice => {
-                let plaf_witness = ColumnWitness::new(
-                    column.annotation.clone(),
-                    column.phase,
-                );
+                let plaf_witness = ColumnWitness::new(column.annotation.clone(), column.phase);
                 self.add_id_index_mapping(column, c_column_id_to_p_column_index, advice_index);
                 plaf.columns.witness.push(plaf_witness);
             }
