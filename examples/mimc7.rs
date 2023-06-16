@@ -74,7 +74,9 @@ fn mimc7_circuit<F: PrimeField>(
                 ctx.transition(eq(row, 0));
                 ctx.transition(eq(row + 1, row.next()));
 
-                ctx.add_lookup(lookup().add(row, lookup_row).add(c, lookup_c));
+                ctx.add_lookup(|lookup| {
+                    lookup.add(row, lookup_row).add(c, lookup_c);
+                });
             });
 
             ctx.wg(move |ctx, (x_value, k_value, c_value, row_value)| {
@@ -103,7 +105,9 @@ fn mimc7_circuit<F: PrimeField>(
                 ctx.transition(eq(k, k.next()));
                 ctx.transition(eq(row + 1, row.next()));
 
-                ctx.add_lookup(lookup().add(row, lookup_row).add(c, lookup_c));
+                ctx.add_lookup(|lookup| {
+                    lookup.add(row, lookup_row).add(c, lookup_c);
+                });
             });
 
             ctx.wg(move |ctx, (x_value, k_value, c_value, row_value)| {

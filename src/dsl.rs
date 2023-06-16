@@ -8,7 +8,7 @@ use halo2_proofs::plonk::{Advice, Column as Halo2Column, Fixed};
 
 use core::fmt::Debug;
 
-use self::cb::{Constraint, LookupBuilder, Typing};
+use self::cb::{lookup, Constraint, LookupBuilder, Typing};
 
 /// A generic structure designed to handle the context of a circuit for generic types `F`,
 /// `TraceArgs` and `StepArgs`. The struct contains a `Circuit` instance and implements
@@ -223,7 +223,12 @@ impl<'a, F, Args> StepTypeSetupContext<'a, F, Args> {
 
 impl<'a, F: Debug + Clone, Args> StepTypeSetupContext<'a, F, Args> {
     /// Adds a lookup to the step type.
-    pub fn add_lookup(&mut self, lookup_builder: &mut LookupBuilder<F>) {
+    pub fn add_lookup<D>(&mut self, lookup_handler: D)
+    where
+        D: FnOnce(&mut LookupBuilder<F>),
+    {
+        let mut lookup_builder = lookup();
+        lookup_handler(&mut lookup_builder);
         self.step_type.lookups.push(lookup_builder.lookup.clone());
     }
 }
