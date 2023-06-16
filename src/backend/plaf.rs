@@ -4,7 +4,7 @@ use halo2_proofs::halo2curves::ff::PrimeField;
 
 use crate::{
     ast::{query::Queriable, ForwardSignal, InternalSignal, StepType, Trace},
-    compiler::{cell_manager::Placement, step_selector::StepSelector, FixedGenContext},
+    compiler::{cell_manager::Placement, step_selector::StepSelector},
     ir::{
         Circuit as cCircuit, Column as cColumn,
         ColumnType::{Advice as cAdvice, Fixed as cFixed, Halo2Advice, Halo2Fixed},
@@ -120,19 +120,6 @@ impl<F: PrimeField<Repr = [u8; 32]>, TraceArgs, StepArgs: Clone>
 
             plaf.lookups.push(plaf_lookup);
         }
-
-        let mut fixed: Vec<Vec<Option<BigUint>>> = Vec::with_capacity(plaf.columns.fixed.len());
-        for _i in 0..plaf.columns.fixed.len() {
-            fixed.push(vec![None; plaf.info.num_rows]);
-        }
-        let mut plaf_fixed_gen = ChiquitoPlafFixedGen {
-            fixed,
-            c_column_id_to_p_column_index: self.c_column_id_to_p_column_index.clone(),
-        };
-        if let Some(fg) = &self.circuit.fixed_gen {
-            fg(&mut plaf_fixed_gen);
-        };
-        plaf.fixed = plaf_fixed_gen.fixed;
 
         plaf
     }
@@ -250,46 +237,6 @@ impl<F: PrimeField<Repr = [u8; 32]>, TraceArgs, StepArgs: Clone>
             Halo2Advice | Halo2Fixed => {
                 panic!("Imported Halo2Advice and Halo2Fixed are not supported")
             }
-        }
-    }
-}
-
-// ChiquitoPlafFixedGen currently doesn't work due to reasons mentioned in comments below.
-// We left skeleton code and TODOs for future implementations.
-pub struct ChiquitoPlafFixedGen {
-    fixed: Vec<Vec<Option<BigUint>>>,
-    pub c_column_id_to_p_column_index: HashMap<u32, usize>, /* TODO: Use this field and make it
-                                                             * private after we have Chiquito
-                                                             * native fixed column type. */
-}
-
-impl<F: PrimeField<Repr = [u8; 32]>> FixedGenContext<F> for ChiquitoPlafFixedGen {
-    fn assign(&mut self, offset: usize, lhs: Queriable<F>, rhs: F) {
-        let (p_column_index, rotation) = self.find_plaf_placement(lhs);
-
-        if rotation != 0 {
-            panic!("cannot assign fixed value with rotation");
-        }
-
-        self.fixed[p_column_index][offset] = Some(BigUint::from_bytes_le(&rhs.to_repr()));
-    }
-}
-
-impl ChiquitoPlafFixedGen {
-    fn find_plaf_placement<F: PrimeField>(&self, query: Queriable<F>) -> (usize, i32) {
-        match query {
-            // TODO: Add Chiquito native fixed column type for fixed assignments. Currently we rely
-            // on imported Halo2 fixed. Replace Halo2FixedQuery with Chiquito native
-            // fixed column type and lookup p_column_index from self.c_column_id_to_p_column_index.
-            // Currently the following code won't work because we cannot find p_column_index for
-            // ImportedHalo2Column, which are not ported over to Plaf.
-            Queriable::Halo2FixedQuery(_signal, rotation) => {
-                // TODO: Halo2FixedQuery should panic! after Chiquito native fixed column type is
-                // added.
-                let p_column_index: usize = 0;
-                (p_column_index, rotation)
-            }
-            _ => panic!("invalid fixed assignment on queriable {:?}", query),
         }
     }
 }
@@ -470,5 +417,3 @@ pub fn print_witness(plaf_witness: &pWitness) {
     use polyexen::plaf::WitnessDisplayCSV;
     println!("{}", WitnessDisplayCSV(plaf_witness));
 }
-
-pub mod utils;
