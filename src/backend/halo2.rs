@@ -2,10 +2,10 @@ use std::{collections::HashMap, hash::Hash, rc::Rc};
 
 use halo2_proofs::{
     arithmetic::Field,
-    circuit::{Layouter, Region, Value},
+    circuit::{Layouter, Region, Value, Cell, RegionIndex},
     plonk::{
         Advice, Column, ConstraintSystem, Expression, FirstPhase, Fixed, SecondPhase, ThirdPhase,
-        VirtualCells,
+        VirtualCells, Instance, Any,
     },
     poly::Rotation,
 };
@@ -36,6 +36,7 @@ pub struct ChiquitoHalo2<F: Field + From<u64>, TraceArgs, StepArgs: Clone> {
 
     advice_columns: HashMap<u32, Column<Advice>>,
     fixed_columns: HashMap<u32, Column<Fixed>>,
+    instance_column: Option<Column<Instance>>,
 }
 
 impl<F: Field + From<u64> + Hash, TraceArgs, StepArgs: Clone>
@@ -47,6 +48,7 @@ impl<F: Field + From<u64> + Hash, TraceArgs, StepArgs: Clone>
             circuit,
             advice_columns: Default::default(),
             fixed_columns: Default::default(),
+            instance_column: Default::default(),
         }
     }
 
@@ -91,6 +93,9 @@ impl<F: Field + From<u64> + Hash, TraceArgs, StepArgs: Clone>
 
         self.advice_columns = advice_columns;
         self.fixed_columns = fixed_columns;
+        if !self.circuit.exposed.is_empty() {
+            self.instance_column = Some(meta.instance_column());
+        }
 
         if !self.circuit.polys.is_empty() {
             meta.create_gate("main", |meta| {
@@ -145,6 +150,21 @@ impl<F: Field + From<u64> + Hash, TraceArgs, StepArgs: Clone>
                 Ok(())
             },
         );
+
+        for (index, (column, rotation)) in self.circuit.exposed.iter().enumerate() {
+            let halo2_column = Column::<Any>::from(
+                (*self.advice_columns.get(&column.uuid()).unwrap()).clone()
+            );
+            let cell = new_cell(
+                halo2_column,
+                // For single row cell manager, forward signal rotation is always zero.
+                // For max width cell manager, rotation can be non-zero.
+                // Offset is 0 + rotation for the first step instance.
+                *rotation as usize,
+            );
+            let _ = layouter.constrain_instance(cell, self.instance_column.unwrap(), index);
+        }
+
     }
 
     fn synthesize_fixed(&self) -> Vec<Assignment<F, Fixed>> {
@@ -311,6 +331,28 @@ impl<F: Field + From<u64> + Hash, TraceArgs, StepArgs: Clone>
             }
         }
     }
+}
+
+
+#[allow(dead_code)]
+/// From Plaf Halo2 backend.
+/// _Cell is a helper struct used for constructing Halo2 Cell, all of whose fields are private and there's no public constructor method.
+struct _Cell {
+    region_index: RegionIndex,
+    row_offset: usize,
+    column: Column<Any>,
+}
+/// From Plaf Halo2 backend.
+fn new_cell(column: Column<Any>, offset: usize) -> Cell {
+    let cell = _Cell {
+        region_index: RegionIndex::from(0),
+        row_offset: offset,
+        column,
+    };
+    // NOTE: We use unsafe here to construct a Cell, which doesn't have a public constructor.  This
+    // helps us set the copy constraints easily (without having to store all assigned cells
+    // previously)
+    unsafe { std::mem::transmute::<_Cell, Cell>(cell) }
 }
 
 type Assignment<F, CT> = (Column<CT>, usize, Value<F>);
