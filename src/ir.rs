@@ -19,6 +19,7 @@ pub struct Circuit<F, TraceArgs, StepArgs> {
     pub q_last: Option<Column>,
 
     pub columns: Vec<Column>,
+    pub exposed: Vec<(Column, i32)>,
     pub polys: Vec<Poly<F>>,
     pub lookups: Vec<PolyLookup<F>>,
 

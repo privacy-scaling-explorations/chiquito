@@ -55,6 +55,7 @@ pub struct CompilationUnit<F, StepArgs> {
     pub annotations: HashMap<u32, String>,
 
     pub columns: Vec<Column>,
+    pub exposed: Vec<(Column, i32)>,
     pub polys: Vec<Poly<F>>,
     pub lookups: Vec<PolyLookup<F>>,
 }
@@ -70,6 +71,7 @@ impl<F, StepArgs> Default for CompilationUnit<F, StepArgs> {
             annotations: Default::default(),
 
             columns: Default::default(),
+            exposed: Default::default(),
             polys: Default::default(),
             lookups: Default::default(),
         }
@@ -172,6 +174,13 @@ impl<CM: CellManager, SSB: StepSelectorBuilder> Compiler<CM, SSB> {
         unit.forward_signals = sc.forward_signals.clone();
 
         self.cell_manager.place(&mut unit);
+
+        for forward_signal in sc.exposed.clone() {
+            let forward_placement = unit.placement.get_forward_placement(&forward_signal);
+            let exposed = (forward_placement.column, forward_placement.rotation);
+            unit.exposed.push(exposed);
+        }
+
         self.step_selector_builder
             .build::<F, TraceArgs, StepArgs>(&mut unit);
 
@@ -258,6 +267,7 @@ impl<CM: CellManager, SSB: StepSelectorBuilder> Compiler<CM, SSB> {
             placement: unit.placement,
             selector: unit.selector,
             columns: unit.columns,
+            exposed: unit.exposed,
             polys: unit.polys,
             lookups: unit.lookups,
             step_types: unit.step_types,
