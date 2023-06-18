@@ -8,7 +8,7 @@ use halo2_proofs::plonk::{Advice, Column as Halo2Column, Fixed};
 
 use core::fmt::Debug;
 
-use self::cb::{Constraint, LookupBuilder};
+use self::cb::{Constraint, LookupBuilder, Typing};
 
 /// A generic structure designed to handle the context of a circuit for generic types `F`,
 /// `TraceArgs` and `StepArgs`. The struct contains a `Circuit` instance and implements
@@ -202,6 +202,7 @@ impl<'a, F, Args> StepTypeSetupContext<'a, F, Args> {
     /// Refer to the `cb` (constraint builder) module for more information.
     pub fn constr<C: Into<Constraint<F>>>(&mut self, constraint: C) {
         let constraint = constraint.into();
+        Self::enforce_constraint_typing(&constraint);
 
         self.step_type
             .add_constr(constraint.annotation, constraint.expr);
@@ -213,9 +214,19 @@ impl<'a, F, Args> StepTypeSetupContext<'a, F, Args> {
     /// for more information.
     pub fn transition<C: Into<Constraint<F>>>(&mut self, constraint: C) {
         let constraint = constraint.into();
+        Self::enforce_constraint_typing(&constraint);
 
         self.step_type
             .add_transition(constraint.annotation, constraint.expr);
+    }
+
+    fn enforce_constraint_typing(constraint: &Constraint<F>) {
+        if constraint.typing != Typing::AntiBooly {
+            panic!(
+                "Expected AntiBooly constraint, got {:?} (constraint: {})",
+                constraint.typing, constraint.annotation
+            );
+        }
     }
 }
 
