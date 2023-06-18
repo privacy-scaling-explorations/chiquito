@@ -2,10 +2,10 @@ use std::{collections::HashMap, hash::Hash, rc::Rc};
 
 use halo2_proofs::{
     arithmetic::Field,
-    circuit::{Layouter, Region, Value, Cell, RegionIndex},
+    circuit::{Cell, Layouter, Region, RegionIndex, Value},
     plonk::{
-        Advice, Column, ConstraintSystem, Expression, FirstPhase, Fixed, SecondPhase, ThirdPhase,
-        VirtualCells, Instance, Any,
+        Advice, Any, Column, ConstraintSystem, Expression, FirstPhase, Fixed, Instance,
+        SecondPhase, ThirdPhase, VirtualCells,
     },
     poly::Rotation,
 };
@@ -152,9 +152,8 @@ impl<F: Field + From<u64> + Hash, TraceArgs, StepArgs: Clone>
         );
 
         for (index, (column, rotation)) in self.circuit.exposed.iter().enumerate() {
-            let halo2_column = Column::<Any>::from(
-                (*self.advice_columns.get(&column.uuid()).unwrap()).clone()
-            );
+            let halo2_column =
+                Column::<Any>::from(*self.advice_columns.get(&column.uuid()).unwrap());
             let cell = new_cell(
                 halo2_column,
                 // For single row cell manager, forward signal rotation is always zero.
@@ -164,7 +163,6 @@ impl<F: Field + From<u64> + Hash, TraceArgs, StepArgs: Clone>
             );
             let _ = layouter.constrain_instance(cell, self.instance_column.unwrap(), index);
         }
-
     }
 
     fn synthesize_fixed(&self) -> Vec<Assignment<F, Fixed>> {
@@ -333,10 +331,9 @@ impl<F: Field + From<u64> + Hash, TraceArgs, StepArgs: Clone>
     }
 }
 
-
 #[allow(dead_code)]
 /// From Plaf Halo2 backend.
-/// _Cell is a helper struct used for constructing Halo2 Cell, all of whose fields are private and there's no public constructor method.
+/// _Cell is a helper struct used for constructing Halo2 Cell.
 struct _Cell {
     region_index: RegionIndex,
     row_offset: usize,
