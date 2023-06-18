@@ -17,8 +17,8 @@ use num_bigint::BigUint;
 use polyexen::{
     expr::{get_field_p, Column as pColumn, ColumnKind, ColumnQuery, Expr as pExpr, PlonkVar},
     plaf::{
-        ColumnFixed, ColumnWitness, Lookup as pLookup, Plaf, Poly as pPoly, Witness as pWitness,
-        CopyC as pCopyC, ColumnPublic,
+        ColumnFixed, ColumnPublic, ColumnWitness, CopyC as pCopyC, Lookup as pLookup, Plaf,
+        Poly as pPoly, Witness as pWitness,
     },
 };
 
@@ -125,7 +125,9 @@ impl<F: PrimeField<Repr = [u8; 32]>, TraceArgs, StepArgs: Clone>
         if !self.circuit.exposed.is_empty() {
             // Public column not pulled from Chiquito ir, because it's not stored anywhere.
             // Therefore, we create a Plaf public column from scratch.
-            let plaf_public = ColumnPublic::new(String::from("exposed forward signal values in first step instance"));
+            let plaf_public = ColumnPublic::new(String::from(
+                "exposed forward signal values in first step instance",
+            ));
             plaf.columns.public.push(plaf_public);
         }
 
