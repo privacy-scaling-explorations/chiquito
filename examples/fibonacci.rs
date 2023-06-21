@@ -167,6 +167,7 @@ struct FiboCircuit {}
 // integrate Chiquito circuit into a Halo2 circuit
 impl<F: Field + From<u64> + Hash> halo2_proofs::plonk::Circuit<F> for FiboCircuit {
     type Config = FiboConfig<F>;
+    type Params = ();
 
     type FloorPlanner = SimpleFloorPlanner;
 
@@ -205,6 +206,37 @@ fn main() {
     println!("{:#?}", result);
 
     if let Err(failures) = &result {
+        for failure in failures.iter() {
+            println!("{}", failure);
+        }
+    }
+
+    // plaf boilerplate
+    use chiquito::backend::plaf::chiquito2Plaf;
+    use polyexen::plaf::{backends::halo2::PlafH2Circuit, WitnessDisplayCSV};
+
+    // get Chiquito ir
+    let circuit = fibo_circuit::<Fr>();
+    // get Plaf
+    let (plaf, plaf_wit_gen) = chiquito2Plaf(circuit, 8, false);
+    let wit = plaf_wit_gen.generate(());
+
+    // debug only: print witness
+    println!("{}", WitnessDisplayCSV(&wit));
+
+    // get Plaf halo2 circuit from Plaf's halo2 backend
+    // this is just a proof of concept, because Plaf only has backend for halo2
+    // this is unnecessary because Chiquito has a halo2 backend already
+    let plaf_circuit = PlafH2Circuit { plaf, wit };
+
+    // same as halo2 boilerplate above
+    let prover_plaf = MockProver::<Fr>::run(8, &plaf_circuit, Vec::new()).unwrap();
+
+    let result_plaf = prover_plaf.verify_par();
+
+    println!("result = {:#?}", result);
+
+    if let Err(failures) = &result_plaf {
         for failure in failures.iter() {
             println!("{}", failure);
         }

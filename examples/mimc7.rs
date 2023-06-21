@@ -205,6 +205,7 @@ struct Mimc7Circuit<F: PrimeField> {
 impl<F: PrimeField + Hash> halo2_proofs::plonk::Circuit<F> for Mimc7Circuit<F> {
     type Config = Mimc7Config<F>;
     type FloorPlanner = SimpleFloorPlanner;
+    type Params = ();
 
     fn without_witnesses(&self) -> Self {
         Self::default()
@@ -227,6 +228,7 @@ impl<F: PrimeField + Hash> halo2_proofs::plonk::Circuit<F> for Mimc7Circuit<F> {
 }
 
 fn main() {
+    // halo2 boilerplate
     let circuit = Mimc7Circuit {
         // fill in trace inputs
         x_in_value: Fr::from_str_vartime("1").expect("expected a number"),
