@@ -411,9 +411,3 @@ impl<F: PrimeField<Repr = [u8; 32]> + Hash, StepArgs: Clone> WitnessProcessor<F,
         (*p_column_index, super_rotation)
     }
 }
-
-// This is for debugging only.
-pub fn print_witness(plaf_witness: &pWitness) {
-    use polyexen::plaf::WitnessDisplayCSV;
-    println!("{}", WitnessDisplayCSV(plaf_witness));
-}
