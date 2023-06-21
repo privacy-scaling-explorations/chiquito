@@ -212,8 +212,8 @@ fn main() {
     }
 
     // plaf boilerplate
-    use chiquito::backend::plaf::{chiquito2Plaf, print_witness};
-    use polyexen::plaf::backends::halo2::PlafH2Circuit;
+    use chiquito::backend::plaf::chiquito2Plaf;
+    use polyexen::plaf::{backends::halo2::PlafH2Circuit, WitnessDisplayCSV};
 
     // get Chiquito ir
     let circuit = fibo_circuit::<Fr>();
@@ -222,7 +222,7 @@ fn main() {
     let wit = plaf_wit_gen.generate(());
 
     // debug only: print witness
-    print_witness(&wit);
+    println!("{}", WitnessDisplayCSV(&wit));
 
     // get Plaf halo2 circuit from Plaf's halo2 backend
     // this is just a proof of concept, because Plaf only has backend for halo2
