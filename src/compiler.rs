@@ -56,7 +56,6 @@ pub struct CompilationUnit<F, StepArgs> {
 
     pub columns: Vec<Column>,
     pub exposed: Vec<(Column, i32)>,
-    pub exposed: Vec<(Column, i32)>,
     pub polys: Vec<Poly<F>>,
     pub lookups: Vec<PolyLookup<F>>,
 }
