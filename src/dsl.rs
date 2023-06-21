@@ -81,10 +81,10 @@ impl<F, TraceArgs, StepArgs> CircuitContext<F, TraceArgs, StepArgs> {
         self.sc.add_step_type_def(context.step_type);
     }
 
-    /// Sets the trace function that builds the circuit. The trace function is responsible for
+    /// Sets the trace function that builds the witness. The trace function is responsible for
     /// adding step instances defined in `step_type_def`. The function is entirely left for
     /// the user to implement and is Turing complete. Users typically use external parameters
-    /// defined in `TraceArgs` to generate cell values for witness generation, and call the
+    /// of type `TraceArgs` to generate cell values for witness generation, and call the
     /// `add` function to add step instances with witness values.
     pub fn trace<D>(&mut self, def: D)
     where
@@ -94,7 +94,7 @@ impl<F, TraceArgs, StepArgs> CircuitContext<F, TraceArgs, StepArgs> {
     }
 
     /// Sets the fixed generation function for the circuit. The fixed generation function is
-    /// responsible for assigning fixed values to fixed column `Queriable`. It is entirely left
+    /// responsible for assigning fixed values to fixed columns. It is entirely left
     /// for the user to implement and is Turing complete. Users typically generate cell values and
     /// call the `assign` function to fill the fixed columns.
     pub fn fixed_gen<D>(&mut self, def: D)
@@ -117,11 +117,10 @@ impl<F, TraceArgs, StepArgs> CircuitContext<F, TraceArgs, StepArgs> {
     }
 }
 
-/// A generic structure designed to handle the context of a step type for generic types `F` and
-/// `Args`. The struct contains a `StepType` instance and implements methods to build the
-/// step type, add components, and manipulate the step type. `F` is a generic type representing
-/// the field of the step type. `Args` is a generic type representing the arguments passed to
-/// the step type.
+/// A generic structure designed to handle the context of a step type definition.  The struct
+/// contains a `StepType` instance and implements methods to build the step type, add components,
+/// and manipulate the step type. `F` is a generic type representing the field of the step type.
+/// `Args` is the type of the step instance witness generation arguments.
 pub struct StepTypeContext<F, Args> {
     step_type: StepType<F, Args>,
 }
@@ -172,10 +171,9 @@ impl<F, Args> StepTypeContext<F, Args> {
     }
 
     /// Sets the witness generation function for the step type. The witness generation function is
-    /// responsible for assigning witness values to witness column `Queriable`. It is entirely
-    /// left for the user to implement and is Turing complete. Users typically generate cell values
-    /// and call the assign function to fill the witness columns. `Args` is a generic type
-    /// representing the arguments passed to the witness generation function.
+    /// responsible for assigning witness values to witness signals for one step
+    /// instance. It is entirely left for the user to implement and is Turing complete. Users
+    /// typically generate cell values and call the assign function to fill the witness signals.
     pub fn wg<D>(&mut self, def: D)
     where
         D: Fn(&mut dyn WitnessGenContext<F>, Args) + 'static,
