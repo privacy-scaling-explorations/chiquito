@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"mod":[["halo2",""]]};
+window.SIDEBAR_ITEMS = {"mod":[["halo2",""],["plaf",""]]};
