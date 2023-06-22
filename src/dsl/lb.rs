@@ -2,15 +2,12 @@ use super::cb::{Constraint, Typing};
 use crate::ast::{self, Expr};
 use core::fmt::Debug;
 
-/// A helper struct for building lookup tables.
 #[derive(Default, Clone)]
 pub struct LookupTable<F> {
     pub annotation: String,
     pub destination_columns: Vec<Expr<F>>,
 }
 
-/// Creates a new empty `LookupBuilder` object and returns it. Can an chain multiple `add` and
-/// `enable` function calls after to build the lookup table.
 pub fn lookup_table<F: Debug + Clone, E: Into<Expr<F>>>(
     annotation: String,
     destination_columns: Vec<E>,
@@ -27,10 +24,6 @@ impl<F: Debug + Clone> LookupTable<F> {
         }
     }
 
-    /// Adds a source column-lookup column pair to the lookup table. Because the function returns a
-    /// mutable reference to the `LookupBuilder<F>`, it can an chain multiple `add` and `enable`
-    /// function calls to build the lookup table. Requires calling `lookup` to create an empty
-    /// `LookupBuilder` instance at the very front.
     pub fn r#match<E: Into<Constraint<F>>>(&self, source_columns: Vec<E>) -> Lookup<F> {
         let mut lookup = Lookup::<F>::default();
 
@@ -42,10 +35,6 @@ impl<F: Debug + Clone> LookupTable<F> {
         lookup.r#match(source_columns)
     }
 
-    /// Adds a selector column specific to the lookup table. Because the function returns a mutable
-    /// reference to the `LookupBuilder<F>`, it can an chain multiple `add` and `enable` function
-    /// calls to build the lookup table. Requires calling `lookup` to create an
-    /// empty `LookupBuilder` instance at the very front.
     pub fn enable<C: Into<Constraint<F>>>(&self, enable: C) -> Lookup<F> {
         let mut lookup = Lookup::<F>::default();
 
@@ -76,10 +65,6 @@ impl<F> Default for Lookup<F> {
 }
 
 impl<F: Debug + Clone> Lookup<F> {
-    // Function: adds (constraint, expression) to exprs if there's no enabler, OR add (enabler *
-    // constraint, expression) to exprs if there's enabler Note that constraint_annotation and
-    // constraint_expr are passed in as separate parameters, and then reconstructed as Constraint,
-    // because dsl uses cb::Constraint while ast uses ast::Constraint
     pub fn r#match<E: Into<Constraint<F>>>(mut self, source_columns: Vec<E>) -> Self {
         self.exprs.iter().for_each(|(source, _)| {
             if source.is_some() {
@@ -124,8 +109,6 @@ impl<F: Debug + Clone> Lookup<F> {
         self
     }
 
-    // Function: setup the enabler field and multiply all LHS constraints by the enabler if there's
-    // no enabler, OR panic if there's an enabler already
     pub fn enable<C: Into<Constraint<F>>>(mut self, enable: C) -> Self {
         let enable = enable.into();
 
@@ -153,7 +136,6 @@ impl<F: Debug + Clone> Lookup<F> {
         self
     }
 
-    // Function: helper function for multiplying enabler to constraint
     fn multiply_constraints(enable: Constraint<F>, constraint: Constraint<F>) -> Constraint<F> {
         Constraint {
             annotation: constraint.annotation.clone(), /* annotation only takes the constraint's
