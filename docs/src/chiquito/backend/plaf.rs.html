@@ -411,6 +411,40 @@
 <span id="411">411</span>
 <span id="412">412</span>
 <span id="413">413</span>
+<span id="414">414</span>
+<span id="415">415</span>
+<span id="416">416</span>
+<span id="417">417</span>
+<span id="418">418</span>
+<span id="419">419</span>
+<span id="420">420</span>
+<span id="421">421</span>
+<span id="422">422</span>
+<span id="423">423</span>
+<span id="424">424</span>
+<span id="425">425</span>
+<span id="426">426</span>
+<span id="427">427</span>
+<span id="428">428</span>
+<span id="429">429</span>
+<span id="430">430</span>
+<span id="431">431</span>
+<span id="432">432</span>
+<span id="433">433</span>
+<span id="434">434</span>
+<span id="435">435</span>
+<span id="436">436</span>
+<span id="437">437</span>
+<span id="438">438</span>
+<span id="439">439</span>
+<span id="440">440</span>
+<span id="441">441</span>
+<span id="442">442</span>
+<span id="443">443</span>
+<span id="444">444</span>
+<span id="445">445</span>
+<span id="446">446</span>
+<span id="447">447</span>
 </pre><pre class="rust"><code><span class="kw">use </span>std::{collections::HashMap, hash::Hash, rc::Rc};
 
 <span class="kw">use </span>halo2_proofs::halo2curves::ff::PrimeField;
@@ -430,7 +464,8 @@
 <span class="kw">use </span>polyexen::{
     expr::{get_field_p, Column <span class="kw">as </span>pColumn, ColumnKind, ColumnQuery, Expr <span class="kw">as </span>pExpr, PlonkVar},
     plaf::{
-        ColumnFixed, ColumnWitness, Lookup <span class="kw">as </span>pLookup, Plaf, Poly <span class="kw">as </span>pPoly, Witness <span class="kw">as </span>pWitness,
+        ColumnFixed, ColumnPublic, ColumnWitness, CopyC <span class="kw">as </span>pCopyC, Lookup <span class="kw">as </span>pLookup, Plaf,
+        Poly <span class="kw">as </span>pPoly, Witness <span class="kw">as </span>pWitness,
     },
 };
 
@@ -532,6 +567,39 @@
             };
 
             plaf.lookups.push(plaf_lookup);
+        }
+
+        <span class="kw">if </span>!<span class="self">self</span>.circuit.exposed.is_empty() {
+            <span class="comment">// Public column not pulled from Chiquito ir, because it&#39;s not stored anywhere.
+            // Therefore, we create a Plaf public column from scratch.
+            </span><span class="kw">let </span>plaf_public = ColumnPublic::new(String::from(
+                <span class="string">&quot;exposed forward signal values in first step instance&quot;</span>,
+            ));
+            plaf.columns.public.push(plaf_public);
+        }
+
+        <span class="kw">for </span>(index, (c_column, rotation)) <span class="kw">in </span><span class="self">self</span>.circuit.exposed.iter().enumerate() {
+            <span class="kw">let </span>public_column = pColumn {
+                kind: ColumnKind::Public,
+                index: <span class="number">0</span>, <span class="comment">// Chiquito only has one public column, so the index is always 0.
+            </span>};
+
+            <span class="kw">let </span>witness_index = <span class="self">self
+                </span>.c_column_id_to_p_column_index
+                .get(<span class="kw-2">&amp;</span>c_column.uuid())
+                .unwrap();
+
+            <span class="kw">let </span>witness_column = pColumn {
+                kind: ColumnKind::Witness,
+                index: <span class="kw-2">*</span>witness_index,
+            };
+
+            <span class="kw">let </span>copy = pCopyC {
+                columns: (public_column, witness_column),
+                offsets: <span class="macro">vec!</span>[(index, <span class="kw-2">*</span>rotation <span class="kw">as </span>usize)],
+            };
+
+            plaf.copys.push(copy);
         }
 
         plaf

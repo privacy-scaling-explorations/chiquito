@@ -227,6 +227,7 @@
 <span id="227">227</span>
 <span id="228">228</span>
 <span id="229">229</span>
+<span id="230">230</span>
 </pre><pre class="rust"><code><span class="kw">use </span>std::{collections::HashMap, fmt::Debug, rc::Rc};
 
 <span class="kw">use </span>halo2_proofs::plonk::Expression;
@@ -248,7 +249,8 @@
     <span class="kw">pub </span>q_last: <span class="prelude-ty">Option</span>&lt;Column&gt;,
 
     <span class="kw">pub </span>columns: Vec&lt;Column&gt;,
-    <span class="kw">pub </span>polys: Vec&lt;Poly&lt;F&gt;&gt;,
+    <span class="kw">pub </span>exposed: Vec&lt;(Column, i32)&gt;, <span class="comment">// forward signal, rotation
+    </span><span class="kw">pub </span>polys: Vec&lt;Poly&lt;F&gt;&gt;,
     <span class="kw">pub </span>lookups: Vec&lt;PolyLookup&lt;F&gt;&gt;,
 
     <span class="kw">pub </span>trace: <span class="prelude-ty">Option</span>&lt;Rc&lt;Trace&lt;TraceArgs, StepArgs&gt;&gt;&gt;,

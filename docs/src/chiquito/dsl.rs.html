@@ -273,6 +273,16 @@
 <span id="273">273</span>
 <span id="274">274</span>
 <span id="275">275</span>
+<span id="276">276</span>
+<span id="277">277</span>
+<span id="278">278</span>
+<span id="279">279</span>
+<span id="280">280</span>
+<span id="281">281</span>
+<span id="282">282</span>
+<span id="283">283</span>
+<span id="284">284</span>
+<span id="285">285</span>
 </pre><pre class="rust"><code><span class="kw">use crate</span>::{
     ast::{query::Queriable, Circuit, StepType, StepTypeUUID},
     compiler::{FixedGenContext, TraceContext, WitnessGenContext},
@@ -306,6 +316,16 @@
     /// `Queriable` instance representing the added forward signal.
     </span><span class="kw">pub fn </span>forward_with_phase(<span class="kw-2">&amp;mut </span><span class="self">self</span>, name: <span class="kw-2">&amp;</span>str, phase: usize) -&gt; Queriable&lt;F&gt; {
         Queriable::Forward(<span class="self">self</span>.sc.add_forward(name, phase), <span class="bool-val">false</span>)
+    }
+
+    <span class="doccomment">/// Exposes the first step instance value of a forward signal as public.
+    </span><span class="kw">pub fn </span>expose(<span class="kw-2">&amp;mut </span><span class="self">self</span>, forward: Queriable&lt;F&gt;) {
+        <span class="kw">match </span>forward {
+            Queriable::Forward(forward_signal, <span class="kw">_</span>) =&gt; {
+                <span class="self">self</span>.sc.expose(forward_signal);
+            }
+            <span class="kw">_ </span>=&gt; <span class="macro">panic!</span>(<span class="string">&quot;Expected forward signal&quot;</span>),
+        }
     }
 
     <span class="doccomment">/// Imports a halo2 advice column with a name string into the circuit and returns a
