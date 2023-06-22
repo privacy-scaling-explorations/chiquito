@@ -11,17 +11,19 @@ pub struct LookupTable<F> {
 pub fn lookup_table<F: Debug + Clone, E: Into<Expr<F>>>(
     annotation: String,
     destination_columns: Vec<E>,
-) -> LookupTable<F> {
+) -> &'static LookupTable<F> {
     let destination_columns = destination_columns.into_iter().map(|e| e.into()).collect();
     LookupTable::new(annotation, destination_columns)
 }
 
 impl<F: Debug + Clone> LookupTable<F> {
-    fn new(annotation: String, destination_columns: Vec<Expr<F>>) -> LookupTable<F> {
-        LookupTable {
+    fn new(annotation: String, destination_columns: Vec<Expr<F>>) -> &'static LookupTable<F> {
+        let lookup_table = LookupTable {
             annotation,
             destination_columns,
-        }
+        };
+
+        Box::leak(Box::new(lookup_table))
     }
 
     pub fn r#match<E: Into<Constraint<F>>>(&self, source_columns: Vec<E>) -> Lookup<F> {
