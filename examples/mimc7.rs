@@ -14,7 +14,7 @@ use chiquito::{
     compiler::{
         cell_manager::SingleRowCellManager, step_selector::SimpleStepSelectorBuilder, Compiler,
     },
-    dsl::{cb::*, circuit},
+    dsl::{cb::*, circuit, lb::lookup_table},
 };
 
 use mimc7_constants::ROUND_KEYS;
@@ -47,6 +47,11 @@ fn mimc7_circuit<F: PrimeField>(
         let lookup_row: Queriable<F> = ctx.import_halo2_fixed("lookup row", row_value);
         let lookup_c: Queriable<F> = ctx.import_halo2_fixed("lookup row", c_value);
 
+        let round_constant_table = lookup_table(
+            String::from("round constant table"),
+            vec![lookup_row, lookup_c],
+        );
+
         // populate the lookup columns
         ctx.fixed_gen(move |ctx| {
             for (i, round_key) in ROUND_KEYS.iter().enumerate().take(ROUNDS) {
@@ -74,7 +79,7 @@ fn mimc7_circuit<F: PrimeField>(
                 ctx.transition(eq(row, 0));
                 ctx.transition(eq(row + 1, row.next()));
 
-                ctx.add_lookup(lookup().add(row, lookup_row).add(c, lookup_c));
+                ctx.add_lookup(round_constant_table.r#match(vec![row, c]));
             });
 
             ctx.wg(move |ctx, (x_value, k_value, c_value, row_value)| {
@@ -103,7 +108,11 @@ fn mimc7_circuit<F: PrimeField>(
                 ctx.transition(eq(k, k.next()));
                 ctx.transition(eq(row + 1, row.next()));
 
-                ctx.add_lookup(lookup().add(row, lookup_row).add(c, lookup_c));
+                // This results in an error because the StepTypeContext closure takes ownership of
+                // round_constant_table. Using clone() on the table doesn't work
+                // either. Is there a way to prevent the closure from taking
+                // ownership of the table?
+                ctx.add_lookup(round_constant_table.r#match(vec![row, c]));
             });
 
             ctx.wg(move |ctx, (x_value, k_value, c_value, row_value)| {

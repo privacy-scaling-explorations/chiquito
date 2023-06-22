@@ -8,7 +8,10 @@ use halo2_proofs::plonk::{Advice, Column as Halo2Column, Fixed};
 
 use core::fmt::Debug;
 
-use self::cb::{Constraint, LookupBuilder, Typing};
+use self::{
+    cb::{Constraint, Typing},
+    lb::Lookup,
+};
 
 /// A generic structure designed to handle the context of a circuit for generic types `F`,
 /// `TraceArgs` and `StepArgs`. The struct contains a `Circuit` instance and implements
@@ -172,15 +175,6 @@ impl<F, Args> StepTypeContext<F, Args> {
     }
 }
 
-impl<F: Debug + Clone, Args> StepTypeContext<F, Args> {
-    /// DEPRECATED
-    pub fn add_lookup(&mut self, lookup_builder: &mut LookupBuilder<F>) {
-        println!("DEPRECATED add_lookup: use setup for constraints in step types");
-
-        self.step_type.lookups.push(lookup_builder.lookup.clone());
-    }
-}
-
 pub struct StepTypeSetupContext<'a, F, Args> {
     step_type: &'a mut StepType<F, Args>,
 }
@@ -221,8 +215,10 @@ impl<'a, F, Args> StepTypeSetupContext<'a, F, Args> {
 
 impl<'a, F: Debug + Clone, Args> StepTypeSetupContext<'a, F, Args> {
     /// Adds a lookup to the step type.
-    pub fn add_lookup(&mut self, lookup_builder: &mut LookupBuilder<F>) {
-        self.step_type.lookups.push(lookup_builder.lookup.clone());
+    pub fn add_lookup(&mut self, lookup: Lookup<F>) {
+        self.step_type
+            .lookups
+            .push(Lookup::convert_to_ast_lookup(lookup));
     }
 }
 
@@ -273,3 +269,4 @@ where
 }
 
 pub mod cb;
+pub mod lb;

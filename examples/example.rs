@@ -3,7 +3,7 @@ use chiquito::{
     compiler::{
         cell_manager::SingleRowCellManager, step_selector::SimpleStepSelectorBuilder, Compiler,
     },
-    dsl::{cb::lookup, circuit},
+    dsl::{circuit, lb::lookup_table},
 };
 use halo2_proofs::halo2curves::bn256::Fr;
 
@@ -12,6 +12,9 @@ fn main() {
         let a = ctx.forward("a");
         let b = ctx.forward("b");
         let c = ctx.forward("c");
+
+        let lookup_table_example =
+            lookup_table(String::from("lookup table example"), vec![a, b, c]);
 
         let s1 = ctx.step_type("s1");
         ctx.step_type_def(s1, |ctx| {
@@ -23,7 +26,7 @@ fn main() {
                 ctx.constr(1.expr() + (a + b) * (c - 1));
                 ctx.transition(a + 1);
 
-                ctx.add_lookup(lookup().add(a, b).enable(d).add(d + a, f * c));
+                ctx.add_lookup(lookup_table_example.r#match(vec![a, d, f]).enable(d));
             });
 
             ctx.wg(move |ctx, _| {
