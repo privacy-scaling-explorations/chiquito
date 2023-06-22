@@ -17,7 +17,8 @@ use num_bigint::BigUint;
 use polyexen::{
     expr::{get_field_p, Column as pColumn, ColumnKind, ColumnQuery, Expr as pExpr, PlonkVar},
     plaf::{
-        ColumnFixed, ColumnWitness, Lookup as pLookup, Plaf, Poly as pPoly, Witness as pWitness,
+        ColumnFixed, ColumnPublic, ColumnWitness, CopyC as pCopyC, Lookup as pLookup, Plaf,
+        Poly as pPoly, Witness as pWitness,
     },
 };
 
@@ -119,6 +120,39 @@ impl<F: PrimeField<Repr = [u8; 32]>, TraceArgs, StepArgs: Clone>
             };
 
             plaf.lookups.push(plaf_lookup);
+        }
+
+        if !self.circuit.exposed.is_empty() {
+            // Public column not pulled from Chiquito ir, because it's not stored anywhere.
+            // Therefore, we create a Plaf public column from scratch.
+            let plaf_public = ColumnPublic::new(String::from(
+                "exposed forward signal values in first step instance",
+            ));
+            plaf.columns.public.push(plaf_public);
+        }
+
+        for (index, (c_column, rotation)) in self.circuit.exposed.iter().enumerate() {
+            let public_column = pColumn {
+                kind: ColumnKind::Public,
+                index: 0, // Chiquito only has one public column, so the index is always 0.
+            };
+
+            let witness_index = self
+                .c_column_id_to_p_column_index
+                .get(&c_column.uuid())
+                .unwrap();
+
+            let witness_column = pColumn {
+                kind: ColumnKind::Witness,
+                index: *witness_index,
+            };
+
+            let copy = pCopyC {
+                columns: (public_column, witness_column),
+                offsets: vec![(index, *rotation as usize)],
+            };
+
+            plaf.copys.push(copy);
         }
 
         plaf
