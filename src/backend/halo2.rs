@@ -332,14 +332,14 @@ impl<F: Field + From<u64> + Hash, TraceArgs, StepArgs: Clone>
 }
 
 #[allow(dead_code)]
-/// From Plaf Halo2 backend.
-/// _Cell is a helper struct used for constructing Halo2 Cell.
+// From Plaf Halo2 backend.
+// _Cell is a helper struct used for constructing Halo2 Cell.
 struct _Cell {
     region_index: RegionIndex,
     row_offset: usize,
     column: Column<Any>,
 }
-/// From Plaf Halo2 backend.
+// From Plaf Halo2 backend.
 fn new_cell(column: Column<Any>, offset: usize) -> Cell {
     let cell = _Cell {
         region_index: RegionIndex::from(0),
