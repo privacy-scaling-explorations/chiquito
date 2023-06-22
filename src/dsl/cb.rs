@@ -14,7 +14,7 @@ pub struct Constraint<F> {
     pub typing: Typing,
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Typing {
     Unknown,
     Boolean,

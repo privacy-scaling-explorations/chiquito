@@ -33,6 +33,16 @@ impl<F, TraceArgs, StepArgs> CircuitContext<F, TraceArgs, StepArgs> {
         Queriable::Forward(self.sc.add_forward(name, phase), false)
     }
 
+    /// Exposes the first step instance value of a forward signal as public.
+    pub fn expose(&mut self, forward: Queriable<F>) {
+        match forward {
+            Queriable::Forward(forward_signal, _) => {
+                self.sc.expose(forward_signal);
+            }
+            _ => panic!("Expected forward signal"),
+        }
+    }
+
     /// Imports a halo2 advice column with a name string into the circuit and returns a
     /// `Queriable` instance representing the imported column.
     pub fn import_halo2_advice(&mut self, name: &str, column: Halo2Column<Advice>) -> Queriable<F> {
