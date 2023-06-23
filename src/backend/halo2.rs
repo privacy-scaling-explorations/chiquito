@@ -3,10 +3,7 @@ use std::{collections::HashMap, hash::Hash, rc::Rc};
 use halo2_proofs::{
     arithmetic::Field,
     circuit::{Cell, Layouter, Region, RegionIndex, Value},
-    circuit::{Cell, Layouter, Region, RegionIndex, Value},
     plonk::{
-        Advice, Any, Column, ConstraintSystem, Expression, FirstPhase, Fixed, Instance,
-        SecondPhase, ThirdPhase, VirtualCells,
         Advice, Any, Column, ConstraintSystem, Expression, FirstPhase, Fixed, Instance,
         SecondPhase, ThirdPhase, VirtualCells,
     },
@@ -343,27 +340,6 @@ struct _Cell {
     column: Column<Any>,
 }
 /// From Plaf Halo2 backend.
-fn new_cell(column: Column<Any>, offset: usize) -> Cell {
-    let cell = _Cell {
-        region_index: RegionIndex::from(0),
-        row_offset: offset,
-        column,
-    };
-    // NOTE: We use unsafe here to construct a Cell, which doesn't have a public constructor.  This
-    // helps us set the copy constraints easily (without having to store all assigned cells
-    // previously)
-    unsafe { std::mem::transmute::<_Cell, Cell>(cell) }
-}
-
-#[allow(dead_code)]
-// From Plaf Halo2 backend.
-// _Cell is a helper struct used for constructing Halo2 Cell.
-struct _Cell {
-    region_index: RegionIndex,
-    row_offset: usize,
-    column: Column<Any>,
-}
-// From Plaf Halo2 backend.
 fn new_cell(column: Column<Any>, offset: usize) -> Cell {
     let cell = _Cell {
         region_index: RegionIndex::from(0),
