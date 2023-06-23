@@ -2,9 +2,9 @@ use std::{fmt::Debug, vec};
 
 use halo2_proofs::arithmetic::Field;
 
-use crate::ast::{query::Queriable, Expr, Lookup, ToExpr};
+use crate::ast::{query::Queriable, Expr, Lookup, ToExpr, LookupTable, LookupTableRegistry};
 
-use super::StepTypeHandler;
+use super::{StepTypeHandler, LookupTableHandler};
 
 /// Represents a constraint with an associated annotation and expression.
 #[derive(Clone)]
@@ -377,12 +377,14 @@ pub fn rlc<F: From<u64>, E: Into<Expr<F>> + Clone, R: Into<Expr<F>> + Clone>(
 
 /// A helper struct for building lookup tables.
 pub struct LookupBuilder<F> {
+    pub lookup_table: Option<LookupTable<F>>,
     pub lookup: Lookup<F>,
 }
 
 impl<F> Default for LookupBuilder<F> {
     fn default() -> Self {
         LookupBuilder {
+            lookup_table: None,
             lookup: Lookup::default(),
         }
     }
@@ -412,6 +414,20 @@ impl<F: Debug + Clone> LookupBuilder<F> {
         let enable = enable.into();
         self.lookup.enable(enable.annotation, enable.expr);
         self
+    }
+
+    pub fn table(&mut self, registry: LookupTableRegistry<F>, handler: LookupTableHandler) -> &mut Self {
+        let lookup_table = registry.lookup_tables.get(&handler.uuid()).unwrap().clone();
+        self.lookup_table = Some(lookup_table);
+        self
+    }
+
+    pub fn apply<E: Into<Constraint<F>>>(&mut self, source_columns: Vec<E>) -> &mut Self {
+        if self.lookup_table.is_none() {
+            panic!("Lookup table is not set");
+        }
+        // TODO: create (src, dest) tuples from lookup_table and source_columns
+        // and call self.lookup.add(src, dest).
     }
 }
 

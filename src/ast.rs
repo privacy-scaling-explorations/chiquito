@@ -392,3 +392,44 @@ impl<CT: ColumnType> ImportedHalo2Column<CT> {
 
 pub type ImportedHalo2Advice = ImportedHalo2Column<Advice>;
 pub type ImportedHalo2Fixed = ImportedHalo2Column<Fixed>;
+
+#[derive(Clone)]
+pub struct LookupTableRegistry<F> {
+    pub lookup_tables: HashMap<u32, LookupTable<F>>,
+    pub annotations: HashMap<u32, String>,
+}
+
+impl<F> LookupTableRegistry<F> {
+    pub(crate) fn new() -> Self {
+        Self {
+            lookup_tables: HashMap::new(),
+            annotations: HashMap::new(),
+        }
+    }
+}
+
+impl<F: Clone> LookupTableRegistry<F> {
+    pub(crate) fn add_lookup_table(&mut self, lookup_table: LookupTable<F>) {
+        self.lookup_tables
+            .insert(lookup_table.id, lookup_table.clone());
+        self.annotations
+            .insert(lookup_table.id, lookup_table.annotation);
+    }
+}
+
+#[derive(Clone, Default)]
+pub struct LookupTable<F> {
+    pub id: u32,
+    pub annotation: String,
+    pub destination_columns: Vec<Expr<F>>,
+}
+
+impl<F> LookupTable<F> {
+    pub fn new(id: u32, annotation: String, destination_columns: Vec<Expr<F>>) -> Self {
+        Self {
+            id,
+            annotation,
+            destination_columns,
+        }
+    }
+}
