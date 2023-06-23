@@ -1,5 +1,5 @@
 use crate::{
-    ast::{query::Queriable, Circuit, StepType, StepTypeUUID},
+    ast::{query::Queriable, Circuit, StepType, StepTypeUUID, Expr, LookupTableRegistry, LookupTable},
     compiler::{FixedGenContext, TraceContext, WitnessGenContext},
     util::uuid,
 };
@@ -280,6 +280,43 @@ where
     def(&mut context);
 
     context.sc
+}
+
+#[derive(Clone, Copy)]
+pub struct LookupTableHandler {
+    id: u32,
+    pub annotation: &'static str,
+}
+
+impl LookupTableHandler {
+    fn new(annotation: String) -> Self {
+        Self {
+            id: uuid(),
+            annotation: Box::leak(annotation.into_boxed_str()),
+        }
+    }
+
+    pub fn uuid(&self) -> u32 {
+        self.id
+    }
+}
+
+pub fn lookup_table_registry<F>() -> LookupTableRegistry<F> {
+    LookupTableRegistry::new()
+}
+
+pub fn add_lookup_table<F: Debug + Clone, E: Into<Expr<F>>>(
+    registry: &mut LookupTableRegistry<F>, 
+    name: &str, 
+    destination_columns: Vec<E>
+) -> LookupTableHandler {
+    let handler = LookupTableHandler::new(name.to_string());
+    let destination_columns = destination_columns.into_iter().map(|e| e.into()).collect();
+
+    let lookup_table = LookupTable::new(handler.uuid(), name.to_string(), destination_columns);
+    registry.add_lookup_table(lookup_table);
+
+    handler
 }
 
 pub mod cb;

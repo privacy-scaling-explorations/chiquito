@@ -9,12 +9,12 @@ use halo2_proofs::{
 };
 
 use chiquito::{
-    ast::query::Queriable,
+    ast::{query::Queriable, LookupTableRegistry},
     backend::halo2::{chiquito2Halo2, ChiquitoHalo2},
     compiler::{
         cell_manager::SingleRowCellManager, step_selector::SimpleStepSelectorBuilder, Compiler,
     },
-    dsl::{cb::*, circuit},
+    dsl::{cb::*, circuit, lookup_table_registry, add_lookup_table, LookupTableHandler},
 };
 
 use mimc7_constants::ROUND_KEYS;
@@ -23,6 +23,7 @@ use mimc7_constants::ROUND_KEYS;
 pub const ROUNDS: usize = 91;
 
 fn mimc7_circuit<F: PrimeField>(
+    lookup_table_registry: &mut LookupTableRegistry<F>,
     row_value: Column<Fixed>, /* row index i, a fixed column allocated in circuit config, used
                                * as the first column of lookup table */
     c_value: Column<Fixed>, /* round constant C_i, fixed column allocated in circuit config,
@@ -55,6 +56,8 @@ fn mimc7_circuit<F: PrimeField>(
             }
         });
 
+        let round_constant_table = add_lookup_table(lookup_table_registry, "round constant table", vec![lookup_row, lookup_c]);
+
         // step 0:
         // input message x_in and secret key k
         // calculate the current iteration x_{i+1} = y_i = (x_i+k_i+c_i)^7
@@ -74,7 +77,8 @@ fn mimc7_circuit<F: PrimeField>(
                 ctx.transition(eq(row, 0));
                 ctx.transition(eq(row + 1, row.next()));
 
-                ctx.add_lookup(lookup().add(row, lookup_row).add(c, lookup_c));
+                ctx.add_lookup(lookup().table(&lookup_table_registry, round_constant_table).apply(vec![row, c]));
+                // ctx.add_lookup(lookup().add(row, lookup_row).add(c, lookup_c));
             });
 
             ctx.wg(move |ctx, (x_value, k_value, c_value, row_value)| {
@@ -103,7 +107,8 @@ fn mimc7_circuit<F: PrimeField>(
                 ctx.transition(eq(k, k.next()));
                 ctx.transition(eq(row + 1, row.next()));
 
-                ctx.add_lookup(lookup().add(row, lookup_row).add(c, lookup_c));
+                ctx.add_lookup(lookup().table(&lookup_table_registry, round_constant_table).apply(vec![row, c]));
+                // ctx.add_lookup(lookup().add(row, lookup_row).add(c, lookup_c));
             });
 
             ctx.wg(move |ctx, (x_value, k_value, c_value, row_value)| {
@@ -186,9 +191,10 @@ struct Mimc7Config<F: Field + From<u64>> {
 impl<F: PrimeField + Hash> Mimc7Config<F> {
     fn new(meta: &mut ConstraintSystem<F>) -> Mimc7Config<F> {
         let row_value = meta.fixed_column();
-        let c_value = meta.fixed_column();
+        let c_value: Column<Fixed> = meta.fixed_column();
+        let mut lookup_table_registry = lookup_table_registry::<F>();
 
-        let mut compiled = chiquito2Halo2(mimc7_circuit::<F>(row_value, c_value));
+        let mut compiled = chiquito2Halo2(mimc7_circuit::<F>(&mut lookup_table_registry, row_value, c_value));
         compiled.configure(meta); // allocate columns to halo2 backend object
 
         Mimc7Config { compiled }
@@ -227,7 +233,7 @@ impl<F: PrimeField + Hash> halo2_proofs::plonk::Circuit<F> for Mimc7Circuit<F> {
     }
 }
 
-fn main() {
+fn main() {    
     // halo2 boilerplate
     let circuit = Mimc7Circuit {
         // fill in trace inputs
