@@ -416,6 +416,8 @@ impl<F: Debug + Clone> LookupBuilder<F> {
         self
     }
 
+    // TODO: I want a `table` method where I don't need to pass in lookup_table_registry as a parameter.
+    // Need a way to make lookup_table_registry globally static.
     pub fn table(&mut self, registry: &LookupTableRegistry<F>, handler: LookupTableHandler) -> &mut Self {
         if self.lookup_table.is_some() {
             panic!("Lookup table is already set.");

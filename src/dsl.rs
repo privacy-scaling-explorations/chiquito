@@ -305,6 +305,8 @@ pub fn lookup_table_registry<F>() -> LookupTableRegistry<F> {
     LookupTableRegistry::new()
 }
 
+// TODO: I want a `add_lookup_table` method where I don't need to pass in lookup_table_registry as a parameter.
+// Need a way to make lookup_table_registry globally static.
 pub fn add_lookup_table<F: Debug + Clone, E: Into<Expr<F>>>(
     registry: &mut LookupTableRegistry<F>, 
     name: &str, 
