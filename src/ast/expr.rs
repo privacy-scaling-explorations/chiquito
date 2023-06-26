@@ -209,7 +209,9 @@ pub mod query {
     };
 
     use crate::{
-        ast::{ForwardSignal, ImportedHalo2Advice, ImportedHalo2Fixed, InternalSignal, SharedSignal},
+        ast::{
+            ForwardSignal, ImportedHalo2Advice, ImportedHalo2Fixed, InternalSignal, SharedSignal,
+        },
         dsl::StepTypeHandler,
     };
 
