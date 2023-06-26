@@ -15,6 +15,7 @@ use halo2_proofs::plonk::{Advice, Column as Halo2Column, ColumnType, Fixed};
 /// SuperCircuit
 pub struct Circuit<F, TraceArgs, StepArgs> {
     pub forward_signals: Vec<ForwardSignal>,
+    pub shared_signals: Vec<SharedSignal>,
     pub exposed: Vec<ForwardSignal>,
     pub halo2_advice: Vec<ImportedHalo2Advice>,
     pub halo2_fixed: Vec<ImportedHalo2Fixed>,
@@ -43,6 +44,7 @@ impl<F, TraceArgs, StepArgs> Default for Circuit<F, TraceArgs, StepArgs> {
     fn default() -> Self {
         Self {
             forward_signals: Default::default(),
+            shared_signals: Default::default(),
             exposed: Default::default(),
             halo2_advice: Default::default(),
             halo2_fixed: Default::default(),
@@ -62,6 +64,16 @@ impl<F, TraceArgs, StepArgs> Circuit<F, TraceArgs, StepArgs> {
         let signal = ForwardSignal::new_with_phase(phase, name.clone());
 
         self.forward_signals.push(signal);
+        self.annotations.insert(signal.uuid(), name);
+
+        signal
+    }
+
+    pub fn add_shared<N: Into<String>>(&mut self, name: N, phase: usize) -> SharedSignal {
+        let name = name.into();
+        let signal = SharedSignal::new_with_phase(phase, name.clone());
+
+        self.shared_signals.push(signal);
         self.annotations.insert(signal.uuid(), name);
 
         signal
@@ -335,6 +347,31 @@ pub struct ForwardSignal {
 impl ForwardSignal {
     pub fn new_with_phase(phase: usize, annotation: String) -> ForwardSignal {
         ForwardSignal {
+            id: uuid(),
+            phase,
+            annotation: Box::leak(annotation.into_boxed_str()),
+        }
+    }
+
+    pub fn uuid(&self) -> u32 {
+        self.id
+    }
+
+    pub fn phase(&self) -> usize {
+        self.phase
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct SharedSignal {
+    id: u32,
+    phase: usize,
+    annotation: &'static str,
+}
+
+impl SharedSignal {
+    pub fn new_with_phase(phase: usize, annotation: String) -> SharedSignal {
+        SharedSignal {
             id: uuid(),
             phase,
             annotation: Box::leak(annotation.into_boxed_str()),
