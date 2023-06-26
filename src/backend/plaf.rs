@@ -3,7 +3,7 @@ use std::{collections::HashMap, hash::Hash, rc::Rc};
 use halo2_proofs::halo2curves::ff::PrimeField;
 
 use crate::{
-    ast::{query::Queriable, ForwardSignal, InternalSignal, StepType, Trace, SharedSignal},
+    ast::{query::Queriable, ForwardSignal, InternalSignal, SharedSignal, StepType, Trace},
     compiler::{cell_manager::Placement, step_selector::StepSelector},
     ir::{
         Circuit as cCircuit, Column as cColumn,
@@ -399,9 +399,7 @@ impl<F: PrimeField<Repr = [u8; 32]> + Hash, StepArgs: Clone> WitnessProcessor<F,
                 self.find_plaf_placement_forward(step, forward, next)
             }
 
-            Queriable::Shared(shared, rot) => {
-                self.find_plaf_placement_shared(step, shared, rot)
-            }
+            Queriable::Shared(shared, rot) => self.find_plaf_placement_shared(step, shared, rot),
 
             Queriable::Halo2AdviceQuery(_signal, _rotation) => {
                 panic!("Imported Halo2Advice is not supported")
@@ -457,8 +455,7 @@ impl<F: PrimeField<Repr = [u8; 32]> + Hash, StepArgs: Clone> WitnessProcessor<F,
     ) -> (usize, i32) {
         let placement = self.placement.get_shared_placement(&shared);
 
-        let super_rotation = placement.rotation
-            + rot * (self.placement.step_height(step) as i32);
+        let super_rotation = placement.rotation + rot * (self.placement.step_height(step) as i32);
 
         let p_column_index = self
             .c_column_id_to_p_column_index

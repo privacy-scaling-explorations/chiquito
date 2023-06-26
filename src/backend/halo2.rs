@@ -11,7 +11,7 @@ use halo2_proofs::{
 };
 
 use crate::{
-    ast::{query::Queriable, ForwardSignal, InternalSignal, StepType, ToField, SharedSignal},
+    ast::{query::Queriable, ForwardSignal, InternalSignal, SharedSignal, StepType, ToField},
     compiler::{cell_manager::Placement, step_selector::StepSelector, FixedGenContext},
     ir::{
         Circuit, Column as cColumn,
@@ -423,9 +423,7 @@ impl<F: Field, StepArgs: Clone> WitnessProcessor<F, StepArgs> {
                 self.find_halo2_placement_forward(step, forward, next)
             }
 
-            Queriable::Shared(shared, rot) => {
-                self.find_halo2_placement_shared(step, shared, rot)
-            }
+            Queriable::Shared(shared, rot) => self.find_halo2_placement_shared(step, shared, rot),
 
             Queriable::Halo2AdviceQuery(signal, rotation) => (signal.column, rotation),
 
@@ -479,8 +477,7 @@ impl<F: Field, StepArgs: Clone> WitnessProcessor<F, StepArgs> {
     ) -> (Column<Advice>, i32) {
         let placement = self.placement.get_shared_placement(&shared);
 
-        let super_rotation = placement.rotation
-            + rot * (self.placement.step_height(step) as i32);
+        let super_rotation = placement.rotation + rot * (self.placement.step_height(step) as i32);
 
         let column = self
             .advice_columns
