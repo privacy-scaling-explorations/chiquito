@@ -178,6 +178,10 @@ impl<CM: CellManager, SSB: StepSelectorBuilder> Compiler<CM, SSB> {
 
         self.cell_manager.place(&mut unit);
 
+        if !unit.shared_signals.is_empty() && !unit.placement.same_height() {
+            panic!("Shared signals are not supported for circuits with different step heights. Using a different cell manager might fix this problem.");
+        }
+
         for forward_signal in sc.exposed.clone() {
             let forward_placement = unit.placement.get_forward_placement(&forward_signal);
             let exposed = (forward_placement.column, forward_placement.rotation);
