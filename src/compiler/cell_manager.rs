@@ -1,5 +1,5 @@
 use core::panic;
-use std::{collections::HashMap, fmt::Debug, ops::Div, rc::Rc};
+use std::{collections::HashMap, fmt::Debug, rc::Rc};
 
 use crate::ast::{ForwardSignal, InternalSignal, SharedSignal, StepType};
 
@@ -122,7 +122,6 @@ impl CellManager for SingleRowCellManager {
             forward_signals += 1;
         }
 
-        // SingleRowCellManager has height 1 for all steps and thus works for SharedSignal.
         let mut shared_signals: u32 = 0;
 
         for shared_signal in unit.shared_signals.iter() {
@@ -197,22 +196,8 @@ pub struct MaxWidthCellManager {
 
 impl CellManager for MaxWidthCellManager {
     fn place<F, StepArgs>(&self, unit: &mut CompilationUnit<F, StepArgs>) {
-        // If there exists shared signals, determine whether MaxWidthCellManager will return steps
-        // with different heights. If yes, panic.
-        // Can also use `same_height` method after placing all signals.
-        // However, checking at the front is more efficient by skipping placement if steps don't
-        // have the same height.
         if !unit.shared_signals.is_empty() {
-            let max_width = self.max_width;
-            let mut height_by_step_type = unit.step_types.values().map(|step_type| {
-                (step_type.signals.len() + unit.forward_signals.len() + unit.shared_signals.len())
-                    .div(max_width)
-                    + 1
-            });
-            let first = height_by_step_type.next().unwrap();
-            if !height_by_step_type.all(|len| len == first) {
-                panic!("To use shared signal, all steps placed by MaxWidthCellManager need to have the same height. Please use a different cell manager.");
-            }
+            panic!("Shared signals are not supported for MaxWidthCellManager, which might return steps with variable heights.");
         }
 
         let mut placement = Placement::<F, StepArgs> {
@@ -333,11 +318,6 @@ impl CellManager for MaxWidthCellManager {
 
             placement.steps.insert(Rc::clone(step), step_placement);
         }
-
-        // Redundant if we do the step height check at the front.
-        // if !placement.same_height() {
-        //     panic!("To use shared signal, all steps placed by MaxWidthCellManager need to have
-        // the same height. Please use a different cell manager."); }
 
         unit.columns.extend_from_slice(&placement.columns);
         unit.placement = placement;
