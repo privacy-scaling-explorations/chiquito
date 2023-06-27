@@ -33,8 +33,16 @@ impl<F, TraceArgs, StepArgs> CircuitContext<F, TraceArgs, StepArgs> {
         Queriable::Forward(self.sc.add_forward(name, phase), false)
     }
 
+    /// Adds a shared signal to the circuit with a name string and zero rotation and returns a
+    /// `Queriable` instance representing the added shared signal.
     pub fn shared(&mut self, name: &str) -> Queriable<F> {
         Queriable::Shared(self.sc.add_shared(name, 0), 0)
+    }
+
+    /// Adds a shared signal to the circuit with a name string and a specified phase and returns a
+    /// `Queriable` instance representing the added shared signal.
+    pub fn shared_with_phase(&mut self, name: &str, phase: usize) -> Queriable<F> {
+        Queriable::Shared(self.sc.add_shared(name, phase), 0)
     }
 
     /// Exposes the first step instance value of a forward signal as public.
