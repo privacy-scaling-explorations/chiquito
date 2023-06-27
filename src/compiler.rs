@@ -9,7 +9,7 @@ use halo2_proofs::{
 use crate::{
     ast::{
         query::Queriable, Circuit as astCircuit, Expr, ForwardSignal, ImportedHalo2Advice,
-        ImportedHalo2Fixed, StepType,
+        ImportedHalo2Fixed, SharedSignal, StepType,
     },
     dsl::StepTypeHandler,
     ir::{Circuit, Column, ColumnType, Poly, PolyExpr, PolyLookup},
@@ -51,6 +51,7 @@ pub struct CompilationUnit<F, StepArgs> {
     pub selector: StepSelector<F, StepArgs>,
     pub step_types: HashMap<u32, Rc<StepType<F, StepArgs>>>,
     pub forward_signals: Vec<ForwardSignal>,
+    pub shared_signals: Vec<SharedSignal>,
 
     pub annotations: HashMap<u32, String>,
 
@@ -67,6 +68,7 @@ impl<F, StepArgs> Default for CompilationUnit<F, StepArgs> {
             selector: Default::default(),
             step_types: Default::default(),
             forward_signals: Default::default(),
+            shared_signals: Default::default(),
 
             annotations: Default::default(),
 
@@ -172,8 +174,13 @@ impl<CM: CellManager, SSB: StepSelectorBuilder> Compiler<CM, SSB> {
         unit.columns = vec![halo2_advice_columns, halo2_fixed_columns].concat();
         unit.step_types = sc.step_types.clone();
         unit.forward_signals = sc.forward_signals.clone();
+        unit.shared_signals = sc.shared_signals.clone();
 
         self.cell_manager.place(&mut unit);
+
+        if !unit.shared_signals.is_empty() && !unit.placement.same_height() {
+            panic!("Shared signals are not supported for circuits with different step heights. Using a different cell manager might fix this problem.");
+        }
 
         for forward_signal in sc.exposed.clone() {
             let forward_placement = unit.placement.get_forward_placement(&forward_signal);
@@ -383,6 +390,29 @@ impl<CM: CellManager, SSB: StepSelectorBuilder> Compiler<CM, SSB> {
                         format!(
                             "{}[{}, {}]",
                             annotation, placement.column.annotation, super_rotation
+                        )
+                    }
+                } else {
+                    format!("[{}, {}]", placement.column.annotation, super_rotation)
+                };
+                PolyExpr::Query(placement.column, super_rotation, annotation)
+            }
+            Queriable::Shared(shared, rot) => {
+                let placement = unit.placement.get_shared_placement(&shared);
+
+                let super_rotation =
+                    placement.rotation + rot * (unit.placement.step_height(step) as i32);
+
+                let annotation = if let Some(annotation) = unit.annotations.get(&shared.uuid()) {
+                    if rot == 0 {
+                        format!(
+                            "{}[{}, {}]",
+                            annotation, placement.column.annotation, super_rotation
+                        )
+                    } else {
+                        format!(
+                            "shared_rot_{}({})[{}, {}]",
+                            rot, annotation, placement.column.annotation, super_rotation
                         )
                     }
                 } else {

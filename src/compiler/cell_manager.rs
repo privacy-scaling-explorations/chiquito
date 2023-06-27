@@ -1,6 +1,7 @@
+use core::panic;
 use std::{collections::HashMap, fmt::Debug, rc::Rc};
 
-use crate::ast::{ForwardSignal, InternalSignal, StepType};
+use crate::ast::{ForwardSignal, InternalSignal, SharedSignal, StepType};
 
 use super::{Column, CompilationUnit};
 
@@ -19,6 +20,7 @@ pub struct StepPlacement {
 #[derive(Debug, Clone)]
 pub struct Placement<F, StepArgs> {
     pub forward: HashMap<ForwardSignal, SignalPlacement>,
+    pub shared: HashMap<SharedSignal, SignalPlacement>,
     pub steps: HashMap<Rc<StepType<F, StepArgs>>, StepPlacement>,
     pub columns: Vec<Column>,
 }
@@ -27,6 +29,7 @@ impl<F, StepArgs> Default for Placement<F, StepArgs> {
     fn default() -> Self {
         Self {
             forward: Default::default(),
+            shared: Default::default(),
             steps: Default::default(),
             columns: Default::default(),
         }
@@ -38,6 +41,13 @@ impl<F, StepArgs> Placement<F, StepArgs> {
         self.forward
             .get(forward)
             .expect("forward signal not found")
+            .clone()
+    }
+
+    pub fn get_shared_placement(&self, shared: &SharedSignal) -> SignalPlacement {
+        self.shared
+            .get(shared)
+            .expect("shared signal not found")
             .clone()
     }
 
@@ -82,6 +92,7 @@ impl CellManager for SingleRowCellManager {
     fn place<F, StepArgs>(&self, unit: &mut CompilationUnit<F, StepArgs>) {
         let mut placement = Placement::<F, StepArgs> {
             forward: HashMap::new(),
+            shared: HashMap::new(),
             steps: HashMap::new(),
             columns: Vec::new(),
         };
@@ -111,6 +122,28 @@ impl CellManager for SingleRowCellManager {
             forward_signals += 1;
         }
 
+        let mut shared_signals: u32 = 0;
+
+        for shared_signal in unit.shared_signals.iter() {
+            let column = if let Some(annotation) = unit.annotations.get(&shared_signal.uuid()) {
+                Column::advice(format!("srcm shared {}", annotation), shared_signal.phase())
+            } else {
+                Column::advice("srcm shared", shared_signal.phase())
+            };
+
+            placement.columns.push(column.clone());
+
+            placement.shared.insert(
+                *shared_signal,
+                SignalPlacement {
+                    column,
+                    rotation: 0,
+                },
+            );
+
+            shared_signals += 1;
+        }
+
         let mut max_internal_width: u32 = 0;
 
         for step in unit.step_types.values() {
@@ -122,7 +155,7 @@ impl CellManager for SingleRowCellManager {
             };
 
             for signal in step.signals.iter() {
-                let column_pos = forward_signals + internal_signals;
+                let column_pos = forward_signals + shared_signals + internal_signals;
                 let column = if placement.columns.len() <= column_pos as usize {
                     let column = if let Some(annotation) = unit.annotations.get(&signal.uuid()) {
                         Column::advice(format!("srcm internal signal {}", annotation), 0)
@@ -163,8 +196,13 @@ pub struct MaxWidthCellManager {
 
 impl CellManager for MaxWidthCellManager {
     fn place<F, StepArgs>(&self, unit: &mut CompilationUnit<F, StepArgs>) {
+        if !unit.shared_signals.is_empty() {
+            panic!("Shared signals are not supported for MaxWidthCellManager, which might return steps with variable heights.");
+        }
+
         let mut placement = Placement::<F, StepArgs> {
             forward: HashMap::new(),
+            shared: HashMap::new(),
             steps: HashMap::new(),
             columns: Vec::new(),
         };
@@ -202,25 +240,57 @@ impl CellManager for MaxWidthCellManager {
             }
         }
 
+        let mut shared_signal_column = forward_signal_column;
+        let mut shared_signal_row = forward_signal_row;
+
+        for shared_signal in unit.shared_signals.iter() {
+            let column = if placement.columns.len() <= shared_signal_column {
+                let column = if let Some(annotation) = unit.annotations.get(&shared_signal.uuid()) {
+                    Column::advice(format!("mwcm shared signal {}", annotation), 0)
+                } else {
+                    Column::advice("mwcm shared signal", 0)
+                };
+
+                placement.columns.push(column.clone());
+                column
+            } else {
+                placement.columns[shared_signal_column].clone()
+            };
+
+            placement.shared.insert(
+                *shared_signal,
+                SignalPlacement {
+                    column,
+                    rotation: shared_signal_row as i32,
+                },
+            );
+
+            shared_signal_column += 1;
+            if shared_signal_column >= self.max_width {
+                shared_signal_column = 0;
+                shared_signal_row += 1;
+            }
+        }
+
         for step in unit.step_types.values() {
             let mut step_placement = StepPlacement {
-                height: if forward_signal_column > 0 {
-                    (forward_signal_row + 1) as u32
+                height: if shared_signal_column > 0 {
+                    (shared_signal_row + 1) as u32
                 } else {
-                    forward_signal_row as u32
+                    shared_signal_row as u32
                 },
                 signals: HashMap::new(),
             };
 
-            let mut internal_signal_column = forward_signal_column;
-            let mut internal_signal_row = forward_signal_row;
+            let mut internal_signal_column = shared_signal_column;
+            let mut internal_signal_row = shared_signal_row;
 
             for signal in step.signals.iter() {
                 let column = if placement.columns.len() <= internal_signal_column {
                     let column = if let Some(annotation) = unit.annotations.get(&signal.uuid()) {
-                        Column::advice(format!("mwcm forward signal {}", annotation), 0)
+                        Column::advice(format!("mwcm internal signal {}", annotation), 0)
                     } else {
-                        Column::advice("mwcm forward signal", 0)
+                        Column::advice("mwcm internal signal", 0)
                     };
 
                     placement.columns.push(column.clone());

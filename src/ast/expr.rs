@@ -209,7 +209,9 @@ pub mod query {
     };
 
     use crate::{
-        ast::{ForwardSignal, ImportedHalo2Advice, ImportedHalo2Fixed, InternalSignal, SharedSignal},
+        ast::{
+            ForwardSignal, ImportedHalo2Advice, ImportedHalo2Fixed, InternalSignal, SharedSignal,
+        },
         dsl::StepTypeHandler,
     };
 
@@ -255,6 +257,10 @@ pub mod query {
             }
         }
 
+        /// Call `prev` function on a `Querible` shared signal to build constraints for shared
+        /// signal that decreases rotation by 1. Must be called on a shared signal and used within a
+        /// `transition` constraint. Returns a new `Queriable` shared signal with positive or
+        /// negative rotation.
         pub fn prev(&self) -> Queriable<F> {
             use Queriable::*;
             match self {
@@ -263,6 +269,10 @@ pub mod query {
             }
         }
 
+        /// Call `rot` function on a `Querible` shared signal to build constraints for shared signal
+        /// with arbitrary rotation. Must be called on a shared signal and used within a
+        /// `transition` constraint. Returns a new `Queriable` shared signal with positive or
+        /// negative rotation.
         pub fn rot(&self, rotation: i32) -> Queriable<F> {
             use Queriable::*;
             match self {
