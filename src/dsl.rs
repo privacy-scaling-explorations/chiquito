@@ -45,6 +45,10 @@ impl<F, TraceArgs, StepArgs> CircuitContext<F, TraceArgs, StepArgs> {
         Queriable::Shared(self.sc.add_shared(name, phase), 0)
     }
 
+    pub fn fixed(&mut self, name: &str) -> Queriable<F> {
+        Queriable::Fixed(self.sc.add_fixed(name), 0)
+    }
+
     /// Exposes the first step instance value of a forward signal as public.
     pub fn expose(&mut self, forward: Queriable<F>) {
         match forward {

@@ -210,7 +210,7 @@ pub mod query {
 
     use crate::{
         ast::{
-            ForwardSignal, ImportedHalo2Advice, ImportedHalo2Fixed, InternalSignal, SharedSignal,
+            ForwardSignal, ImportedHalo2Advice, ImportedHalo2Fixed, InternalSignal, SharedSignal, FixedSignal,
         },
         dsl::StepTypeHandler,
     };
@@ -223,6 +223,7 @@ pub mod query {
         Internal(InternalSignal),
         Forward(ForwardSignal, bool),
         Shared(SharedSignal, i32),
+        Fixed(FixedSignal, i32),
         StepTypeNext(StepTypeHandler),
         Halo2AdviceQuery(ImportedHalo2Advice, i32),
         Halo2FixedQuery(ImportedHalo2Fixed, i32),
@@ -251,9 +252,10 @@ pub mod query {
                     }
                 }
                 Shared(s, rot) => Shared(*s, rot + 1),
+                Fixed(s, rot) => Fixed(*s, rot + 1),
                 Halo2AdviceQuery(s, rot) => Halo2AdviceQuery(*s, rot + 1),
                 Halo2FixedQuery(s, r) => Halo2FixedQuery(*s, r + 1),
-                _ => panic!("can only next a forward, shared, or halo2 column"),
+                _ => panic!("can only next a forward, shared, fixed, or halo2 column"),
             }
         }
 
@@ -265,7 +267,8 @@ pub mod query {
             use Queriable::*;
             match self {
                 Shared(s, rot) => Shared(*s, rot - 1),
-                _ => panic!("can only prev a shared column"),
+                Fixed(s, rot) => Fixed(*s, rot - 1),
+                _ => panic!("can only prev a shared or fixed column"),
             }
         }
 
@@ -277,7 +280,8 @@ pub mod query {
             use Queriable::*;
             match self {
                 Shared(s, rot) => Shared(*s, rot + rotation),
-                _ => panic!("can only rot a shared column"),
+                Fixed(s, rot) => Fixed(*s, rot + rotation),
+                _ => panic!("can only rot a shared or fixed column"),
             }
         }
 
@@ -286,6 +290,7 @@ pub mod query {
                 Queriable::Internal(s) => s.uuid(),
                 Queriable::Forward(s, _) => s.uuid(),
                 Queriable::Shared(s, _) => s.uuid(),
+                Queriable::Fixed(s, _) => s.uuid(),
                 Queriable::StepTypeNext(s) => s.uuid(),
                 Queriable::Halo2AdviceQuery(s, _) => s.uuid(),
                 Queriable::Halo2FixedQuery(s, _) => s.uuid(),
@@ -304,6 +309,13 @@ pub mod query {
                     }
                 }
                 Queriable::Shared(s, rot) => {
+                    if *rot != 0 {
+                        format!("{}(rot {})", s.annotation, rot)
+                    } else {
+                        s.annotation.to_string()
+                    }
+                }
+                Queriable::Fixed(s, rot) => {
                     if *rot != 0 {
                         format!("{}(rot {})", s.annotation, rot)
                     } else {
