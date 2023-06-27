@@ -332,9 +332,80 @@
 <span id="332">332</span>
 <span id="333">333</span>
 <span id="334">334</span>
-</pre><pre class="rust"><code><span class="kw">use </span>std::{collections::HashMap, fmt::Debug, rc::Rc};
+<span id="335">335</span>
+<span id="336">336</span>
+<span id="337">337</span>
+<span id="338">338</span>
+<span id="339">339</span>
+<span id="340">340</span>
+<span id="341">341</span>
+<span id="342">342</span>
+<span id="343">343</span>
+<span id="344">344</span>
+<span id="345">345</span>
+<span id="346">346</span>
+<span id="347">347</span>
+<span id="348">348</span>
+<span id="349">349</span>
+<span id="350">350</span>
+<span id="351">351</span>
+<span id="352">352</span>
+<span id="353">353</span>
+<span id="354">354</span>
+<span id="355">355</span>
+<span id="356">356</span>
+<span id="357">357</span>
+<span id="358">358</span>
+<span id="359">359</span>
+<span id="360">360</span>
+<span id="361">361</span>
+<span id="362">362</span>
+<span id="363">363</span>
+<span id="364">364</span>
+<span id="365">365</span>
+<span id="366">366</span>
+<span id="367">367</span>
+<span id="368">368</span>
+<span id="369">369</span>
+<span id="370">370</span>
+<span id="371">371</span>
+<span id="372">372</span>
+<span id="373">373</span>
+<span id="374">374</span>
+<span id="375">375</span>
+<span id="376">376</span>
+<span id="377">377</span>
+<span id="378">378</span>
+<span id="379">379</span>
+<span id="380">380</span>
+<span id="381">381</span>
+<span id="382">382</span>
+<span id="383">383</span>
+<span id="384">384</span>
+<span id="385">385</span>
+<span id="386">386</span>
+<span id="387">387</span>
+<span id="388">388</span>
+<span id="389">389</span>
+<span id="390">390</span>
+<span id="391">391</span>
+<span id="392">392</span>
+<span id="393">393</span>
+<span id="394">394</span>
+<span id="395">395</span>
+<span id="396">396</span>
+<span id="397">397</span>
+<span id="398">398</span>
+<span id="399">399</span>
+<span id="400">400</span>
+<span id="401">401</span>
+<span id="402">402</span>
+<span id="403">403</span>
+<span id="404">404</span>
+</pre><pre class="rust"><code><span class="kw">use </span>core::panic;
+<span class="kw">use </span>std::{collections::HashMap, fmt::Debug, rc::Rc};
 
-<span class="kw">use </span><span class="kw">crate</span>::ast::{ForwardSignal, InternalSignal, StepType};
+<span class="kw">use </span><span class="kw">crate</span>::ast::{ForwardSignal, InternalSignal, SharedSignal, StepType};
 
 <span class="kw">use super</span>::{Column, CompilationUnit};
 
@@ -353,6 +424,7 @@
 <span class="attribute">#[derive(Debug, Clone)]
 </span><span class="kw">pub struct </span>Placement&lt;F, StepArgs&gt; {
     <span class="kw">pub </span>forward: HashMap&lt;ForwardSignal, SignalPlacement&gt;,
+    <span class="kw">pub </span>shared: HashMap&lt;SharedSignal, SignalPlacement&gt;,
     <span class="kw">pub </span>steps: HashMap&lt;Rc&lt;StepType&lt;F, StepArgs&gt;&gt;, StepPlacement&gt;,
     <span class="kw">pub </span>columns: Vec&lt;Column&gt;,
 }
@@ -361,6 +433,7 @@
     <span class="kw">fn </span>default() -&gt; <span class="self">Self </span>{
         <span class="self">Self </span>{
             forward: Default::default(),
+            shared: Default::default(),
             steps: Default::default(),
             columns: Default::default(),
         }
@@ -372,6 +445,13 @@
         <span class="self">self</span>.forward
             .get(forward)
             .expect(<span class="string">&quot;forward signal not found&quot;</span>)
+            .clone()
+    }
+
+    <span class="kw">pub fn </span>get_shared_placement(<span class="kw-2">&amp;</span><span class="self">self</span>, shared: <span class="kw-2">&amp;</span>SharedSignal) -&gt; SignalPlacement {
+        <span class="self">self</span>.shared
+            .get(shared)
+            .expect(<span class="string">&quot;shared signal not found&quot;</span>)
             .clone()
     }
 
@@ -416,6 +496,7 @@
     <span class="kw">fn </span>place&lt;F, StepArgs&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>, unit: <span class="kw-2">&amp;mut </span>CompilationUnit&lt;F, StepArgs&gt;) {
         <span class="kw">let </span><span class="kw-2">mut </span>placement = Placement::&lt;F, StepArgs&gt; {
             forward: HashMap::new(),
+            shared: HashMap::new(),
             steps: HashMap::new(),
             columns: Vec::new(),
         };
@@ -445,6 +526,28 @@
             forward_signals += <span class="number">1</span>;
         }
 
+        <span class="kw">let </span><span class="kw-2">mut </span>shared_signals: u32 = <span class="number">0</span>;
+
+        <span class="kw">for </span>shared_signal <span class="kw">in </span>unit.shared_signals.iter() {
+            <span class="kw">let </span>column = <span class="kw">if let </span><span class="prelude-val">Some</span>(annotation) = unit.annotations.get(<span class="kw-2">&amp;</span>shared_signal.uuid()) {
+                Column::advice(<span class="macro">format!</span>(<span class="string">&quot;srcm shared {}&quot;</span>, annotation), shared_signal.phase())
+            } <span class="kw">else </span>{
+                Column::advice(<span class="string">&quot;srcm shared&quot;</span>, shared_signal.phase())
+            };
+
+            placement.columns.push(column.clone());
+
+            placement.shared.insert(
+                <span class="kw-2">*</span>shared_signal,
+                SignalPlacement {
+                    column,
+                    rotation: <span class="number">0</span>,
+                },
+            );
+
+            shared_signals += <span class="number">1</span>;
+        }
+
         <span class="kw">let </span><span class="kw-2">mut </span>max_internal_width: u32 = <span class="number">0</span>;
 
         <span class="kw">for </span>step <span class="kw">in </span>unit.step_types.values() {
@@ -456,7 +559,7 @@
             };
 
             <span class="kw">for </span>signal <span class="kw">in </span>step.signals.iter() {
-                <span class="kw">let </span>column_pos = forward_signals + internal_signals;
+                <span class="kw">let </span>column_pos = forward_signals + shared_signals + internal_signals;
                 <span class="kw">let </span>column = <span class="kw">if </span>placement.columns.len() &lt;= column_pos <span class="kw">as </span>usize {
                     <span class="kw">let </span>column = <span class="kw">if let </span><span class="prelude-val">Some</span>(annotation) = unit.annotations.get(<span class="kw-2">&amp;</span>signal.uuid()) {
                         Column::advice(<span class="macro">format!</span>(<span class="string">&quot;srcm internal signal {}&quot;</span>, annotation), <span class="number">0</span>)
@@ -497,8 +600,13 @@
 
 <span class="kw">impl </span>CellManager <span class="kw">for </span>MaxWidthCellManager {
     <span class="kw">fn </span>place&lt;F, StepArgs&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>, unit: <span class="kw-2">&amp;mut </span>CompilationUnit&lt;F, StepArgs&gt;) {
+        <span class="kw">if </span>!unit.shared_signals.is_empty() {
+            <span class="macro">panic!</span>(<span class="string">&quot;Shared signals are not supported for MaxWidthCellManager, which might return steps with variable heights.&quot;</span>);
+        }
+
         <span class="kw">let </span><span class="kw-2">mut </span>placement = Placement::&lt;F, StepArgs&gt; {
             forward: HashMap::new(),
+            shared: HashMap::new(),
             steps: HashMap::new(),
             columns: Vec::new(),
         };
@@ -536,25 +644,57 @@
             }
         }
 
+        <span class="kw">let </span><span class="kw-2">mut </span>shared_signal_column = forward_signal_column;
+        <span class="kw">let </span><span class="kw-2">mut </span>shared_signal_row = forward_signal_row;
+
+        <span class="kw">for </span>shared_signal <span class="kw">in </span>unit.shared_signals.iter() {
+            <span class="kw">let </span>column = <span class="kw">if </span>placement.columns.len() &lt;= shared_signal_column {
+                <span class="kw">let </span>column = <span class="kw">if let </span><span class="prelude-val">Some</span>(annotation) = unit.annotations.get(<span class="kw-2">&amp;</span>shared_signal.uuid()) {
+                    Column::advice(<span class="macro">format!</span>(<span class="string">&quot;mwcm shared signal {}&quot;</span>, annotation), <span class="number">0</span>)
+                } <span class="kw">else </span>{
+                    Column::advice(<span class="string">&quot;mwcm shared signal&quot;</span>, <span class="number">0</span>)
+                };
+
+                placement.columns.push(column.clone());
+                column
+            } <span class="kw">else </span>{
+                placement.columns[shared_signal_column].clone()
+            };
+
+            placement.shared.insert(
+                <span class="kw-2">*</span>shared_signal,
+                SignalPlacement {
+                    column,
+                    rotation: shared_signal_row <span class="kw">as </span>i32,
+                },
+            );
+
+            shared_signal_column += <span class="number">1</span>;
+            <span class="kw">if </span>shared_signal_column &gt;= <span class="self">self</span>.max_width {
+                shared_signal_column = <span class="number">0</span>;
+                shared_signal_row += <span class="number">1</span>;
+            }
+        }
+
         <span class="kw">for </span>step <span class="kw">in </span>unit.step_types.values() {
             <span class="kw">let </span><span class="kw-2">mut </span>step_placement = StepPlacement {
-                height: <span class="kw">if </span>forward_signal_column &gt; <span class="number">0 </span>{
-                    (forward_signal_row + <span class="number">1</span>) <span class="kw">as </span>u32
+                height: <span class="kw">if </span>shared_signal_column &gt; <span class="number">0 </span>{
+                    (shared_signal_row + <span class="number">1</span>) <span class="kw">as </span>u32
                 } <span class="kw">else </span>{
-                    forward_signal_row <span class="kw">as </span>u32
+                    shared_signal_row <span class="kw">as </span>u32
                 },
                 signals: HashMap::new(),
             };
 
-            <span class="kw">let </span><span class="kw-2">mut </span>internal_signal_column = forward_signal_column;
-            <span class="kw">let </span><span class="kw-2">mut </span>internal_signal_row = forward_signal_row;
+            <span class="kw">let </span><span class="kw-2">mut </span>internal_signal_column = shared_signal_column;
+            <span class="kw">let </span><span class="kw-2">mut </span>internal_signal_row = shared_signal_row;
 
             <span class="kw">for </span>signal <span class="kw">in </span>step.signals.iter() {
                 <span class="kw">let </span>column = <span class="kw">if </span>placement.columns.len() &lt;= internal_signal_column {
                     <span class="kw">let </span>column = <span class="kw">if let </span><span class="prelude-val">Some</span>(annotation) = unit.annotations.get(<span class="kw-2">&amp;</span>signal.uuid()) {
-                        Column::advice(<span class="macro">format!</span>(<span class="string">&quot;mwcm forward signal {}&quot;</span>, annotation), <span class="number">0</span>)
+                        Column::advice(<span class="macro">format!</span>(<span class="string">&quot;mwcm internal signal {}&quot;</span>, annotation), <span class="number">0</span>)
                     } <span class="kw">else </span>{
-                        Column::advice(<span class="string">&quot;mwcm forward signal&quot;</span>, <span class="number">0</span>)
+                        Column::advice(<span class="string">&quot;mwcm internal signal&quot;</span>, <span class="number">0</span>)
                     };
 
                     placement.columns.push(column.clone());

@@ -493,6 +493,36 @@
 <span id="493">493</span>
 <span id="494">494</span>
 <span id="495">495</span>
+<span id="496">496</span>
+<span id="497">497</span>
+<span id="498">498</span>
+<span id="499">499</span>
+<span id="500">500</span>
+<span id="501">501</span>
+<span id="502">502</span>
+<span id="503">503</span>
+<span id="504">504</span>
+<span id="505">505</span>
+<span id="506">506</span>
+<span id="507">507</span>
+<span id="508">508</span>
+<span id="509">509</span>
+<span id="510">510</span>
+<span id="511">511</span>
+<span id="512">512</span>
+<span id="513">513</span>
+<span id="514">514</span>
+<span id="515">515</span>
+<span id="516">516</span>
+<span id="517">517</span>
+<span id="518">518</span>
+<span id="519">519</span>
+<span id="520">520</span>
+<span id="521">521</span>
+<span id="522">522</span>
+<span id="523">523</span>
+<span id="524">524</span>
+<span id="525">525</span>
 </pre><pre class="rust"><code><span class="kw">use </span>core::fmt::Debug;
 <span class="kw">use </span>std::{collections::HashMap, rc::Rc};
 
@@ -504,7 +534,7 @@
 <span class="kw">use crate</span>::{
     ast::{
         query::Queriable, Circuit <span class="kw">as </span>astCircuit, Expr, ForwardSignal, ImportedHalo2Advice,
-        ImportedHalo2Fixed, StepType,
+        ImportedHalo2Fixed, SharedSignal, StepType,
     },
     dsl::StepTypeHandler,
     ir::{Circuit, Column, ColumnType, Poly, PolyExpr, PolyLookup},
@@ -546,6 +576,7 @@
     <span class="kw">pub </span>selector: StepSelector&lt;F, StepArgs&gt;,
     <span class="kw">pub </span>step_types: HashMap&lt;u32, Rc&lt;StepType&lt;F, StepArgs&gt;&gt;&gt;,
     <span class="kw">pub </span>forward_signals: Vec&lt;ForwardSignal&gt;,
+    <span class="kw">pub </span>shared_signals: Vec&lt;SharedSignal&gt;,
 
     <span class="kw">pub </span>annotations: HashMap&lt;u32, String&gt;,
 
@@ -562,6 +593,7 @@
             selector: Default::default(),
             step_types: Default::default(),
             forward_signals: Default::default(),
+            shared_signals: Default::default(),
 
             annotations: Default::default(),
 
@@ -667,8 +699,13 @@
         unit.columns = <span class="macro">vec!</span>[halo2_advice_columns, halo2_fixed_columns].concat();
         unit.step_types = sc.step_types.clone();
         unit.forward_signals = sc.forward_signals.clone();
+        unit.shared_signals = sc.shared_signals.clone();
 
         <span class="self">self</span>.cell_manager.place(<span class="kw-2">&amp;mut </span>unit);
+
+        <span class="kw">if </span>!unit.shared_signals.is_empty() &amp;&amp; !unit.placement.same_height() {
+            <span class="macro">panic!</span>(<span class="string">&quot;Shared signals are not supported for circuits with different step heights. Using a different cell manager might fix this problem.&quot;</span>);
+        }
 
         <span class="kw">for </span>forward_signal <span class="kw">in </span>sc.exposed.clone() {
             <span class="kw">let </span>forward_placement = unit.placement.get_forward_placement(<span class="kw-2">&amp;</span>forward_signal);
@@ -878,6 +915,29 @@
                         <span class="macro">format!</span>(
                             <span class="string">&quot;{}[{}, {}]&quot;</span>,
                             annotation, placement.column.annotation, super_rotation
+                        )
+                    }
+                } <span class="kw">else </span>{
+                    <span class="macro">format!</span>(<span class="string">&quot;[{}, {}]&quot;</span>, placement.column.annotation, super_rotation)
+                };
+                PolyExpr::Query(placement.column, super_rotation, annotation)
+            }
+            Queriable::Shared(shared, rot) =&gt; {
+                <span class="kw">let </span>placement = unit.placement.get_shared_placement(<span class="kw-2">&amp;</span>shared);
+
+                <span class="kw">let </span>super_rotation =
+                    placement.rotation + rot * (unit.placement.step_height(step) <span class="kw">as </span>i32);
+
+                <span class="kw">let </span>annotation = <span class="kw">if let </span><span class="prelude-val">Some</span>(annotation) = unit.annotations.get(<span class="kw-2">&amp;</span>shared.uuid()) {
+                    <span class="kw">if </span>rot == <span class="number">0 </span>{
+                        <span class="macro">format!</span>(
+                            <span class="string">&quot;{}[{}, {}]&quot;</span>,
+                            annotation, placement.column.annotation, super_rotation
+                        )
+                    } <span class="kw">else </span>{
+                        <span class="macro">format!</span>(
+                            <span class="string">&quot;shared_rot_{}({})[{}, {}]&quot;</span>,
+                            rot, annotation, placement.column.annotation, super_rotation
                         )
                     }
                 } <span class="kw">else </span>{

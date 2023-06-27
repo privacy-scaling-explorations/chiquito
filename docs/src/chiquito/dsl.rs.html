@@ -287,6 +287,14 @@
 <span id="287">287</span>
 <span id="288">288</span>
 <span id="289">289</span>
+<span id="290">290</span>
+<span id="291">291</span>
+<span id="292">292</span>
+<span id="293">293</span>
+<span id="294">294</span>
+<span id="295">295</span>
+<span id="296">296</span>
+<span id="297">297</span>
 </pre><pre class="rust"><code><span class="kw">use crate</span>::{
     ast::{query::Queriable, Circuit, StepType, StepTypeUUID},
     compiler::{FixedGenContext, TraceContext, WitnessGenContext},
@@ -322,8 +330,16 @@
         Queriable::Forward(<span class="self">self</span>.sc.add_forward(name, phase), <span class="bool-val">false</span>)
     }
 
-    <span class="kw">pub fn </span>shared(<span class="kw-2">&amp;mut </span><span class="self">self</span>, name: <span class="kw-2">&amp;</span>str) -&gt; Queriable&lt;F&gt; {
+    <span class="doccomment">/// Adds a shared signal to the circuit with a name string and zero rotation and returns a
+    /// `Queriable` instance representing the added shared signal.
+    </span><span class="kw">pub fn </span>shared(<span class="kw-2">&amp;mut </span><span class="self">self</span>, name: <span class="kw-2">&amp;</span>str) -&gt; Queriable&lt;F&gt; {
         Queriable::Shared(<span class="self">self</span>.sc.add_shared(name, <span class="number">0</span>), <span class="number">0</span>)
+    }
+
+    <span class="doccomment">/// Adds a shared signal to the circuit with a name string and a specified phase and returns a
+    /// `Queriable` instance representing the added shared signal.
+    </span><span class="kw">pub fn </span>shared_with_phase(<span class="kw-2">&amp;mut </span><span class="self">self</span>, name: <span class="kw-2">&amp;</span>str, phase: usize) -&gt; Queriable&lt;F&gt; {
+        Queriable::Shared(<span class="self">self</span>.sc.add_shared(name, phase), <span class="number">0</span>)
     }
 
     <span class="doccomment">/// Exposes the first step instance value of a forward signal as public.
