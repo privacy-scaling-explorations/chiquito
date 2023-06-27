@@ -445,12 +445,32 @@
 <span id="445">445</span>
 <span id="446">446</span>
 <span id="447">447</span>
+<span id="448">448</span>
+<span id="449">449</span>
+<span id="450">450</span>
+<span id="451">451</span>
+<span id="452">452</span>
+<span id="453">453</span>
+<span id="454">454</span>
+<span id="455">455</span>
+<span id="456">456</span>
+<span id="457">457</span>
+<span id="458">458</span>
+<span id="459">459</span>
+<span id="460">460</span>
+<span id="461">461</span>
+<span id="462">462</span>
+<span id="463">463</span>
+<span id="464">464</span>
+<span id="465">465</span>
+<span id="466">466</span>
+<span id="467">467</span>
 </pre><pre class="rust"><code><span class="kw">use </span>std::{collections::HashMap, hash::Hash, rc::Rc};
 
 <span class="kw">use </span>halo2_proofs::halo2curves::ff::PrimeField;
 
 <span class="kw">use crate</span>::{
-    ast::{query::Queriable, ForwardSignal, InternalSignal, StepType, Trace},
+    ast::{query::Queriable, ForwardSignal, InternalSignal, SharedSignal, StepType, Trace},
     compiler::{cell_manager::Placement, step_selector::StepSelector},
     ir::{
         Circuit <span class="kw">as </span>cCircuit, Column <span class="kw">as </span>cColumn,
@@ -846,6 +866,8 @@
                 <span class="self">self</span>.find_plaf_placement_forward(step, forward, next)
             }
 
+            Queriable::Shared(shared, rot) =&gt; <span class="self">self</span>.find_plaf_placement_shared(step, shared, rot),
+
             Queriable::Halo2AdviceQuery(_signal, _rotation) =&gt; {
                 <span class="macro">panic!</span>(<span class="string">&quot;Imported Halo2Advice is not supported&quot;</span>)
             }
@@ -888,6 +910,24 @@
             </span>.c_column_id_to_p_column_index
             .get(<span class="kw-2">&amp;</span>placement.column.uuid())
             .unwrap_or_else(|| <span class="macro">panic!</span>(<span class="string">&quot;plaf column not found for forward signal {:?}&quot;</span>, forward));
+
+        (<span class="kw-2">*</span>p_column_index, super_rotation)
+    }
+
+    <span class="kw">fn </span>find_plaf_placement_shared(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
+        step: <span class="kw-2">&amp;</span>StepType&lt;F, StepArgs&gt;,
+        shared: SharedSignal,
+        rot: i32,
+    ) -&gt; (usize, i32) {
+        <span class="kw">let </span>placement = <span class="self">self</span>.placement.get_shared_placement(<span class="kw-2">&amp;</span>shared);
+
+        <span class="kw">let </span>super_rotation = placement.rotation + rot * (<span class="self">self</span>.placement.step_height(step) <span class="kw">as </span>i32);
+
+        <span class="kw">let </span>p_column_index = <span class="self">self
+            </span>.c_column_id_to_p_column_index
+            .get(<span class="kw-2">&amp;</span>placement.column.uuid())
+            .unwrap_or_else(|| <span class="macro">panic!</span>(<span class="string">&quot;plaf column not found for shared signal {:?}&quot;</span>, shared));
 
         (<span class="kw-2">*</span>p_column_index, super_rotation)
     }
