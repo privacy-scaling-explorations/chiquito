@@ -204,13 +204,13 @@ impl CellManager for MaxWidthCellManager {
         // have the same height.
         if !unit.shared_signals.is_empty() {
             let max_width = self.max_width;
-            let mut signal_len_by_step_type = unit.step_types.values().map(|step_type| {
+            let mut height_by_step_type = unit.step_types.values().map(|step_type| {
                 (step_type.signals.len() + unit.forward_signals.len() + unit.shared_signals.len())
                     .div(max_width)
                     + 1
             });
-            let first = signal_len_by_step_type.next().unwrap();
-            if !signal_len_by_step_type.all(|len| len == first) {
+            let first = height_by_step_type.next().unwrap();
+            if !height_by_step_type.all(|len| len == first) {
                 panic!("To use shared signal, all steps placed by MaxWidthCellManager need to have the same height. Please use a different cell manager.");
             }
         }
