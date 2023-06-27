@@ -209,7 +209,7 @@ pub mod query {
     };
 
     use crate::{
-        ast::{ForwardSignal, ImportedHalo2Advice, ImportedHalo2Fixed, InternalSignal},
+        ast::{ForwardSignal, ImportedHalo2Advice, ImportedHalo2Fixed, InternalSignal, SharedSignal},
         dsl::StepTypeHandler,
     };
 
@@ -220,6 +220,7 @@ pub mod query {
     pub enum Queriable<F> {
         Internal(InternalSignal),
         Forward(ForwardSignal, bool),
+        Shared(SharedSignal, i32),
         StepTypeNext(StepTypeHandler),
         Halo2AdviceQuery(ImportedHalo2Advice, i32),
         Halo2FixedQuery(ImportedHalo2Fixed, i32),
@@ -247,9 +248,26 @@ pub mod query {
                         panic!("jarrl: cannot rotate next(forward)")
                     }
                 }
+                Shared(s, rot) => Shared(*s, rot + 1),
                 Halo2AdviceQuery(s, rot) => Halo2AdviceQuery(*s, rot + 1),
                 Halo2FixedQuery(s, r) => Halo2FixedQuery(*s, r + 1),
-                _ => panic!("can only next a forward or halo2 column"),
+                _ => panic!("can only next a forward, shared, or halo2 column"),
+            }
+        }
+
+        pub fn prev(&self) -> Queriable<F> {
+            use Queriable::*;
+            match self {
+                Shared(s, rot) => Shared(*s, rot - 1),
+                _ => panic!("can only prev a shared column"),
+            }
+        }
+
+        pub fn rot(&self, rotation: i32) -> Queriable<F> {
+            use Queriable::*;
+            match self {
+                Shared(s, rot) => Shared(*s, rot + rotation),
+                _ => panic!("can only rot a shared column"),
             }
         }
 
@@ -257,6 +275,7 @@ pub mod query {
             match self {
                 Queriable::Internal(s) => s.uuid(),
                 Queriable::Forward(s, _) => s.uuid(),
+                Queriable::Shared(s, _) => s.uuid(),
                 Queriable::StepTypeNext(s) => s.uuid(),
                 Queriable::Halo2AdviceQuery(s, _) => s.uuid(),
                 Queriable::Halo2FixedQuery(s, _) => s.uuid(),
@@ -272,6 +291,13 @@ pub mod query {
                         s.annotation.to_string()
                     } else {
                         format!("next({})", s.annotation)
+                    }
+                }
+                Queriable::Shared(s, rot) => {
+                    if *rot != 0 {
+                        format!("{}(rot {})", s.annotation, rot)
+                    } else {
+                        s.annotation.to_string()
                     }
                 }
                 Queriable::StepTypeNext(s) => s.annotation.to_string(),
