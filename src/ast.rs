@@ -16,6 +16,7 @@ use halo2_proofs::plonk::{Advice, Column as Halo2Column, ColumnType, Fixed};
 pub struct Circuit<F, TraceArgs, StepArgs> {
     pub forward_signals: Vec<ForwardSignal>,
     pub shared_signals: Vec<SharedSignal>,
+    pub fixed_signals: Vec<FixedSignal>,
     pub exposed: Vec<ForwardSignal>,
     pub halo2_advice: Vec<ImportedHalo2Advice>,
     pub halo2_fixed: Vec<ImportedHalo2Fixed>,
@@ -45,6 +46,7 @@ impl<F, TraceArgs, StepArgs> Default for Circuit<F, TraceArgs, StepArgs> {
         Self {
             forward_signals: Default::default(),
             shared_signals: Default::default(),
+            fixed_signals: Default::default(),
             exposed: Default::default(),
             halo2_advice: Default::default(),
             halo2_fixed: Default::default(),
@@ -74,6 +76,16 @@ impl<F, TraceArgs, StepArgs> Circuit<F, TraceArgs, StepArgs> {
         let signal = SharedSignal::new_with_phase(phase, name.clone());
 
         self.shared_signals.push(signal);
+        self.annotations.insert(signal.uuid(), name);
+
+        signal
+    }
+
+    pub fn add_fixed<N: Into<String>>(&mut self, name: N) -> FixedSignal {
+        let name = name.into();
+        let signal = FixedSignal::new(name.clone());
+
+        self.fixed_signals.push(signal);
         self.annotations.insert(signal.uuid(), name);
 
         signal
@@ -384,6 +396,25 @@ impl SharedSignal {
 
     pub fn phase(&self) -> usize {
         self.phase
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct FixedSignal {
+    id: u32,
+    annotation: &'static str,
+}
+
+impl FixedSignal {
+    pub fn new(annotation: String) -> FixedSignal {
+        FixedSignal {
+            id: uuid(),
+            annotation: Box::leak(annotation.into_boxed_str()),
+        }
+    }
+
+    pub fn uuid(&self) -> u32 {
+        self.id
     }
 }
 
