@@ -288,8 +288,6 @@ impl<F: PrimeField<Repr = [u8; 32]>, TraceArgs, StepArgs: Clone>
     }
 }
 
-// ChiquitoPlafFixedGen currently doesn't work due to reasons mentioned in comments below.
-// We left skeleton code and TODOs for future implementations.
 pub struct ChiquitoPlafFixedGen {
     fixed: Vec<Vec<Option<BigUint>>>,
     pub c_column_id_to_p_column_index: HashMap<u32, usize>, /* TODO: Use this field and make it
