@@ -290,9 +290,7 @@ impl<F: PrimeField<Repr = [u8; 32]>, TraceArgs, StepArgs: Clone>
 
 pub struct ChiquitoPlafFixedGen {
     fixed: Vec<Vec<Option<BigUint>>>,
-    pub c_column_id_to_p_column_index: HashMap<u32, usize>, /* TODO: Use this field and make it
-                                                             * private after we have Chiquito
-                                                             * native fixed column type. */
+    c_column_id_to_p_column_index: HashMap<u32, usize>,
 }
 
 impl<F: PrimeField<Repr = [u8; 32]>> FixedGenContext<F> for ChiquitoPlafFixedGen {
