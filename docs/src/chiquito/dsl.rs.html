@@ -295,6 +295,10 @@
 <span id="295">295</span>
 <span id="296">296</span>
 <span id="297">297</span>
+<span id="298">298</span>
+<span id="299">299</span>
+<span id="300">300</span>
+<span id="301">301</span>
 </pre><pre class="rust"><code><span class="kw">use crate</span>::{
     ast::{query::Queriable, Circuit, StepType, StepTypeUUID},
     compiler::{FixedGenContext, TraceContext, WitnessGenContext},
@@ -340,6 +344,10 @@
     /// `Queriable` instance representing the added shared signal.
     </span><span class="kw">pub fn </span>shared_with_phase(<span class="kw-2">&amp;mut </span><span class="self">self</span>, name: <span class="kw-2">&amp;</span>str, phase: usize) -&gt; Queriable&lt;F&gt; {
         Queriable::Shared(<span class="self">self</span>.sc.add_shared(name, phase), <span class="number">0</span>)
+    }
+
+    <span class="kw">pub fn </span>fixed(<span class="kw-2">&amp;mut </span><span class="self">self</span>, name: <span class="kw-2">&amp;</span>str) -&gt; Queriable&lt;F&gt; {
+        Queriable::Fixed(<span class="self">self</span>.sc.add_fixed(name), <span class="number">0</span>)
     }
 
     <span class="doccomment">/// Exposes the first step instance value of a forward signal as public.

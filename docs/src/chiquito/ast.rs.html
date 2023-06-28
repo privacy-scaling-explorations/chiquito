@@ -429,6 +429,37 @@
 <span id="429">429</span>
 <span id="430">430</span>
 <span id="431">431</span>
+<span id="432">432</span>
+<span id="433">433</span>
+<span id="434">434</span>
+<span id="435">435</span>
+<span id="436">436</span>
+<span id="437">437</span>
+<span id="438">438</span>
+<span id="439">439</span>
+<span id="440">440</span>
+<span id="441">441</span>
+<span id="442">442</span>
+<span id="443">443</span>
+<span id="444">444</span>
+<span id="445">445</span>
+<span id="446">446</span>
+<span id="447">447</span>
+<span id="448">448</span>
+<span id="449">449</span>
+<span id="450">450</span>
+<span id="451">451</span>
+<span id="452">452</span>
+<span id="453">453</span>
+<span id="454">454</span>
+<span id="455">455</span>
+<span id="456">456</span>
+<span id="457">457</span>
+<span id="458">458</span>
+<span id="459">459</span>
+<span id="460">460</span>
+<span id="461">461</span>
+<span id="462">462</span>
 </pre><pre class="rust"><code><span class="kw">pub mod </span>expr;
 
 <span class="kw">use </span>std::{collections::HashMap, fmt::Debug, rc::Rc};
@@ -447,6 +478,7 @@
 </span><span class="kw">pub struct </span>Circuit&lt;F, TraceArgs, StepArgs&gt; {
     <span class="kw">pub </span>forward_signals: Vec&lt;ForwardSignal&gt;,
     <span class="kw">pub </span>shared_signals: Vec&lt;SharedSignal&gt;,
+    <span class="kw">pub </span>fixed_signals: Vec&lt;FixedSignal&gt;,
     <span class="kw">pub </span>exposed: Vec&lt;ForwardSignal&gt;,
     <span class="kw">pub </span>halo2_advice: Vec&lt;ImportedHalo2Advice&gt;,
     <span class="kw">pub </span>halo2_fixed: Vec&lt;ImportedHalo2Fixed&gt;,
@@ -476,6 +508,7 @@
         <span class="self">Self </span>{
             forward_signals: Default::default(),
             shared_signals: Default::default(),
+            fixed_signals: Default::default(),
             exposed: Default::default(),
             halo2_advice: Default::default(),
             halo2_fixed: Default::default(),
@@ -505,6 +538,16 @@
         <span class="kw">let </span>signal = SharedSignal::new_with_phase(phase, name.clone());
 
         <span class="self">self</span>.shared_signals.push(signal);
+        <span class="self">self</span>.annotations.insert(signal.uuid(), name);
+
+        signal
+    }
+
+    <span class="kw">pub fn </span>add_fixed&lt;N: Into&lt;String&gt;&gt;(<span class="kw-2">&amp;mut </span><span class="self">self</span>, name: N) -&gt; FixedSignal {
+        <span class="kw">let </span>name = name.into();
+        <span class="kw">let </span>signal = FixedSignal::new(name.clone());
+
+        <span class="self">self</span>.fixed_signals.push(signal);
         <span class="self">self</span>.annotations.insert(signal.uuid(), name);
 
         signal
@@ -815,6 +858,25 @@
 
     <span class="kw">pub fn </span>phase(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; usize {
         <span class="self">self</span>.phase
+    }
+}
+
+<span class="attribute">#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+</span><span class="kw">pub struct </span>FixedSignal {
+    id: u32,
+    annotation: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str,
+}
+
+<span class="kw">impl </span>FixedSignal {
+    <span class="kw">pub fn </span>new(annotation: String) -&gt; FixedSignal {
+        FixedSignal {
+            id: uuid(),
+            annotation: Box::leak(annotation.into_boxed_str()),
+        }
+    }
+
+    <span class="kw">pub fn </span>uuid(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; u32 {
+        <span class="self">self</span>.id
     }
 }
 

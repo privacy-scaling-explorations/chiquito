@@ -395,6 +395,18 @@
 <span id="395">395</span>
 <span id="396">396</span>
 <span id="397">397</span>
+<span id="398">398</span>
+<span id="399">399</span>
+<span id="400">400</span>
+<span id="401">401</span>
+<span id="402">402</span>
+<span id="403">403</span>
+<span id="404">404</span>
+<span id="405">405</span>
+<span id="406">406</span>
+<span id="407">407</span>
+<span id="408">408</span>
+<span id="409">409</span>
 </pre><pre class="rust"><code><span class="kw">use </span>std::{
     fmt::Debug,
     ops::{Add, Mul, Neg, Sub},
@@ -607,7 +619,7 @@
 
     <span class="kw">use crate</span>::{
         ast::{
-            ForwardSignal, ImportedHalo2Advice, ImportedHalo2Fixed, InternalSignal, SharedSignal,
+            ForwardSignal, ImportedHalo2Advice, ImportedHalo2Fixed, InternalSignal, SharedSignal, FixedSignal,
         },
         dsl::StepTypeHandler,
     };
@@ -620,6 +632,7 @@
         Internal(InternalSignal),
         Forward(ForwardSignal, bool),
         Shared(SharedSignal, i32),
+        Fixed(FixedSignal, i32),
         StepTypeNext(StepTypeHandler),
         Halo2AdviceQuery(ImportedHalo2Advice, i32),
         Halo2FixedQuery(ImportedHalo2Fixed, i32),
@@ -648,9 +661,10 @@
                     }
                 }
                 Shared(s, rot) =&gt; Shared(<span class="kw-2">*</span>s, rot + <span class="number">1</span>),
+                Fixed(s, rot) =&gt; Fixed(<span class="kw-2">*</span>s, rot + <span class="number">1</span>),
                 Halo2AdviceQuery(s, rot) =&gt; Halo2AdviceQuery(<span class="kw-2">*</span>s, rot + <span class="number">1</span>),
                 Halo2FixedQuery(s, r) =&gt; Halo2FixedQuery(<span class="kw-2">*</span>s, r + <span class="number">1</span>),
-                <span class="kw">_ </span>=&gt; <span class="macro">panic!</span>(<span class="string">&quot;can only next a forward, shared, or halo2 column&quot;</span>),
+                <span class="kw">_ </span>=&gt; <span class="macro">panic!</span>(<span class="string">&quot;can only next a forward, shared, fixed, or halo2 column&quot;</span>),
             }
         }
 
@@ -662,7 +676,8 @@
             <span class="kw">use </span>Queriable::<span class="kw-2">*</span>;
             <span class="kw">match </span><span class="self">self </span>{
                 Shared(s, rot) =&gt; Shared(<span class="kw-2">*</span>s, rot - <span class="number">1</span>),
-                <span class="kw">_ </span>=&gt; <span class="macro">panic!</span>(<span class="string">&quot;can only prev a shared column&quot;</span>),
+                Fixed(s, rot) =&gt; Fixed(<span class="kw-2">*</span>s, rot - <span class="number">1</span>),
+                <span class="kw">_ </span>=&gt; <span class="macro">panic!</span>(<span class="string">&quot;can only prev a shared or fixed column&quot;</span>),
             }
         }
 
@@ -674,7 +689,8 @@
             <span class="kw">use </span>Queriable::<span class="kw-2">*</span>;
             <span class="kw">match </span><span class="self">self </span>{
                 Shared(s, rot) =&gt; Shared(<span class="kw-2">*</span>s, rot + rotation),
-                <span class="kw">_ </span>=&gt; <span class="macro">panic!</span>(<span class="string">&quot;can only rot a shared column&quot;</span>),
+                Fixed(s, rot) =&gt; Fixed(<span class="kw-2">*</span>s, rot + rotation),
+                <span class="kw">_ </span>=&gt; <span class="macro">panic!</span>(<span class="string">&quot;can only rot a shared or fixed column&quot;</span>),
             }
         }
 
@@ -683,6 +699,7 @@
                 Queriable::Internal(s) =&gt; s.uuid(),
                 Queriable::Forward(s, <span class="kw">_</span>) =&gt; s.uuid(),
                 Queriable::Shared(s, <span class="kw">_</span>) =&gt; s.uuid(),
+                Queriable::Fixed(s, <span class="kw">_</span>) =&gt; s.uuid(),
                 Queriable::StepTypeNext(s) =&gt; s.uuid(),
                 Queriable::Halo2AdviceQuery(s, <span class="kw">_</span>) =&gt; s.uuid(),
                 Queriable::Halo2FixedQuery(s, <span class="kw">_</span>) =&gt; s.uuid(),
@@ -701,6 +718,13 @@
                     }
                 }
                 Queriable::Shared(s, rot) =&gt; {
+                    <span class="kw">if </span><span class="kw-2">*</span>rot != <span class="number">0 </span>{
+                        <span class="macro">format!</span>(<span class="string">&quot;{}(rot {})&quot;</span>, s.annotation, rot)
+                    } <span class="kw">else </span>{
+                        s.annotation.to_string()
+                    }
+                }
+                Queriable::Fixed(s, rot) =&gt; {
                     <span class="kw">if </span><span class="kw-2">*</span>rot != <span class="number">0 </span>{
                         <span class="macro">format!</span>(<span class="string">&quot;{}(rot {})&quot;</span>, s.annotation, rot)
                     } <span class="kw">else </span>{
