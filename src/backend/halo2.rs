@@ -11,10 +11,7 @@ use halo2_proofs::{
 };
 
 use crate::{
-    ast::{
-        query::Queriable, FixedSignal, ForwardSignal, InternalSignal, SharedSignal, StepType,
-        ToField,
-    },
+    ast::{query::Queriable, ForwardSignal, InternalSignal, SharedSignal, StepType, ToField},
     compiler::{cell_manager::Placement, step_selector::StepSelector, FixedGenContext},
     ir::{
         Circuit, Column as cColumn,
@@ -534,17 +531,6 @@ impl<F: Field, StepArgs: Clone> FixedGenContextHalo2<F, StepArgs> {
             Queriable::Halo2FixedQuery(signal, rotation) => (signal.column, rotation, rotation),
             _ => panic!("invalid fixed assignment on queriable {:?}", query),
         }
-    }
-
-    fn find_halo2_placement_fixed(&self, fixed: FixedSignal) -> Column<Fixed> {
-        let placement = self.placement.get_fixed_placement(&fixed);
-
-        let column = self
-            .fixed_columns
-            .get(&placement.column.uuid())
-            .unwrap_or_else(|| panic!("column not found for fixed signal {:?}", fixed));
-
-        *column
     }
 }
 
