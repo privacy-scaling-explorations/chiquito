@@ -78,6 +78,10 @@ impl<F, StepArgs> Placement<F, StepArgs> {
         self.steps.get(step).expect("step not found").height
     }
 
+    pub fn first_step_height(&self) -> u32 {
+        self.steps.values().next().unwrap().height
+    }
+
     // Returns true iff all steps have the same height.
     pub fn same_height(&self) -> bool {
         if self.steps.is_empty() {
