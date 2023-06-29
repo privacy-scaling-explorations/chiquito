@@ -301,9 +301,9 @@
         }
     }
 
-    <span class="kw">pub fn </span>fixed(annotation: <span class="kw-2">&amp;</span>str) -&gt; Column {
+    <span class="kw">pub fn </span>fixed&lt;A: Into&lt;String&gt;&gt;(annotation: A) -&gt; Column {
         Column {
-            annotation: annotation.to_string(),
+            annotation: annotation.into(),
             id: uuid(),
             ctype: ColumnType::Fixed,
             phase: <span class="number">0</span>,

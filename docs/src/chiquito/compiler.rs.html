@@ -523,6 +523,34 @@
 <span id="523">523</span>
 <span id="524">524</span>
 <span id="525">525</span>
+<span id="526">526</span>
+<span id="527">527</span>
+<span id="528">528</span>
+<span id="529">529</span>
+<span id="530">530</span>
+<span id="531">531</span>
+<span id="532">532</span>
+<span id="533">533</span>
+<span id="534">534</span>
+<span id="535">535</span>
+<span id="536">536</span>
+<span id="537">537</span>
+<span id="538">538</span>
+<span id="539">539</span>
+<span id="540">540</span>
+<span id="541">541</span>
+<span id="542">542</span>
+<span id="543">543</span>
+<span id="544">544</span>
+<span id="545">545</span>
+<span id="546">546</span>
+<span id="547">547</span>
+<span id="548">548</span>
+<span id="549">549</span>
+<span id="550">550</span>
+<span id="551">551</span>
+<span id="552">552</span>
+<span id="553">553</span>
 </pre><pre class="rust"><code><span class="kw">use </span>core::fmt::Debug;
 <span class="kw">use </span>std::{collections::HashMap, rc::Rc};
 
@@ -533,8 +561,8 @@
 
 <span class="kw">use crate</span>::{
     ast::{
-        query::Queriable, Circuit <span class="kw">as </span>astCircuit, Expr, ForwardSignal, ImportedHalo2Advice,
-        ImportedHalo2Fixed, SharedSignal, StepType,
+        query::Queriable, Circuit <span class="kw">as </span>astCircuit, Expr, FixedSignal, ForwardSignal,
+        ImportedHalo2Advice, ImportedHalo2Fixed, SharedSignal, StepType,
     },
     dsl::StepTypeHandler,
     ir::{Circuit, Column, ColumnType, Poly, PolyExpr, PolyLookup},
@@ -577,6 +605,7 @@
     <span class="kw">pub </span>step_types: HashMap&lt;u32, Rc&lt;StepType&lt;F, StepArgs&gt;&gt;&gt;,
     <span class="kw">pub </span>forward_signals: Vec&lt;ForwardSignal&gt;,
     <span class="kw">pub </span>shared_signals: Vec&lt;SharedSignal&gt;,
+    <span class="kw">pub </span>fixed_signals: Vec&lt;FixedSignal&gt;,
 
     <span class="kw">pub </span>annotations: HashMap&lt;u32, String&gt;,
 
@@ -594,6 +623,7 @@
             step_types: Default::default(),
             forward_signals: Default::default(),
             shared_signals: Default::default(),
+            fixed_signals: Default::default(),
 
             annotations: Default::default(),
 
@@ -700,11 +730,14 @@
         unit.step_types = sc.step_types.clone();
         unit.forward_signals = sc.forward_signals.clone();
         unit.shared_signals = sc.shared_signals.clone();
+        unit.fixed_signals = sc.fixed_signals.clone();
 
         <span class="self">self</span>.cell_manager.place(<span class="kw-2">&amp;mut </span>unit);
 
-        <span class="kw">if </span>!unit.shared_signals.is_empty() &amp;&amp; !unit.placement.same_height() {
-            <span class="macro">panic!</span>(<span class="string">&quot;Shared signals are not supported for circuits with different step heights. Using a different cell manager might fix this problem.&quot;</span>);
+        <span class="kw">if </span>(!unit.shared_signals.is_empty() || !unit.fixed_signals.is_empty())
+            &amp;&amp; !unit.placement.same_height()
+        {
+            <span class="macro">panic!</span>(<span class="string">&quot;Shared signals and fixed signals are not supported for circuits with different step heights. Using a different cell manager might fix this problem.&quot;</span>);
         }
 
         <span class="kw">for </span>forward_signal <span class="kw">in </span>sc.exposed.clone() {
@@ -937,6 +970,29 @@
                     } <span class="kw">else </span>{
                         <span class="macro">format!</span>(
                             <span class="string">&quot;shared_rot_{}({})[{}, {}]&quot;</span>,
+                            rot, annotation, placement.column.annotation, super_rotation
+                        )
+                    }
+                } <span class="kw">else </span>{
+                    <span class="macro">format!</span>(<span class="string">&quot;[{}, {}]&quot;</span>, placement.column.annotation, super_rotation)
+                };
+                PolyExpr::Query(placement.column, super_rotation, annotation)
+            }
+            Queriable::Fixed(fixed, rot) =&gt; {
+                <span class="kw">let </span>placement = unit.placement.get_fixed_placement(<span class="kw-2">&amp;</span>fixed);
+
+                <span class="kw">let </span>super_rotation =
+                    placement.rotation + rot * (unit.placement.step_height(step) <span class="kw">as </span>i32);
+
+                <span class="kw">let </span>annotation = <span class="kw">if let </span><span class="prelude-val">Some</span>(annotation) = unit.annotations.get(<span class="kw-2">&amp;</span>fixed.uuid()) {
+                    <span class="kw">if </span>rot == <span class="number">0 </span>{
+                        <span class="macro">format!</span>(
+                            <span class="string">&quot;{}[{}, {}]&quot;</span>,
+                            annotation, placement.column.annotation, super_rotation
+                        )
+                    } <span class="kw">else </span>{
+                        <span class="macro">format!</span>(
+                            <span class="string">&quot;fixed_rot_{}({})[{}, {}]&quot;</span>,
                             rot, annotation, placement.column.annotation, super_rotation
                         )
                     }

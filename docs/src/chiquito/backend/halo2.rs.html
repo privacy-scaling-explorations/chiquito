@@ -541,6 +541,25 @@
 <span id="541">541</span>
 <span id="542">542</span>
 <span id="543">543</span>
+<span id="544">544</span>
+<span id="545">545</span>
+<span id="546">546</span>
+<span id="547">547</span>
+<span id="548">548</span>
+<span id="549">549</span>
+<span id="550">550</span>
+<span id="551">551</span>
+<span id="552">552</span>
+<span id="553">553</span>
+<span id="554">554</span>
+<span id="555">555</span>
+<span id="556">556</span>
+<span id="557">557</span>
+<span id="558">558</span>
+<span id="559">559</span>
+<span id="560">560</span>
+<span id="561">561</span>
+<span id="562">562</span>
 </pre><pre class="rust"><code><span class="kw">use </span>std::{collections::HashMap, hash::Hash, rc::Rc};
 
 <span class="kw">use </span>halo2_proofs::{
@@ -710,9 +729,10 @@
 
     <span class="kw">fn </span>synthesize_fixed(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Vec&lt;Assignment&lt;F, Fixed&gt;&gt; {
         <span class="kw">if let </span><span class="prelude-val">Some</span>(fg) = <span class="kw-2">&amp;</span><span class="self">self</span>.circuit.fixed_gen {
-            <span class="kw">let </span><span class="kw-2">mut </span>ctx = FixedGenContextHalo2::&lt;F&gt; {
+            <span class="kw">let </span><span class="kw-2">mut </span>ctx = FixedGenContextHalo2::&lt;F, StepArgs&gt; {
+                fixed_columns: <span class="self">self</span>.fixed_columns.clone(),
+                placement: <span class="self">self</span>.circuit.placement.clone(),
                 assigments: Default::default(),
-
                 max_offset: <span class="number">0</span>,
             };
 
@@ -1044,30 +1064,48 @@
     }
 }
 
-<span class="kw">struct </span>FixedGenContextHalo2&lt;F: Field&gt; {
+<span class="kw">struct </span>FixedGenContextHalo2&lt;F: Field, StepArgs&gt; {
+    fixed_columns: HashMap&lt;u32, Column&lt;Fixed&gt;&gt;,
+    placement: Placement&lt;F, StepArgs&gt;,
     assigments: Vec&lt;Assignment&lt;F, Fixed&gt;&gt;,
-
     max_offset: usize,
 }
 
-<span class="kw">impl</span>&lt;F: Field&gt; FixedGenContextHalo2&lt;F&gt; {
-    <span class="kw">fn </span>find_halo2_placement(query: Queriable&lt;F&gt;) -&gt; (Column&lt;Fixed&gt;, i32) {
+<span class="kw">impl</span>&lt;F: Field, StepArgs: Clone&gt; FixedGenContextHalo2&lt;F, StepArgs&gt; {
+    <span class="kw">fn </span>find_halo2_placement(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
+        query: Queriable&lt;F&gt;,
+        offset: usize,
+    ) -&gt; (Column&lt;Fixed&gt;, i32, i32) {
         <span class="kw">match </span>query {
-            Queriable::Halo2FixedQuery(signal, rotation) =&gt; (signal.column, rotation),
+            Queriable::Fixed(signal, rotation) =&gt; {
+                <span class="kw">let </span>placement = <span class="self">self</span>.placement.get_fixed_placement(<span class="kw-2">&amp;</span>signal);
+                <span class="comment">// Circuit with fixed signal should all have the same step height.
+                </span><span class="kw">let </span>step_height = <span class="self">self</span>.placement.first_step_height();
+                <span class="kw">let </span>super_rotation = placement.rotation + offset <span class="kw">as </span>i32 * step_height <span class="kw">as </span>i32;
+                <span class="kw">let </span>column = <span class="self">self
+                    </span>.fixed_columns
+                    .get(<span class="kw-2">&amp;</span>placement.column.uuid())
+                    .unwrap_or_else(|| <span class="macro">panic!</span>(<span class="string">&quot;column not found for fixed signal {:?}&quot;</span>, signal));
+
+                (<span class="kw-2">*</span>column, super_rotation, rotation)
+            }
+            Queriable::Halo2FixedQuery(signal, rotation) =&gt; (signal.column, rotation, rotation),
             <span class="kw">_ </span>=&gt; <span class="macro">panic!</span>(<span class="string">&quot;invalid fixed assignment on queriable {:?}&quot;</span>, query),
         }
     }
 }
 
-<span class="kw">impl</span>&lt;F: Field&gt; FixedGenContext&lt;F&gt; <span class="kw">for </span>FixedGenContextHalo2&lt;F&gt; {
+<span class="kw">impl</span>&lt;F: Field, StepArgs: Clone&gt; FixedGenContext&lt;F&gt; <span class="kw">for </span>FixedGenContextHalo2&lt;F, StepArgs&gt; {
     <span class="kw">fn </span>assign(<span class="kw-2">&amp;mut </span><span class="self">self</span>, offset: usize, lhs: Queriable&lt;F&gt;, rhs: F) {
-        <span class="kw">let </span>(column, rotation) = <span class="self">Self</span>::find_halo2_placement(lhs);
+        <span class="kw">let </span>(column, super_rotation, rotation) = <span class="self">self</span>.find_halo2_placement(lhs, offset);
 
         <span class="kw">if </span>rotation != <span class="number">0 </span>{
             <span class="macro">panic!</span>(<span class="string">&quot;cannot assign fixed value with rotation&quot;</span>);
         }
 
-        <span class="self">self</span>.assigments.push((column, offset, Value::known(rhs)));
+        <span class="self">self</span>.assigments
+            .push((column, super_rotation <span class="kw">as </span>usize, Value::known(rhs)));
 
         <span class="self">self</span>.max_offset = <span class="self">self</span>.max_offset.max(offset);
     }

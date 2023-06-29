@@ -402,10 +402,16 @@
 <span id="402">402</span>
 <span id="403">403</span>
 <span id="404">404</span>
+<span id="405">405</span>
+<span id="406">406</span>
+<span id="407">407</span>
+<span id="408">408</span>
+<span id="409">409</span>
+<span id="410">410</span>
 </pre><pre class="rust"><code><span class="kw">use </span>core::panic;
 <span class="kw">use </span>std::{collections::HashMap, fmt::Debug, rc::Rc};
 
-<span class="kw">use </span><span class="kw">crate</span>::ast::{ForwardSignal, InternalSignal, SharedSignal, StepType};
+<span class="kw">use </span><span class="kw">crate</span>::ast::{FixedSignal, ForwardSignal, InternalSignal, SharedSignal, StepType};
 
 <span class="kw">use super</span>::{Column, CompilationUnit};
 
@@ -425,6 +431,7 @@
 </span><span class="kw">pub struct </span>Placement&lt;F, StepArgs&gt; {
     <span class="kw">pub </span>forward: HashMap&lt;ForwardSignal, SignalPlacement&gt;,
     <span class="kw">pub </span>shared: HashMap&lt;SharedSignal, SignalPlacement&gt;,
+    <span class="kw">pub </span>fixed: HashMap&lt;FixedSignal, SignalPlacement&gt;,
     <span class="kw">pub </span>steps: HashMap&lt;Rc&lt;StepType&lt;F, StepArgs&gt;&gt;, StepPlacement&gt;,
     <span class="kw">pub </span>columns: Vec&lt;Column&gt;,
 }
@@ -434,6 +441,7 @@
         <span class="self">Self </span>{
             forward: Default::default(),
             shared: Default::default(),
+            fixed: Default::default(),
             steps: Default::default(),
             columns: Default::default(),
         }
@@ -455,6 +463,13 @@
             .clone()
     }
 
+    <span class="kw">pub fn </span>get_fixed_placement(<span class="kw-2">&amp;</span><span class="self">self</span>, fixed: <span class="kw-2">&amp;</span>FixedSignal) -&gt; SignalPlacement {
+        <span class="self">self</span>.fixed
+            .get(fixed)
+            .expect(<span class="string">&quot;fixed signal not found&quot;</span>)
+            .clone()
+    }
+
     <span class="kw">pub fn </span>find_internal_signal_placement(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         step: <span class="kw-2">&amp;</span>StepType&lt;F, StepArgs&gt;,
@@ -471,6 +486,10 @@
 
     <span class="kw">pub fn </span>step_height(<span class="kw-2">&amp;</span><span class="self">self</span>, step: <span class="kw-2">&amp;</span>StepType&lt;F, StepArgs&gt;) -&gt; u32 {
         <span class="self">self</span>.steps.get(step).expect(<span class="string">&quot;step not found&quot;</span>).height
+    }
+
+    <span class="kw">pub fn </span>first_step_height(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; u32 {
+        <span class="self">self</span>.steps.values().next().unwrap().height
     }
 
     <span class="comment">// Returns true iff all steps have the same height.
@@ -497,6 +516,7 @@
         <span class="kw">let </span><span class="kw-2">mut </span>placement = Placement::&lt;F, StepArgs&gt; {
             forward: HashMap::new(),
             shared: HashMap::new(),
+            fixed: HashMap::new(),
             steps: HashMap::new(),
             columns: Vec::new(),
         };
@@ -548,6 +568,28 @@
             shared_signals += <span class="number">1</span>;
         }
 
+        <span class="kw">let </span><span class="kw-2">mut </span>fixed_signals: u32 = <span class="number">0</span>;
+
+        <span class="kw">for </span>fixed_signal <span class="kw">in </span>unit.fixed_signals.iter() {
+            <span class="kw">let </span>column = <span class="kw">if let </span><span class="prelude-val">Some</span>(annotation) = unit.annotations.get(<span class="kw-2">&amp;</span>fixed_signal.uuid()) {
+                Column::fixed(<span class="macro">format!</span>(<span class="string">&quot;srcm fixed {}&quot;</span>, annotation))
+            } <span class="kw">else </span>{
+                Column::fixed(<span class="string">&quot;srcm fixed&quot;</span>)
+            };
+
+            placement.columns.push(column.clone());
+
+            placement.fixed.insert(
+                <span class="kw-2">*</span>fixed_signal,
+                SignalPlacement {
+                    column,
+                    rotation: <span class="number">0</span>,
+                },
+            );
+
+            fixed_signals += <span class="number">1</span>;
+        }
+
         <span class="kw">let </span><span class="kw-2">mut </span>max_internal_width: u32 = <span class="number">0</span>;
 
         <span class="kw">for </span>step <span class="kw">in </span>unit.step_types.values() {
@@ -559,7 +601,8 @@
             };
 
             <span class="kw">for </span>signal <span class="kw">in </span>step.signals.iter() {
-                <span class="kw">let </span>column_pos = forward_signals + shared_signals + internal_signals;
+                <span class="kw">let </span>column_pos =
+                    forward_signals + shared_signals + fixed_signals + internal_signals;
                 <span class="kw">let </span>column = <span class="kw">if </span>placement.columns.len() &lt;= column_pos <span class="kw">as </span>usize {
                     <span class="kw">let </span>column = <span class="kw">if let </span><span class="prelude-val">Some</span>(annotation) = unit.annotations.get(<span class="kw-2">&amp;</span>signal.uuid()) {
                         Column::advice(<span class="macro">format!</span>(<span class="string">&quot;srcm internal signal {}&quot;</span>, annotation), <span class="number">0</span>)
@@ -600,13 +643,14 @@
 
 <span class="kw">impl </span>CellManager <span class="kw">for </span>MaxWidthCellManager {
     <span class="kw">fn </span>place&lt;F, StepArgs&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>, unit: <span class="kw-2">&amp;mut </span>CompilationUnit&lt;F, StepArgs&gt;) {
-        <span class="kw">if </span>!unit.shared_signals.is_empty() {
-            <span class="macro">panic!</span>(<span class="string">&quot;Shared signals are not supported for MaxWidthCellManager, which might return steps with variable heights.&quot;</span>);
+        <span class="kw">if </span>!unit.shared_signals.is_empty() || !unit.fixed_signals.is_empty() {
+            <span class="macro">panic!</span>(<span class="string">&quot;Shared signals and fixed signals are not supported for MaxWidthCellManager, which might return steps with variable heights.&quot;</span>);
         }
 
         <span class="kw">let </span><span class="kw-2">mut </span>placement = Placement::&lt;F, StepArgs&gt; {
             forward: HashMap::new(),
             shared: HashMap::new(),
+            fixed: HashMap::new(),
             steps: HashMap::new(),
             columns: Vec::new(),
         };
@@ -644,50 +688,18 @@
             }
         }
 
-        <span class="kw">let </span><span class="kw-2">mut </span>shared_signal_column = forward_signal_column;
-        <span class="kw">let </span><span class="kw-2">mut </span>shared_signal_row = forward_signal_row;
-
-        <span class="kw">for </span>shared_signal <span class="kw">in </span>unit.shared_signals.iter() {
-            <span class="kw">let </span>column = <span class="kw">if </span>placement.columns.len() &lt;= shared_signal_column {
-                <span class="kw">let </span>column = <span class="kw">if let </span><span class="prelude-val">Some</span>(annotation) = unit.annotations.get(<span class="kw-2">&amp;</span>shared_signal.uuid()) {
-                    Column::advice(<span class="macro">format!</span>(<span class="string">&quot;mwcm shared signal {}&quot;</span>, annotation), <span class="number">0</span>)
-                } <span class="kw">else </span>{
-                    Column::advice(<span class="string">&quot;mwcm shared signal&quot;</span>, <span class="number">0</span>)
-                };
-
-                placement.columns.push(column.clone());
-                column
-            } <span class="kw">else </span>{
-                placement.columns[shared_signal_column].clone()
-            };
-
-            placement.shared.insert(
-                <span class="kw-2">*</span>shared_signal,
-                SignalPlacement {
-                    column,
-                    rotation: shared_signal_row <span class="kw">as </span>i32,
-                },
-            );
-
-            shared_signal_column += <span class="number">1</span>;
-            <span class="kw">if </span>shared_signal_column &gt;= <span class="self">self</span>.max_width {
-                shared_signal_column = <span class="number">0</span>;
-                shared_signal_row += <span class="number">1</span>;
-            }
-        }
-
         <span class="kw">for </span>step <span class="kw">in </span>unit.step_types.values() {
             <span class="kw">let </span><span class="kw-2">mut </span>step_placement = StepPlacement {
-                height: <span class="kw">if </span>shared_signal_column &gt; <span class="number">0 </span>{
-                    (shared_signal_row + <span class="number">1</span>) <span class="kw">as </span>u32
+                height: <span class="kw">if </span>forward_signal_column &gt; <span class="number">0 </span>{
+                    (forward_signal_row + <span class="number">1</span>) <span class="kw">as </span>u32
                 } <span class="kw">else </span>{
-                    shared_signal_row <span class="kw">as </span>u32
+                    forward_signal_row <span class="kw">as </span>u32
                 },
                 signals: HashMap::new(),
             };
 
-            <span class="kw">let </span><span class="kw-2">mut </span>internal_signal_column = shared_signal_column;
-            <span class="kw">let </span><span class="kw-2">mut </span>internal_signal_row = shared_signal_row;
+            <span class="kw">let </span><span class="kw-2">mut </span>internal_signal_column = forward_signal_column;
+            <span class="kw">let </span><span class="kw-2">mut </span>internal_signal_row = forward_signal_row;
 
             <span class="kw">for </span>signal <span class="kw">in </span>step.signals.iter() {
                 <span class="kw">let </span>column = <span class="kw">if </span>placement.columns.len() &lt;= internal_signal_column {
