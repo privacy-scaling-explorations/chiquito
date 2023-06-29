@@ -71,9 +71,9 @@ impl Column {
         }
     }
 
-    pub fn fixed(annotation: &str) -> Column {
+    pub fn fixed<A: Into<String>>(annotation: A) -> Column {
         Column {
-            annotation: annotation.to_string(),
+            annotation: annotation.into(),
             id: uuid(),
             ctype: ColumnType::Fixed,
             phase: 0,

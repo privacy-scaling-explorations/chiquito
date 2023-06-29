@@ -8,8 +8,8 @@ use halo2_proofs::{
 
 use crate::{
     ast::{
-        query::Queriable, Circuit as astCircuit, Expr, ForwardSignal, ImportedHalo2Advice,
-        ImportedHalo2Fixed, SharedSignal, StepType,
+        query::Queriable, Circuit as astCircuit, Expr, FixedSignal, ForwardSignal,
+        ImportedHalo2Advice, ImportedHalo2Fixed, SharedSignal, StepType,
     },
     dsl::StepTypeHandler,
     ir::{Circuit, Column, ColumnType, Poly, PolyExpr, PolyLookup},
@@ -52,6 +52,7 @@ pub struct CompilationUnit<F, StepArgs> {
     pub step_types: HashMap<u32, Rc<StepType<F, StepArgs>>>,
     pub forward_signals: Vec<ForwardSignal>,
     pub shared_signals: Vec<SharedSignal>,
+    pub fixed_signals: Vec<FixedSignal>,
 
     pub annotations: HashMap<u32, String>,
 
@@ -69,6 +70,7 @@ impl<F, StepArgs> Default for CompilationUnit<F, StepArgs> {
             step_types: Default::default(),
             forward_signals: Default::default(),
             shared_signals: Default::default(),
+            fixed_signals: Default::default(),
 
             annotations: Default::default(),
 
@@ -175,11 +177,14 @@ impl<CM: CellManager, SSB: StepSelectorBuilder> Compiler<CM, SSB> {
         unit.step_types = sc.step_types.clone();
         unit.forward_signals = sc.forward_signals.clone();
         unit.shared_signals = sc.shared_signals.clone();
+        unit.fixed_signals = sc.fixed_signals.clone();
 
         self.cell_manager.place(&mut unit);
 
-        if !unit.shared_signals.is_empty() && !unit.placement.same_height() {
-            panic!("Shared signals are not supported for circuits with different step heights. Using a different cell manager might fix this problem.");
+        if (!unit.shared_signals.is_empty() || !unit.fixed_signals.is_empty())
+            && !unit.placement.same_height()
+        {
+            panic!("Shared signals and fixed signals are not supported for circuits with different step heights. Using a different cell manager might fix this problem.");
         }
 
         for forward_signal in sc.exposed.clone() {
@@ -412,6 +417,29 @@ impl<CM: CellManager, SSB: StepSelectorBuilder> Compiler<CM, SSB> {
                     } else {
                         format!(
                             "shared_rot_{}({})[{}, {}]",
+                            rot, annotation, placement.column.annotation, super_rotation
+                        )
+                    }
+                } else {
+                    format!("[{}, {}]", placement.column.annotation, super_rotation)
+                };
+                PolyExpr::Query(placement.column, super_rotation, annotation)
+            }
+            Queriable::Fixed(fixed, rot) => {
+                let placement = unit.placement.get_fixed_placement(&fixed);
+
+                let super_rotation =
+                    placement.rotation + rot * (unit.placement.step_height(step) as i32);
+
+                let annotation = if let Some(annotation) = unit.annotations.get(&fixed.uuid()) {
+                    if rot == 0 {
+                        format!(
+                            "{}[{}, {}]",
+                            annotation, placement.column.annotation, super_rotation
+                        )
+                    } else {
+                        format!(
+                            "fixed_rot_{}({})[{}, {}]",
                             rot, annotation, placement.column.annotation, super_rotation
                         )
                     }
