@@ -11,10 +11,7 @@ use halo2_proofs::{
 };
 
 use crate::{
-    ast::{
-        query::Queriable, FixedSignal, ForwardSignal, InternalSignal, SharedSignal, StepType,
-        ToField,
-    },
+    ast::{query::Queriable, ForwardSignal, InternalSignal, SharedSignal, StepType, ToField},
     compiler::{cell_manager::Placement, step_selector::StepSelector, FixedGenContext},
     ir::{
         Circuit, Column as cColumn,
@@ -513,37 +510,40 @@ struct FixedGenContextHalo2<F: Field, StepArgs> {
 }
 
 impl<F: Field, StepArgs: Clone> FixedGenContextHalo2<F, StepArgs> {
-    fn find_halo2_placement(&self, query: Queriable<F>) -> (Column<Fixed>, i32) {
+    fn find_halo2_placement(
+        &self,
+        query: Queriable<F>,
+        offset: usize,
+    ) -> (Column<Fixed>, i32, i32) {
         match query {
             Queriable::Fixed(signal, rotation) => {
-                (self.find_halo2_placement_fixed(signal), rotation)
+                let placement = self.placement.get_fixed_placement(&signal);
+                // Circuit with fixed signal should all have the same step height.
+                let step_height = self.placement.first_step_height();
+                let super_rotation = placement.rotation + offset as i32 * step_height as i32;
+                let column = self
+                    .fixed_columns
+                    .get(&placement.column.uuid())
+                    .unwrap_or_else(|| panic!("column not found for fixed signal {:?}", signal));
+
+                (*column, super_rotation, rotation)
             }
-            Queriable::Halo2FixedQuery(signal, rotation) => (signal.column, rotation),
+            Queriable::Halo2FixedQuery(signal, rotation) => (signal.column, rotation, rotation),
             _ => panic!("invalid fixed assignment on queriable {:?}", query),
         }
-    }
-
-    fn find_halo2_placement_fixed(&self, fixed: FixedSignal) -> Column<Fixed> {
-        let placement = self.placement.get_fixed_placement(&fixed);
-
-        let column = self
-            .fixed_columns
-            .get(&placement.column.uuid())
-            .unwrap_or_else(|| panic!("column not found for fixed signal {:?}", fixed));
-
-        *column
     }
 }
 
 impl<F: Field, StepArgs: Clone> FixedGenContext<F> for FixedGenContextHalo2<F, StepArgs> {
     fn assign(&mut self, offset: usize, lhs: Queriable<F>, rhs: F) {
-        let (column, rotation) = self.find_halo2_placement(lhs);
+        let (column, super_rotation, rotation) = self.find_halo2_placement(lhs, offset);
 
         if rotation != 0 {
             panic!("cannot assign fixed value with rotation");
         }
 
-        self.assigments.push((column, offset, Value::known(rhs)));
+        self.assigments
+            .push((column, super_rotation as usize, Value::known(rhs)));
 
         self.max_offset = self.max_offset.max(offset);
     }
