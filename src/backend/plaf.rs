@@ -1,6 +1,6 @@
 use std::{collections::HashMap, hash::Hash, rc::Rc};
 
-use halo2_proofs::halo2curves::ff::PrimeField;
+use halo2_proofs::{arithmetic::Field, halo2curves::ff::PrimeField};
 
 use crate::{
     ast::{query::Queriable, ForwardSignal, InternalSignal, SharedSignal, StepType, Trace},
@@ -129,6 +129,7 @@ impl<F: PrimeField<Repr = [u8; 32]>, TraceArgs, StepArgs: Clone>
         let mut plaf_fixed_gen = ChiquitoPlafFixedGen {
             fixed,
             c_column_id_to_p_column_index: self.c_column_id_to_p_column_index.clone(),
+            placement: self.circuit.placement.clone(),
         };
         if let Some(fg) = &self.circuit.fixed_gen {
             fg(&mut plaf_fixed_gen);
@@ -288,34 +289,42 @@ impl<F: PrimeField<Repr = [u8; 32]>, TraceArgs, StepArgs: Clone>
     }
 }
 
-pub struct ChiquitoPlafFixedGen {
+pub struct ChiquitoPlafFixedGen<F: Field, StepArgs> {
     fixed: Vec<Vec<Option<BigUint>>>,
     c_column_id_to_p_column_index: HashMap<u32, usize>,
+    placement: Placement<F, StepArgs>,
 }
 
-impl<F: PrimeField<Repr = [u8; 32]>> FixedGenContext<F> for ChiquitoPlafFixedGen {
+impl<F: PrimeField<Repr = [u8; 32]>, StepArgs> FixedGenContext<F>
+    for ChiquitoPlafFixedGen<F, StepArgs>
+{
     fn assign(&mut self, offset: usize, lhs: Queriable<F>, rhs: F) {
-        let (p_column_index, rotation) = self.find_plaf_placement(lhs);
+        let (p_column_index, super_rotation, rotation) = self.find_plaf_placement(lhs, offset);
 
         if rotation != 0 {
             panic!("cannot assign fixed value with rotation");
         }
 
-        self.fixed[p_column_index][offset] = Some(BigUint::from_bytes_le(&rhs.to_repr()));
+        self.fixed[p_column_index][super_rotation as usize] =
+            Some(BigUint::from_bytes_le(&rhs.to_repr()));
     }
 }
 
-impl ChiquitoPlafFixedGen {
-    fn find_plaf_placement<F: PrimeField>(&self, query: Queriable<F>) -> (usize, i32) {
+impl<F: PrimeField, StepArgs> ChiquitoPlafFixedGen<F, StepArgs> {
+    fn find_plaf_placement(&self, query: Queriable<F>, offset: usize) -> (usize, i32, i32) {
         match query {
             Queriable::Fixed(signal, rotation) => {
+                let placement = self.placement.get_fixed_placement(&signal);
+                // Circuit with fixed signal should all have the same step height.
+                let step_height = self.placement.first_step_height();
+                let super_rotation = placement.rotation + offset as i32 * step_height as i32;
                 let p_column_index = self
                     .c_column_id_to_p_column_index
                     .get(&signal.uuid())
                     .unwrap_or_else(|| {
                         panic!("plaf column not found for fixed signal {}", signal.uuid())
                     });
-                (*p_column_index, rotation)
+                (*p_column_index, super_rotation, rotation)
             }
             Queriable::Halo2FixedQuery(_signal, _rotation) => {
                 panic!("Imported Halo2Advice is not supported");
