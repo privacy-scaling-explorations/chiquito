@@ -1,16 +1,16 @@
 use std::{collections::HashMap, hash::Hash, rc::Rc};
 
-use halo2_proofs::{arithmetic::Field, halo2curves::ff::PrimeField};
+use halo2_proofs::halo2curves::ff::PrimeField;
 
 use crate::{
-    ast::{query::Queriable, ForwardSignal, InternalSignal, SharedSignal, StepType, Trace},
+    ast::{query::Queriable, ForwardSignal, InternalSignal, SharedSignal, StepType},
     compiler::{cell_manager::Placement, step_selector::StepSelector, FixedGenContext},
     ir::{
         Circuit as cCircuit, Column as cColumn,
         ColumnType::{Advice as cAdvice, Fixed as cFixed, Halo2Advice, Halo2Fixed},
         PolyExpr as cPolyExpr,
     },
-    wit_gen::{GenericTraceContext, TraceWitness},
+    wit_gen::TraceWitness,
 };
 
 use num_bigint::BigUint;
@@ -23,16 +23,15 @@ use polyexen::{
 };
 
 #[allow(non_snake_case)]
-pub fn chiquito2Plaf<F: PrimeField<Repr = [u8; 32]>, TraceArgs: Clone, StepArgs: Clone>(
-    circuit: cCircuit<F, TraceArgs, StepArgs>,
+pub fn chiquito2Plaf<F: PrimeField<Repr = [u8; 32]>>(
+    circuit: cCircuit<F>,
     k: u32,
     debug: bool,
-) -> (Plaf, ChiquitoPlafWitGen<F, TraceArgs, StepArgs>) {
+) -> (Plaf, ChiquitoPlafWitGen<F>) {
     let mut chiquito_plaf = ChiquitoPlaf::new(circuit.clone(), debug);
     let plaf = chiquito_plaf.get_plaf(k);
     let empty_witness = plaf.gen_empty_witness();
     let wit_gen = ChiquitoPlafWitGen {
-        trace: circuit.trace,
         placement: circuit.placement,
         selector: circuit.selector,
         step_types: circuit.step_types,
@@ -44,22 +43,17 @@ pub fn chiquito2Plaf<F: PrimeField<Repr = [u8; 32]>, TraceArgs: Clone, StepArgs:
 }
 
 #[derive(Clone, Debug)]
-pub struct ChiquitoPlaf<F: PrimeField, TraceArgs, StepArgs: Clone> {
+pub struct ChiquitoPlaf<F: PrimeField> {
     debug: bool,
-    circuit: cCircuit<F, TraceArgs, StepArgs>,
+    circuit: cCircuit<F>,
     // Chiquito column id doesn't start from zero.
     // Plaf column index starts from 0 for each column type (advice, fixed, and instance).
     // Therefore a mapping is needed to convert chiquito column id to plaf index.
     c_column_id_to_p_column_index: HashMap<u32, usize>,
 }
 
-impl<F: PrimeField<Repr = [u8; 32]>, TraceArgs, StepArgs: Clone>
-    ChiquitoPlaf<F, TraceArgs, StepArgs>
-{
-    pub fn new(
-        circuit: cCircuit<F, TraceArgs, StepArgs>,
-        debug: bool,
-    ) -> ChiquitoPlaf<F, TraceArgs, StepArgs> {
+impl<F: PrimeField<Repr = [u8; 32]>> ChiquitoPlaf<F> {
+    pub fn new(circuit: cCircuit<F>, debug: bool) -> ChiquitoPlaf<F> {
         ChiquitoPlaf {
             debug,
             circuit,
@@ -289,15 +283,13 @@ impl<F: PrimeField<Repr = [u8; 32]>, TraceArgs, StepArgs: Clone>
     }
 }
 
-pub struct ChiquitoPlafFixedGen<F: Field, StepArgs> {
+pub struct ChiquitoPlafFixedGen {
     fixed: Vec<Vec<Option<BigUint>>>,
     c_column_id_to_p_column_index: HashMap<u32, usize>,
-    placement: Placement<F, StepArgs>,
+    placement: Placement,
 }
 
-impl<F: PrimeField<Repr = [u8; 32]>, StepArgs> FixedGenContext<F>
-    for ChiquitoPlafFixedGen<F, StepArgs>
-{
+impl<F: PrimeField<Repr = [u8; 32]>> FixedGenContext<F> for ChiquitoPlafFixedGen {
     fn assign(&mut self, offset: usize, lhs: Queriable<F>, rhs: F) {
         let (p_column_index, super_rotation, rotation) = self.find_plaf_placement(lhs, offset);
 
@@ -310,8 +302,12 @@ impl<F: PrimeField<Repr = [u8; 32]>, StepArgs> FixedGenContext<F>
     }
 }
 
-impl<F: PrimeField, StepArgs> ChiquitoPlafFixedGen<F, StepArgs> {
-    fn find_plaf_placement(&self, query: Queriable<F>, offset: usize) -> (usize, i32, i32) {
+impl ChiquitoPlafFixedGen {
+    fn find_plaf_placement<F: PrimeField>(
+        &self,
+        query: Queriable<F>,
+        offset: usize,
+    ) -> (usize, i32, i32) {
         match query {
             Queriable::Fixed(signal, rotation) => {
                 let placement = self.placement.get_fixed_placement(&signal);
@@ -334,33 +330,24 @@ impl<F: PrimeField, StepArgs> ChiquitoPlafFixedGen<F, StepArgs> {
     }
 }
 
-pub struct ChiquitoPlafWitGen<F, TraceArgs, StepArgs> {
-    trace: Option<Rc<Trace<TraceArgs, StepArgs>>>,
-    placement: Placement<F, StepArgs>,
-    selector: StepSelector<F, StepArgs>,
-    step_types: HashMap<u32, Rc<StepType<F, StepArgs>>>,
+pub struct ChiquitoPlafWitGen<F> {
+    placement: Placement,
+    selector: StepSelector<F>,
+    step_types: HashMap<u32, Rc<StepType<F>>>,
     plaf_witness: pWitness,
     c_column_id_to_p_column_index: HashMap<u32, usize>,
 }
 
-impl<F: PrimeField<Repr = [u8; 32]> + Hash, TraceArgs, StepArgs: Clone>
-    ChiquitoPlafWitGen<F, TraceArgs, StepArgs>
-{
-    pub fn generate(&self, input: TraceArgs) -> pWitness {
+impl<F: PrimeField<Repr = [u8; 32]> + Hash> ChiquitoPlafWitGen<F> {
+    pub fn generate(&self, witness: Option<TraceWitness<F>>) -> pWitness {
         let plaf_witness = pWitness {
             num_rows: self.plaf_witness.num_rows,
             columns: self.plaf_witness.columns.clone(),
             witness: self.plaf_witness.witness.clone(),
         };
 
-        if let Some(trace) = &self.trace {
-            let mut ctx = GenericTraceContext::new(&self.step_types);
-
-            trace(&mut ctx, input);
-
-            let witness = ctx.get_witness();
-
-            let mut processor = WitnessProcessor::<F, StepArgs> {
+        if let Some(witness) = witness {
+            let mut processor = WitnessProcessor::<F> {
                 plaf_witness,
                 placement: self.placement.clone(),
                 c_column_id_to_p_column_index: self.c_column_id_to_p_column_index.clone(),
@@ -379,17 +366,17 @@ impl<F: PrimeField<Repr = [u8; 32]> + Hash, TraceArgs, StepArgs: Clone>
     }
 }
 
-struct WitnessProcessor<F: PrimeField<Repr = [u8; 32]> + Hash, StepArgs> {
+struct WitnessProcessor<F: PrimeField<Repr = [u8; 32]> + Hash> {
     plaf_witness: pWitness,
-    placement: Placement<F, StepArgs>,
+    placement: Placement,
     c_column_id_to_p_column_index: HashMap<u32, usize>,
-    selector: StepSelector<F, StepArgs>,
-    step_types: HashMap<u32, Rc<StepType<F, StepArgs>>>,
+    selector: StepSelector<F>,
+    step_types: HashMap<u32, Rc<StepType<F>>>,
     offset: usize,
-    cur_step: Option<Rc<StepType<F, StepArgs>>>,
+    cur_step: Option<Rc<StepType<F>>>,
 }
 
-impl<F: PrimeField<Repr = [u8; 32]> + Hash, StepArgs: Clone> WitnessProcessor<F, StepArgs> {
+impl<F: PrimeField<Repr = [u8; 32]> + Hash> WitnessProcessor<F> {
     fn process(&mut self, witness: TraceWitness<F>) {
         for step_instance in witness.step_instances {
             let cur_step = Rc::clone(
@@ -407,7 +394,7 @@ impl<F: PrimeField<Repr = [u8; 32]> + Hash, StepArgs: Clone> WitnessProcessor<F,
             let selector_assignment = self
                 .selector
                 .selector_assignment
-                .get(&cur_step)
+                .get(&cur_step.uuid())
                 .expect("selector assignment for step not found");
 
             for (expr, value) in selector_assignment.iter() {
@@ -446,11 +433,7 @@ impl<F: PrimeField<Repr = [u8; 32]> + Hash, StepArgs: Clone> WitnessProcessor<F,
         }
     }
 
-    fn find_plaf_placement(
-        &self,
-        step: &StepType<F, StepArgs>,
-        query: Queriable<F>,
-    ) -> (usize, i32) {
+    fn find_plaf_placement(&self, step: &StepType<F>, query: Queriable<F>) -> (usize, i32) {
         match query {
             Queriable::Internal(signal) => self.find_plaf_placement_internal(step, signal),
 
@@ -470,10 +453,12 @@ impl<F: PrimeField<Repr = [u8; 32]> + Hash, StepArgs: Clone> WitnessProcessor<F,
 
     fn find_plaf_placement_internal(
         &self,
-        step: &StepType<F, StepArgs>,
+        step: &StepType<F>,
         signal: InternalSignal,
     ) -> (usize, i32) {
-        let placement = self.placement.find_internal_signal_placement(step, &signal);
+        let placement = self
+            .placement
+            .find_internal_signal_placement(step.uuid(), &signal);
 
         let p_column_index = self
             .c_column_id_to_p_column_index
@@ -485,7 +470,7 @@ impl<F: PrimeField<Repr = [u8; 32]> + Hash, StepArgs: Clone> WitnessProcessor<F,
 
     fn find_plaf_placement_forward(
         &self,
-        step: &StepType<F, StepArgs>,
+        step: &StepType<F>,
         forward: ForwardSignal,
         next: bool,
     ) -> (usize, i32) {
@@ -508,7 +493,7 @@ impl<F: PrimeField<Repr = [u8; 32]> + Hash, StepArgs: Clone> WitnessProcessor<F,
 
     fn find_plaf_placement_shared(
         &self,
-        step: &StepType<F, StepArgs>,
+        step: &StepType<F>,
         shared: SharedSignal,
         rot: i32,
     ) -> (usize, i32) {

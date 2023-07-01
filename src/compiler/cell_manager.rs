@@ -1,7 +1,8 @@
-use core::panic;
-use std::{collections::HashMap, fmt::Debug, rc::Rc};
+use std::{collections::HashMap, fmt::Debug};
 
-use crate::ast::{FixedSignal, ForwardSignal, InternalSignal, SharedSignal, StepType};
+use crate::ast::{
+    FixedSignal, ForwardSignal, InternalSignal, SharedSignal, StepType, StepTypeUUID,
+};
 
 use super::{Column, CompilationUnit};
 
@@ -17,28 +18,16 @@ pub struct StepPlacement {
     signals: HashMap<InternalSignal, SignalPlacement>,
 }
 
-#[derive(Debug, Clone)]
-pub struct Placement<F, StepArgs> {
+#[derive(Debug, Clone, Default)]
+pub struct Placement {
     pub forward: HashMap<ForwardSignal, SignalPlacement>,
     pub shared: HashMap<SharedSignal, SignalPlacement>,
     pub fixed: HashMap<FixedSignal, SignalPlacement>,
-    pub steps: HashMap<Rc<StepType<F, StepArgs>>, StepPlacement>,
+    pub steps: HashMap<StepTypeUUID, StepPlacement>,
     pub columns: Vec<Column>,
 }
 
-impl<F, StepArgs> Default for Placement<F, StepArgs> {
-    fn default() -> Self {
-        Self {
-            forward: Default::default(),
-            shared: Default::default(),
-            fixed: Default::default(),
-            steps: Default::default(),
-            columns: Default::default(),
-        }
-    }
-}
-
-impl<F, StepArgs> Placement<F, StepArgs> {
+impl Placement {
     pub fn get_forward_placement(&self, forward: &ForwardSignal) -> SignalPlacement {
         self.forward
             .get(forward)
@@ -62,11 +51,11 @@ impl<F, StepArgs> Placement<F, StepArgs> {
 
     pub fn find_internal_signal_placement(
         &self,
-        step: &StepType<F, StepArgs>,
+        step_uuid: StepTypeUUID,
         signal: &InternalSignal,
     ) -> SignalPlacement {
         self.steps
-            .get(step)
+            .get(&step_uuid)
             .expect("step not found")
             .signals
             .get(signal)
@@ -74,8 +63,8 @@ impl<F, StepArgs> Placement<F, StepArgs> {
             .clone()
     }
 
-    pub fn step_height(&self, step: &StepType<F, StepArgs>) -> u32 {
-        self.steps.get(step).expect("step not found").height
+    pub fn step_height<F>(&self, step: &StepType<F>) -> u32 {
+        self.steps.get(&step.uuid()).expect("step not found").height
     }
 
     pub fn first_step_height(&self) -> u32 {
@@ -95,15 +84,15 @@ impl<F, StepArgs> Placement<F, StepArgs> {
 }
 
 pub trait CellManager {
-    fn place<F, StepArgs>(&self, unit: &mut CompilationUnit<F, StepArgs>);
+    fn place<F>(&self, unit: &mut CompilationUnit<F>);
 }
 
 #[derive(Debug, Default)]
 pub struct SingleRowCellManager {}
 
 impl CellManager for SingleRowCellManager {
-    fn place<F, StepArgs>(&self, unit: &mut CompilationUnit<F, StepArgs>) {
-        let mut placement = Placement::<F, StepArgs> {
+    fn place<F>(&self, unit: &mut CompilationUnit<F>) {
+        let mut placement = Placement {
             forward: HashMap::new(),
             shared: HashMap::new(),
             fixed: HashMap::new(),
@@ -217,7 +206,7 @@ impl CellManager for SingleRowCellManager {
                 internal_signals += 1;
             }
 
-            placement.steps.insert(Rc::clone(step), step_placement);
+            placement.steps.insert(step.uuid(), step_placement);
             max_internal_width = max_internal_width.max(internal_signals);
         }
 
@@ -232,12 +221,12 @@ pub struct MaxWidthCellManager {
 }
 
 impl CellManager for MaxWidthCellManager {
-    fn place<F, StepArgs>(&self, unit: &mut CompilationUnit<F, StepArgs>) {
+    fn place<F>(&self, unit: &mut CompilationUnit<F>) {
         if !unit.shared_signals.is_empty() || !unit.fixed_signals.is_empty() {
             panic!("Shared signals and fixed signals are not supported for MaxWidthCellManager, which might return steps with variable heights.");
         }
 
-        let mut placement = Placement::<F, StepArgs> {
+        let mut placement = Placement {
             forward: HashMap::new(),
             shared: HashMap::new(),
             fixed: HashMap::new(),
@@ -322,7 +311,7 @@ impl CellManager for MaxWidthCellManager {
                 }
             }
 
-            placement.steps.insert(Rc::clone(step), step_placement);
+            placement.steps.insert(step.uuid(), step_placement);
         }
 
         unit.columns.extend_from_slice(&placement.columns);
@@ -343,7 +332,7 @@ mod tests {
 
     #[test]
     fn test_max_width_cm_2_columns() {
-        let mut unit = CompilationUnit::<(), ()> {
+        let mut unit = CompilationUnit::<()> {
             forward_signals: vec![
                 ForwardSignal::new_with_phase(0, "a".to_string()),
                 ForwardSignal::new_with_phase(0, "a".to_string()),
@@ -375,7 +364,7 @@ mod tests {
         assert_eq!(
             unit.placement
                 .steps
-                .get(&step1)
+                .get(&step1.uuid())
                 .expect("should be there")
                 .height,
             3
@@ -383,7 +372,7 @@ mod tests {
         assert_eq!(
             unit.placement
                 .steps
-                .get(&step1)
+                .get(&step1.uuid())
                 .expect("should be there")
                 .signals
                 .len(),
@@ -392,7 +381,7 @@ mod tests {
         assert_eq!(
             unit.placement
                 .steps
-                .get(&step2)
+                .get(&step2.uuid())
                 .expect("should be there")
                 .height,
             2
@@ -400,7 +389,7 @@ mod tests {
         assert_eq!(
             unit.placement
                 .steps
-                .get(&step2)
+                .get(&step2.uuid())
                 .expect("should be there")
                 .signals
                 .len(),

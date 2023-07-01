@@ -3,34 +3,36 @@ pub mod expr;
 use std::{collections::HashMap, fmt::Debug, rc::Rc};
 
 use crate::{
-    compiler::{FixedGenContext, TraceContext, WitnessGenContext},
+    compiler::FixedGenContext,
     dsl::StepTypeHandler,
     util::uuid,
+    wit_gen::{Trace, TraceContext},
 };
 
 pub use expr::*;
 
 use halo2_proofs::plonk::{Advice, Column as Halo2Column, ColumnType, Fixed};
 
-/// SuperCircuit
-pub struct Circuit<F, TraceArgs, StepArgs> {
+/// Circuit
+#[derive(Clone)]
+pub struct Circuit<F, TraceArgs> {
     pub forward_signals: Vec<ForwardSignal>,
     pub shared_signals: Vec<SharedSignal>,
     pub fixed_signals: Vec<FixedSignal>,
     pub exposed: Vec<ForwardSignal>,
     pub halo2_advice: Vec<ImportedHalo2Advice>,
     pub halo2_fixed: Vec<ImportedHalo2Fixed>,
-    pub step_types: HashMap<u32, Rc<StepType<F, StepArgs>>>,
-    pub trace: Option<Rc<Trace<TraceArgs, StepArgs>>>,
+    pub step_types: HashMap<u32, Rc<StepType<F>>>,
+    pub trace: Option<Rc<Trace<F, TraceArgs>>>,
     pub fixed_gen: Option<Rc<FixedGen<F>>>,
 
     pub annotations: HashMap<u32, String>,
 
-    pub first_step: Option<StepTypeHandler>,
-    pub last_step: Option<StepTypeHandler>,
+    pub first_step: Option<StepTypeUUID>,
+    pub last_step: Option<StepTypeUUID>,
 }
 
-impl<F: Debug, TraceArgs: Debug, StepArgs: Debug> Debug for Circuit<F, TraceArgs, StepArgs> {
+impl<F: Debug, TraceArgs: Debug> Debug for Circuit<F, TraceArgs> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("Circuit")
             .field("forward_signals", &self.forward_signals)
@@ -41,7 +43,7 @@ impl<F: Debug, TraceArgs: Debug, StepArgs: Debug> Debug for Circuit<F, TraceArgs
     }
 }
 
-impl<F, TraceArgs, StepArgs> Default for Circuit<F, TraceArgs, StepArgs> {
+impl<F, TraceArgs> Default for Circuit<F, TraceArgs> {
     fn default() -> Self {
         Self {
             forward_signals: Default::default(),
@@ -60,7 +62,7 @@ impl<F, TraceArgs, StepArgs> Default for Circuit<F, TraceArgs, StepArgs> {
     }
 }
 
-impl<F, TraceArgs, StepArgs> Circuit<F, TraceArgs, StepArgs> {
+impl<F, TraceArgs> Circuit<F, TraceArgs> {
     pub fn add_forward<N: Into<String>>(&mut self, name: N, phase: usize) -> ForwardSignal {
         let name = name.into();
         let signal = ForwardSignal::new_with_phase(phase, name.clone());
@@ -125,7 +127,7 @@ impl<F, TraceArgs, StepArgs> Circuit<F, TraceArgs, StepArgs> {
         self.annotations.insert(handler.uuid(), name.into());
     }
 
-    pub fn add_step_type_def(&mut self, step: StepType<F, StepArgs>) -> StepTypeUUID {
+    pub fn add_step_type_def(&mut self, step: StepType<F>) -> StepTypeUUID {
         let uuid = step.uuid();
         let step_rc = Rc::new(step);
         self.step_types.insert(uuid, step_rc);
@@ -135,7 +137,7 @@ impl<F, TraceArgs, StepArgs> Circuit<F, TraceArgs, StepArgs> {
 
     pub fn set_trace<D>(&mut self, def: D)
     where
-        D: Fn(&mut dyn TraceContext<StepArgs>, TraceArgs) + 'static,
+        D: Fn(&mut TraceContext<F>, TraceArgs) + 'static,
     {
         match self.trace {
             None => {
@@ -155,21 +157,19 @@ impl<F, TraceArgs, StepArgs> Circuit<F, TraceArgs, StepArgs> {
         }
     }
 
-    pub fn get_step_type(&self, uuid: u32) -> Rc<StepType<F, StepArgs>> {
+    pub fn get_step_type(&self, uuid: u32) -> Rc<StepType<F>> {
         let step_rc = self.step_types.get(&uuid).expect("step type not found");
 
         Rc::clone(step_rc)
     }
 }
 
-pub type Trace<TraceArgs, StepArgs> = dyn Fn(&mut dyn TraceContext<StepArgs>, TraceArgs) + 'static;
 pub type FixedGen<F> = dyn Fn(&mut dyn FixedGenContext<F>) + 'static;
-pub type StepWitnessGen<F, Args> = dyn Fn(&mut dyn WitnessGenContext<F>, Args) + 'static;
 
 pub type StepTypeUUID = u32;
 
 /// Step
-pub struct StepType<F, Args> {
+pub struct StepType<F> {
     id: StepTypeUUID,
 
     pub name: String,
@@ -178,11 +178,9 @@ pub struct StepType<F, Args> {
     pub transition_constraints: Vec<TransitionConstraint<F>>,
     pub lookups: Vec<Lookup<F>>,
     pub annotations: HashMap<u32, String>,
-
-    pub wg: Box<StepWitnessGen<F, Args>>,
 }
 
-impl<F: Debug, Args> Debug for StepType<F, Args> {
+impl<F: Debug> Debug for StepType<F> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("StepType")
             .field("id", &self.id)
@@ -193,7 +191,7 @@ impl<F: Debug, Args> Debug for StepType<F, Args> {
     }
 }
 
-impl<F, Args> StepType<F, Args> {
+impl<F> StepType<F> {
     pub fn new(uuid: u32, name: String) -> Self {
         Self {
             id: uuid,
@@ -203,7 +201,6 @@ impl<F, Args> StepType<F, Args> {
             transition_constraints: Default::default(),
             lookups: Default::default(),
             annotations: Default::default(),
-            wg: Box::new(|_, _| {}),
         }
     }
     pub fn uuid(&self) -> StepTypeUUID {
@@ -231,25 +228,17 @@ impl<F, Args> StepType<F, Args> {
 
         self.transition_constraints.push(condition)
     }
-
-    pub fn set_wg<D>(&mut self, def: D)
-    where
-        D: Fn(&mut dyn WitnessGenContext<F>, Args) + 'static,
-    {
-        // TODO, only can be called once
-        self.wg = Box::new(def);
-    }
 }
 
-impl<F, Args> PartialEq for StepType<F, Args> {
+impl<F> PartialEq for StepType<F> {
     fn eq(&self, other: &Self) -> bool {
         self.id == other.id
     }
 }
 
-impl<F, Args> Eq for StepType<F, Args> {}
+impl<F> Eq for StepType<F> {}
 
-impl<F, Args> core::hash::Hash for StepType<F, Args> {
+impl<F> core::hash::Hash for StepType<F> {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         self.id.hash(state);
     }

@@ -312,11 +312,12 @@ pub fn isz<F, T: Into<Constraint<F>>>(constraint: T) -> Constraint<F> {
 
 /// Takes a `StepTypeHandler` and a constraint, and returns a new constraint that is only applied if
 /// the next step is of the given step type.
-pub fn if_next_step<F: Clone, T: Into<Constraint<F>>>(
-    step_type: StepTypeHandler,
+pub fn if_next_step<F: Clone, T: Into<Constraint<F>>, ST: Into<StepTypeHandler>>(
+    step_type: ST,
     constraint: T,
 ) -> Constraint<F> {
     let constraint = constraint.into();
+    let step_type = step_type.into();
 
     let annotation = format!(
         "if(next step is {})then({})",
@@ -332,7 +333,9 @@ pub fn if_next_step<F: Clone, T: Into<Constraint<F>>>(
 
 /// Takes a `StepTypeHandler` and returns a new constraint that requires the next step to be of the
 /// given step type.
-pub fn next_step_must_be<F: From<u64>>(step_type: StepTypeHandler) -> Constraint<F> {
+pub fn next_step_must_be<F: From<u64>, ST: Into<StepTypeHandler>>(step_type: ST) -> Constraint<F> {
+    let step_type = step_type.into();
+
     annotate(
         format!("next_step_must_be({})", step_type.annotation),
         not(step_type.next()),
@@ -342,7 +345,11 @@ pub fn next_step_must_be<F: From<u64>>(step_type: StepTypeHandler) -> Constraint
 
 /// Takes a `StepTypeHandler` and returns a new constraint that requires the next step to not be of
 /// the given step type.
-pub fn next_step_must_not_be<F: From<u64>>(step_type: StepTypeHandler) -> Constraint<F> {
+pub fn next_step_must_not_be<F: From<u64>, ST: Into<StepTypeHandler>>(
+    step_type: ST,
+) -> Constraint<F> {
+    let step_type = step_type.into();
+
     annotate(
         format!("next_step_must_not_be({})", step_type.annotation),
         step_type.next(),
@@ -423,6 +430,8 @@ pub fn lookup<F: Debug + Clone>() -> LookupBuilder<F> {
 
 #[cfg(test)]
 mod tests {
+    use std::marker::PhantomData;
+
     use halo2_proofs::halo2curves::bn256::Fr;
 
     use super::*;
@@ -487,7 +496,7 @@ mod tests {
                     matches!(v[0], Expr::Const(c) if c == 1u64.field()) && 
                     matches!(&v[1], Expr::Sum(v) if v.len() == 2 &&
                         matches!(v[0], Expr::Const(c) if c == 1u64.field()) &&
-                        matches!(&v[1], Expr::Neg(boxed_e) if 
+                        matches!(&v[1], Expr::Neg(boxed_e) if
                             matches!(boxed_e.as_ref(), Expr::Const(c) if *c == 10u64.field())))))));
     }
 

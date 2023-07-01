@@ -1,12 +1,14 @@
+use std::hash::Hash;
+
 use halo2_proofs::arithmetic::Field;
 
 use crate::{
     ast::{query::Queriable, ToExpr},
-    compiler::WitnessGenContext,
     dsl::{
         cb::{Constraint, Typing},
         StepTypeContext,
     },
+    wit_gen::StepInstance,
 };
 
 pub struct IsZero<F> {
@@ -15,8 +17,8 @@ pub struct IsZero<F> {
 }
 
 impl<F: Field + From<u64>> IsZero<F> {
-    pub fn setup<V: Into<Constraint<F>>, StepArgs>(
-        ctx: &mut StepTypeContext<F, StepArgs>,
+    pub fn setup<V: Into<Constraint<F>>>(
+        ctx: &mut StepTypeContext<F>,
         value: V,
         value_inv: Queriable<F>,
     ) -> IsZero<F> {
@@ -42,8 +44,8 @@ impl<F: Field + From<u64>> IsZero<F> {
     }
 }
 
-impl<F: Field> IsZero<F> {
-    pub fn wg(&self, ctx: &mut dyn WitnessGenContext<F>, value: F) {
+impl<F: Field + Eq + Hash> IsZero<F> {
+    pub fn wg<WGC>(&self, ctx: &mut StepInstance<F>, value: F) {
         ctx.assign(self.value_inv, value.invert().unwrap_or(F::ZERO));
     }
 }

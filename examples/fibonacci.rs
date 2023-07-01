@@ -1,3 +1,4 @@
+#![feature(closure_lifetime_binder)]
 use std::hash::Hash;
 
 use chiquito::{
@@ -8,13 +9,14 @@ use chiquito::{
     compiler::{
         cell_manager::SingleRowCellManager, // input for constructing the compiler
         step_selector::SimpleStepSelectorBuilder, // input for constructing the compiler
-        Compiler,                           // compiles AST to IR
+        Compiler,
     },
     dsl::{
         cb::*,   // functions for constraint building
         circuit, // main function for constructing an AST circuit
     },
-    ir::Circuit, // IR object that the compiler compiles to
+    ir::Circuit,
+    wit_gen::TraceGenerator,
 };
 use halo2_proofs::{
     arithmetic::Field, circuit::SimpleFloorPlanner, dev::MockProver, halo2curves::bn256::Fr,
@@ -26,7 +28,7 @@ use halo2_proofs::{
 // 1. type that implements a field trait
 // 2. empty trace arguments, i.e. (), because there are no external inputs to the Chiquito circuit
 // 3. two witness generation arguments both of u64 type, i.e. (u64, u64)
-fn fibo_circuit<F: Field + From<u64>>() -> Circuit<F, (), (u64, u64)> {
+fn fibo_circuit<F: Field + From<u64> + Hash>() -> (Circuit<F>, Option<TraceGenerator<F, ()>>) {
     // PLONKish table for the Fibonacci circuit:
     // | a | b | c |
     // | 1 | 1 | 2 |
@@ -51,7 +53,7 @@ fn fibo_circuit<F: Field + From<u64>>() -> Circuit<F, (), (u64, u64)> {
         ctx.pragma_last_step(fibo_last_step);
 
         // define step type
-        ctx.step_type_def(fibo_step, |ctx| {
+        let fibo_step = ctx.step_type_def(fibo_step, |ctx| {
             // the following objects (constraints, transition constraints, witness generation
             // function) are defined on the step type-level
 
@@ -76,16 +78,16 @@ fn fibo_circuit<F: Field + From<u64>>() -> Circuit<F, (), (u64, u64)> {
             // witness generation (wg) function is Turing complete and allows arbitrary user defined
             // logics for assigning witness values wg function is defined here but no
             // witness value is assigned yet
-            ctx.wg(move |ctx, (a_value, b_value)| {
+            ctx.wg(move |ctx, (a_value, b_value): (u32, u32)| {
                 println!("fib line wg: {} {} {}", a_value, b_value, a_value + b_value);
                 // assign arbitrary input values from witness generation function to witnesses
                 ctx.assign(a, a_value.field());
                 ctx.assign(b, b_value.field());
                 ctx.assign(c, (a_value + b_value).field());
-            });
+            })
         });
 
-        ctx.step_type_def(fibo_last_step, |ctx| {
+        let mut fibo_last_step = ctx.step_type_def(fibo_last_step, |ctx| {
             let c = ctx.internal("c");
 
             ctx.setup(move |ctx| {
@@ -95,7 +97,7 @@ fn fibo_circuit<F: Field + From<u64>>() -> Circuit<F, (), (u64, u64)> {
                 ctx.constr(eq(a + b, c));
             });
 
-            ctx.wg(move |ctx, (a_value, b_value)| {
+            ctx.wg(move |ctx, (a_value, b_value): (u32, u32)| {
                 println!(
                     "fib last line wg: {} {} {}",
                     a_value,
@@ -105,13 +107,13 @@ fn fibo_circuit<F: Field + From<u64>>() -> Circuit<F, (), (u64, u64)> {
                 ctx.assign(a, a_value.field());
                 ctx.assign(b, b_value.field());
                 ctx.assign(c, (a_value + b_value).field());
-            });
+            })
         });
 
         // trace function is responsible for adding step instantiations defined in step_type_def
         // function above trace function is Turing complete and allows arbitrary user
         // defined logics for assigning witness values
-        ctx.trace(move |ctx, _| {
+        ctx.trace(move |ctx: _, _| {
             // add function adds a step instantiation to the main circuit and calls witness
             // generation function defined in step_type_def input values for witness
             // generation function are (1, 1) in this step instance
@@ -143,21 +145,27 @@ fn fibo_circuit<F: Field + From<u64>>() -> Circuit<F, (), (u64, u64)> {
 #[derive(Clone)]
 struct FiboConfig<F: Field + From<u64>> {
     // ChiquitoHalo2 object in the bytecode circuit config struct
-    compiled: ChiquitoHalo2<F, (), (u64, u64)>,
+    compiled: ChiquitoHalo2<F>,
+    wit_gen: TraceGenerator<F, ()>,
 }
 
 impl<F: Field + From<u64> + Hash> FiboConfig<F> {
     fn new(meta: &mut ConstraintSystem<F>) -> FiboConfig<F> {
+        let (chiquito, wit_gen) = fibo_circuit::<F>();
+
         // chiquito2Halo2 function in Halo2 backend can convert ir::Circuit object to a
         // ChiquitoHalo2 object, which can be further integrated into a Halo2 circuit in the
         // example below
-        let mut compiled = chiquito2Halo2(fibo_circuit::<F>());
+        let mut compiled = chiquito2Halo2(chiquito);
 
         // ChiquitoHalo2 objects have their own configure and synthesize functions defined in the
         // Chiquito Halo2 backend
         compiled.configure(meta);
 
-        FiboConfig { compiled }
+        FiboConfig {
+            compiled,
+            wit_gen: wit_gen.expect("trace generator not returned"),
+        }
     }
 }
 
@@ -189,7 +197,9 @@ impl<F: Field + From<u64> + Hash> halo2_proofs::plonk::Circuit<F> for FiboCircui
     ) -> Result<(), halo2_proofs::plonk::Error> {
         // ChiquitoHalo2 objects have their own configure and synthesize functions defined in the
         // Chiquito Halo2 backend
-        config.compiled.synthesize(&mut layouter, ());
+        config
+            .compiled
+            .synthesize(&mut layouter, Some(config.wit_gen.generate(())));
 
         Ok(())
     }
@@ -216,10 +226,10 @@ fn main() {
     use polyexen::plaf::{backends::halo2::PlafH2Circuit, WitnessDisplayCSV};
 
     // get Chiquito ir
-    let circuit = fibo_circuit::<Fr>();
+    let (circuit, wit_gen) = fibo_circuit::<Fr>();
     // get Plaf
     let (plaf, plaf_wit_gen) = chiquito2Plaf(circuit, 8, false);
-    let wit = plaf_wit_gen.generate(());
+    let wit = plaf_wit_gen.generate(wit_gen.map(|v| v.generate(())));
 
     // debug only: print witness
     println!("{}", WitnessDisplayCSV(&wit));

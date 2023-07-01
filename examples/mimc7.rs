@@ -15,6 +15,7 @@ use chiquito::{
         cell_manager::SingleRowCellManager, step_selector::SimpleStepSelectorBuilder, Compiler,
     },
     dsl::{cb::*, circuit},
+    wit_gen::{Trace, TraceGenerator},
 };
 
 use mimc7_constants::ROUND_KEYS;
@@ -22,12 +23,12 @@ use mimc7_constants::ROUND_KEYS;
 // MiMC7 always has 91 rounds
 pub const ROUNDS: usize = 91;
 
-fn mimc7_circuit<F: PrimeField>(
+fn mimc7_circuit<F: PrimeField + Eq + Hash>(
     row_value: Column<Fixed>, /* row index i, a fixed column allocated in circuit config, used
                                * as the first column of lookup table */
     c_value: Column<Fixed>, /* round constant C_i, fixed column allocated in circuit config,
                              * used as the second column of lookup table */
-) -> chiquito::ir::Circuit<F, (F, F), (F, F, F, F)> {
+) -> (chiquito::ir::Circuit<F>, Option<TraceGenerator<F, (F, F)>>) {
     // circuit takes two trace arguments (x_in: F, k: F), i.e. message x_in and secret key k, as
     // inputs circuit also takes four step arguments (x: F, k: F, c: F, row: F), i.e. iterator
     // x_{i+1} = (x_i+k_i+c_i)^7, secret key k, round constant c_i, and row index, as inputs
@@ -38,10 +39,6 @@ fn mimc7_circuit<F: PrimeField>(
         let k = ctx.forward("k");
         let c = ctx.forward("c");
         let row = ctx.forward("row");
-
-        let mimc7_first_step = ctx.step_type("mimc7 first step");
-        let mimc7_step = ctx.step_type("mimc7 step");
-        let mimc7_last_step = ctx.step_type("mimc7 last step");
 
         // convert halo2 columns to queriable columns defined in Chiquito
         let lookup_row: Queriable<F> = ctx.import_halo2_fixed("lookup row", row_value);
@@ -61,7 +58,7 @@ fn mimc7_circuit<F: PrimeField>(
         // constrain that the secret key k doesn't change between steps
         // constrain the current row number to zero and the next row number to increment by one
         // constrain row number and round constant to match the lookup table
-        ctx.step_type_def(mimc7_first_step, |ctx| {
+        let mimc7_first_step = ctx.step_type_def("mimc7 first step", |ctx| {
             let xkc = ctx.internal("xkc");
             let y = ctx.internal("y");
 
@@ -86,12 +83,12 @@ fn mimc7_circuit<F: PrimeField>(
                 let xkc_value = x_value + k_value + c_value;
                 ctx.assign(xkc, xkc_value);
                 ctx.assign(y, xkc_value.pow_vartime([7_u64]));
-            });
+            })
         });
 
         // step 1 through 90:
         // the same as step 0, except that row number isn't constrained to 0
-        ctx.step_type_def(mimc7_step, |ctx| {
+        let mimc7_step = ctx.step_type_def("mimc7 step", |ctx| {
             let xkc = ctx.internal("xkc");
             let y = ctx.internal("y");
 
@@ -115,12 +112,12 @@ fn mimc7_circuit<F: PrimeField>(
                 let xkc_value = x_value + k_value + c_value;
                 ctx.assign(xkc, xkc_value);
                 ctx.assign(y, xkc_value.pow_vartime([7_u64]));
-            });
+            })
         });
 
         // step 90
         // not really a step, but only outputs the final result as x+k
-        ctx.step_type_def(mimc7_last_step, |ctx| {
+        let mimc7_last_step = ctx.step_type_def("mimc7 last step", |ctx| {
             let out = ctx.internal("out");
 
             ctx.setup(move |ctx| {
@@ -134,12 +131,12 @@ fn mimc7_circuit<F: PrimeField>(
                 // satisfy constraint from the previous step
                 ctx.assign(row, row_value);
                 ctx.assign(out, x_value + k_value);
-            });
+            })
         });
 
         // ensure types of the first and last steps
-        ctx.pragma_first_step(mimc7_first_step);
-        ctx.pragma_last_step(mimc7_last_step);
+        ctx.pragma_first_step(&mimc7_first_step);
+        ctx.pragma_last_step(&mimc7_last_step);
 
         ctx.trace(move |ctx, (x_in_value, k_value)| {
             // step 0: calculate witness values from trace inputs, i.e. message x_in and secret key
@@ -180,7 +177,8 @@ fn mimc7_circuit<F: PrimeField>(
 // * Halo2 boilerplate *
 #[derive(Clone)]
 struct Mimc7Config<F: Field + From<u64>> {
-    compiled: ChiquitoHalo2<F, (F, F), (F, F, F, F)>, // halo2 backend object
+    compiled: ChiquitoHalo2<F>, // halo2 backend object
+    wit_gen: Option<TraceGenerator<F, (F, F)>>,
 }
 
 impl<F: PrimeField + Hash> Mimc7Config<F> {
@@ -188,10 +186,12 @@ impl<F: PrimeField + Hash> Mimc7Config<F> {
         let row_value = meta.fixed_column();
         let c_value = meta.fixed_column();
 
-        let mut compiled = chiquito2Halo2(mimc7_circuit::<F>(row_value, c_value));
+        let (circuit, wit_gen) = mimc7_circuit::<F>(row_value, c_value);
+
+        let mut compiled = chiquito2Halo2(circuit);
         compiled.configure(meta); // allocate columns to halo2 backend object
 
-        Mimc7Config { compiled }
+        Mimc7Config { compiled, wit_gen }
     }
 }
 
@@ -220,9 +220,12 @@ impl<F: PrimeField + Hash> halo2_proofs::plonk::Circuit<F> for Mimc7Circuit<F> {
         config: Self::Config,
         mut layouter: impl halo2_proofs::circuit::Layouter<F>,
     ) -> Result<(), halo2_proofs::plonk::Error> {
-        config
-            .compiled
-            .synthesize(&mut layouter, (self.x_in_value, self.k_value));
+        config.compiled.synthesize(
+            &mut layouter,
+            config
+                .wit_gen
+                .map(|wg| wg.generate((self.x_in_value, self.k_value))),
+        );
         Ok(())
     }
 }

@@ -14,7 +14,7 @@ fn main() {
         let c = ctx.forward("c");
 
         let s1 = ctx.step_type("s1");
-        ctx.step_type_def(s1, |ctx| {
+        let s1_wg = ctx.step_type_def(s1, |ctx| {
             let d = ctx.internal("d");
             let f = ctx.internal("f");
 
@@ -33,11 +33,11 @@ fn main() {
 
                 ctx.assign(d, 1.field());
                 ctx.assign(f, 2.field());
-            });
+            })
         });
 
         let s2 = ctx.step_type("s2");
-        ctx.step_type_def(s2, |ctx| {
+        let s2_wg = ctx.step_type_def(s2, |ctx| {
             // ...
 
             ctx.wg(move |ctx, _| {
@@ -47,12 +47,14 @@ fn main() {
 
         ctx.trace(move |ctx, _| {
             let v: i32 = 1;
-            ctx.add(&s2, v);
-            ctx.add(&s1, v);
+            ctx.add(&s2_wg, v);
+            ctx.add(&s1_wg, v);
         });
     });
 
     let compiler = Compiler::new(SingleRowCellManager {}, SimpleStepSelectorBuilder {});
 
-    println!("{:#?}", compiler.compile(&sc));
+    let (circuit, _) = compiler.compile(&sc);
+
+    println!("{:#?}", circuit);
 }

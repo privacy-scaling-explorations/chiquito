@@ -18,31 +18,27 @@ use crate::{
         ColumnType::{Advice as cAdvice, Fixed as cFixed, Halo2Advice, Halo2Fixed},
         PolyExpr,
     },
-    wit_gen::{GenericTraceContext, TraceWitness},
+    wit_gen::TraceWitness,
 };
 
 #[allow(non_snake_case)]
-pub fn chiquito2Halo2<F: Field + From<u64> + Hash, TraceArgs, StepArgs: Clone>(
-    circuit: Circuit<F, TraceArgs, StepArgs>,
-) -> ChiquitoHalo2<F, TraceArgs, StepArgs> {
+pub fn chiquito2Halo2<F: Field + From<u64> + Hash>(circuit: Circuit<F>) -> ChiquitoHalo2<F> {
     ChiquitoHalo2::new(circuit)
 }
 
 #[derive(Clone, Debug)]
-pub struct ChiquitoHalo2<F: Field + From<u64>, TraceArgs, StepArgs: Clone> {
+pub struct ChiquitoHalo2<F: Field + From<u64>> {
     pub debug: bool,
 
-    circuit: Circuit<F, TraceArgs, StepArgs>,
+    circuit: Circuit<F>,
 
     advice_columns: HashMap<u32, Column<Advice>>,
     fixed_columns: HashMap<u32, Column<Fixed>>,
     instance_column: Option<Column<Instance>>,
 }
 
-impl<F: Field + From<u64> + Hash, TraceArgs, StepArgs: Clone>
-    ChiquitoHalo2<F, TraceArgs, StepArgs>
-{
-    pub fn new(circuit: Circuit<F, TraceArgs, StepArgs>) -> ChiquitoHalo2<F, TraceArgs, StepArgs> {
+impl<F: Field + From<u64> + Hash> ChiquitoHalo2<F> {
+    pub fn new(circuit: Circuit<F>) -> ChiquitoHalo2<F> {
         ChiquitoHalo2 {
             debug: true,
             circuit,
@@ -126,8 +122,8 @@ impl<F: Field + From<u64> + Hash, TraceArgs, StepArgs: Clone>
         }
     }
 
-    pub fn synthesize(&self, layouter: &mut impl Layouter<F>, args: TraceArgs) {
-        let (advice_assignments, height) = self.synthesize_advice(args);
+    pub fn synthesize(&self, layouter: &mut impl Layouter<F>, witness: Option<TraceWitness<F>>) {
+        let (advice_assignments, height) = self.synthesize_advice(witness);
 
         let _ = layouter.assign_region(
             || "circuit",
@@ -167,7 +163,7 @@ impl<F: Field + From<u64> + Hash, TraceArgs, StepArgs: Clone>
 
     fn synthesize_fixed(&self) -> Vec<Assignment<F, Fixed>> {
         if let Some(fg) = &self.circuit.fixed_gen {
-            let mut ctx = FixedGenContextHalo2::<F, StepArgs> {
+            let mut ctx = FixedGenContextHalo2::<F> {
                 fixed_columns: self.fixed_columns.clone(),
                 placement: self.circuit.placement.clone(),
                 assigments: Default::default(),
@@ -182,20 +178,18 @@ impl<F: Field + From<u64> + Hash, TraceArgs, StepArgs: Clone>
         }
     }
 
-    fn synthesize_advice(&self, args: TraceArgs) -> (Vec<Assignment<F, Advice>>, usize) {
+    fn synthesize_advice(
+        &self,
+        witness: Option<TraceWitness<F>>,
+    ) -> (Vec<Assignment<F, Advice>>, usize) {
         if self.debug {
             println!("starting advise generation");
         }
 
-        if let Some(trace) = &self.circuit.trace {
-            let mut ctx = GenericTraceContext::new(&self.circuit.step_types);
-
-            trace(&mut ctx, args);
-
-            let witness = ctx.get_witness();
+        if let Some(witness) = witness {
             let height = witness.height;
 
-            let mut processor = WitnessProcessor::<F, StepArgs> {
+            let mut processor = WitnessProcessor::<F> {
                 assigments: Default::default(),
                 advice_columns: self.advice_columns.clone(),
                 placement: self.circuit.placement.clone(),
@@ -355,21 +349,21 @@ fn new_cell(column: Column<Any>, offset: usize) -> Cell {
 
 type Assignment<F, CT> = (Column<CT>, usize, Value<F>);
 
-struct WitnessProcessor<F: Field, StepArgs> {
+struct WitnessProcessor<F: Field> {
     advice_columns: HashMap<u32, Column<Advice>>,
-    placement: Placement<F, StepArgs>,
-    selector: StepSelector<F, StepArgs>,
-    step_types: HashMap<u32, Rc<StepType<F, StepArgs>>>,
+    placement: Placement,
+    selector: StepSelector<F>,
+    step_types: HashMap<u32, Rc<StepType<F>>>,
 
     offset: usize,
-    cur_step: Option<Rc<StepType<F, StepArgs>>>,
+    cur_step: Option<Rc<StepType<F>>>,
 
     assigments: Vec<Assignment<F, Advice>>,
 
     max_offset: usize,
 }
 
-impl<F: Field, StepArgs: Clone> WitnessProcessor<F, StepArgs> {
+impl<F: Field> WitnessProcessor<F> {
     fn process(&mut self, witness: TraceWitness<F>) {
         for step_instance in witness.step_instances {
             let cur_step = Rc::clone(
@@ -387,7 +381,7 @@ impl<F: Field, StepArgs: Clone> WitnessProcessor<F, StepArgs> {
             let selector_assignment = self
                 .selector
                 .selector_assignment
-                .get(&cur_step)
+                .get(&cur_step.uuid())
                 .expect("selector assignment for step not found");
 
             for (expr, value) in selector_assignment.iter() {
@@ -414,7 +408,7 @@ impl<F: Field, StepArgs: Clone> WitnessProcessor<F, StepArgs> {
 
     fn find_halo2_placement(
         &self,
-        step: &StepType<F, StepArgs>,
+        step: &StepType<F>,
         query: Queriable<F>,
     ) -> (Column<Advice>, i32) {
         match query {
@@ -434,10 +428,12 @@ impl<F: Field, StepArgs: Clone> WitnessProcessor<F, StepArgs> {
 
     fn find_halo2_placement_internal(
         &self,
-        step: &StepType<F, StepArgs>,
+        step: &StepType<F>,
         signal: InternalSignal,
     ) -> (Column<Advice>, i32) {
-        let placement = self.placement.find_internal_signal_placement(step, &signal);
+        let placement = self
+            .placement
+            .find_internal_signal_placement(step.uuid(), &signal);
 
         let column = self
             .advice_columns
@@ -449,7 +445,7 @@ impl<F: Field, StepArgs: Clone> WitnessProcessor<F, StepArgs> {
 
     fn find_halo2_placement_forward(
         &self,
-        step: &StepType<F, StepArgs>,
+        step: &StepType<F>,
         forward: ForwardSignal,
         next: bool,
     ) -> (Column<Advice>, i32) {
@@ -472,7 +468,7 @@ impl<F: Field, StepArgs: Clone> WitnessProcessor<F, StepArgs> {
 
     fn find_halo2_placement_shared(
         &self,
-        step: &StepType<F, StepArgs>,
+        step: &StepType<F>,
         shared: SharedSignal,
         rot: i32,
     ) -> (Column<Advice>, i32) {
@@ -502,14 +498,14 @@ impl<F: Field, StepArgs: Clone> WitnessProcessor<F, StepArgs> {
     }
 }
 
-struct FixedGenContextHalo2<F: Field, StepArgs> {
+struct FixedGenContextHalo2<F: Field> {
     fixed_columns: HashMap<u32, Column<Fixed>>,
-    placement: Placement<F, StepArgs>,
+    placement: Placement,
     assigments: Vec<Assignment<F, Fixed>>,
     max_offset: usize,
 }
 
-impl<F: Field, StepArgs: Clone> FixedGenContextHalo2<F, StepArgs> {
+impl<F: Field> FixedGenContextHalo2<F> {
     fn find_halo2_placement(
         &self,
         query: Queriable<F>,
@@ -534,7 +530,7 @@ impl<F: Field, StepArgs: Clone> FixedGenContextHalo2<F, StepArgs> {
     }
 }
 
-impl<F: Field, StepArgs: Clone> FixedGenContext<F> for FixedGenContextHalo2<F, StepArgs> {
+impl<F: Field> FixedGenContext<F> for FixedGenContextHalo2<F> {
     fn assign(&mut self, offset: usize, lhs: Queriable<F>, rhs: F) {
         let (column, super_rotation, rotation) = self.find_halo2_placement(lhs, offset);
 
