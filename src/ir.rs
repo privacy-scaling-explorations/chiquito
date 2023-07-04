@@ -8,6 +8,8 @@ use crate::{
     util::uuid,
 };
 
+// pub mod sc;
+
 #[derive(Clone)]
 pub struct Circuit<F> {
     pub placement: Placement,
@@ -20,10 +22,12 @@ pub struct Circuit<F> {
 
     pub columns: Vec<Column>,
     pub exposed: Vec<(Column, i32)>, // forward signal, rotation
+    pub num_rows: usize,
+
     pub polys: Vec<Poly<F>>,
     pub lookups: Vec<PolyLookup<F>>,
 
-    pub fixed_gen: Option<Rc<FixedGen<F>>>,
+    pub fixed_assignments: Assignment<F>,
 }
 
 impl<F: Debug> Debug for Circuit<F> {
@@ -37,7 +41,7 @@ impl<F: Debug> Debug for Circuit<F> {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Hash)]
 pub enum ColumnType {
     Advice,
     Fixed,
@@ -45,7 +49,7 @@ pub enum ColumnType {
     Halo2Fixed,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Hash)]
 pub struct Column {
     pub annotation: String,
 
@@ -200,6 +204,8 @@ pub struct PolyLookup<F> {
     pub annotation: String,
     pub exprs: Vec<(PolyExpr<F>, PolyExpr<F>)>,
 }
+
+pub type Assignment<F> = HashMap<Column, Vec<F>>;
 
 #[cfg(test)]
 mod tests {

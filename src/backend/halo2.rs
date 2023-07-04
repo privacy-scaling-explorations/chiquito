@@ -12,7 +12,7 @@ use halo2_proofs::{
 
 use crate::{
     ast::{query::Queriable, ForwardSignal, InternalSignal, SharedSignal, StepType, ToField},
-    compiler::{cell_manager::Placement, step_selector::StepSelector, FixedGenContext},
+    compiler::{cell_manager::Placement, step_selector::StepSelector},
     ir::{
         Circuit, Column as cColumn,
         ColumnType::{Advice as cAdvice, Fixed as cFixed, Halo2Advice, Halo2Fixed},
@@ -130,9 +130,21 @@ impl<F: Field + From<u64> + Hash> ChiquitoHalo2<F> {
             |mut region| {
                 self.annotate_circuit(&mut region);
 
-                let fixed_assignments = self.synthesize_fixed();
-                for (column, offset, value) in fixed_assignments.iter() {
-                    region.assign_fixed(|| "", *column, *offset, || *value)?;
+                // Fixed synthesize
+                for (column, values) in self.circuit.fixed_assignments {
+                    let column = self
+                        .fixed_columns
+                        .get(&column.uuid())
+                        .expect("halo2 column");
+
+                    for (offset, value) in values.iter().enumerate() {
+                        region.assign_fixed(
+                            || "",
+                            *column,
+                            offset,
+                            || Value::known(value.clone()),
+                        )?;
+                    }
                 }
 
                 for (column, offset, value) in advice_assignments.iter() {
@@ -158,23 +170,6 @@ impl<F: Field + From<u64> + Hash> ChiquitoHalo2<F> {
                 *rotation as usize,
             );
             let _ = layouter.constrain_instance(cell, self.instance_column.unwrap(), index);
-        }
-    }
-
-    fn synthesize_fixed(&self) -> Vec<Assignment<F, Fixed>> {
-        if let Some(fg) = &self.circuit.fixed_gen {
-            let mut ctx = FixedGenContextHalo2::<F> {
-                fixed_columns: self.fixed_columns.clone(),
-                placement: self.circuit.placement.clone(),
-                assigments: Default::default(),
-                max_offset: 0,
-            };
-
-            fg(&mut ctx);
-
-            ctx.assigments
-        } else {
-            vec![]
         }
     }
 
@@ -495,53 +490,6 @@ impl<F: Field> WitnessProcessor<F> {
         } else {
             panic!("jarrl assigning outside a step");
         }
-    }
-}
-
-struct FixedGenContextHalo2<F: Field> {
-    fixed_columns: HashMap<u32, Column<Fixed>>,
-    placement: Placement,
-    assigments: Vec<Assignment<F, Fixed>>,
-    max_offset: usize,
-}
-
-impl<F: Field> FixedGenContextHalo2<F> {
-    fn find_halo2_placement(
-        &self,
-        query: Queriable<F>,
-        offset: usize,
-    ) -> (Column<Fixed>, i32, i32) {
-        match query {
-            Queriable::Fixed(signal, rotation) => {
-                let placement = self.placement.get_fixed_placement(&signal);
-                // Circuit with fixed signal should all have the same step height.
-                let step_height = self.placement.first_step_height();
-                let super_rotation = placement.rotation + offset as i32 * step_height as i32;
-                let column = self
-                    .fixed_columns
-                    .get(&placement.column.uuid())
-                    .unwrap_or_else(|| panic!("column not found for fixed signal {:?}", signal));
-
-                (*column, super_rotation, rotation)
-            }
-            Queriable::Halo2FixedQuery(signal, rotation) => (signal.column, rotation, rotation),
-            _ => panic!("invalid fixed assignment on queriable {:?}", query),
-        }
-    }
-}
-
-impl<F: Field> FixedGenContext<F> for FixedGenContextHalo2<F> {
-    fn assign(&mut self, offset: usize, lhs: Queriable<F>, rhs: F) {
-        let (column, super_rotation, rotation) = self.find_halo2_placement(lhs, offset);
-
-        if rotation != 0 {
-            panic!("cannot assign fixed value with rotation");
-        }
-
-        self.assigments
-            .push((column, super_rotation as usize, Value::known(rhs)));
-
-        self.max_offset = self.max_offset.max(offset);
     }
 }
 

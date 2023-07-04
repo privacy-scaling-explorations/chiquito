@@ -1,5 +1,5 @@
 use core::fmt::Debug;
-use std::{collections::HashMap, rc::Rc};
+use std::{collections::HashMap, hash::Hash, rc::Rc};
 
 use halo2_proofs::{
     arithmetic::Field,
@@ -11,26 +11,18 @@ use crate::{
         query::Queriable, Circuit as astCircuit, Expr, FixedSignal, ForwardSignal,
         ImportedHalo2Advice, ImportedHalo2Fixed, SharedSignal, StepType,
     },
-    ir::{Circuit, Column, ColumnType, Poly, PolyExpr, PolyLookup},
+    ir::{Assignment, Circuit, Column, ColumnType, Poly, PolyExpr, PolyLookup},
     util::uuid,
-    wit_gen::TraceGenerator,
+    wit_gen::{FixedAssignment, FixedGenContext, TraceGenerator},
 };
 
 use self::{
-    cell_manager::{CellManager, Placement},
+    cell_manager::{CellManager, Placement, SignalPlacement},
     step_selector::{StepSelector, StepSelectorBuilder},
 };
 
 pub mod cell_manager;
 pub mod step_selector;
-
-/// A trait that represents a fixed column generation context. It provides an interface for
-/// assigning values to fixed columns in a circuit at the specified offset.
-pub trait FixedGenContext<F> {
-    /// Takes a `Queriable` object representing the fixed column (lhs) and the value (rhs) to be
-    /// assigned.
-    fn assign(&mut self, offset: usize, lhs: Queriable<F>, rhs: F);
-}
 
 #[derive(Debug)]
 pub struct CompilationUnit<F> {
@@ -45,8 +37,12 @@ pub struct CompilationUnit<F> {
 
     pub columns: Vec<Column>,
     pub exposed: Vec<(Column, i32)>,
+    pub num_rows: usize,
+
     pub polys: Vec<Poly<F>>,
     pub lookups: Vec<PolyLookup<F>>,
+
+    pub fixed_assignments: Assignment<F>,
 }
 
 impl<F> Default for CompilationUnit<F> {
@@ -63,8 +59,12 @@ impl<F> Default for CompilationUnit<F> {
 
             columns: Default::default(),
             exposed: Default::default(),
+            num_rows: Default::default(),
+
             polys: Default::default(),
             lookups: Default::default(),
+
+            fixed_assignments: Default::default(),
         }
     }
 }
@@ -120,14 +120,14 @@ impl<CM: CellManager, SSB: StepSelectorBuilder> Compiler<CM, SSB> {
         }
     }
 
-    pub fn compile<F: Field + Clone, TraceArgs>(
+    pub fn compile<F: Field + Hash + Clone, TraceArgs>(
         &self,
-        sc: &astCircuit<F, TraceArgs>,
+        ast: &astCircuit<F, TraceArgs>,
     ) -> (Circuit<F>, Option<TraceGenerator<F, TraceArgs>>) {
         let mut unit = CompilationUnit::<F> {
             annotations: {
-                let mut acc = sc.annotations.clone();
-                for step in sc.step_types.values() {
+                let mut acc = ast.annotations.clone();
+                for step in ast.step_types.values() {
                     acc.extend(step.annotations.clone());
                 }
 
@@ -136,7 +136,7 @@ impl<CM: CellManager, SSB: StepSelectorBuilder> Compiler<CM, SSB> {
             ..Default::default()
         };
 
-        let halo2_advice_columns: Vec<Column> = sc
+        let halo2_advice_columns: Vec<Column> = ast
             .halo2_advice
             .iter()
             .map(|signal| {
@@ -148,7 +148,7 @@ impl<CM: CellManager, SSB: StepSelectorBuilder> Compiler<CM, SSB> {
             })
             .collect();
 
-        let halo2_fixed_columns: Vec<Column> = sc
+        let halo2_fixed_columns: Vec<Column> = ast
             .halo2_fixed
             .iter()
             .map(|signal| {
@@ -161,10 +161,10 @@ impl<CM: CellManager, SSB: StepSelectorBuilder> Compiler<CM, SSB> {
             .collect();
 
         unit.columns = vec![halo2_advice_columns, halo2_fixed_columns].concat();
-        unit.step_types = sc.step_types.clone();
-        unit.forward_signals = sc.forward_signals.clone();
-        unit.shared_signals = sc.shared_signals.clone();
-        unit.fixed_signals = sc.fixed_signals.clone();
+        unit.step_types = ast.step_types.clone();
+        unit.forward_signals = ast.forward_signals.clone();
+        unit.shared_signals = ast.shared_signals.clone();
+        unit.fixed_signals = ast.fixed_signals.clone();
 
         self.cell_manager.place(&mut unit);
 
@@ -174,11 +174,15 @@ impl<CM: CellManager, SSB: StepSelectorBuilder> Compiler<CM, SSB> {
             panic!("Shared signals and fixed signals are not supported for circuits with different step heights. Using a different cell manager might fix this problem.");
         }
 
-        for forward_signal in sc.exposed.clone() {
-            let forward_placement = unit.placement.get_forward_placement(&forward_signal);
-            let exposed = (forward_placement.column, forward_placement.rotation);
-            unit.exposed.push(exposed);
+        if !unit.placement.same_height() {
+            panic!("Cannot calculate the number of rows");
         }
+
+        unit.num_rows = ast.num_steps * (unit.placement.first_step_height() as usize);
+
+        self.compile_fixed(ast, &mut unit);
+
+        self.compile_exposed(ast, &mut unit);
 
         self.step_selector_builder.build::<F>(&mut unit);
 
@@ -199,7 +203,7 @@ impl<CM: CellManager, SSB: StepSelectorBuilder> Compiler<CM, SSB> {
 
         self.add_q_enable(&mut unit, q_enable.clone());
 
-        let q_first = if let Some(step_type) = sc.first_step {
+        let q_first = if let Some(step_type) = ast.first_step {
             let q_first = Column {
                 annotation: "q_first".to_owned(),
                 ctype: ColumnType::Fixed,
@@ -227,7 +231,7 @@ impl<CM: CellManager, SSB: StepSelectorBuilder> Compiler<CM, SSB> {
             None
         };
 
-        let q_last = if let Some(step_type) = sc.last_step {
+        let q_last = if let Some(step_type) = ast.last_step {
             let q_last = Column {
                 annotation: "q_last".to_owned(),
                 ctype: ColumnType::Fixed,
@@ -261,16 +265,18 @@ impl<CM: CellManager, SSB: StepSelectorBuilder> Compiler<CM, SSB> {
                 selector: unit.selector,
                 columns: unit.columns,
                 exposed: unit.exposed,
+                num_rows: unit.num_rows,
                 polys: unit.polys,
                 lookups: unit.lookups,
                 step_types: unit.step_types,
                 q_enable,
                 q_first,
                 q_last,
-
-                fixed_gen: sc.fixed_gen.as_ref().map(|v| Rc::clone(v)),
+                fixed_assignments: unit.fixed_assignments,
             },
-            sc.trace.as_ref().map(|v| TraceGenerator::new(Rc::clone(v))),
+            ast.trace
+                .as_ref()
+                .map(|v| TraceGenerator::new(Rc::clone(v))),
         )
     }
 
@@ -329,6 +335,33 @@ impl<CM: CellManager, SSB: StepSelectorBuilder> Compiler<CM, SSB> {
             };
 
             unit.lookups.push(poly_lookup);
+        }
+    }
+
+    fn compile_exposed<F, TraceArgs>(
+        &self,
+        ast: &astCircuit<F, TraceArgs>,
+        unit: &mut CompilationUnit<F>,
+    ) {
+        for forward_signal in ast.exposed.clone() {
+            let forward_placement = unit.placement.get_forward_placement(&forward_signal);
+            let exposed = (forward_placement.column, forward_placement.rotation);
+            unit.exposed.push(exposed);
+        }
+    }
+
+    fn compile_fixed<F: Field + Hash, TraceArgs>(
+        &self,
+        ast: &astCircuit<F, TraceArgs>,
+        unit: &mut CompilationUnit<F>,
+    ) {
+        if let Some(fixed_gen) = &ast.fixed_gen {
+            let mut ctx = FixedGenContext::new(unit.num_rows);
+            (*fixed_gen)(&mut ctx);
+
+            let assignments = ctx.get_assiggnments();
+
+            unit.fixed_assignments = self.place_fixed_assignments(unit, assignments);
         }
     }
 
@@ -490,6 +523,48 @@ impl<CM: CellManager, SSB: StepSelectorBuilder> Compiler<CM, SSB> {
             Expr::Query(q) => self.place_queriable(unit, step, q),
             Expr::Halo2Expr(expr) => PolyExpr::Halo2Expr(expr),
         }
+    }
+
+    fn place_fixed_assignments<F: Field>(
+        &self,
+        unit: &CompilationUnit<F>,
+        assignments: FixedAssignment<F>,
+    ) -> Assignment<F> {
+        let mut result = Assignment::default();
+        let step_height = unit.placement.first_step_height();
+        let empty = vec![F::ZERO; unit.num_rows];
+
+        for (queriable, assignments) in assignments {
+            let placement = match queriable {
+                Queriable::Fixed(fixed, rot) => {
+                    if rot != 0 {
+                        panic!("cannot do fixed assignation of rotated queriable");
+                    }
+                    unit.placement.get_fixed_placement(&fixed)
+                }
+                Queriable::Halo2FixedQuery(signal, rot) => SignalPlacement::new(
+                    unit.find_halo2_fixed(signal).expect("column not found"),
+                    rot,
+                ),
+                _ => panic!("only can do fixed assignment to fixed signal"),
+            };
+
+            let mut column_values = if let Some(column_values) = result.get(&placement.column) {
+                column_values.clone()
+            } else {
+                empty.clone()
+            };
+
+            let mut offset = placement.rotation as usize;
+            for value in assignments {
+                column_values[offset] = value;
+                offset += step_height as usize;
+            }
+
+            result.insert(placement.column, column_values);
+        }
+
+        result
     }
 
     fn add_q_enable<F: Clone>(&self, unit: &mut CompilationUnit<F>, q_enable: Column) {

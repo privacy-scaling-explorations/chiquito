@@ -1,5 +1,7 @@
 use std::{collections::HashMap, hash::Hash, rc::Rc};
 
+use halo2_proofs::arithmetic::Field;
+
 use crate::{
     ast::{query::Queriable, StepTypeUUID},
     dsl::StepTypeWGHandler,
@@ -85,5 +87,50 @@ impl<F: Default, TraceArgs> TraceGenerator<F, TraceArgs> {
         (self.trace)(&mut ctx, args);
 
         ctx.get_witness()
+    }
+}
+
+pub type FixedAssignment<F> = HashMap<Queriable<F>, Vec<F>>;
+
+/// A struct that can be used a fixed column generation context. It provides an interface for
+/// assigning values to fixed columns in a circuit at the specified offset.
+pub struct FixedGenContext<F> {
+    assigments: FixedAssignment<F>,
+    num_steps: usize,
+}
+
+impl<F: Field + Hash> FixedGenContext<F> {
+    pub fn new(num_steps: usize) -> Self {
+        Self {
+            assigments: Default::default(),
+            num_steps,
+        }
+    }
+
+    /// Takes a `Queriable` object representing the fixed column (lhs) and the value (rhs) to be
+    /// assigned.
+    pub fn assign(&mut self, offset: usize, lhs: Queriable<F>, rhs: F) {
+        if !Self::is_fixed_queriable(lhs) {
+            panic!("trying to assign not fixed signal");
+        }
+
+        if let Some(assigments) = self.assigments.get_mut(&lhs) {
+            assigments[offset] = rhs;
+        } else {
+            let mut assigments = vec![F::ZERO; self.num_steps];
+            assigments[offset] = rhs;
+            self.assigments.insert(lhs, assigments);
+        }
+    }
+
+    pub fn get_assiggnments(self) -> FixedAssignment<F> {
+        self.assigments
+    }
+
+    fn is_fixed_queriable(q: Queriable<F>) -> bool {
+        match q {
+            Queriable::Halo2FixedQuery(_, _) | Queriable::Fixed(_, _) => true,
+            _ => false,
+        }
     }
 }

@@ -1,8 +1,7 @@
 use crate::{
     ast::{query::Queriable, Circuit, StepType, StepTypeUUID},
-    compiler::FixedGenContext,
     util::uuid,
-    wit_gen::{StepInstance, TraceContext},
+    wit_gen::{FixedGenContext, StepInstance, TraceContext},
 };
 
 use halo2_proofs::plonk::{Advice, Column as Halo2Column, Fixed};
@@ -134,7 +133,7 @@ impl<F, TraceArgs> CircuitContext<F, TraceArgs> {
     /// call the `assign` function to fill the fixed columns.
     pub fn fixed_gen<D>(&mut self, def: D)
     where
-        D: Fn(&mut dyn FixedGenContext<F>) + 'static,
+        D: Fn(&mut FixedGenContext<F>) + 'static,
     {
         self.sc.set_fixed_gen(def);
     }
@@ -149,6 +148,10 @@ impl<F, TraceArgs> CircuitContext<F, TraceArgs> {
     /// `StepTypeHandler` parameter that represents the step type.
     pub fn pragma_last_step<STH: Into<StepTypeHandler>>(&mut self, step_type: STH) {
         self.sc.last_step = Some(step_type.into().uuid());
+    }
+
+    pub fn pragma_num_steps(&mut self, num_steps: usize) {
+        self.sc.num_steps = num_steps;
     }
 }
 

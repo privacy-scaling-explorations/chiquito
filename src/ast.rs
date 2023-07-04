@@ -3,10 +3,9 @@ pub mod expr;
 use std::{collections::HashMap, fmt::Debug, rc::Rc};
 
 use crate::{
-    compiler::FixedGenContext,
     dsl::StepTypeHandler,
     util::uuid,
-    wit_gen::{Trace, TraceContext},
+    wit_gen::{FixedGenContext, Trace, TraceContext},
 };
 
 pub use expr::*;
@@ -16,20 +15,23 @@ use halo2_proofs::plonk::{Advice, Column as Halo2Column, ColumnType, Fixed};
 /// Circuit
 #[derive(Clone)]
 pub struct Circuit<F, TraceArgs> {
+    pub step_types: HashMap<u32, Rc<StepType<F>>>,
+
     pub forward_signals: Vec<ForwardSignal>,
     pub shared_signals: Vec<SharedSignal>,
     pub fixed_signals: Vec<FixedSignal>,
-    pub exposed: Vec<ForwardSignal>,
     pub halo2_advice: Vec<ImportedHalo2Advice>,
     pub halo2_fixed: Vec<ImportedHalo2Fixed>,
-    pub step_types: HashMap<u32, Rc<StepType<F>>>,
-    pub trace: Option<Rc<Trace<F, TraceArgs>>>,
-    pub fixed_gen: Option<Rc<FixedGen<F>>>,
+    pub exposed: Vec<ForwardSignal>,
 
     pub annotations: HashMap<u32, String>,
 
+    pub trace: Option<Rc<Trace<F, TraceArgs>>>,
+    pub fixed_gen: Option<Rc<FixedGen<F>>>,
+
     pub first_step: Option<StepTypeUUID>,
     pub last_step: Option<StepTypeUUID>,
+    pub num_steps: usize,
 }
 
 impl<F: Debug, TraceArgs: Debug> Debug for Circuit<F, TraceArgs> {
@@ -46,16 +48,21 @@ impl<F: Debug, TraceArgs: Debug> Debug for Circuit<F, TraceArgs> {
 impl<F, TraceArgs> Default for Circuit<F, TraceArgs> {
     fn default() -> Self {
         Self {
+            step_types: Default::default(),
             forward_signals: Default::default(),
             shared_signals: Default::default(),
             fixed_signals: Default::default(),
-            exposed: Default::default(),
             halo2_advice: Default::default(),
             halo2_fixed: Default::default(),
-            step_types: Default::default(),
+            exposed: Default::default(),
+
+            num_steps: Default::default(),
+
+            annotations: Default::default(),
+
             trace: None,
             fixed_gen: None,
-            annotations: Default::default(),
+
             first_step: None,
             last_step: None,
         }
@@ -149,7 +156,7 @@ impl<F, TraceArgs> Circuit<F, TraceArgs> {
 
     pub fn set_fixed_gen<D>(&mut self, def: D)
     where
-        D: Fn(&mut dyn FixedGenContext<F>) + 'static,
+        D: Fn(&mut FixedGenContext<F>) + 'static,
     {
         match self.fixed_gen {
             None => self.fixed_gen = Some(Rc::new(def)),
@@ -164,7 +171,7 @@ impl<F, TraceArgs> Circuit<F, TraceArgs> {
     }
 }
 
-pub type FixedGen<F> = dyn Fn(&mut dyn FixedGenContext<F>) + 'static;
+pub type FixedGen<F> = dyn Fn(&mut FixedGenContext<F>) + 'static;
 
 pub type StepTypeUUID = u32;
 

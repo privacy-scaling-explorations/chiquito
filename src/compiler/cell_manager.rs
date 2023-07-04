@@ -12,6 +12,12 @@ pub struct SignalPlacement {
     pub rotation: i32,
 }
 
+impl SignalPlacement {
+    pub fn new(column: Column, rotation: i32) -> Self {
+        Self { column, rotation }
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct StepPlacement {
     height: u32,
