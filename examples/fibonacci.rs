@@ -1,4 +1,3 @@
-#![feature(closure_lifetime_binder)]
 use std::hash::Hash;
 
 use chiquito::{
