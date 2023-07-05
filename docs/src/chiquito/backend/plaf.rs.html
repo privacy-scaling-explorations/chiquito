@@ -467,76 +467,19 @@
 <span id="467">467</span>
 <span id="468">468</span>
 <span id="469">469</span>
-<span id="470">470</span>
-<span id="471">471</span>
-<span id="472">472</span>
-<span id="473">473</span>
-<span id="474">474</span>
-<span id="475">475</span>
-<span id="476">476</span>
-<span id="477">477</span>
-<span id="478">478</span>
-<span id="479">479</span>
-<span id="480">480</span>
-<span id="481">481</span>
-<span id="482">482</span>
-<span id="483">483</span>
-<span id="484">484</span>
-<span id="485">485</span>
-<span id="486">486</span>
-<span id="487">487</span>
-<span id="488">488</span>
-<span id="489">489</span>
-<span id="490">490</span>
-<span id="491">491</span>
-<span id="492">492</span>
-<span id="493">493</span>
-<span id="494">494</span>
-<span id="495">495</span>
-<span id="496">496</span>
-<span id="497">497</span>
-<span id="498">498</span>
-<span id="499">499</span>
-<span id="500">500</span>
-<span id="501">501</span>
-<span id="502">502</span>
-<span id="503">503</span>
-<span id="504">504</span>
-<span id="505">505</span>
-<span id="506">506</span>
-<span id="507">507</span>
-<span id="508">508</span>
-<span id="509">509</span>
-<span id="510">510</span>
-<span id="511">511</span>
-<span id="512">512</span>
-<span id="513">513</span>
-<span id="514">514</span>
-<span id="515">515</span>
-<span id="516">516</span>
-<span id="517">517</span>
-<span id="518">518</span>
-<span id="519">519</span>
-<span id="520">520</span>
-<span id="521">521</span>
-<span id="522">522</span>
-<span id="523">523</span>
-<span id="524">524</span>
-<span id="525">525</span>
-<span id="526">526</span>
 </pre><pre class="rust"><code><span class="kw">use </span>std::{collections::HashMap, hash::Hash, rc::Rc};
 
-<span class="kw">use </span>halo2_proofs::{arithmetic::Field, halo2curves::ff::PrimeField};
+<span class="kw">use </span>halo2_proofs::halo2curves::ff::PrimeField;
 
 <span class="kw">use crate</span>::{
-    ast::{query::Queriable, ForwardSignal, InternalSignal, SharedSignal, StepType, Trace},
-    compiler::{cell_manager::Placement, step_selector::StepSelector, FixedGenContext},
+    ast::{query::Queriable, ForwardSignal, InternalSignal, SharedSignal, StepType},
+    compiler::{cell_manager::Placement, step_selector::StepSelector},
     ir::{
         Circuit <span class="kw">as </span>cCircuit, Column <span class="kw">as </span>cColumn,
         ColumnType::{Advice <span class="kw">as </span>cAdvice, Fixed <span class="kw">as </span>cFixed, Halo2Advice, Halo2Fixed},
         PolyExpr <span class="kw">as </span>cPolyExpr,
     },
-    wit_gen::{GenericTraceContext, TraceWitness},
+    wit_gen::TraceWitness,
 };
 
 <span class="kw">use </span>num_bigint::BigUint;
@@ -549,16 +492,15 @@
 };
 
 <span class="attribute">#[allow(non_snake_case)]
-</span><span class="kw">pub fn </span>chiquito2Plaf&lt;F: PrimeField&lt;Repr = [u8; <span class="number">32</span>]&gt;, TraceArgs: Clone, StepArgs: Clone&gt;(
-    circuit: cCircuit&lt;F, TraceArgs, StepArgs&gt;,
+</span><span class="kw">pub fn </span>chiquito2Plaf&lt;F: PrimeField&lt;Repr = [u8; <span class="number">32</span>]&gt;&gt;(
+    circuit: cCircuit&lt;F&gt;,
     k: u32,
     debug: bool,
-) -&gt; (Plaf, ChiquitoPlafWitGen&lt;F, TraceArgs, StepArgs&gt;) {
+) -&gt; (Plaf, ChiquitoPlafWitGen&lt;F&gt;) {
     <span class="kw">let </span><span class="kw-2">mut </span>chiquito_plaf = ChiquitoPlaf::new(circuit.clone(), debug);
     <span class="kw">let </span>plaf = chiquito_plaf.get_plaf(k);
     <span class="kw">let </span>empty_witness = plaf.gen_empty_witness();
     <span class="kw">let </span>wit_gen = ChiquitoPlafWitGen {
-        trace: circuit.trace,
         placement: circuit.placement,
         selector: circuit.selector,
         step_types: circuit.step_types,
@@ -570,22 +512,17 @@
 }
 
 <span class="attribute">#[derive(Clone, Debug)]
-</span><span class="kw">pub struct </span>ChiquitoPlaf&lt;F: PrimeField, TraceArgs, StepArgs: Clone&gt; {
+</span><span class="kw">pub struct </span>ChiquitoPlaf&lt;F: PrimeField&gt; {
     debug: bool,
-    circuit: cCircuit&lt;F, TraceArgs, StepArgs&gt;,
+    circuit: cCircuit&lt;F&gt;,
     <span class="comment">// Chiquito column id doesn&#39;t start from zero.
     // Plaf column index starts from 0 for each column type (advice, fixed, and instance).
     // Therefore a mapping is needed to convert chiquito column id to plaf index.
     </span>c_column_id_to_p_column_index: HashMap&lt;u32, usize&gt;,
 }
 
-<span class="kw">impl</span>&lt;F: PrimeField&lt;Repr = [u8; <span class="number">32</span>]&gt;, TraceArgs, StepArgs: Clone&gt;
-    ChiquitoPlaf&lt;F, TraceArgs, StepArgs&gt;
-{
-    <span class="kw">pub fn </span>new(
-        circuit: cCircuit&lt;F, TraceArgs, StepArgs&gt;,
-        debug: bool,
-    ) -&gt; ChiquitoPlaf&lt;F, TraceArgs, StepArgs&gt; {
+<span class="kw">impl</span>&lt;F: PrimeField&lt;Repr = [u8; <span class="number">32</span>]&gt;&gt; ChiquitoPlaf&lt;F&gt; {
+    <span class="kw">pub fn </span>new(circuit: cCircuit&lt;F&gt;, debug: bool) -&gt; ChiquitoPlaf&lt;F&gt; {
         ChiquitoPlaf {
             debug,
             circuit,
@@ -648,19 +585,24 @@
             plaf.lookups.push(plaf_lookup);
         }
 
-        <span class="kw">let </span><span class="kw-2">mut </span>fixed: Vec&lt;Vec&lt;<span class="prelude-ty">Option</span>&lt;BigUint&gt;&gt;&gt; = Vec::with_capacity(plaf.columns.fixed.len());
+        <span class="comment">// Fixed
+        </span><span class="kw">let </span><span class="kw-2">mut </span>fixed: Vec&lt;Vec&lt;<span class="prelude-ty">Option</span>&lt;BigUint&gt;&gt;&gt; = Vec::with_capacity(plaf.columns.fixed.len());
         <span class="kw">for </span>_i <span class="kw">in </span><span class="number">0</span>..plaf.columns.fixed.len() {
             fixed.push(<span class="macro">vec!</span>[<span class="prelude-val">None</span>; plaf.info.num_rows]);
         }
-        <span class="kw">let </span><span class="kw-2">mut </span>plaf_fixed_gen = ChiquitoPlafFixedGen {
-            fixed,
-            c_column_id_to_p_column_index: <span class="self">self</span>.c_column_id_to_p_column_index.clone(),
-            placement: <span class="self">self</span>.circuit.placement.clone(),
-        };
-        <span class="kw">if let </span><span class="prelude-val">Some</span>(fg) = <span class="kw-2">&amp;</span><span class="self">self</span>.circuit.fixed_gen {
-            fg(<span class="kw-2">&amp;mut </span>plaf_fixed_gen);
-        };
-        plaf.fixed = plaf_fixed_gen.fixed;
+
+        <span class="kw">for </span>(column, values) <span class="kw">in </span><span class="self">self</span>.circuit.fixed_assignments.clone().into_iter() {
+            <span class="kw">let </span>column = <span class="self">self
+                </span>.c_column_id_to_p_column_index
+                .get(<span class="kw-2">&amp;</span>column.uuid())
+                .expect(<span class="string">&quot;plaf column not found for fixed signal&quot;</span>);
+
+            <span class="kw">for </span>(offset, value) <span class="kw">in </span>values.iter().enumerate() {
+                <span class="comment">// region.assign_fixed(|| &quot;&quot;, *column, offset, || Value::known(value.clone()));
+                </span>fixed[<span class="kw-2">*</span>column][offset] = <span class="prelude-val">Some</span>(BigUint::from_bytes_le(<span class="kw-2">&amp;</span>value.to_repr()));
+            }
+        }
+        plaf.fixed = fixed;
 
         <span class="kw">if </span>!<span class="self">self</span>.circuit.exposed.is_empty() {
             <span class="comment">// Public column not pulled from Chiquito ir, because it&#39;s not stored anywhere.
@@ -815,78 +757,24 @@
     }
 }
 
-<span class="kw">pub struct </span>ChiquitoPlafFixedGen&lt;F: Field, StepArgs&gt; {
-    fixed: Vec&lt;Vec&lt;<span class="prelude-ty">Option</span>&lt;BigUint&gt;&gt;&gt;,
-    c_column_id_to_p_column_index: HashMap&lt;u32, usize&gt;,
-    placement: Placement&lt;F, StepArgs&gt;,
-}
-
-<span class="kw">impl</span>&lt;F: PrimeField&lt;Repr = [u8; <span class="number">32</span>]&gt;, StepArgs&gt; FixedGenContext&lt;F&gt;
-    <span class="kw">for </span>ChiquitoPlafFixedGen&lt;F, StepArgs&gt;
-{
-    <span class="kw">fn </span>assign(<span class="kw-2">&amp;mut </span><span class="self">self</span>, offset: usize, lhs: Queriable&lt;F&gt;, rhs: F) {
-        <span class="kw">let </span>(p_column_index, super_rotation, rotation) = <span class="self">self</span>.find_plaf_placement(lhs, offset);
-
-        <span class="kw">if </span>rotation != <span class="number">0 </span>{
-            <span class="macro">panic!</span>(<span class="string">&quot;cannot assign fixed value with rotation&quot;</span>);
-        }
-
-        <span class="self">self</span>.fixed[p_column_index][super_rotation <span class="kw">as </span>usize] =
-            <span class="prelude-val">Some</span>(BigUint::from_bytes_le(<span class="kw-2">&amp;</span>rhs.to_repr()));
-    }
-}
-
-<span class="kw">impl</span>&lt;F: PrimeField, StepArgs&gt; ChiquitoPlafFixedGen&lt;F, StepArgs&gt; {
-    <span class="kw">fn </span>find_plaf_placement(<span class="kw-2">&amp;</span><span class="self">self</span>, query: Queriable&lt;F&gt;, offset: usize) -&gt; (usize, i32, i32) {
-        <span class="kw">match </span>query {
-            Queriable::Fixed(signal, rotation) =&gt; {
-                <span class="kw">let </span>placement = <span class="self">self</span>.placement.get_fixed_placement(<span class="kw-2">&amp;</span>signal);
-                <span class="comment">// Circuit with fixed signal should all have the same step height.
-                </span><span class="kw">let </span>step_height = <span class="self">self</span>.placement.first_step_height();
-                <span class="kw">let </span>super_rotation = placement.rotation + offset <span class="kw">as </span>i32 * step_height <span class="kw">as </span>i32;
-                <span class="kw">let </span>p_column_index = <span class="self">self
-                    </span>.c_column_id_to_p_column_index
-                    .get(<span class="kw-2">&amp;</span>signal.uuid())
-                    .unwrap_or_else(|| {
-                        <span class="macro">panic!</span>(<span class="string">&quot;plaf column not found for fixed signal {}&quot;</span>, signal.uuid())
-                    });
-                (<span class="kw-2">*</span>p_column_index, super_rotation, rotation)
-            }
-            Queriable::Halo2FixedQuery(_signal, _rotation) =&gt; {
-                <span class="macro">panic!</span>(<span class="string">&quot;Imported Halo2Advice is not supported&quot;</span>);
-            }
-            <span class="kw">_ </span>=&gt; <span class="macro">panic!</span>(<span class="string">&quot;invalid fixed assignment on queriable {:?}&quot;</span>, query),
-        }
-    }
-}
-
-<span class="kw">pub struct </span>ChiquitoPlafWitGen&lt;F, TraceArgs, StepArgs&gt; {
-    trace: <span class="prelude-ty">Option</span>&lt;Rc&lt;Trace&lt;TraceArgs, StepArgs&gt;&gt;&gt;,
-    placement: Placement&lt;F, StepArgs&gt;,
-    selector: StepSelector&lt;F, StepArgs&gt;,
-    step_types: HashMap&lt;u32, Rc&lt;StepType&lt;F, StepArgs&gt;&gt;&gt;,
+<span class="kw">pub struct </span>ChiquitoPlafWitGen&lt;F&gt; {
+    placement: Placement,
+    selector: StepSelector&lt;F&gt;,
+    step_types: HashMap&lt;u32, Rc&lt;StepType&lt;F&gt;&gt;&gt;,
     plaf_witness: pWitness,
     c_column_id_to_p_column_index: HashMap&lt;u32, usize&gt;,
 }
 
-<span class="kw">impl</span>&lt;F: PrimeField&lt;Repr = [u8; <span class="number">32</span>]&gt; + Hash, TraceArgs, StepArgs: Clone&gt;
-    ChiquitoPlafWitGen&lt;F, TraceArgs, StepArgs&gt;
-{
-    <span class="kw">pub fn </span>generate(<span class="kw-2">&amp;</span><span class="self">self</span>, input: TraceArgs) -&gt; pWitness {
+<span class="kw">impl</span>&lt;F: PrimeField&lt;Repr = [u8; <span class="number">32</span>]&gt; + Hash&gt; ChiquitoPlafWitGen&lt;F&gt; {
+    <span class="kw">pub fn </span>generate(<span class="kw-2">&amp;</span><span class="self">self</span>, witness: <span class="prelude-ty">Option</span>&lt;TraceWitness&lt;F&gt;&gt;) -&gt; pWitness {
         <span class="kw">let </span>plaf_witness = pWitness {
             num_rows: <span class="self">self</span>.plaf_witness.num_rows,
             columns: <span class="self">self</span>.plaf_witness.columns.clone(),
             witness: <span class="self">self</span>.plaf_witness.witness.clone(),
         };
 
-        <span class="kw">if let </span><span class="prelude-val">Some</span>(trace) = <span class="kw-2">&amp;</span><span class="self">self</span>.trace {
-            <span class="kw">let </span><span class="kw-2">mut </span>ctx = GenericTraceContext::new(<span class="kw-2">&amp;</span><span class="self">self</span>.step_types);
-
-            trace(<span class="kw-2">&amp;mut </span>ctx, input);
-
-            <span class="kw">let </span>witness = ctx.get_witness();
-
-            <span class="kw">let </span><span class="kw-2">mut </span>processor = WitnessProcessor::&lt;F, StepArgs&gt; {
+        <span class="kw">if let </span><span class="prelude-val">Some</span>(witness) = witness {
+            <span class="kw">let </span><span class="kw-2">mut </span>processor = WitnessProcessor::&lt;F&gt; {
                 plaf_witness,
                 placement: <span class="self">self</span>.placement.clone(),
                 c_column_id_to_p_column_index: <span class="self">self</span>.c_column_id_to_p_column_index.clone(),
@@ -905,17 +793,17 @@
     }
 }
 
-<span class="kw">struct </span>WitnessProcessor&lt;F: PrimeField&lt;Repr = [u8; <span class="number">32</span>]&gt; + Hash, StepArgs&gt; {
+<span class="kw">struct </span>WitnessProcessor&lt;F: PrimeField&lt;Repr = [u8; <span class="number">32</span>]&gt; + Hash&gt; {
     plaf_witness: pWitness,
-    placement: Placement&lt;F, StepArgs&gt;,
+    placement: Placement,
     c_column_id_to_p_column_index: HashMap&lt;u32, usize&gt;,
-    selector: StepSelector&lt;F, StepArgs&gt;,
-    step_types: HashMap&lt;u32, Rc&lt;StepType&lt;F, StepArgs&gt;&gt;&gt;,
+    selector: StepSelector&lt;F&gt;,
+    step_types: HashMap&lt;u32, Rc&lt;StepType&lt;F&gt;&gt;&gt;,
     offset: usize,
-    cur_step: <span class="prelude-ty">Option</span>&lt;Rc&lt;StepType&lt;F, StepArgs&gt;&gt;&gt;,
+    cur_step: <span class="prelude-ty">Option</span>&lt;Rc&lt;StepType&lt;F&gt;&gt;&gt;,
 }
 
-<span class="kw">impl</span>&lt;F: PrimeField&lt;Repr = [u8; <span class="number">32</span>]&gt; + Hash, StepArgs: Clone&gt; WitnessProcessor&lt;F, StepArgs&gt; {
+<span class="kw">impl</span>&lt;F: PrimeField&lt;Repr = [u8; <span class="number">32</span>]&gt; + Hash&gt; WitnessProcessor&lt;F&gt; {
     <span class="kw">fn </span>process(<span class="kw-2">&amp;mut </span><span class="self">self</span>, witness: TraceWitness&lt;F&gt;) {
         <span class="kw">for </span>step_instance <span class="kw">in </span>witness.step_instances {
             <span class="kw">let </span>cur_step = Rc::clone(
@@ -933,7 +821,7 @@
             <span class="kw">let </span>selector_assignment = <span class="self">self
                 </span>.selector
                 .selector_assignment
-                .get(<span class="kw-2">&amp;</span>cur_step)
+                .get(<span class="kw-2">&amp;</span>cur_step.uuid())
                 .expect(<span class="string">&quot;selector assignment for step not found&quot;</span>);
 
             <span class="kw">for </span>(expr, value) <span class="kw">in </span>selector_assignment.iter() {
@@ -972,11 +860,7 @@
         }
     }
 
-    <span class="kw">fn </span>find_plaf_placement(
-        <span class="kw-2">&amp;</span><span class="self">self</span>,
-        step: <span class="kw-2">&amp;</span>StepType&lt;F, StepArgs&gt;,
-        query: Queriable&lt;F&gt;,
-    ) -&gt; (usize, i32) {
+    <span class="kw">fn </span>find_plaf_placement(<span class="kw-2">&amp;</span><span class="self">self</span>, step: <span class="kw-2">&amp;</span>StepType&lt;F&gt;, query: Queriable&lt;F&gt;) -&gt; (usize, i32) {
         <span class="kw">match </span>query {
             Queriable::Internal(signal) =&gt; <span class="self">self</span>.find_plaf_placement_internal(step, signal),
 
@@ -996,10 +880,12 @@
 
     <span class="kw">fn </span>find_plaf_placement_internal(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        step: <span class="kw-2">&amp;</span>StepType&lt;F, StepArgs&gt;,
+        step: <span class="kw-2">&amp;</span>StepType&lt;F&gt;,
         signal: InternalSignal,
     ) -&gt; (usize, i32) {
-        <span class="kw">let </span>placement = <span class="self">self</span>.placement.find_internal_signal_placement(step, <span class="kw-2">&amp;</span>signal);
+        <span class="kw">let </span>placement = <span class="self">self
+            </span>.placement
+            .find_internal_signal_placement(step.uuid(), <span class="kw-2">&amp;</span>signal);
 
         <span class="kw">let </span>p_column_index = <span class="self">self
             </span>.c_column_id_to_p_column_index
@@ -1011,7 +897,7 @@
 
     <span class="kw">fn </span>find_plaf_placement_forward(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        step: <span class="kw-2">&amp;</span>StepType&lt;F, StepArgs&gt;,
+        step: <span class="kw-2">&amp;</span>StepType&lt;F&gt;,
         forward: ForwardSignal,
         next: bool,
     ) -&gt; (usize, i32) {
@@ -1034,7 +920,7 @@
 
     <span class="kw">fn </span>find_plaf_placement_shared(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        step: <span class="kw-2">&amp;</span>StepType&lt;F, StepArgs&gt;,
+        step: <span class="kw-2">&amp;</span>StepType&lt;F&gt;,
         shared: SharedSignal,
         rot: i32,
     ) -&gt; (usize, i32) {

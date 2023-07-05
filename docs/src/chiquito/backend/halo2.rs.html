@@ -499,67 +499,6 @@
 <span id="499">499</span>
 <span id="500">500</span>
 <span id="501">501</span>
-<span id="502">502</span>
-<span id="503">503</span>
-<span id="504">504</span>
-<span id="505">505</span>
-<span id="506">506</span>
-<span id="507">507</span>
-<span id="508">508</span>
-<span id="509">509</span>
-<span id="510">510</span>
-<span id="511">511</span>
-<span id="512">512</span>
-<span id="513">513</span>
-<span id="514">514</span>
-<span id="515">515</span>
-<span id="516">516</span>
-<span id="517">517</span>
-<span id="518">518</span>
-<span id="519">519</span>
-<span id="520">520</span>
-<span id="521">521</span>
-<span id="522">522</span>
-<span id="523">523</span>
-<span id="524">524</span>
-<span id="525">525</span>
-<span id="526">526</span>
-<span id="527">527</span>
-<span id="528">528</span>
-<span id="529">529</span>
-<span id="530">530</span>
-<span id="531">531</span>
-<span id="532">532</span>
-<span id="533">533</span>
-<span id="534">534</span>
-<span id="535">535</span>
-<span id="536">536</span>
-<span id="537">537</span>
-<span id="538">538</span>
-<span id="539">539</span>
-<span id="540">540</span>
-<span id="541">541</span>
-<span id="542">542</span>
-<span id="543">543</span>
-<span id="544">544</span>
-<span id="545">545</span>
-<span id="546">546</span>
-<span id="547">547</span>
-<span id="548">548</span>
-<span id="549">549</span>
-<span id="550">550</span>
-<span id="551">551</span>
-<span id="552">552</span>
-<span id="553">553</span>
-<span id="554">554</span>
-<span id="555">555</span>
-<span id="556">556</span>
-<span id="557">557</span>
-<span id="558">558</span>
-<span id="559">559</span>
-<span id="560">560</span>
-<span id="561">561</span>
-<span id="562">562</span>
 </pre><pre class="rust"><code><span class="kw">use </span>std::{collections::HashMap, hash::Hash, rc::Rc};
 
 <span class="kw">use </span>halo2_proofs::{
@@ -574,37 +513,33 @@
 
 <span class="kw">use crate</span>::{
     ast::{query::Queriable, ForwardSignal, InternalSignal, SharedSignal, StepType, ToField},
-    compiler::{cell_manager::Placement, step_selector::StepSelector, FixedGenContext},
+    compiler::{cell_manager::Placement, step_selector::StepSelector},
     ir::{
         Circuit, Column <span class="kw">as </span>cColumn,
         ColumnType::{Advice <span class="kw">as </span>cAdvice, Fixed <span class="kw">as </span>cFixed, Halo2Advice, Halo2Fixed},
         PolyExpr,
     },
-    wit_gen::{GenericTraceContext, TraceWitness},
+    wit_gen::TraceWitness,
 };
 
 <span class="attribute">#[allow(non_snake_case)]
-</span><span class="kw">pub fn </span>chiquito2Halo2&lt;F: Field + From&lt;u64&gt; + Hash, TraceArgs, StepArgs: Clone&gt;(
-    circuit: Circuit&lt;F, TraceArgs, StepArgs&gt;,
-) -&gt; ChiquitoHalo2&lt;F, TraceArgs, StepArgs&gt; {
+</span><span class="kw">pub fn </span>chiquito2Halo2&lt;F: Field + From&lt;u64&gt; + Hash&gt;(circuit: Circuit&lt;F&gt;) -&gt; ChiquitoHalo2&lt;F&gt; {
     ChiquitoHalo2::new(circuit)
 }
 
 <span class="attribute">#[derive(Clone, Debug)]
-</span><span class="kw">pub struct </span>ChiquitoHalo2&lt;F: Field + From&lt;u64&gt;, TraceArgs, StepArgs: Clone&gt; {
+</span><span class="kw">pub struct </span>ChiquitoHalo2&lt;F: Field + From&lt;u64&gt;&gt; {
     <span class="kw">pub </span>debug: bool,
 
-    circuit: Circuit&lt;F, TraceArgs, StepArgs&gt;,
+    circuit: Circuit&lt;F&gt;,
 
     advice_columns: HashMap&lt;u32, Column&lt;Advice&gt;&gt;,
     fixed_columns: HashMap&lt;u32, Column&lt;Fixed&gt;&gt;,
     instance_column: <span class="prelude-ty">Option</span>&lt;Column&lt;Instance&gt;&gt;,
 }
 
-<span class="kw">impl</span>&lt;F: Field + From&lt;u64&gt; + Hash, TraceArgs, StepArgs: Clone&gt;
-    ChiquitoHalo2&lt;F, TraceArgs, StepArgs&gt;
-{
-    <span class="kw">pub fn </span>new(circuit: Circuit&lt;F, TraceArgs, StepArgs&gt;) -&gt; ChiquitoHalo2&lt;F, TraceArgs, StepArgs&gt; {
+<span class="kw">impl</span>&lt;F: Field + From&lt;u64&gt; + Hash&gt; ChiquitoHalo2&lt;F&gt; {
+    <span class="kw">pub fn </span>new(circuit: Circuit&lt;F&gt;) -&gt; ChiquitoHalo2&lt;F&gt; {
         ChiquitoHalo2 {
             debug: <span class="bool-val">true</span>,
             circuit,
@@ -688,17 +623,24 @@
         }
     }
 
-    <span class="kw">pub fn </span>synthesize(<span class="kw-2">&amp;</span><span class="self">self</span>, layouter: <span class="kw-2">&amp;mut </span><span class="kw">impl </span>Layouter&lt;F&gt;, args: TraceArgs) {
-        <span class="kw">let </span>(advice_assignments, height) = <span class="self">self</span>.synthesize_advice(args);
+    <span class="kw">pub fn </span>synthesize(<span class="kw-2">&amp;</span><span class="self">self</span>, layouter: <span class="kw-2">&amp;mut </span><span class="kw">impl </span>Layouter&lt;F&gt;, witness: <span class="prelude-ty">Option</span>&lt;TraceWitness&lt;F&gt;&gt;) {
+        <span class="kw">let </span>(advice_assignments, height) = <span class="self">self</span>.synthesize_advice(witness);
 
         <span class="kw">let _ </span>= layouter.assign_region(
             || <span class="string">&quot;circuit&quot;</span>,
             |<span class="kw-2">mut </span>region| {
                 <span class="self">self</span>.annotate_circuit(<span class="kw-2">&amp;mut </span>region);
 
-                <span class="kw">let </span>fixed_assignments = <span class="self">self</span>.synthesize_fixed();
-                <span class="kw">for </span>(column, offset, value) <span class="kw">in </span>fixed_assignments.iter() {
-                    region.assign_fixed(|| <span class="string">&quot;&quot;</span>, <span class="kw-2">*</span>column, <span class="kw-2">*</span>offset, || <span class="kw-2">*</span>value)<span class="question-mark">?</span>;
+                <span class="comment">// Fixed synthesize
+                </span><span class="kw">for </span>(column, values) <span class="kw">in </span><span class="kw-2">&amp;</span><span class="self">self</span>.circuit.fixed_assignments {
+                    <span class="kw">let </span>column = <span class="self">self
+                        </span>.fixed_columns
+                        .get(<span class="kw-2">&amp;</span>column.uuid())
+                        .expect(<span class="string">&quot;halo2 column&quot;</span>);
+
+                    <span class="kw">for </span>(offset, value) <span class="kw">in </span>values.iter().enumerate() {
+                        region.assign_fixed(|| <span class="string">&quot;&quot;</span>, <span class="kw-2">*</span>column, offset, || Value::known(<span class="kw-2">*</span>value))<span class="question-mark">?</span>;
+                    }
                 }
 
                 <span class="kw">for </span>(column, offset, value) <span class="kw">in </span>advice_assignments.iter() {
@@ -727,37 +669,18 @@
         }
     }
 
-    <span class="kw">fn </span>synthesize_fixed(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Vec&lt;Assignment&lt;F, Fixed&gt;&gt; {
-        <span class="kw">if let </span><span class="prelude-val">Some</span>(fg) = <span class="kw-2">&amp;</span><span class="self">self</span>.circuit.fixed_gen {
-            <span class="kw">let </span><span class="kw-2">mut </span>ctx = FixedGenContextHalo2::&lt;F, StepArgs&gt; {
-                fixed_columns: <span class="self">self</span>.fixed_columns.clone(),
-                placement: <span class="self">self</span>.circuit.placement.clone(),
-                assigments: Default::default(),
-                max_offset: <span class="number">0</span>,
-            };
-
-            fg(<span class="kw-2">&amp;mut </span>ctx);
-
-            ctx.assigments
-        } <span class="kw">else </span>{
-            <span class="macro">vec!</span>[]
-        }
-    }
-
-    <span class="kw">fn </span>synthesize_advice(<span class="kw-2">&amp;</span><span class="self">self</span>, args: TraceArgs) -&gt; (Vec&lt;Assignment&lt;F, Advice&gt;&gt;, usize) {
+    <span class="kw">fn </span>synthesize_advice(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
+        witness: <span class="prelude-ty">Option</span>&lt;TraceWitness&lt;F&gt;&gt;,
+    ) -&gt; (Vec&lt;Assignment&lt;F, Advice&gt;&gt;, usize) {
         <span class="kw">if </span><span class="self">self</span>.debug {
             <span class="macro">println!</span>(<span class="string">&quot;starting advise generation&quot;</span>);
         }
 
-        <span class="kw">if let </span><span class="prelude-val">Some</span>(trace) = <span class="kw-2">&amp;</span><span class="self">self</span>.circuit.trace {
-            <span class="kw">let </span><span class="kw-2">mut </span>ctx = GenericTraceContext::new(<span class="kw-2">&amp;</span><span class="self">self</span>.circuit.step_types);
-
-            trace(<span class="kw-2">&amp;mut </span>ctx, args);
-
-            <span class="kw">let </span>witness = ctx.get_witness();
+        <span class="kw">if let </span><span class="prelude-val">Some</span>(witness) = witness {
             <span class="kw">let </span>height = witness.height;
 
-            <span class="kw">let </span><span class="kw-2">mut </span>processor = WitnessProcessor::&lt;F, StepArgs&gt; {
+            <span class="kw">let </span><span class="kw-2">mut </span>processor = WitnessProcessor::&lt;F&gt; {
                 assigments: Default::default(),
                 advice_columns: <span class="self">self</span>.advice_columns.clone(),
                 placement: <span class="self">self</span>.circuit.placement.clone(),
@@ -917,21 +840,21 @@
 
 <span class="kw">type </span>Assignment&lt;F, CT&gt; = (Column&lt;CT&gt;, usize, Value&lt;F&gt;);
 
-<span class="kw">struct </span>WitnessProcessor&lt;F: Field, StepArgs&gt; {
+<span class="kw">struct </span>WitnessProcessor&lt;F: Field&gt; {
     advice_columns: HashMap&lt;u32, Column&lt;Advice&gt;&gt;,
-    placement: Placement&lt;F, StepArgs&gt;,
-    selector: StepSelector&lt;F, StepArgs&gt;,
-    step_types: HashMap&lt;u32, Rc&lt;StepType&lt;F, StepArgs&gt;&gt;&gt;,
+    placement: Placement,
+    selector: StepSelector&lt;F&gt;,
+    step_types: HashMap&lt;u32, Rc&lt;StepType&lt;F&gt;&gt;&gt;,
 
     offset: usize,
-    cur_step: <span class="prelude-ty">Option</span>&lt;Rc&lt;StepType&lt;F, StepArgs&gt;&gt;&gt;,
+    cur_step: <span class="prelude-ty">Option</span>&lt;Rc&lt;StepType&lt;F&gt;&gt;&gt;,
 
     assigments: Vec&lt;Assignment&lt;F, Advice&gt;&gt;,
 
     max_offset: usize,
 }
 
-<span class="kw">impl</span>&lt;F: Field, StepArgs: Clone&gt; WitnessProcessor&lt;F, StepArgs&gt; {
+<span class="kw">impl</span>&lt;F: Field&gt; WitnessProcessor&lt;F&gt; {
     <span class="kw">fn </span>process(<span class="kw-2">&amp;mut </span><span class="self">self</span>, witness: TraceWitness&lt;F&gt;) {
         <span class="kw">for </span>step_instance <span class="kw">in </span>witness.step_instances {
             <span class="kw">let </span>cur_step = Rc::clone(
@@ -949,7 +872,7 @@
             <span class="kw">let </span>selector_assignment = <span class="self">self
                 </span>.selector
                 .selector_assignment
-                .get(<span class="kw-2">&amp;</span>cur_step)
+                .get(<span class="kw-2">&amp;</span>cur_step.uuid())
                 .expect(<span class="string">&quot;selector assignment for step not found&quot;</span>);
 
             <span class="kw">for </span>(expr, value) <span class="kw">in </span>selector_assignment.iter() {
@@ -976,7 +899,7 @@
 
     <span class="kw">fn </span>find_halo2_placement(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        step: <span class="kw-2">&amp;</span>StepType&lt;F, StepArgs&gt;,
+        step: <span class="kw-2">&amp;</span>StepType&lt;F&gt;,
         query: Queriable&lt;F&gt;,
     ) -&gt; (Column&lt;Advice&gt;, i32) {
         <span class="kw">match </span>query {
@@ -996,10 +919,12 @@
 
     <span class="kw">fn </span>find_halo2_placement_internal(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        step: <span class="kw-2">&amp;</span>StepType&lt;F, StepArgs&gt;,
+        step: <span class="kw-2">&amp;</span>StepType&lt;F&gt;,
         signal: InternalSignal,
     ) -&gt; (Column&lt;Advice&gt;, i32) {
-        <span class="kw">let </span>placement = <span class="self">self</span>.placement.find_internal_signal_placement(step, <span class="kw-2">&amp;</span>signal);
+        <span class="kw">let </span>placement = <span class="self">self
+            </span>.placement
+            .find_internal_signal_placement(step.uuid(), <span class="kw-2">&amp;</span>signal);
 
         <span class="kw">let </span>column = <span class="self">self
             </span>.advice_columns
@@ -1011,7 +936,7 @@
 
     <span class="kw">fn </span>find_halo2_placement_forward(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        step: <span class="kw-2">&amp;</span>StepType&lt;F, StepArgs&gt;,
+        step: <span class="kw-2">&amp;</span>StepType&lt;F&gt;,
         forward: ForwardSignal,
         next: bool,
     ) -&gt; (Column&lt;Advice&gt;, i32) {
@@ -1034,7 +959,7 @@
 
     <span class="kw">fn </span>find_halo2_placement_shared(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        step: <span class="kw-2">&amp;</span>StepType&lt;F, StepArgs&gt;,
+        step: <span class="kw-2">&amp;</span>StepType&lt;F&gt;,
         shared: SharedSignal,
         rot: i32,
     ) -&gt; (Column&lt;Advice&gt;, i32) {
@@ -1061,53 +986,6 @@
         } <span class="kw">else </span>{
             <span class="macro">panic!</span>(<span class="string">&quot;jarrl assigning outside a step&quot;</span>);
         }
-    }
-}
-
-<span class="kw">struct </span>FixedGenContextHalo2&lt;F: Field, StepArgs&gt; {
-    fixed_columns: HashMap&lt;u32, Column&lt;Fixed&gt;&gt;,
-    placement: Placement&lt;F, StepArgs&gt;,
-    assigments: Vec&lt;Assignment&lt;F, Fixed&gt;&gt;,
-    max_offset: usize,
-}
-
-<span class="kw">impl</span>&lt;F: Field, StepArgs: Clone&gt; FixedGenContextHalo2&lt;F, StepArgs&gt; {
-    <span class="kw">fn </span>find_halo2_placement(
-        <span class="kw-2">&amp;</span><span class="self">self</span>,
-        query: Queriable&lt;F&gt;,
-        offset: usize,
-    ) -&gt; (Column&lt;Fixed&gt;, i32, i32) {
-        <span class="kw">match </span>query {
-            Queriable::Fixed(signal, rotation) =&gt; {
-                <span class="kw">let </span>placement = <span class="self">self</span>.placement.get_fixed_placement(<span class="kw-2">&amp;</span>signal);
-                <span class="comment">// Circuit with fixed signal should all have the same step height.
-                </span><span class="kw">let </span>step_height = <span class="self">self</span>.placement.first_step_height();
-                <span class="kw">let </span>super_rotation = placement.rotation + offset <span class="kw">as </span>i32 * step_height <span class="kw">as </span>i32;
-                <span class="kw">let </span>column = <span class="self">self
-                    </span>.fixed_columns
-                    .get(<span class="kw-2">&amp;</span>placement.column.uuid())
-                    .unwrap_or_else(|| <span class="macro">panic!</span>(<span class="string">&quot;column not found for fixed signal {:?}&quot;</span>, signal));
-
-                (<span class="kw-2">*</span>column, super_rotation, rotation)
-            }
-            Queriable::Halo2FixedQuery(signal, rotation) =&gt; (signal.column, rotation, rotation),
-            <span class="kw">_ </span>=&gt; <span class="macro">panic!</span>(<span class="string">&quot;invalid fixed assignment on queriable {:?}&quot;</span>, query),
-        }
-    }
-}
-
-<span class="kw">impl</span>&lt;F: Field, StepArgs: Clone&gt; FixedGenContext&lt;F&gt; <span class="kw">for </span>FixedGenContextHalo2&lt;F, StepArgs&gt; {
-    <span class="kw">fn </span>assign(<span class="kw-2">&amp;mut </span><span class="self">self</span>, offset: usize, lhs: Queriable&lt;F&gt;, rhs: F) {
-        <span class="kw">let </span>(column, super_rotation, rotation) = <span class="self">self</span>.find_halo2_placement(lhs, offset);
-
-        <span class="kw">if </span>rotation != <span class="number">0 </span>{
-            <span class="macro">panic!</span>(<span class="string">&quot;cannot assign fixed value with rotation&quot;</span>);
-        }
-
-        <span class="self">self</span>.assigments
-            .push((column, super_rotation <span class="kw">as </span>usize, Value::known(rhs)));
-
-        <span class="self">self</span>.max_offset = <span class="self">self</span>.max_offset.max(offset);
     }
 }
 

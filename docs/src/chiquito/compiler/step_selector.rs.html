@@ -219,9 +219,6 @@
 <span id="219">219</span>
 <span id="220">220</span>
 <span id="221">221</span>
-<span id="222">222</span>
-<span id="223">223</span>
-<span id="224">224</span>
 </pre><pre class="rust"><code><span class="kw">use </span>std::{collections::HashMap, rc::Rc};
 
 <span class="kw">use </span>halo2_proofs::{
@@ -229,21 +226,21 @@
     plonk::{Advice, Column <span class="kw">as </span>Halo2Column},
 };
 
-<span class="kw">use </span><span class="kw">crate</span>::ast::StepType;
+<span class="kw">use </span><span class="kw">crate</span>::ast::{StepType, StepTypeUUID};
 
 <span class="kw">use super</span>::{Column, CompilationUnit, PolyExpr};
 
 <span class="kw">pub type </span>SelectorAssignment&lt;F&gt; = (PolyExpr&lt;F&gt;, F);
 
 <span class="attribute">#[derive(Debug, Clone)]
-</span><span class="kw">pub struct </span>StepSelector&lt;F, Args&gt; {
-    <span class="kw">pub </span>selector_expr: HashMap&lt;Rc&lt;StepType&lt;F, Args&gt;&gt;, PolyExpr&lt;F&gt;&gt;,
-    <span class="kw">pub </span>selector_expr_not: HashMap&lt;Rc&lt;StepType&lt;F, Args&gt;&gt;, PolyExpr&lt;F&gt;&gt;,
-    <span class="kw">pub </span>selector_assignment: HashMap&lt;Rc&lt;StepType&lt;F, Args&gt;&gt;, Vec&lt;SelectorAssignment&lt;F&gt;&gt;&gt;,
+</span><span class="kw">pub struct </span>StepSelector&lt;F&gt; {
+    <span class="kw">pub </span>selector_expr: HashMap&lt;StepTypeUUID, PolyExpr&lt;F&gt;&gt;,
+    <span class="kw">pub </span>selector_expr_not: HashMap&lt;StepTypeUUID, PolyExpr&lt;F&gt;&gt;,
+    <span class="kw">pub </span>selector_assignment: HashMap&lt;StepTypeUUID, Vec&lt;SelectorAssignment&lt;F&gt;&gt;&gt;,
     <span class="kw">pub </span>columns: Vec&lt;Column&gt;,
 }
 
-<span class="kw">impl</span>&lt;F, Args&gt; Default <span class="kw">for </span>StepSelector&lt;F, Args&gt; {
+<span class="kw">impl</span>&lt;F&gt; Default <span class="kw">for </span>StepSelector&lt;F&gt; {
     <span class="kw">fn </span>default() -&gt; <span class="self">Self </span>{
         <span class="self">Self </span>{
             selector_expr: Default::default(),
@@ -254,35 +251,35 @@
     }
 }
 
-<span class="kw">impl</span>&lt;F: Clone, Args&gt; StepSelector&lt;F, Args&gt; {
-    <span class="kw">pub fn </span>select(<span class="kw-2">&amp;</span><span class="self">self</span>, step: <span class="kw-2">&amp;</span>StepType&lt;F, Args&gt;, constraint: <span class="kw-2">&amp;</span>PolyExpr&lt;F&gt;) -&gt; PolyExpr&lt;F&gt; {
-        <span class="kw">let </span>selector = <span class="self">self</span>.selector_expr.get(step).expect(<span class="string">&quot;step not found&quot;</span>);
+<span class="kw">impl</span>&lt;F: Clone&gt; StepSelector&lt;F&gt; {
+    <span class="kw">pub fn </span>select(<span class="kw-2">&amp;</span><span class="self">self</span>, step_uuid: StepTypeUUID, constraint: <span class="kw-2">&amp;</span>PolyExpr&lt;F&gt;) -&gt; PolyExpr&lt;F&gt; {
+        <span class="kw">let </span>selector = <span class="self">self</span>.selector_expr.get(<span class="kw-2">&amp;</span>step_uuid).expect(<span class="string">&quot;step not found&quot;</span>);
         PolyExpr::Mul(<span class="macro">vec!</span>[selector.clone(), constraint.clone()])
     }
 
-    <span class="kw">pub fn </span>next_expr(<span class="kw-2">&amp;</span><span class="self">self</span>, step: <span class="kw-2">&amp;</span>StepType&lt;F, Args&gt;, step_height: u32) -&gt; PolyExpr&lt;F&gt; {
-        <span class="kw">let </span>selector = <span class="self">self</span>.selector_expr.get(step).expect(<span class="string">&quot;step not found&quot;</span>);
+    <span class="kw">pub fn </span>next_expr(<span class="kw-2">&amp;</span><span class="self">self</span>, step_uuid: StepTypeUUID, step_height: u32) -&gt; PolyExpr&lt;F&gt; {
+        <span class="kw">let </span>selector = <span class="self">self</span>.selector_expr.get(<span class="kw-2">&amp;</span>step_uuid).expect(<span class="string">&quot;step not found&quot;</span>);
 
         selector.rotate(step_height <span class="kw">as </span>i32)
     }
 
-    <span class="kw">pub fn </span>unselect(<span class="kw-2">&amp;</span><span class="self">self</span>, step: <span class="kw-2">&amp;</span>StepType&lt;F, Args&gt;) -&gt; PolyExpr&lt;F&gt; {
+    <span class="kw">pub fn </span>unselect(<span class="kw-2">&amp;</span><span class="self">self</span>, step_uuid: StepTypeUUID) -&gt; PolyExpr&lt;F&gt; {
         <span class="self">self</span>.selector_expr_not
-            .get(step)
+            .get(<span class="kw-2">&amp;</span>step_uuid)
             .expect(<span class="string">&quot;step not found {}&quot;</span>)
             .clone()
     }
 }
 
 <span class="kw">pub trait </span>StepSelectorBuilder {
-    <span class="kw">fn </span>build&lt;F: Field, TraceArgs, StepArgs&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>, unit: <span class="kw-2">&amp;mut </span>CompilationUnit&lt;F, StepArgs&gt;);
+    <span class="kw">fn </span>build&lt;F: Field&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>, unit: <span class="kw-2">&amp;mut </span>CompilationUnit&lt;F&gt;);
 }
 
 <span class="attribute">#[derive(Debug, Default)]
 </span><span class="kw">pub struct </span>SimpleStepSelectorBuilder {}
 
 <span class="kw">impl </span>StepSelectorBuilder <span class="kw">for </span>SimpleStepSelectorBuilder {
-    <span class="kw">fn </span>build&lt;F: Field, TraceArgs, StepArgs&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>, unit: <span class="kw-2">&amp;mut </span>CompilationUnit&lt;F, StepArgs&gt;) {
+    <span class="kw">fn </span>build&lt;F: Field&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>, unit: <span class="kw-2">&amp;mut </span>CompilationUnit&lt;F&gt;) {
         <span class="kw">let </span><span class="kw-2">mut </span>selector = StepSelector {
             selector_expr: HashMap::new(),
             selector_expr_not: HashMap::new(),
@@ -302,12 +299,12 @@
             selector.columns.push(column.clone());
 
             selector.selector_expr.insert(
-                Rc::clone(step),
+                step.uuid(),
                 PolyExpr::Query(column.clone(), <span class="number">0</span>, annotation.clone()),
             );
 
             selector.selector_expr_not.insert(
-                Rc::clone(step),
+                step.uuid(),
                 PolyExpr::Sum(<span class="macro">vec!</span>[
                     PolyExpr::Const(F::ONE),
                     PolyExpr::Neg(Box::new(PolyExpr::Query(
@@ -319,7 +316,7 @@
             );
 
             selector.selector_assignment.insert(
-                Rc::clone(step),
+                step.uuid(),
                 <span class="macro">vec!</span>[(PolyExpr::Query(column, <span class="number">0</span>, annotation), F::ONE)],
             );
         }
@@ -336,7 +333,7 @@
 }
 
 <span class="kw">impl </span>StepSelectorBuilder <span class="kw">for </span>TwoStepsSelectorBuilder {
-    <span class="kw">fn </span>build&lt;F2: Field, TraceArgs, StepArgs&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>, unit: <span class="kw-2">&amp;mut </span>CompilationUnit&lt;F2, StepArgs&gt;) {
+    <span class="kw">fn </span>build&lt;F: Field&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>, unit: <span class="kw-2">&amp;mut </span>CompilationUnit&lt;F&gt;) {
         <span class="kw">if </span>unit.step_types.len() != <span class="number">2 </span>{
             <span class="macro">panic!</span>(<span class="string">&quot;jarll: must have two step types&quot;</span>);
         }
@@ -382,9 +379,9 @@
 
         <span class="comment">// Zero
         </span>unit.selector.selector_expr.insert(
-            Rc::clone(<span class="kw-2">&amp;</span>step_zero),
+            step_zero.uuid(),
             PolyExpr::Sum(<span class="macro">vec!</span>[
-                PolyExpr::Const(F2::ONE),
+                PolyExpr::Const(F::ONE),
                 PolyExpr::Neg(Box::new(PolyExpr::Query(
                     column.clone(),
                     <span class="number">0</span>,
@@ -394,28 +391,28 @@
         );
 
         unit.selector.selector_expr_not.insert(
-            Rc::clone(<span class="kw-2">&amp;</span>step_zero),
+            step_zero.uuid(),
             PolyExpr::Query(column.clone(), <span class="number">0</span>, <span class="string">&quot;selector NOT step zero&quot;</span>.to_string()),
         );
 
         unit.selector.selector_assignment.insert(
-            Rc::clone(<span class="kw-2">&amp;</span>step_zero),
+            step_zero.uuid(),
             <span class="macro">vec!</span>[(
                 PolyExpr::Query(column.clone(), <span class="number">0</span>, <span class="string">&quot;select step zero&quot;</span>.to_string()),
-                F2::ZERO,
+                F::ZERO,
             )],
         );
 
         <span class="comment">// One
         </span>unit.selector.selector_expr.insert(
-            Rc::clone(<span class="kw-2">&amp;</span>step_one),
+            step_one.uuid(),
             PolyExpr::Query(column.clone(), <span class="number">0</span>, <span class="string">&quot;selector step one&quot;</span>.to_string()),
         );
 
         unit.selector.selector_expr_not.insert(
-            Rc::clone(<span class="kw-2">&amp;</span>step_one),
+            step_one.uuid(),
             PolyExpr::Sum(<span class="macro">vec!</span>[
-                PolyExpr::Const(F2::ONE),
+                PolyExpr::Const(F::ONE),
                 PolyExpr::Neg(Box::new(PolyExpr::Query(
                     column.clone(),
                     <span class="number">0</span>,
@@ -425,19 +422,16 @@
         );
 
         unit.selector.selector_assignment.insert(
-            Rc::clone(<span class="kw-2">&amp;</span>step_one),
+            step_one.uuid(),
             <span class="macro">vec!</span>[(
                 PolyExpr::Query(column, <span class="number">0</span>, <span class="string">&quot;select step one&quot;</span>.to_string()),
-                F2::ONE,
+                F::ONE,
             )],
         );
     }
 }
 
-<span class="kw">fn </span>other_step_type&lt;F, StepArgs&gt;(
-    unit: <span class="kw-2">&amp;</span>CompilationUnit&lt;F, StepArgs&gt;,
-    uuid: u32,
-) -&gt; <span class="prelude-ty">Option</span>&lt;Rc&lt;StepType&lt;F, StepArgs&gt;&gt;&gt; {
+<span class="kw">fn </span>other_step_type&lt;F&gt;(unit: <span class="kw-2">&amp;</span>CompilationUnit&lt;F&gt;, uuid: u32) -&gt; <span class="prelude-ty">Option</span>&lt;Rc&lt;StepType&lt;F&gt;&gt;&gt; {
     <span class="kw">for </span>step_type <span class="kw">in </span>unit.step_types.values() {
         <span class="kw">if </span>step_type.uuid() != uuid {
             <span class="kw">return </span><span class="prelude-val">Some</span>(Rc::clone(step_type));

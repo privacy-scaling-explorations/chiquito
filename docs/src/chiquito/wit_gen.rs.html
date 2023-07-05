@@ -80,15 +80,70 @@
 <span id="80">80</span>
 <span id="81">81</span>
 <span id="82">82</span>
+<span id="83">83</span>
+<span id="84">84</span>
+<span id="85">85</span>
+<span id="86">86</span>
+<span id="87">87</span>
+<span id="88">88</span>
+<span id="89">89</span>
+<span id="90">90</span>
+<span id="91">91</span>
+<span id="92">92</span>
+<span id="93">93</span>
+<span id="94">94</span>
+<span id="95">95</span>
+<span id="96">96</span>
+<span id="97">97</span>
+<span id="98">98</span>
+<span id="99">99</span>
+<span id="100">100</span>
+<span id="101">101</span>
+<span id="102">102</span>
+<span id="103">103</span>
+<span id="104">104</span>
+<span id="105">105</span>
+<span id="106">106</span>
+<span id="107">107</span>
+<span id="108">108</span>
+<span id="109">109</span>
+<span id="110">110</span>
+<span id="111">111</span>
+<span id="112">112</span>
+<span id="113">113</span>
+<span id="114">114</span>
+<span id="115">115</span>
+<span id="116">116</span>
+<span id="117">117</span>
+<span id="118">118</span>
+<span id="119">119</span>
+<span id="120">120</span>
+<span id="121">121</span>
+<span id="122">122</span>
+<span id="123">123</span>
+<span id="124">124</span>
+<span id="125">125</span>
+<span id="126">126</span>
+<span id="127">127</span>
+<span id="128">128</span>
+<span id="129">129</span>
+<span id="130">130</span>
+<span id="131">131</span>
+<span id="132">132</span>
+<span id="133">133</span>
 </pre><pre class="rust"><code><span class="kw">use </span>std::{collections::HashMap, hash::Hash, rc::Rc};
 
+<span class="kw">use </span>halo2_proofs::arithmetic::Field;
+
 <span class="kw">use crate</span>::{
-    ast::{query::Queriable, StepType, StepTypeUUID},
-    compiler::{TraceContext, WitnessGenContext},
-    dsl::StepTypeHandler,
+    ast::{query::Queriable, StepTypeUUID},
+    dsl::StepTypeWGHandler,
 };
 
-<span class="kw">pub struct </span>StepInstance&lt;F&gt; {
+<span class="doccomment">/// A struct that represents a witness generation context. It provides an interface for assigning
+/// values to witness columns in a circuit.
+</span><span class="attribute">#[derive(Debug, Default)]
+</span><span class="kw">pub struct </span>StepInstance&lt;F&gt; {
     <span class="kw">pub </span>step_type_uuid: StepTypeUUID,
     <span class="kw">pub </span>assignments: HashMap&lt;Queriable&lt;F&gt;, F&gt;,
 }
@@ -102,55 +157,39 @@
     }
 }
 
-<span class="kw">impl</span>&lt;F: Eq + Hash&gt; WitnessGenContext&lt;F&gt; <span class="kw">for </span>StepInstance&lt;F&gt; {
-    <span class="kw">fn </span>assign(<span class="kw-2">&amp;mut </span><span class="self">self</span>, lhs: Queriable&lt;F&gt;, rhs: F) {
+<span class="kw">impl</span>&lt;F: Eq + Hash&gt; StepInstance&lt;F&gt; {
+    <span class="doccomment">/// Takes a `Queriable` object representing the witness column (lhs) and the value (rhs) to be
+    /// assigned.
+    </span><span class="kw">pub fn </span>assign(<span class="kw-2">&amp;mut </span><span class="self">self</span>, lhs: Queriable&lt;F&gt;, rhs: F) {
         <span class="self">self</span>.assignments.insert(lhs, rhs);
     }
 }
 
 <span class="kw">pub type </span>Witness&lt;F&gt; = Vec&lt;StepInstance&lt;F&gt;&gt;;
 
-<span class="kw">pub struct </span>TraceWitness&lt;F&gt; {
+<span class="attribute">#[derive(Debug, Default)]
+</span><span class="kw">pub struct </span>TraceWitness&lt;F&gt; {
     <span class="kw">pub </span>step_instances: Witness&lt;F&gt;,
     <span class="kw">pub </span>height: usize,
 }
 
-<span class="kw">impl</span>&lt;F&gt; Default <span class="kw">for </span>TraceWitness&lt;F&gt; {
-    <span class="kw">fn </span>default() -&gt; <span class="self">Self </span>{
-        <span class="self">Self </span>{
-            step_instances: Default::default(),
-            height: Default::default(),
-        }
-    }
-}
-
-<span class="kw">pub struct </span>GenericTraceContext&lt;<span class="lifetime">&#39;a</span>, F, StepArgs&gt; {
-    step_types: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>HashMap&lt;u32, Rc&lt;StepType&lt;F, StepArgs&gt;&gt;&gt;,
-
+<span class="attribute">#[derive(Debug, Default)]
+</span><span class="kw">pub struct </span>TraceContext&lt;F&gt; {
     witness: TraceWitness&lt;F&gt;,
 }
 
-<span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>, F, StepArgs&gt; GenericTraceContext&lt;<span class="lifetime">&#39;a</span>, F, StepArgs&gt; {
-    <span class="kw">pub fn </span>new(step_types: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>HashMap&lt;u32, Rc&lt;StepType&lt;F, StepArgs&gt;&gt;&gt;) -&gt; <span class="self">Self </span>{
-        <span class="self">Self </span>{
-            step_types,
-            witness: TraceWitness::default(),
-        }
-    }
-
+<span class="kw">impl</span>&lt;F&gt; TraceContext&lt;F&gt; {
     <span class="kw">pub fn </span>get_witness(<span class="self">self</span>) -&gt; TraceWitness&lt;F&gt; {
         <span class="self">self</span>.witness
     }
 }
 
-<span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>, F: Eq + Hash, StepArgs&gt; TraceContext&lt;StepArgs&gt; <span class="kw">for </span>GenericTraceContext&lt;<span class="lifetime">&#39;a</span>, F, StepArgs&gt; {
-    <span class="kw">fn </span>add(<span class="kw-2">&amp;mut </span><span class="self">self</span>, step: <span class="kw-2">&amp;</span>StepTypeHandler, args: StepArgs) {
-        <span class="kw">let </span>step = Rc::clone(
-            <span class="self">self</span>.step_types
-                .get(<span class="kw-2">&amp;</span>step.uuid())
-                .expect(<span class="string">&quot;step type not found&quot;</span>),
-        );
-
+<span class="kw">impl</span>&lt;F&gt; TraceContext&lt;F&gt; {
+    <span class="kw">pub fn </span>add&lt;Args, WG: Fn(<span class="kw-2">&amp;mut </span>StepInstance&lt;F&gt;, Args) + <span class="lifetime">&#39;static</span>&gt;(
+        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
+        step: <span class="kw-2">&amp;</span>StepTypeWGHandler&lt;F, Args, WG&gt;,
+        args: Args,
+    ) {
         <span class="kw">let </span><span class="kw-2">mut </span>witness = StepInstance::new(step.uuid());
 
         (<span class="kw-2">*</span>step.wg)(<span class="kw-2">&amp;mut </span>witness, args);
@@ -158,8 +197,71 @@
         <span class="self">self</span>.witness.step_instances.push(witness);
     }
 
-    <span class="kw">fn </span>set_height(<span class="kw-2">&amp;mut </span><span class="self">self</span>, height: usize) {
+    <span class="kw">pub fn </span>set_height(<span class="kw-2">&amp;mut </span><span class="self">self</span>, height: usize) {
         <span class="self">self</span>.witness.height = height;
+    }
+}
+
+<span class="kw">pub type </span>Trace&lt;F, TraceArgs&gt; = <span class="kw">dyn </span>Fn(<span class="kw-2">&amp;mut </span>TraceContext&lt;F&gt;, TraceArgs) + <span class="lifetime">&#39;static</span>;
+
+<span class="attribute">#[derive(Clone)]
+</span><span class="kw">pub struct </span>TraceGenerator&lt;F, TraceArgs&gt; {
+    trace: Rc&lt;Trace&lt;F, TraceArgs&gt;&gt;,
+}
+
+<span class="kw">impl</span>&lt;F: Default, TraceArgs&gt; TraceGenerator&lt;F, TraceArgs&gt; {
+    <span class="kw">pub fn </span>new(trace: Rc&lt;Trace&lt;F, TraceArgs&gt;&gt;) -&gt; <span class="self">Self </span>{
+        <span class="self">Self </span>{ trace }
+    }
+
+    <span class="kw">pub fn </span>generate(<span class="kw-2">&amp;</span><span class="self">self</span>, args: TraceArgs) -&gt; TraceWitness&lt;F&gt; {
+        <span class="kw">let </span><span class="kw-2">mut </span>ctx = TraceContext::default();
+
+        (<span class="self">self</span>.trace)(<span class="kw-2">&amp;mut </span>ctx, args);
+
+        ctx.get_witness()
+    }
+}
+
+<span class="kw">pub type </span>FixedAssignment&lt;F&gt; = HashMap&lt;Queriable&lt;F&gt;, Vec&lt;F&gt;&gt;;
+
+<span class="doccomment">/// A struct that can be used a fixed column generation context. It provides an interface for
+/// assigning values to fixed columns in a circuit at the specified offset.
+</span><span class="kw">pub struct </span>FixedGenContext&lt;F&gt; {
+    assigments: FixedAssignment&lt;F&gt;,
+    num_steps: usize,
+}
+
+<span class="kw">impl</span>&lt;F: Field + Hash&gt; FixedGenContext&lt;F&gt; {
+    <span class="kw">pub fn </span>new(num_steps: usize) -&gt; <span class="self">Self </span>{
+        <span class="self">Self </span>{
+            assigments: Default::default(),
+            num_steps,
+        }
+    }
+
+    <span class="doccomment">/// Takes a `Queriable` object representing the fixed column (lhs) and the value (rhs) to be
+    /// assigned.
+    </span><span class="kw">pub fn </span>assign(<span class="kw-2">&amp;mut </span><span class="self">self</span>, offset: usize, lhs: Queriable&lt;F&gt;, rhs: F) {
+        <span class="kw">if </span>!<span class="self">Self</span>::is_fixed_queriable(lhs) {
+            <span class="macro">panic!</span>(<span class="string">&quot;trying to assign non-fixed signal&quot;</span>);
+        }
+
+        <span class="kw">if let </span><span class="prelude-val">Some</span>(assigments) = <span class="self">self</span>.assigments.get_mut(<span class="kw-2">&amp;</span>lhs) {
+            assigments[offset] = rhs;
+        } <span class="kw">else </span>{
+            <span class="kw">let </span><span class="kw-2">mut </span>assigments = <span class="macro">vec!</span>[F::ZERO; <span class="self">self</span>.num_steps];
+            assigments[offset] = rhs;
+            <span class="self">self</span>.assigments.insert(lhs, assigments);
+        }
+    }
+
+    <span class="kw">pub fn </span>get_assigments(<span class="self">self</span>) -&gt; FixedAssignment&lt;F&gt; {
+        <span class="self">self</span>.assigments
+    }
+
+    <span class="kw">fn </span>is_fixed_queriable(q: Queriable&lt;F&gt;) -&gt; bool {
+        <span class="macro">matches!</span>(q, Queriable::Halo2FixedQuery(<span class="kw">_</span>, <span class="kw">_</span>) | Queriable::Fixed(<span class="kw">_</span>, <span class="kw">_</span>))
     }
 }
 </code></pre></div>

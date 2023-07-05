@@ -456,43 +456,43 @@
 <span id="456">456</span>
 <span id="457">457</span>
 <span id="458">458</span>
-<span id="459">459</span>
-<span id="460">460</span>
-<span id="461">461</span>
-<span id="462">462</span>
 </pre><pre class="rust"><code><span class="kw">pub mod </span>expr;
 
 <span class="kw">use </span>std::{collections::HashMap, fmt::Debug, rc::Rc};
 
 <span class="kw">use crate</span>::{
-    compiler::{FixedGenContext, TraceContext, WitnessGenContext},
     dsl::StepTypeHandler,
     util::uuid,
+    wit_gen::{FixedGenContext, Trace, TraceContext},
 };
 
 <span class="kw">pub use </span>expr::<span class="kw-2">*</span>;
 
 <span class="kw">use </span>halo2_proofs::plonk::{Advice, Column <span class="kw">as </span>Halo2Column, ColumnType, Fixed};
 
-<span class="doccomment">/// SuperCircuit
-</span><span class="kw">pub struct </span>Circuit&lt;F, TraceArgs, StepArgs&gt; {
+<span class="doccomment">/// Circuit
+</span><span class="attribute">#[derive(Clone)]
+</span><span class="kw">pub struct </span>Circuit&lt;F, TraceArgs&gt; {
+    <span class="kw">pub </span>step_types: HashMap&lt;u32, Rc&lt;StepType&lt;F&gt;&gt;&gt;,
+
     <span class="kw">pub </span>forward_signals: Vec&lt;ForwardSignal&gt;,
     <span class="kw">pub </span>shared_signals: Vec&lt;SharedSignal&gt;,
     <span class="kw">pub </span>fixed_signals: Vec&lt;FixedSignal&gt;,
-    <span class="kw">pub </span>exposed: Vec&lt;ForwardSignal&gt;,
     <span class="kw">pub </span>halo2_advice: Vec&lt;ImportedHalo2Advice&gt;,
     <span class="kw">pub </span>halo2_fixed: Vec&lt;ImportedHalo2Fixed&gt;,
-    <span class="kw">pub </span>step_types: HashMap&lt;u32, Rc&lt;StepType&lt;F, StepArgs&gt;&gt;&gt;,
-    <span class="kw">pub </span>trace: <span class="prelude-ty">Option</span>&lt;Rc&lt;Trace&lt;TraceArgs, StepArgs&gt;&gt;&gt;,
-    <span class="kw">pub </span>fixed_gen: <span class="prelude-ty">Option</span>&lt;Rc&lt;FixedGen&lt;F&gt;&gt;&gt;,
+    <span class="kw">pub </span>exposed: Vec&lt;ForwardSignal&gt;,
 
     <span class="kw">pub </span>annotations: HashMap&lt;u32, String&gt;,
 
-    <span class="kw">pub </span>first_step: <span class="prelude-ty">Option</span>&lt;StepTypeHandler&gt;,
-    <span class="kw">pub </span>last_step: <span class="prelude-ty">Option</span>&lt;StepTypeHandler&gt;,
+    <span class="kw">pub </span>trace: <span class="prelude-ty">Option</span>&lt;Rc&lt;Trace&lt;F, TraceArgs&gt;&gt;&gt;,
+    <span class="kw">pub </span>fixed_gen: <span class="prelude-ty">Option</span>&lt;Rc&lt;FixedGen&lt;F&gt;&gt;&gt;,
+
+    <span class="kw">pub </span>first_step: <span class="prelude-ty">Option</span>&lt;StepTypeUUID&gt;,
+    <span class="kw">pub </span>last_step: <span class="prelude-ty">Option</span>&lt;StepTypeUUID&gt;,
+    <span class="kw">pub </span>num_steps: usize,
 }
 
-<span class="kw">impl</span>&lt;F: Debug, TraceArgs: Debug, StepArgs: Debug&gt; Debug <span class="kw">for </span>Circuit&lt;F, TraceArgs, StepArgs&gt; {
+<span class="kw">impl</span>&lt;F: Debug, TraceArgs: Debug&gt; Debug <span class="kw">for </span>Circuit&lt;F, TraceArgs&gt; {
     <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>std::fmt::Formatter&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; std::fmt::Result {
         f.debug_struct(<span class="string">&quot;Circuit&quot;</span>)
             .field(<span class="string">&quot;forward_signals&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.forward_signals)
@@ -503,26 +503,31 @@
     }
 }
 
-<span class="kw">impl</span>&lt;F, TraceArgs, StepArgs&gt; Default <span class="kw">for </span>Circuit&lt;F, TraceArgs, StepArgs&gt; {
+<span class="kw">impl</span>&lt;F, TraceArgs&gt; Default <span class="kw">for </span>Circuit&lt;F, TraceArgs&gt; {
     <span class="kw">fn </span>default() -&gt; <span class="self">Self </span>{
         <span class="self">Self </span>{
+            step_types: Default::default(),
             forward_signals: Default::default(),
             shared_signals: Default::default(),
             fixed_signals: Default::default(),
-            exposed: Default::default(),
             halo2_advice: Default::default(),
             halo2_fixed: Default::default(),
-            step_types: Default::default(),
+            exposed: Default::default(),
+
+            num_steps: Default::default(),
+
+            annotations: Default::default(),
+
             trace: <span class="prelude-val">None</span>,
             fixed_gen: <span class="prelude-val">None</span>,
-            annotations: Default::default(),
+
             first_step: <span class="prelude-val">None</span>,
             last_step: <span class="prelude-val">None</span>,
         }
     }
 }
 
-<span class="kw">impl</span>&lt;F, TraceArgs, StepArgs&gt; Circuit&lt;F, TraceArgs, StepArgs&gt; {
+<span class="kw">impl</span>&lt;F, TraceArgs&gt; Circuit&lt;F, TraceArgs&gt; {
     <span class="kw">pub fn </span>add_forward&lt;N: Into&lt;String&gt;&gt;(<span class="kw-2">&amp;mut </span><span class="self">self</span>, name: N, phase: usize) -&gt; ForwardSignal {
         <span class="kw">let </span>name = name.into();
         <span class="kw">let </span>signal = ForwardSignal::new_with_phase(phase, name.clone());
@@ -587,7 +592,7 @@
         <span class="self">self</span>.annotations.insert(handler.uuid(), name.into());
     }
 
-    <span class="kw">pub fn </span>add_step_type_def(<span class="kw-2">&amp;mut </span><span class="self">self</span>, step: StepType&lt;F, StepArgs&gt;) -&gt; StepTypeUUID {
+    <span class="kw">pub fn </span>add_step_type_def(<span class="kw-2">&amp;mut </span><span class="self">self</span>, step: StepType&lt;F&gt;) -&gt; StepTypeUUID {
         <span class="kw">let </span>uuid = step.uuid();
         <span class="kw">let </span>step_rc = Rc::new(step);
         <span class="self">self</span>.step_types.insert(uuid, step_rc);
@@ -597,7 +602,7 @@
 
     <span class="kw">pub fn </span>set_trace&lt;D&gt;(<span class="kw-2">&amp;mut </span><span class="self">self</span>, def: D)
     <span class="kw">where
-        </span>D: Fn(<span class="kw-2">&amp;mut </span><span class="kw">dyn </span>TraceContext&lt;StepArgs&gt;, TraceArgs) + <span class="lifetime">&#39;static</span>,
+        </span>D: Fn(<span class="kw-2">&amp;mut </span>TraceContext&lt;F&gt;, TraceArgs) + <span class="lifetime">&#39;static</span>,
     {
         <span class="kw">match </span><span class="self">self</span>.trace {
             <span class="prelude-val">None </span>=&gt; {
@@ -609,7 +614,7 @@
 
     <span class="kw">pub fn </span>set_fixed_gen&lt;D&gt;(<span class="kw-2">&amp;mut </span><span class="self">self</span>, def: D)
     <span class="kw">where
-        </span>D: Fn(<span class="kw-2">&amp;mut </span><span class="kw">dyn </span>FixedGenContext&lt;F&gt;) + <span class="lifetime">&#39;static</span>,
+        </span>D: Fn(<span class="kw-2">&amp;mut </span>FixedGenContext&lt;F&gt;) + <span class="lifetime">&#39;static</span>,
     {
         <span class="kw">match </span><span class="self">self</span>.fixed_gen {
             <span class="prelude-val">None </span>=&gt; <span class="self">self</span>.fixed_gen = <span class="prelude-val">Some</span>(Rc::new(def)),
@@ -617,21 +622,19 @@
         }
     }
 
-    <span class="kw">pub fn </span>get_step_type(<span class="kw-2">&amp;</span><span class="self">self</span>, uuid: u32) -&gt; Rc&lt;StepType&lt;F, StepArgs&gt;&gt; {
+    <span class="kw">pub fn </span>get_step_type(<span class="kw-2">&amp;</span><span class="self">self</span>, uuid: u32) -&gt; Rc&lt;StepType&lt;F&gt;&gt; {
         <span class="kw">let </span>step_rc = <span class="self">self</span>.step_types.get(<span class="kw-2">&amp;</span>uuid).expect(<span class="string">&quot;step type not found&quot;</span>);
 
         Rc::clone(step_rc)
     }
 }
 
-<span class="kw">pub type </span>Trace&lt;TraceArgs, StepArgs&gt; = <span class="kw">dyn </span>Fn(<span class="kw-2">&amp;mut </span><span class="kw">dyn </span>TraceContext&lt;StepArgs&gt;, TraceArgs) + <span class="lifetime">&#39;static</span>;
-<span class="kw">pub type </span>FixedGen&lt;F&gt; = <span class="kw">dyn </span>Fn(<span class="kw-2">&amp;mut </span><span class="kw">dyn </span>FixedGenContext&lt;F&gt;) + <span class="lifetime">&#39;static</span>;
-<span class="kw">pub type </span>StepWitnessGen&lt;F, Args&gt; = <span class="kw">dyn </span>Fn(<span class="kw-2">&amp;mut </span><span class="kw">dyn </span>WitnessGenContext&lt;F&gt;, Args) + <span class="lifetime">&#39;static</span>;
+<span class="kw">pub type </span>FixedGen&lt;F&gt; = <span class="kw">dyn </span>Fn(<span class="kw-2">&amp;mut </span>FixedGenContext&lt;F&gt;) + <span class="lifetime">&#39;static</span>;
 
 <span class="kw">pub type </span>StepTypeUUID = u32;
 
 <span class="doccomment">/// Step
-</span><span class="kw">pub struct </span>StepType&lt;F, Args&gt; {
+</span><span class="kw">pub struct </span>StepType&lt;F&gt; {
     id: StepTypeUUID,
 
     <span class="kw">pub </span>name: String,
@@ -640,11 +643,9 @@
     <span class="kw">pub </span>transition_constraints: Vec&lt;TransitionConstraint&lt;F&gt;&gt;,
     <span class="kw">pub </span>lookups: Vec&lt;Lookup&lt;F&gt;&gt;,
     <span class="kw">pub </span>annotations: HashMap&lt;u32, String&gt;,
-
-    <span class="kw">pub </span>wg: Box&lt;StepWitnessGen&lt;F, Args&gt;&gt;,
 }
 
-<span class="kw">impl</span>&lt;F: Debug, Args&gt; Debug <span class="kw">for </span>StepType&lt;F, Args&gt; {
+<span class="kw">impl</span>&lt;F: Debug&gt; Debug <span class="kw">for </span>StepType&lt;F&gt; {
     <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>std::fmt::Formatter&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; std::fmt::Result {
         f.debug_struct(<span class="string">&quot;StepType&quot;</span>)
             .field(<span class="string">&quot;id&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.id)
@@ -655,7 +656,7 @@
     }
 }
 
-<span class="kw">impl</span>&lt;F, Args&gt; StepType&lt;F, Args&gt; {
+<span class="kw">impl</span>&lt;F&gt; StepType&lt;F&gt; {
     <span class="kw">pub fn </span>new(uuid: u32, name: String) -&gt; <span class="self">Self </span>{
         <span class="self">Self </span>{
             id: uuid,
@@ -665,7 +666,6 @@
             transition_constraints: Default::default(),
             lookups: Default::default(),
             annotations: Default::default(),
-            wg: Box::new(|<span class="kw">_</span>, <span class="kw">_</span>| {}),
         }
     }
     <span class="kw">pub fn </span>uuid(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; StepTypeUUID {
@@ -693,25 +693,17 @@
 
         <span class="self">self</span>.transition_constraints.push(condition)
     }
-
-    <span class="kw">pub fn </span>set_wg&lt;D&gt;(<span class="kw-2">&amp;mut </span><span class="self">self</span>, def: D)
-    <span class="kw">where
-        </span>D: Fn(<span class="kw-2">&amp;mut </span><span class="kw">dyn </span>WitnessGenContext&lt;F&gt;, Args) + <span class="lifetime">&#39;static</span>,
-    {
-        <span class="comment">// TODO, only can be called once
-        </span><span class="self">self</span>.wg = Box::new(def);
-    }
 }
 
-<span class="kw">impl</span>&lt;F, Args&gt; PartialEq <span class="kw">for </span>StepType&lt;F, Args&gt; {
+<span class="kw">impl</span>&lt;F&gt; PartialEq <span class="kw">for </span>StepType&lt;F&gt; {
     <span class="kw">fn </span>eq(<span class="kw-2">&amp;</span><span class="self">self</span>, other: <span class="kw-2">&amp;</span><span class="self">Self</span>) -&gt; bool {
         <span class="self">self</span>.id == other.id
     }
 }
 
-<span class="kw">impl</span>&lt;F, Args&gt; Eq <span class="kw">for </span>StepType&lt;F, Args&gt; {}
+<span class="kw">impl</span>&lt;F&gt; Eq <span class="kw">for </span>StepType&lt;F&gt; {}
 
-<span class="kw">impl</span>&lt;F, Args&gt; core::hash::Hash <span class="kw">for </span>StepType&lt;F, Args&gt; {
+<span class="kw">impl</span>&lt;F&gt; core::hash::Hash <span class="kw">for </span>StepType&lt;F&gt; {
     <span class="kw">fn </span>hash&lt;H: std::hash::Hasher&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>, state: <span class="kw-2">&amp;mut </span>H) {
         <span class="self">self</span>.id.hash(state);
     }

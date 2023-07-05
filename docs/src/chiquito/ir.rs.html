@@ -228,21 +228,34 @@
 <span id="228">228</span>
 <span id="229">229</span>
 <span id="230">230</span>
-</pre><pre class="rust"><code><span class="kw">use </span>std::{collections::HashMap, fmt::Debug, rc::Rc};
+<span id="231">231</span>
+<span id="232">232</span>
+<span id="233">233</span>
+<span id="234">234</span>
+<span id="235">235</span>
+<span id="236">236</span>
+<span id="237">237</span>
+<span id="238">238</span>
+<span id="239">239</span>
+<span id="240">240</span>
+<span id="241">241</span>
+</pre><pre class="rust"><code><span class="kw">use </span>std::{collections::HashMap, fmt::Debug, hash::Hash, rc::Rc};
 
 <span class="kw">use </span>halo2_proofs::plonk::Expression;
 
 <span class="kw">use crate</span>::{
-    ast::{FixedGen, ImportedHalo2Advice, ImportedHalo2Fixed, StepType, Trace},
+    ast::{ImportedHalo2Advice, ImportedHalo2Fixed, StepType},
     compiler::{cell_manager::Placement, step_selector::StepSelector},
     util::uuid,
 };
 
-<span class="attribute">#[derive(Clone)]
-</span><span class="kw">pub struct </span>Circuit&lt;F, TraceArgs, StepArgs&gt; {
-    <span class="kw">pub </span>placement: Placement&lt;F, StepArgs&gt;,
-    <span class="kw">pub </span>selector: StepSelector&lt;F, StepArgs&gt;,
-    <span class="kw">pub </span>step_types: HashMap&lt;u32, Rc&lt;StepType&lt;F, StepArgs&gt;&gt;&gt;,
+<span class="comment">// pub mod sc;
+
+</span><span class="attribute">#[derive(Clone)]
+</span><span class="kw">pub struct </span>Circuit&lt;F&gt; {
+    <span class="kw">pub </span>placement: Placement,
+    <span class="kw">pub </span>selector: StepSelector&lt;F&gt;,
+    <span class="kw">pub </span>step_types: HashMap&lt;u32, Rc&lt;StepType&lt;F&gt;&gt;&gt;,
 
     <span class="kw">pub </span>q_enable: Column,
     <span class="kw">pub </span>q_first: <span class="prelude-ty">Option</span>&lt;Column&gt;,
@@ -250,14 +263,15 @@
 
     <span class="kw">pub </span>columns: Vec&lt;Column&gt;,
     <span class="kw">pub </span>exposed: Vec&lt;(Column, i32)&gt;, <span class="comment">// forward signal, rotation
-    </span><span class="kw">pub </span>polys: Vec&lt;Poly&lt;F&gt;&gt;,
+    </span><span class="kw">pub </span>num_rows: usize,
+
+    <span class="kw">pub </span>polys: Vec&lt;Poly&lt;F&gt;&gt;,
     <span class="kw">pub </span>lookups: Vec&lt;PolyLookup&lt;F&gt;&gt;,
 
-    <span class="kw">pub </span>trace: <span class="prelude-ty">Option</span>&lt;Rc&lt;Trace&lt;TraceArgs, StepArgs&gt;&gt;&gt;,
-    <span class="kw">pub </span>fixed_gen: <span class="prelude-ty">Option</span>&lt;Rc&lt;FixedGen&lt;F&gt;&gt;&gt;,
+    <span class="kw">pub </span>fixed_assignments: Assignment&lt;F&gt;,
 }
 
-<span class="kw">impl</span>&lt;F: Debug, TraceArgs, StepArgs: Debug&gt; Debug <span class="kw">for </span>Circuit&lt;F, TraceArgs, StepArgs&gt; {
+<span class="kw">impl</span>&lt;F: Debug&gt; Debug <span class="kw">for </span>Circuit&lt;F&gt; {
     <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>std::fmt::Formatter&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; std::fmt::Result {
         f.debug_struct(<span class="string">&quot;Circuit&quot;</span>)
             .field(<span class="string">&quot;placement&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.placement)
@@ -268,7 +282,7 @@
     }
 }
 
-<span class="attribute">#[derive(Clone, Debug)]
+<span class="attribute">#[derive(Clone, Debug, Hash)]
 </span><span class="kw">pub enum </span>ColumnType {
     Advice,
     Fixed,
@@ -348,6 +362,12 @@
 <span class="kw">impl </span>PartialEq <span class="kw">for </span>Column {
     <span class="kw">fn </span>eq(<span class="kw-2">&amp;</span><span class="self">self</span>, other: <span class="kw-2">&amp;</span><span class="self">Self</span>) -&gt; bool {
         <span class="self">self</span>.id == other.id
+    }
+}
+
+<span class="kw">impl </span>Hash <span class="kw">for </span>Column {
+    <span class="kw">fn </span>hash&lt;H: std::hash::Hasher&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>, state: <span class="kw-2">&amp;mut </span>H) {
+        <span class="self">self</span>.id.hash(state);
     }
 }
 
@@ -431,6 +451,8 @@
     <span class="kw">pub </span>annotation: String,
     <span class="kw">pub </span>exprs: Vec&lt;(PolyExpr&lt;F&gt;, PolyExpr&lt;F&gt;)&gt;,
 }
+
+<span class="kw">pub type </span>Assignment&lt;F&gt; = HashMap&lt;Column, Vec&lt;F&gt;&gt;;
 
 <span class="attribute">#[cfg(test)]
 </span><span class="kw">mod </span>tests {

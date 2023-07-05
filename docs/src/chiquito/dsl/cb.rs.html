@@ -733,6 +733,13 @@
 <span id="733">733</span>
 <span id="734">734</span>
 <span id="735">735</span>
+<span id="736">736</span>
+<span id="737">737</span>
+<span id="738">738</span>
+<span id="739">739</span>
+<span id="740">740</span>
+<span id="741">741</span>
+<span id="742">742</span>
 </pre><pre class="rust"><code><span class="kw">use </span>std::{fmt::Debug, vec};
 
 <span class="kw">use </span>halo2_proofs::arithmetic::Field;
@@ -1047,11 +1054,12 @@
 
 <span class="doccomment">/// Takes a `StepTypeHandler` and a constraint, and returns a new constraint that is only applied if
 /// the next step is of the given step type.
-</span><span class="kw">pub fn </span>if_next_step&lt;F: Clone, T: Into&lt;Constraint&lt;F&gt;&gt;&gt;(
-    step_type: StepTypeHandler,
+</span><span class="kw">pub fn </span>if_next_step&lt;F: Clone, T: Into&lt;Constraint&lt;F&gt;&gt;, ST: Into&lt;StepTypeHandler&gt;&gt;(
+    step_type: ST,
     constraint: T,
 ) -&gt; Constraint&lt;F&gt; {
     <span class="kw">let </span>constraint = constraint.into();
+    <span class="kw">let </span>step_type = step_type.into();
 
     <span class="kw">let </span>annotation = <span class="macro">format!</span>(
         <span class="string">&quot;if(next step is {})then({})&quot;</span>,
@@ -1067,7 +1075,9 @@
 
 <span class="doccomment">/// Takes a `StepTypeHandler` and returns a new constraint that requires the next step to be of the
 /// given step type.
-</span><span class="kw">pub fn </span>next_step_must_be&lt;F: From&lt;u64&gt;&gt;(step_type: StepTypeHandler) -&gt; Constraint&lt;F&gt; {
+</span><span class="kw">pub fn </span>next_step_must_be&lt;F: From&lt;u64&gt;, ST: Into&lt;StepTypeHandler&gt;&gt;(step_type: ST) -&gt; Constraint&lt;F&gt; {
+    <span class="kw">let </span>step_type = step_type.into();
+
     annotate(
         <span class="macro">format!</span>(<span class="string">&quot;next_step_must_be({})&quot;</span>, step_type.annotation),
         not(step_type.next()),
@@ -1077,7 +1087,11 @@
 
 <span class="doccomment">/// Takes a `StepTypeHandler` and returns a new constraint that requires the next step to not be of
 /// the given step type.
-</span><span class="kw">pub fn </span>next_step_must_not_be&lt;F: From&lt;u64&gt;&gt;(step_type: StepTypeHandler) -&gt; Constraint&lt;F&gt; {
+</span><span class="kw">pub fn </span>next_step_must_not_be&lt;F: From&lt;u64&gt;, ST: Into&lt;StepTypeHandler&gt;&gt;(
+    step_type: ST,
+) -&gt; Constraint&lt;F&gt; {
+    <span class="kw">let </span>step_type = step_type.into();
+
     annotate(
         <span class="macro">format!</span>(<span class="string">&quot;next_step_must_not_be({})&quot;</span>, step_type.annotation),
         step_type.next(),
@@ -1222,7 +1236,7 @@
                     <span class="macro">matches!</span>(v[<span class="number">0</span>], Expr::Const(c) <span class="kw">if </span>c == <span class="number">1u64</span>.field()) &amp;&amp; 
                     <span class="macro">matches!</span>(<span class="kw-2">&amp;</span>v[<span class="number">1</span>], Expr::Sum(v) <span class="kw">if </span>v.len() == <span class="number">2 </span>&amp;&amp;
                         <span class="macro">matches!</span>(v[<span class="number">0</span>], Expr::Const(c) <span class="kw">if </span>c == <span class="number">1u64</span>.field()) &amp;&amp;
-                        <span class="macro">matches!</span>(<span class="kw-2">&amp;</span>v[<span class="number">1</span>], Expr::Neg(boxed_e) <span class="kw">if 
+                        <span class="macro">matches!</span>(<span class="kw-2">&amp;</span>v[<span class="number">1</span>], Expr::Neg(boxed_e) <span class="kw">if
                             </span><span class="macro">matches!</span>(boxed_e.as_ref(), Expr::Const(c) <span class="kw">if </span><span class="kw-2">*</span>c == <span class="number">10u64</span>.field())))))));
     }
 

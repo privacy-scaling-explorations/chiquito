@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":[["chiquito2Plaf",""]],"struct":[["ChiquitoPlaf",""],["ChiquitoPlafFixedGen",""],["ChiquitoPlafWitGen",""]]};
+window.SIDEBAR_ITEMS = {"fn":[["chiquito2Plaf",""]],"struct":[["ChiquitoPlaf",""],["ChiquitoPlafWitGen",""]]};

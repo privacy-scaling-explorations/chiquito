@@ -47,15 +47,19 @@
 <span id="47">47</span>
 <span id="48">48</span>
 <span id="49">49</span>
-</pre><pre class="rust"><code><span class="kw">use </span>halo2_proofs::arithmetic::Field;
+<span id="50">50</span>
+<span id="51">51</span>
+</pre><pre class="rust"><code><span class="kw">use </span>std::hash::Hash;
+
+<span class="kw">use </span>halo2_proofs::arithmetic::Field;
 
 <span class="kw">use crate</span>::{
     ast::{query::Queriable, ToExpr},
-    compiler::WitnessGenContext,
     dsl::{
         cb::{Constraint, Typing},
         StepTypeContext,
     },
+    wit_gen::StepInstance,
 };
 
 <span class="kw">pub struct </span>IsZero&lt;F&gt; {
@@ -64,8 +68,8 @@
 }
 
 <span class="kw">impl</span>&lt;F: Field + From&lt;u64&gt;&gt; IsZero&lt;F&gt; {
-    <span class="kw">pub fn </span>setup&lt;V: Into&lt;Constraint&lt;F&gt;&gt;, StepArgs&gt;(
-        ctx: <span class="kw-2">&amp;mut </span>StepTypeContext&lt;F, StepArgs&gt;,
+    <span class="kw">pub fn </span>setup&lt;V: Into&lt;Constraint&lt;F&gt;&gt;&gt;(
+        ctx: <span class="kw-2">&amp;mut </span>StepTypeContext&lt;F&gt;,
         value: V,
         value_inv: Queriable&lt;F&gt;,
     ) -&gt; IsZero&lt;F&gt; {
@@ -91,8 +95,8 @@
     }
 }
 
-<span class="kw">impl</span>&lt;F: Field&gt; IsZero&lt;F&gt; {
-    <span class="kw">pub fn </span>wg(<span class="kw-2">&amp;</span><span class="self">self</span>, ctx: <span class="kw-2">&amp;mut </span><span class="kw">dyn </span>WitnessGenContext&lt;F&gt;, value: F) {
+<span class="kw">impl</span>&lt;F: Field + Eq + Hash&gt; IsZero&lt;F&gt; {
+    <span class="kw">pub fn </span>wg&lt;WGC&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>, ctx: <span class="kw-2">&amp;mut </span>StepInstance&lt;F&gt;, value: F) {
         ctx.assign(<span class="self">self</span>.value_inv, value.invert().unwrap_or(F::ZERO));
     }
 }

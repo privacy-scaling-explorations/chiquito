@@ -299,15 +299,79 @@
 <span id="299">299</span>
 <span id="300">300</span>
 <span id="301">301</span>
+<span id="302">302</span>
+<span id="303">303</span>
+<span id="304">304</span>
+<span id="305">305</span>
+<span id="306">306</span>
+<span id="307">307</span>
+<span id="308">308</span>
+<span id="309">309</span>
+<span id="310">310</span>
+<span id="311">311</span>
+<span id="312">312</span>
+<span id="313">313</span>
+<span id="314">314</span>
+<span id="315">315</span>
+<span id="316">316</span>
+<span id="317">317</span>
+<span id="318">318</span>
+<span id="319">319</span>
+<span id="320">320</span>
+<span id="321">321</span>
+<span id="322">322</span>
+<span id="323">323</span>
+<span id="324">324</span>
+<span id="325">325</span>
+<span id="326">326</span>
+<span id="327">327</span>
+<span id="328">328</span>
+<span id="329">329</span>
+<span id="330">330</span>
+<span id="331">331</span>
+<span id="332">332</span>
+<span id="333">333</span>
+<span id="334">334</span>
+<span id="335">335</span>
+<span id="336">336</span>
+<span id="337">337</span>
+<span id="338">338</span>
+<span id="339">339</span>
+<span id="340">340</span>
+<span id="341">341</span>
+<span id="342">342</span>
+<span id="343">343</span>
+<span id="344">344</span>
+<span id="345">345</span>
+<span id="346">346</span>
+<span id="347">347</span>
+<span id="348">348</span>
+<span id="349">349</span>
+<span id="350">350</span>
+<span id="351">351</span>
+<span id="352">352</span>
+<span id="353">353</span>
+<span id="354">354</span>
+<span id="355">355</span>
+<span id="356">356</span>
+<span id="357">357</span>
+<span id="358">358</span>
+<span id="359">359</span>
+<span id="360">360</span>
+<span id="361">361</span>
+<span id="362">362</span>
+<span id="363">363</span>
+<span id="364">364</span>
 </pre><pre class="rust"><code><span class="kw">use crate</span>::{
     ast::{query::Queriable, Circuit, StepType, StepTypeUUID},
-    compiler::{FixedGenContext, TraceContext, WitnessGenContext},
     util::uuid,
+    wit_gen::{FixedGenContext, StepInstance, TraceContext},
 };
 
 <span class="kw">use </span>halo2_proofs::plonk::{Advice, Column <span class="kw">as </span>Halo2Column, Fixed};
 
 <span class="kw">use </span>core::fmt::Debug;
+<span class="kw">use </span>std::marker::PhantomData;
 
 <span class="kw">use </span><span class="self">self</span>::cb::{Constraint, LookupBuilder, Typing};
 
@@ -317,11 +381,11 @@
 /// generic type representing the field of the circuit. `TraceArgs` is a generic type
 /// representing the arguments passed to the trace function. `StepArgs` is a generic type
 /// representing the arguments passed to the `step_type_def` function.
-</span><span class="kw">pub struct </span>CircuitContext&lt;F, TraceArgs, StepArgs&gt; {
-    sc: Circuit&lt;F, TraceArgs, StepArgs&gt;,
+</span><span class="kw">pub struct </span>CircuitContext&lt;F, TraceArgs&gt; {
+    sc: Circuit&lt;F, TraceArgs&gt;,
 }
 
-<span class="kw">impl</span>&lt;F, TraceArgs, StepArgs&gt; CircuitContext&lt;F, TraceArgs, StepArgs&gt; {
+<span class="kw">impl</span>&lt;F, TraceArgs&gt; CircuitContext&lt;F, TraceArgs&gt; {
     <span class="doccomment">/// Adds a forward signal to the circuit with a name string and zero rotation and returns a
     /// `Queriable` instance representing the added forward signal.
     </span><span class="kw">pub fn </span>forward(<span class="kw-2">&amp;mut </span><span class="self">self</span>, name: <span class="kw-2">&amp;</span>str) -&gt; Queriable&lt;F&gt; {
@@ -386,16 +450,33 @@
     <span class="doccomment">/// Defines a step type using the provided `StepTypeHandler` and a function that takes a
     /// mutable reference to a `StepTypeContext`. This function typically adds constraints to a
     /// step type and defines witness generation.
-    </span><span class="kw">pub fn </span>step_type_def&lt;D&gt;(<span class="kw-2">&amp;mut </span><span class="self">self</span>, handler: StepTypeHandler, def: D)
+    </span><span class="kw">pub fn </span>step_type_def&lt;D, Args, S: Into&lt;StepTypeDefInput&gt;, R&gt;(
+        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
+        step: S,
+        def: D,
+    ) -&gt; StepTypeWGHandler&lt;F, Args, R&gt;
     <span class="kw">where
-        </span>D: FnOnce(<span class="kw-2">&amp;mut </span>StepTypeContext&lt;F, StepArgs&gt;),
+        </span>D: FnOnce(<span class="kw-2">&amp;mut </span>StepTypeContext&lt;F&gt;) -&gt; StepTypeWGHandler&lt;F, Args, R&gt;,
+        R: Fn(<span class="kw-2">&amp;mut </span>StepInstance&lt;F&gt;, Args) + <span class="lifetime">&#39;static</span>,
     {
-        <span class="kw">let </span><span class="kw-2">mut </span>context =
-            StepTypeContext::&lt;F, StepArgs&gt;::new(handler.uuid(), handler.annotation.to_string());
+        <span class="kw">let </span>handler: StepTypeHandler = <span class="kw">match </span>step.into() {
+            StepTypeDefInput::Handler(h) =&gt; h,
+            StepTypeDefInput::String(name) =&gt; {
+                <span class="kw">let </span>handler = StepTypeHandler::new(name.to_string());
 
-        def(<span class="kw-2">&amp;mut </span>context);
+                <span class="self">self</span>.sc.add_step_type(handler, name);
+
+                handler
+            }
+        };
+
+        <span class="kw">let </span><span class="kw-2">mut </span>context = StepTypeContext::&lt;F&gt;::new(handler.uuid(), handler.annotation.to_string());
+
+        <span class="kw">let </span>result = def(<span class="kw-2">&amp;mut </span>context);
 
         <span class="self">self</span>.sc.add_step_type_def(context.step_type);
+
+        result
     }
 
     <span class="doccomment">/// Sets the trace function that builds the witness. The trace function is responsible for
@@ -405,7 +486,7 @@
     /// `add` function to add step instances with witness values.
     </span><span class="kw">pub fn </span>trace&lt;D&gt;(<span class="kw-2">&amp;mut </span><span class="self">self</span>, def: D)
     <span class="kw">where
-        </span>D: Fn(<span class="kw-2">&amp;mut </span><span class="kw">dyn </span>TraceContext&lt;StepArgs&gt;, TraceArgs) + <span class="lifetime">&#39;static</span>,
+        </span>D: Fn(<span class="kw-2">&amp;mut </span>TraceContext&lt;F&gt;, TraceArgs) + <span class="lifetime">&#39;static</span>,
     {
         <span class="self">self</span>.sc.set_trace(def);
     }
@@ -416,21 +497,42 @@
     /// call the `assign` function to fill the fixed columns.
     </span><span class="kw">pub fn </span>fixed_gen&lt;D&gt;(<span class="kw-2">&amp;mut </span><span class="self">self</span>, def: D)
     <span class="kw">where
-        </span>D: Fn(<span class="kw-2">&amp;mut </span><span class="kw">dyn </span>FixedGenContext&lt;F&gt;) + <span class="lifetime">&#39;static</span>,
+        </span>D: Fn(<span class="kw-2">&amp;mut </span>FixedGenContext&lt;F&gt;) + <span class="lifetime">&#39;static</span>,
     {
         <span class="self">self</span>.sc.set_fixed_gen(def);
     }
 
     <span class="doccomment">/// Enforce the type of the first step by adding a constraint to the circuit. Takes a
     /// `StepTypeHandler` parameter that represents the step type.
-    </span><span class="kw">pub fn </span>pragma_first_step(<span class="kw-2">&amp;mut </span><span class="self">self</span>, step_type: StepTypeHandler) {
-        <span class="self">self</span>.sc.first_step = <span class="prelude-val">Some</span>(step_type);
+    </span><span class="kw">pub fn </span>pragma_first_step&lt;STH: Into&lt;StepTypeHandler&gt;&gt;(<span class="kw-2">&amp;mut </span><span class="self">self</span>, step_type: STH) {
+        <span class="self">self</span>.sc.first_step = <span class="prelude-val">Some</span>(step_type.into().uuid());
     }
 
     <span class="doccomment">/// Enforce the type of the last step by adding a constraint to the circuit. Takes a
     /// `StepTypeHandler` parameter that represents the step type.
-    </span><span class="kw">pub fn </span>pragma_last_step(<span class="kw-2">&amp;mut </span><span class="self">self</span>, step_type: StepTypeHandler) {
-        <span class="self">self</span>.sc.last_step = <span class="prelude-val">Some</span>(step_type);
+    </span><span class="kw">pub fn </span>pragma_last_step&lt;STH: Into&lt;StepTypeHandler&gt;&gt;(<span class="kw-2">&amp;mut </span><span class="self">self</span>, step_type: STH) {
+        <span class="self">self</span>.sc.last_step = <span class="prelude-val">Some</span>(step_type.into().uuid());
+    }
+
+    <span class="kw">pub fn </span>pragma_num_steps(<span class="kw-2">&amp;mut </span><span class="self">self</span>, num_steps: usize) {
+        <span class="self">self</span>.sc.num_steps = num_steps;
+    }
+}
+
+<span class="kw">pub enum </span>StepTypeDefInput {
+    Handler(StepTypeHandler),
+    String(<span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str),
+}
+
+<span class="kw">impl </span>From&lt;StepTypeHandler&gt; <span class="kw">for </span>StepTypeDefInput {
+    <span class="kw">fn </span>from(h: StepTypeHandler) -&gt; <span class="self">Self </span>{
+        StepTypeDefInput::Handler(h)
+    }
+}
+
+<span class="kw">impl </span>From&lt;<span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str&gt; <span class="kw">for </span>StepTypeDefInput {
+    <span class="kw">fn </span>from(s: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str) -&gt; <span class="self">Self </span>{
+        StepTypeDefInput::String(s)
     }
 }
 
@@ -438,11 +540,11 @@
 /// contains a `StepType` instance and implements methods to build the step type, add components,
 /// and manipulate the step type. `F` is a generic type representing the field of the step type.
 /// `Args` is the type of the step instance witness generation arguments.
-</span><span class="kw">pub struct </span>StepTypeContext&lt;F, Args&gt; {
-    step_type: StepType&lt;F, Args&gt;,
+</span><span class="kw">pub struct </span>StepTypeContext&lt;F&gt; {
+    step_type: StepType&lt;F&gt;,
 }
 
-<span class="kw">impl</span>&lt;F, Args&gt; StepTypeContext&lt;F, Args&gt; {
+<span class="kw">impl</span>&lt;F&gt; StepTypeContext&lt;F&gt; {
     <span class="kw">pub fn </span>new(uuid: u32, name: String) -&gt; <span class="self">Self </span>{
         <span class="self">Self </span>{
             step_type: StepType::new(uuid, name),
@@ -478,7 +580,7 @@
     <span class="doccomment">/// Define step constraints.
     </span><span class="kw">pub fn </span>setup&lt;D&gt;(<span class="kw-2">&amp;mut </span><span class="self">self</span>, def: D)
     <span class="kw">where
-        </span>D: Fn(<span class="kw-2">&amp;mut </span>StepTypeSetupContext&lt;F, Args&gt;),
+        </span>D: Fn(<span class="kw-2">&amp;mut </span>StepTypeSetupContext&lt;F&gt;),
     {
         <span class="kw">let </span><span class="kw-2">mut </span>ctx = StepTypeSetupContext {
             step_type: <span class="kw-2">&amp;mut </span><span class="self">self</span>.step_type,
@@ -487,19 +589,22 @@
         def(<span class="kw-2">&amp;mut </span>ctx);
     }
 
-    <span class="doccomment">/// Sets the witness generation function for the step type. The witness generation function is
-    /// responsible for assigning witness values to witness signals for one step
-    /// instance. It is entirely left for the user to implement and is Turing complete. Users
-    /// typically generate cell values and call the assign function to fill the witness signals.
-    </span><span class="kw">pub fn </span>wg&lt;D&gt;(<span class="kw-2">&amp;mut </span><span class="self">self</span>, def: D)
+    <span class="kw">pub fn </span>wg&lt;Args, D&gt;(<span class="kw-2">&amp;mut </span><span class="self">self</span>, def: D) -&gt; StepTypeWGHandler&lt;F, Args, D&gt;
     <span class="kw">where
-        </span>D: Fn(<span class="kw-2">&amp;mut </span><span class="kw">dyn </span>WitnessGenContext&lt;F&gt;, Args) + <span class="lifetime">&#39;static</span>,
+        </span>D: Fn(<span class="kw-2">&amp;mut </span>StepInstance&lt;F&gt;, Args) + <span class="lifetime">&#39;static</span>,
     {
-        <span class="self">self</span>.step_type.set_wg(def);
+        StepTypeWGHandler {
+            id: <span class="self">self</span>.step_type.uuid(),
+            annotation: Box::leak(<span class="self">self</span>.step_type.name.clone().into_boxed_str()),
+
+            wg: Box::new(def),
+
+            _p: PhantomData::default(),
+        }
     }
 }
 
-<span class="kw">impl</span>&lt;F: Debug + Clone, Args&gt; StepTypeContext&lt;F, Args&gt; {
+<span class="kw">impl</span>&lt;F: Debug + Clone&gt; StepTypeContext&lt;F&gt; {
     <span class="doccomment">/// DEPRECATED
     </span><span class="kw">pub fn </span>add_lookup(<span class="kw-2">&amp;mut </span><span class="self">self</span>, lookup_builder: <span class="kw-2">&amp;mut </span>LookupBuilder&lt;F&gt;) {
         <span class="macro">println!</span>(<span class="string">&quot;DEPRECATED add_lookup: use setup for constraints in step types&quot;</span>);
@@ -508,11 +613,11 @@
     }
 }
 
-<span class="kw">pub struct </span>StepTypeSetupContext&lt;<span class="lifetime">&#39;a</span>, F, Args&gt; {
-    step_type: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="kw-2">mut </span>StepType&lt;F, Args&gt;,
+<span class="kw">pub struct </span>StepTypeSetupContext&lt;<span class="lifetime">&#39;a</span>, F&gt; {
+    step_type: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="kw-2">mut </span>StepType&lt;F&gt;,
 }
 
-<span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>, F, Args&gt; StepTypeSetupContext&lt;<span class="lifetime">&#39;a</span>, F, Args&gt; {
+<span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>, F&gt; StepTypeSetupContext&lt;<span class="lifetime">&#39;a</span>, F&gt; {
     <span class="doccomment">/// Adds a constraint to the step type. Involves internal signal(s) and forward signals without
     /// SuperRotation only. Chiquito provides syntax sugar for defining complex constraints.
     /// Refer to the `cb` (constraint builder) module for more information.
@@ -546,7 +651,7 @@
     }
 }
 
-<span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>, F: Debug + Clone, Args&gt; StepTypeSetupContext&lt;<span class="lifetime">&#39;a</span>, F, Args&gt; {
+<span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>, F: Debug + Clone&gt; StepTypeSetupContext&lt;<span class="lifetime">&#39;a</span>, F&gt; {
     <span class="doccomment">/// Adds a lookup to the step type.
     </span><span class="kw">pub fn </span>add_lookup(<span class="kw-2">&amp;mut </span><span class="self">self</span>, lookup_builder: <span class="kw-2">&amp;mut </span>LookupBuilder&lt;F&gt;) {
         <span class="self">self</span>.step_type.lookups.push(lookup_builder.lookup.clone());
@@ -576,18 +681,39 @@
     }
 }
 
-<span class="kw">pub struct </span>ForwardSignalHandler {
-    <span class="comment">// fs: ForwardSignal,
-</span>}
+<span class="kw">impl</span>&lt;F, Args, D: Fn(<span class="kw-2">&amp;mut </span>StepInstance&lt;F&gt;, Args) + <span class="lifetime">&#39;static</span>&gt; From&lt;<span class="kw-2">&amp;</span>StepTypeWGHandler&lt;F, Args, D&gt;&gt;
+    <span class="kw">for </span>StepTypeHandler
+{
+    <span class="kw">fn </span>from(h: <span class="kw-2">&amp;</span>StepTypeWGHandler&lt;F, Args, D&gt;) -&gt; <span class="self">Self </span>{
+        StepTypeHandler {
+            id: h.id,
+            annotation: h.annotation,
+        }
+    }
+}
+
+<span class="kw">pub struct </span>StepTypeWGHandler&lt;F, Args, D: Fn(<span class="kw-2">&amp;mut </span>StepInstance&lt;F&gt;, Args) + <span class="lifetime">&#39;static</span>&gt; {
+    id: u32,
+    <span class="kw">pub </span>annotation: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str,
+    <span class="kw">pub </span>wg: Box&lt;D&gt;,
+
+    _p: PhantomData&lt;(F, Args)&gt;,
+}
+
+<span class="kw">impl</span>&lt;F, Args, D: Fn(<span class="kw-2">&amp;mut </span>StepInstance&lt;F&gt;, Args) + <span class="lifetime">&#39;static</span>&gt; StepTypeWGHandler&lt;F, Args, D&gt; {
+    <span class="kw">pub fn </span>uuid(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; u32 {
+        <span class="self">self</span>.id
+    }
+}
 
 <span class="doccomment">/// Creates a `Circuit` instance by providing a name and a definition closure that is applied to a
 /// mutable `CircuitContext`. The user customizes the definition closure by calling `CircuitContext`
 /// functions. This is the main function that users call to define a Chiquito circuit. Currently,
 /// the name is not used for annotation within the function, but it may be used in future
 /// implementations.
-</span><span class="kw">pub fn </span>circuit&lt;F, TraceArgs, StepArgs, D&gt;(_name: <span class="kw-2">&amp;</span>str, def: D) -&gt; Circuit&lt;F, TraceArgs, StepArgs&gt;
+</span><span class="kw">pub fn </span>circuit&lt;F, TraceArgs, StepArgs, D&gt;(_name: <span class="kw-2">&amp;</span>str, def: D) -&gt; Circuit&lt;F, TraceArgs&gt;
 <span class="kw">where
-    </span>D: Fn(<span class="kw-2">&amp;mut </span>CircuitContext&lt;F, TraceArgs, StepArgs&gt;),
+    </span>D: Fn(<span class="kw-2">&amp;mut </span>CircuitContext&lt;F, TraceArgs&gt;),
 {
     <span class="comment">// TODO annotate circuit
     </span><span class="kw">let </span><span class="kw-2">mut </span>context = CircuitContext {

@@ -403,15 +403,11 @@
 <span id="403">403</span>
 <span id="404">404</span>
 <span id="405">405</span>
-<span id="406">406</span>
-<span id="407">407</span>
-<span id="408">408</span>
-<span id="409">409</span>
-<span id="410">410</span>
-</pre><pre class="rust"><code><span class="kw">use </span>core::panic;
-<span class="kw">use </span>std::{collections::HashMap, fmt::Debug, rc::Rc};
+</pre><pre class="rust"><code><span class="kw">use </span>std::{collections::HashMap, fmt::Debug};
 
-<span class="kw">use </span><span class="kw">crate</span>::ast::{FixedSignal, ForwardSignal, InternalSignal, SharedSignal, StepType};
+<span class="kw">use </span><span class="kw">crate</span>::ast::{
+    FixedSignal, ForwardSignal, InternalSignal, SharedSignal, StepType, StepTypeUUID,
+};
 
 <span class="kw">use super</span>::{Column, CompilationUnit};
 
@@ -421,34 +417,28 @@
     <span class="kw">pub </span>rotation: i32,
 }
 
+<span class="kw">impl </span>SignalPlacement {
+    <span class="kw">pub fn </span>new(column: Column, rotation: i32) -&gt; <span class="self">Self </span>{
+        <span class="self">Self </span>{ column, rotation }
+    }
+}
+
 <span class="attribute">#[derive(Debug, Clone)]
 </span><span class="kw">pub struct </span>StepPlacement {
     height: u32,
     signals: HashMap&lt;InternalSignal, SignalPlacement&gt;,
 }
 
-<span class="attribute">#[derive(Debug, Clone)]
-</span><span class="kw">pub struct </span>Placement&lt;F, StepArgs&gt; {
+<span class="attribute">#[derive(Debug, Clone, Default)]
+</span><span class="kw">pub struct </span>Placement {
     <span class="kw">pub </span>forward: HashMap&lt;ForwardSignal, SignalPlacement&gt;,
     <span class="kw">pub </span>shared: HashMap&lt;SharedSignal, SignalPlacement&gt;,
     <span class="kw">pub </span>fixed: HashMap&lt;FixedSignal, SignalPlacement&gt;,
-    <span class="kw">pub </span>steps: HashMap&lt;Rc&lt;StepType&lt;F, StepArgs&gt;&gt;, StepPlacement&gt;,
+    <span class="kw">pub </span>steps: HashMap&lt;StepTypeUUID, StepPlacement&gt;,
     <span class="kw">pub </span>columns: Vec&lt;Column&gt;,
 }
 
-<span class="kw">impl</span>&lt;F, StepArgs&gt; Default <span class="kw">for </span>Placement&lt;F, StepArgs&gt; {
-    <span class="kw">fn </span>default() -&gt; <span class="self">Self </span>{
-        <span class="self">Self </span>{
-            forward: Default::default(),
-            shared: Default::default(),
-            fixed: Default::default(),
-            steps: Default::default(),
-            columns: Default::default(),
-        }
-    }
-}
-
-<span class="kw">impl</span>&lt;F, StepArgs&gt; Placement&lt;F, StepArgs&gt; {
+<span class="kw">impl </span>Placement {
     <span class="kw">pub fn </span>get_forward_placement(<span class="kw-2">&amp;</span><span class="self">self</span>, forward: <span class="kw-2">&amp;</span>ForwardSignal) -&gt; SignalPlacement {
         <span class="self">self</span>.forward
             .get(forward)
@@ -472,11 +462,11 @@
 
     <span class="kw">pub fn </span>find_internal_signal_placement(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        step: <span class="kw-2">&amp;</span>StepType&lt;F, StepArgs&gt;,
+        step_uuid: StepTypeUUID,
         signal: <span class="kw-2">&amp;</span>InternalSignal,
     ) -&gt; SignalPlacement {
         <span class="self">self</span>.steps
-            .get(step)
+            .get(<span class="kw-2">&amp;</span>step_uuid)
             .expect(<span class="string">&quot;step not found&quot;</span>)
             .signals
             .get(signal)
@@ -484,8 +474,8 @@
             .clone()
     }
 
-    <span class="kw">pub fn </span>step_height(<span class="kw-2">&amp;</span><span class="self">self</span>, step: <span class="kw-2">&amp;</span>StepType&lt;F, StepArgs&gt;) -&gt; u32 {
-        <span class="self">self</span>.steps.get(step).expect(<span class="string">&quot;step not found&quot;</span>).height
+    <span class="kw">pub fn </span>step_height&lt;F&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>, step: <span class="kw-2">&amp;</span>StepType&lt;F&gt;) -&gt; u32 {
+        <span class="self">self</span>.steps.get(<span class="kw-2">&amp;</span>step.uuid()).expect(<span class="string">&quot;step not found&quot;</span>).height
     }
 
     <span class="kw">pub fn </span>first_step_height(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; u32 {
@@ -505,15 +495,15 @@
 }
 
 <span class="kw">pub trait </span>CellManager {
-    <span class="kw">fn </span>place&lt;F, StepArgs&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>, unit: <span class="kw-2">&amp;mut </span>CompilationUnit&lt;F, StepArgs&gt;);
+    <span class="kw">fn </span>place&lt;F&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>, unit: <span class="kw-2">&amp;mut </span>CompilationUnit&lt;F&gt;);
 }
 
 <span class="attribute">#[derive(Debug, Default)]
 </span><span class="kw">pub struct </span>SingleRowCellManager {}
 
 <span class="kw">impl </span>CellManager <span class="kw">for </span>SingleRowCellManager {
-    <span class="kw">fn </span>place&lt;F, StepArgs&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>, unit: <span class="kw-2">&amp;mut </span>CompilationUnit&lt;F, StepArgs&gt;) {
-        <span class="kw">let </span><span class="kw-2">mut </span>placement = Placement::&lt;F, StepArgs&gt; {
+    <span class="kw">fn </span>place&lt;F&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>, unit: <span class="kw-2">&amp;mut </span>CompilationUnit&lt;F&gt;) {
+        <span class="kw">let </span><span class="kw-2">mut </span>placement = Placement {
             forward: HashMap::new(),
             shared: HashMap::new(),
             fixed: HashMap::new(),
@@ -627,7 +617,7 @@
                 internal_signals += <span class="number">1</span>;
             }
 
-            placement.steps.insert(Rc::clone(step), step_placement);
+            placement.steps.insert(step.uuid(), step_placement);
             max_internal_width = max_internal_width.max(internal_signals);
         }
 
@@ -642,12 +632,12 @@
 }
 
 <span class="kw">impl </span>CellManager <span class="kw">for </span>MaxWidthCellManager {
-    <span class="kw">fn </span>place&lt;F, StepArgs&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>, unit: <span class="kw-2">&amp;mut </span>CompilationUnit&lt;F, StepArgs&gt;) {
+    <span class="kw">fn </span>place&lt;F&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>, unit: <span class="kw-2">&amp;mut </span>CompilationUnit&lt;F&gt;) {
         <span class="kw">if </span>!unit.shared_signals.is_empty() || !unit.fixed_signals.is_empty() {
             <span class="macro">panic!</span>(<span class="string">&quot;Shared signals and fixed signals are not supported for MaxWidthCellManager, which might return steps with variable heights.&quot;</span>);
         }
 
-        <span class="kw">let </span><span class="kw-2">mut </span>placement = Placement::&lt;F, StepArgs&gt; {
+        <span class="kw">let </span><span class="kw-2">mut </span>placement = Placement {
             forward: HashMap::new(),
             shared: HashMap::new(),
             fixed: HashMap::new(),
@@ -732,7 +722,7 @@
                 }
             }
 
-            placement.steps.insert(Rc::clone(step), step_placement);
+            placement.steps.insert(step.uuid(), step_placement);
         }
 
         unit.columns.extend_from_slice(<span class="kw-2">&amp;</span>placement.columns);
@@ -753,7 +743,7 @@
 
     <span class="attribute">#[test]
     </span><span class="kw">fn </span>test_max_width_cm_2_columns() {
-        <span class="kw">let </span><span class="kw-2">mut </span>unit = CompilationUnit::&lt;(), ()&gt; {
+        <span class="kw">let </span><span class="kw-2">mut </span>unit = CompilationUnit::&lt;()&gt; {
             forward_signals: <span class="macro">vec!</span>[
                 ForwardSignal::new_with_phase(<span class="number">0</span>, <span class="string">&quot;a&quot;</span>.to_string()),
                 ForwardSignal::new_with_phase(<span class="number">0</span>, <span class="string">&quot;a&quot;</span>.to_string()),
@@ -785,7 +775,7 @@
         <span class="macro">assert_eq!</span>(
             unit.placement
                 .steps
-                .get(<span class="kw-2">&amp;</span>step1)
+                .get(<span class="kw-2">&amp;</span>step1.uuid())
                 .expect(<span class="string">&quot;should be there&quot;</span>)
                 .height,
             <span class="number">3
@@ -793,7 +783,7 @@
         <span class="macro">assert_eq!</span>(
             unit.placement
                 .steps
-                .get(<span class="kw-2">&amp;</span>step1)
+                .get(<span class="kw-2">&amp;</span>step1.uuid())
                 .expect(<span class="string">&quot;should be there&quot;</span>)
                 .signals
                 .len(),
@@ -802,7 +792,7 @@
         <span class="macro">assert_eq!</span>(
             unit.placement
                 .steps
-                .get(<span class="kw-2">&amp;</span>step2)
+                .get(<span class="kw-2">&amp;</span>step2.uuid())
                 .expect(<span class="string">&quot;should be there&quot;</span>)
                 .height,
             <span class="number">2
@@ -810,7 +800,7 @@
         <span class="macro">assert_eq!</span>(
             unit.placement
                 .steps
-                .get(<span class="kw-2">&amp;</span>step2)
+                .get(<span class="kw-2">&amp;</span>step2.uuid())
                 .expect(<span class="string">&quot;should be there&quot;</span>)
                 .signals
                 .len(),

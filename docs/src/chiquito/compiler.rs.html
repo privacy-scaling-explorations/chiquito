@@ -551,8 +551,59 @@
 <span id="551">551</span>
 <span id="552">552</span>
 <span id="553">553</span>
+<span id="554">554</span>
+<span id="555">555</span>
+<span id="556">556</span>
+<span id="557">557</span>
+<span id="558">558</span>
+<span id="559">559</span>
+<span id="560">560</span>
+<span id="561">561</span>
+<span id="562">562</span>
+<span id="563">563</span>
+<span id="564">564</span>
+<span id="565">565</span>
+<span id="566">566</span>
+<span id="567">567</span>
+<span id="568">568</span>
+<span id="569">569</span>
+<span id="570">570</span>
+<span id="571">571</span>
+<span id="572">572</span>
+<span id="573">573</span>
+<span id="574">574</span>
+<span id="575">575</span>
+<span id="576">576</span>
+<span id="577">577</span>
+<span id="578">578</span>
+<span id="579">579</span>
+<span id="580">580</span>
+<span id="581">581</span>
+<span id="582">582</span>
+<span id="583">583</span>
+<span id="584">584</span>
+<span id="585">585</span>
+<span id="586">586</span>
+<span id="587">587</span>
+<span id="588">588</span>
+<span id="589">589</span>
+<span id="590">590</span>
+<span id="591">591</span>
+<span id="592">592</span>
+<span id="593">593</span>
+<span id="594">594</span>
+<span id="595">595</span>
+<span id="596">596</span>
+<span id="597">597</span>
+<span id="598">598</span>
+<span id="599">599</span>
+<span id="600">600</span>
+<span id="601">601</span>
+<span id="602">602</span>
+<span id="603">603</span>
+<span id="604">604</span>
 </pre><pre class="rust"><code><span class="kw">use </span>core::fmt::Debug;
-<span class="kw">use </span>std::{collections::HashMap, rc::Rc};
+<span class="kw">use </span>std::{collections::HashMap, hash::Hash, rc::Rc};
 
 <span class="kw">use </span>halo2_proofs::{
     arithmetic::Field,
@@ -564,45 +615,24 @@
         query::Queriable, Circuit <span class="kw">as </span>astCircuit, Expr, FixedSignal, ForwardSignal,
         ImportedHalo2Advice, ImportedHalo2Fixed, SharedSignal, StepType,
     },
-    dsl::StepTypeHandler,
-    ir::{Circuit, Column, ColumnType, Poly, PolyExpr, PolyLookup},
+    ir::{Assignment, Circuit, Column, ColumnType, Poly, PolyExpr, PolyLookup},
     util::uuid,
+    wit_gen::{FixedAssignment, FixedGenContext, TraceGenerator},
 };
 
 <span class="kw">use </span><span class="self">self</span>::{
-    cell_manager::{CellManager, Placement},
+    cell_manager::{CellManager, Placement, SignalPlacement},
     step_selector::{StepSelector, StepSelectorBuilder},
 };
 
 <span class="kw">pub mod </span>cell_manager;
 <span class="kw">pub mod </span>step_selector;
 
-<span class="kw">pub trait </span>TraceContext&lt;StepArgs&gt; {
-    <span class="kw">fn </span>add(<span class="kw-2">&amp;mut </span><span class="self">self</span>, step: <span class="kw-2">&amp;</span>StepTypeHandler, args: StepArgs);
-    <span class="kw">fn </span>set_height(<span class="kw-2">&amp;mut </span><span class="self">self</span>, height: usize);
-}
-
-<span class="doccomment">/// A trait that represents a witness generation context. It provides an interface for assigning
-/// values to witness columns in a circuit.
-</span><span class="kw">pub trait </span>WitnessGenContext&lt;F&gt; {
-    <span class="doccomment">/// Takes a `Queriable` object representing the witness column (lhs) and the value (rhs) to be
-    /// assigned.
-    </span><span class="kw">fn </span>assign(<span class="kw-2">&amp;mut </span><span class="self">self</span>, lhs: Queriable&lt;F&gt;, rhs: F);
-}
-
-<span class="doccomment">/// A trait that represents a fixed column generation context. It provides an interface for
-/// assigning values to fixed columns in a circuit at the specified offset.
-</span><span class="kw">pub trait </span>FixedGenContext&lt;F&gt; {
-    <span class="doccomment">/// Takes a `Queriable` object representing the fixed column (lhs) and the value (rhs) to be
-    /// assigned.
-    </span><span class="kw">fn </span>assign(<span class="kw-2">&amp;mut </span><span class="self">self</span>, offset: usize, lhs: Queriable&lt;F&gt;, rhs: F);
-}
-
 <span class="attribute">#[derive(Debug)]
-</span><span class="kw">pub struct </span>CompilationUnit&lt;F, StepArgs&gt; {
-    <span class="kw">pub </span>placement: Placement&lt;F, StepArgs&gt;,
-    <span class="kw">pub </span>selector: StepSelector&lt;F, StepArgs&gt;,
-    <span class="kw">pub </span>step_types: HashMap&lt;u32, Rc&lt;StepType&lt;F, StepArgs&gt;&gt;&gt;,
+</span><span class="kw">pub struct </span>CompilationUnit&lt;F&gt; {
+    <span class="kw">pub </span>placement: Placement,
+    <span class="kw">pub </span>selector: StepSelector&lt;F&gt;,
+    <span class="kw">pub </span>step_types: HashMap&lt;u32, Rc&lt;StepType&lt;F&gt;&gt;&gt;,
     <span class="kw">pub </span>forward_signals: Vec&lt;ForwardSignal&gt;,
     <span class="kw">pub </span>shared_signals: Vec&lt;SharedSignal&gt;,
     <span class="kw">pub </span>fixed_signals: Vec&lt;FixedSignal&gt;,
@@ -611,11 +641,15 @@
 
     <span class="kw">pub </span>columns: Vec&lt;Column&gt;,
     <span class="kw">pub </span>exposed: Vec&lt;(Column, i32)&gt;,
+    <span class="kw">pub </span>num_rows: usize,
+
     <span class="kw">pub </span>polys: Vec&lt;Poly&lt;F&gt;&gt;,
     <span class="kw">pub </span>lookups: Vec&lt;PolyLookup&lt;F&gt;&gt;,
+
+    <span class="kw">pub </span>fixed_assignments: Assignment&lt;F&gt;,
 }
 
-<span class="kw">impl</span>&lt;F, StepArgs&gt; Default <span class="kw">for </span>CompilationUnit&lt;F, StepArgs&gt; {
+<span class="kw">impl</span>&lt;F&gt; Default <span class="kw">for </span>CompilationUnit&lt;F&gt; {
     <span class="kw">fn </span>default() -&gt; <span class="self">Self </span>{
         <span class="self">Self </span>{
             placement: Default::default(),
@@ -629,13 +663,17 @@
 
             columns: Default::default(),
             exposed: Default::default(),
+            num_rows: Default::default(),
+
             polys: Default::default(),
             lookups: Default::default(),
+
+            fixed_assignments: Default::default(),
         }
     }
 }
 
-<span class="kw">impl</span>&lt;F, StepArgs&gt; CompilationUnit&lt;F, StepArgs&gt; {
+<span class="kw">impl</span>&lt;F&gt; CompilationUnit&lt;F&gt; {
     <span class="kw">fn </span>find_halo2_advice(<span class="kw-2">&amp;</span><span class="self">self</span>, to_find: ImportedHalo2Advice) -&gt; <span class="prelude-ty">Option</span>&lt;Column&gt; {
         <span class="kw">for </span>column <span class="kw">in </span><span class="self">self</span>.columns.iter() {
             <span class="kw">if let </span><span class="prelude-val">Some</span>(advice) = column.halo2_advice {
@@ -686,14 +724,14 @@
         }
     }
 
-    <span class="kw">pub fn </span>compile&lt;F: Field + Clone, TraceArgs, StepArgs&gt;(
+    <span class="kw">pub fn </span>compile&lt;F: Field + Hash + Clone, TraceArgs&gt;(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        sc: <span class="kw-2">&amp;</span>astCircuit&lt;F, TraceArgs, StepArgs&gt;,
-    ) -&gt; Circuit&lt;F, TraceArgs, StepArgs&gt; {
-        <span class="kw">let </span><span class="kw-2">mut </span>unit = CompilationUnit::&lt;F, StepArgs&gt; {
+        ast: <span class="kw-2">&amp;</span>astCircuit&lt;F, TraceArgs&gt;,
+    ) -&gt; (Circuit&lt;F&gt;, <span class="prelude-ty">Option</span>&lt;TraceGenerator&lt;F, TraceArgs&gt;&gt;) {
+        <span class="kw">let </span><span class="kw-2">mut </span>unit = CompilationUnit::&lt;F&gt; {
             annotations: {
-                <span class="kw">let </span><span class="kw-2">mut </span>acc = sc.annotations.clone();
-                <span class="kw">for </span>step <span class="kw">in </span>sc.step_types.values() {
+                <span class="kw">let </span><span class="kw-2">mut </span>acc = ast.annotations.clone();
+                <span class="kw">for </span>step <span class="kw">in </span>ast.step_types.values() {
                     acc.extend(step.annotations.clone());
                 }
 
@@ -702,7 +740,7 @@
             ..Default::default()
         };
 
-        <span class="kw">let </span>halo2_advice_columns: Vec&lt;Column&gt; = sc
+        <span class="kw">let </span>halo2_advice_columns: Vec&lt;Column&gt; = ast
             .halo2_advice
             .iter()
             .map(|signal| {
@@ -714,7 +752,7 @@
             })
             .collect();
 
-        <span class="kw">let </span>halo2_fixed_columns: Vec&lt;Column&gt; = sc
+        <span class="kw">let </span>halo2_fixed_columns: Vec&lt;Column&gt; = ast
             .halo2_fixed
             .iter()
             .map(|signal| {
@@ -727,10 +765,10 @@
             .collect();
 
         unit.columns = <span class="macro">vec!</span>[halo2_advice_columns, halo2_fixed_columns].concat();
-        unit.step_types = sc.step_types.clone();
-        unit.forward_signals = sc.forward_signals.clone();
-        unit.shared_signals = sc.shared_signals.clone();
-        unit.fixed_signals = sc.fixed_signals.clone();
+        unit.step_types = ast.step_types.clone();
+        unit.forward_signals = ast.forward_signals.clone();
+        unit.shared_signals = ast.shared_signals.clone();
+        unit.fixed_signals = ast.fixed_signals.clone();
 
         <span class="self">self</span>.cell_manager.place(<span class="kw-2">&amp;mut </span>unit);
 
@@ -740,14 +778,17 @@
             <span class="macro">panic!</span>(<span class="string">&quot;Shared signals and fixed signals are not supported for circuits with different step heights. Using a different cell manager might fix this problem.&quot;</span>);
         }
 
-        <span class="kw">for </span>forward_signal <span class="kw">in </span>sc.exposed.clone() {
-            <span class="kw">let </span>forward_placement = unit.placement.get_forward_placement(<span class="kw-2">&amp;</span>forward_signal);
-            <span class="kw">let </span>exposed = (forward_placement.column, forward_placement.rotation);
-            unit.exposed.push(exposed);
+        <span class="kw">if </span>!unit.placement.same_height() {
+            <span class="macro">panic!</span>(<span class="string">&quot;Cannot calculate the number of rows&quot;</span>);
         }
 
-        <span class="self">self</span>.step_selector_builder
-            .build::&lt;F, TraceArgs, StepArgs&gt;(<span class="kw-2">&amp;mut </span>unit);
+        unit.num_rows = ast.num_steps * (unit.placement.first_step_height() <span class="kw">as </span>usize);
+
+        <span class="self">self</span>.compile_fixed(ast, <span class="kw-2">&amp;mut </span>unit);
+
+        <span class="self">self</span>.compile_exposed(ast, <span class="kw-2">&amp;mut </span>unit);
+
+        <span class="self">self</span>.step_selector_builder.build::&lt;F&gt;(<span class="kw-2">&amp;mut </span>unit);
 
         <span class="kw">for </span>step <span class="kw">in </span>unit.step_types.clone().values() {
             <span class="self">self</span>.compile_step(<span class="kw-2">&amp;mut </span>unit, step);
@@ -766,7 +807,7 @@
 
         <span class="self">self</span>.add_q_enable(<span class="kw-2">&amp;mut </span>unit, q_enable.clone());
 
-        <span class="kw">let </span>q_first = <span class="kw">if let </span><span class="prelude-val">Some</span>(step_type) = sc.first_step {
+        <span class="kw">let </span>q_first = <span class="kw">if let </span><span class="prelude-val">Some</span>(step_type) = ast.first_step {
             <span class="kw">let </span>q_first = Column {
                 annotation: <span class="string">&quot;q_first&quot;</span>.to_owned(),
                 ctype: ColumnType::Fixed,
@@ -777,14 +818,11 @@
             };
             unit.columns.push(q_first.clone());
 
-            <span class="kw">let </span>step = unit
-                .step_types
-                .get(<span class="kw-2">&amp;</span>step_type.uuid())
-                .expect(<span class="string">&quot;step not found&quot;</span>);
+            <span class="kw">let </span>step = unit.step_types.get(<span class="kw-2">&amp;</span>step_type).expect(<span class="string">&quot;step not found&quot;</span>);
 
             <span class="kw">let </span>poly = PolyExpr::Mul(<span class="macro">vec!</span>[
                 PolyExpr::&lt;F&gt;::Query(q_first.clone(), <span class="number">0</span>, <span class="string">&quot;q_first&quot;</span>.to_owned()),
-                unit.selector.unselect(step),
+                unit.selector.unselect(step.uuid()),
             ]);
 
             unit.polys.push(Poly {
@@ -797,7 +835,7 @@
             <span class="prelude-val">None
         </span>};
 
-        <span class="kw">let </span>q_last = <span class="kw">if let </span><span class="prelude-val">Some</span>(step_type) = sc.last_step {
+        <span class="kw">let </span>q_last = <span class="kw">if let </span><span class="prelude-val">Some</span>(step_type) = ast.last_step {
             <span class="kw">let </span>q_last = Column {
                 annotation: <span class="string">&quot;q_last&quot;</span>.to_owned(),
                 ctype: ColumnType::Fixed,
@@ -808,14 +846,11 @@
             };
             unit.columns.push(q_last.clone());
 
-            <span class="kw">let </span>step = unit
-                .step_types
-                .get(<span class="kw-2">&amp;</span>step_type.uuid())
-                .expect(<span class="string">&quot;step not found&quot;</span>);
+            <span class="kw">let </span>step = unit.step_types.get(<span class="kw-2">&amp;</span>step_type).expect(<span class="string">&quot;step not found&quot;</span>);
 
             <span class="kw">let </span>poly = PolyExpr::Mul(<span class="macro">vec!</span>[
                 PolyExpr::&lt;F&gt;::Query(q_last.clone(), <span class="number">0</span>, <span class="string">&quot;q_last&quot;</span>.to_owned()),
-                unit.selector.unselect(step),
+                unit.selector.unselect(step.uuid()),
             ]);
 
             unit.polys.push(Poly {
@@ -828,28 +863,28 @@
             <span class="prelude-val">None
         </span>};
 
-        Circuit::&lt;F, TraceArgs, StepArgs&gt; {
-            placement: unit.placement,
-            selector: unit.selector,
-            columns: unit.columns,
-            exposed: unit.exposed,
-            polys: unit.polys,
-            lookups: unit.lookups,
-            step_types: unit.step_types,
-            q_enable,
-            q_first,
-            q_last,
-
-            trace: sc.trace.as_ref().map(|v| Rc::clone(v)),
-            fixed_gen: sc.fixed_gen.as_ref().map(|v| Rc::clone(v)),
-        }
+        (
+            Circuit::&lt;F&gt; {
+                placement: unit.placement,
+                selector: unit.selector,
+                columns: unit.columns,
+                exposed: unit.exposed,
+                num_rows: unit.num_rows,
+                polys: unit.polys,
+                lookups: unit.lookups,
+                step_types: unit.step_types,
+                q_enable,
+                q_first,
+                q_last,
+                fixed_assignments: unit.fixed_assignments,
+            },
+            ast.trace
+                .as_ref()
+                .map(|v| TraceGenerator::new(Rc::clone(v))),
+        )
     }
 
-    <span class="kw">fn </span>compile_step&lt;F: Clone + Debug, StepArgs&gt;(
-        <span class="kw-2">&amp;</span><span class="self">self</span>,
-        unit: <span class="kw-2">&amp;mut </span>CompilationUnit&lt;F, StepArgs&gt;,
-        step: <span class="kw-2">&amp;</span>StepType&lt;F, StepArgs&gt;,
-    ) {
+    <span class="kw">fn </span>compile_step&lt;F: Clone + Debug&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>, unit: <span class="kw-2">&amp;mut </span>CompilationUnit&lt;F&gt;, step: <span class="kw-2">&amp;</span>StepType&lt;F&gt;) {
         <span class="kw">let </span>step_annotation = unit
             .annotations
             .get(<span class="kw-2">&amp;</span>step.uuid())
@@ -858,7 +893,7 @@
 
         <span class="kw">for </span>constr <span class="kw">in </span>step.constraints.iter() {
             <span class="kw">let </span>constraint = <span class="self">self</span>.transform_expr(unit, step, <span class="kw-2">&amp;</span>constr.expr.clone());
-            <span class="kw">let </span>poly = unit.selector.select(step, <span class="kw-2">&amp;</span>constraint);
+            <span class="kw">let </span>poly = unit.selector.select(step.uuid(), <span class="kw-2">&amp;</span>constraint);
 
             unit.polys.push(Poly {
                 expr: poly,
@@ -874,7 +909,7 @@
         <span class="comment">// TODO only transition_constraints should have rotations
         </span><span class="kw">for </span>constr <span class="kw">in </span>step.transition_constraints.iter() {
             <span class="kw">let </span>constraint = <span class="self">self</span>.transform_expr(unit, step, <span class="kw-2">&amp;</span>constr.expr.clone());
-            <span class="kw">let </span>poly = unit.selector.select(step, <span class="kw-2">&amp;</span>constraint);
+            <span class="kw">let </span>poly = unit.selector.select(step.uuid(), <span class="kw-2">&amp;</span>constraint);
 
             unit.polys.push(Poly {
                 expr: poly,
@@ -896,7 +931,7 @@
                     .map(|(src, dest)| {
                         <span class="kw">let </span>src_poly = <span class="self">self</span>.transform_expr(unit, step, <span class="kw-2">&amp;</span>src.expr);
                         <span class="kw">let </span>dest_poly = <span class="self">self</span>.transform_expr(unit, step, dest);
-                        <span class="kw">let </span>src_selected = unit.selector.select(step, <span class="kw-2">&amp;</span>src_poly);
+                        <span class="kw">let </span>src_selected = unit.selector.select(step.uuid(), <span class="kw-2">&amp;</span>src_poly);
 
                         (src_selected, dest_poly)
                     })
@@ -907,15 +942,44 @@
         }
     }
 
-    <span class="kw">fn </span>place_queriable&lt;F: Clone, StepArgs&gt;(
+    <span class="kw">fn </span>compile_exposed&lt;F, TraceArgs&gt;(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        unit: <span class="kw-2">&amp;</span>CompilationUnit&lt;F, StepArgs&gt;,
-        step: <span class="kw-2">&amp;</span>StepType&lt;F, StepArgs&gt;,
+        ast: <span class="kw-2">&amp;</span>astCircuit&lt;F, TraceArgs&gt;,
+        unit: <span class="kw-2">&amp;mut </span>CompilationUnit&lt;F&gt;,
+    ) {
+        <span class="kw">for </span>forward_signal <span class="kw">in </span>ast.exposed.clone() {
+            <span class="kw">let </span>forward_placement = unit.placement.get_forward_placement(<span class="kw-2">&amp;</span>forward_signal);
+            <span class="kw">let </span>exposed = (forward_placement.column, forward_placement.rotation);
+            unit.exposed.push(exposed);
+        }
+    }
+
+    <span class="kw">fn </span>compile_fixed&lt;F: Field + Hash, TraceArgs&gt;(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
+        ast: <span class="kw-2">&amp;</span>astCircuit&lt;F, TraceArgs&gt;,
+        unit: <span class="kw-2">&amp;mut </span>CompilationUnit&lt;F&gt;,
+    ) {
+        <span class="kw">if let </span><span class="prelude-val">Some</span>(fixed_gen) = <span class="kw-2">&amp;</span>ast.fixed_gen {
+            <span class="kw">let </span><span class="kw-2">mut </span>ctx = FixedGenContext::new(unit.num_rows);
+            (<span class="kw-2">*</span>fixed_gen)(<span class="kw-2">&amp;mut </span>ctx);
+
+            <span class="kw">let </span>assignments = ctx.get_assigments();
+
+            unit.fixed_assignments = <span class="self">self</span>.place_fixed_assignments(unit, assignments);
+        }
+    }
+
+    <span class="kw">fn </span>place_queriable&lt;F: Clone&gt;(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
+        unit: <span class="kw-2">&amp;</span>CompilationUnit&lt;F&gt;,
+        step: <span class="kw-2">&amp;</span>StepType&lt;F&gt;,
         q: Queriable&lt;F&gt;,
     ) -&gt; PolyExpr&lt;F&gt; {
         <span class="kw">match </span>q {
             Queriable::Internal(signal) =&gt; {
-                <span class="kw">let </span>placement = unit.placement.find_internal_signal_placement(step, <span class="kw-2">&amp;</span>signal);
+                <span class="kw">let </span>placement = unit
+                    .placement
+                    .find_internal_signal_placement(step.uuid(), <span class="kw-2">&amp;</span>signal);
 
                 <span class="kw">let </span>annotation = <span class="kw">if let </span><span class="prelude-val">Some</span>(annotation) = unit.annotations.get(<span class="kw-2">&amp;</span>signal.uuid()) {
                     <span class="macro">format!</span>(
@@ -1008,7 +1072,7 @@
                     .get(<span class="kw-2">&amp;</span>step_type_handle.uuid())
                     .expect(<span class="string">&quot;step not found&quot;</span>);
 
-                unit.selector.next_expr(dest_step, super_rotation)
+                unit.selector.next_expr(dest_step.uuid(), super_rotation)
             }
             Queriable::Halo2AdviceQuery(signal, rot) =&gt; {
                 <span class="kw">let </span>annotation = <span class="kw">if let </span><span class="prelude-val">Some</span>(annotation) = unit.annotations.get(<span class="kw-2">&amp;</span>signal.uuid()) {
@@ -1040,10 +1104,10 @@
         }
     }
 
-    <span class="kw">fn </span>transform_expr&lt;F: Clone, StepArgs&gt;(
+    <span class="kw">fn </span>transform_expr&lt;F: Clone&gt;(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        unit: <span class="kw-2">&amp;</span>CompilationUnit&lt;F, StepArgs&gt;,
-        step: <span class="kw-2">&amp;</span>StepType&lt;F, StepArgs&gt;,
+        unit: <span class="kw-2">&amp;</span>CompilationUnit&lt;F&gt;,
+        step: <span class="kw-2">&amp;</span>StepType&lt;F&gt;,
         source: <span class="kw-2">&amp;</span>Expr&lt;F&gt;,
     ) -&gt; PolyExpr&lt;F&gt; {
         <span class="kw">match </span>source.clone() {
@@ -1065,11 +1129,49 @@
         }
     }
 
-    <span class="kw">fn </span>add_q_enable&lt;F: Clone, StepArgs&gt;(
+    <span class="kw">fn </span>place_fixed_assignments&lt;F: Field&gt;(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        unit: <span class="kw-2">&amp;mut </span>CompilationUnit&lt;F, StepArgs&gt;,
-        q_enable: Column,
-    ) {
+        unit: <span class="kw-2">&amp;</span>CompilationUnit&lt;F&gt;,
+        assignments: FixedAssignment&lt;F&gt;,
+    ) -&gt; Assignment&lt;F&gt; {
+        <span class="kw">let </span><span class="kw-2">mut </span>result = Assignment::default();
+        <span class="kw">let </span>step_height = unit.placement.first_step_height();
+        <span class="kw">let </span>empty = <span class="macro">vec!</span>[F::ZERO; unit.num_rows];
+
+        <span class="kw">for </span>(queriable, assignments) <span class="kw">in </span>assignments {
+            <span class="kw">let </span>placement = <span class="kw">match </span>queriable {
+                Queriable::Fixed(fixed, rot) =&gt; {
+                    <span class="kw">if </span>rot != <span class="number">0 </span>{
+                        <span class="macro">panic!</span>(<span class="string">&quot;cannot do fixed assignation of rotated queriable&quot;</span>);
+                    }
+                    unit.placement.get_fixed_placement(<span class="kw-2">&amp;</span>fixed)
+                }
+                Queriable::Halo2FixedQuery(signal, rot) =&gt; SignalPlacement::new(
+                    unit.find_halo2_fixed(signal).expect(<span class="string">&quot;column not found&quot;</span>),
+                    rot,
+                ),
+                <span class="kw">_ </span>=&gt; <span class="macro">panic!</span>(<span class="string">&quot;only can do fixed assignment to fixed signal&quot;</span>),
+            };
+
+            <span class="kw">let </span><span class="kw-2">mut </span>column_values = <span class="kw">if let </span><span class="prelude-val">Some</span>(column_values) = result.get(<span class="kw-2">&amp;</span>placement.column) {
+                column_values.clone()
+            } <span class="kw">else </span>{
+                empty.clone()
+            };
+
+            <span class="kw">let </span><span class="kw-2">mut </span>offset = placement.rotation <span class="kw">as </span>usize;
+            <span class="kw">for </span>value <span class="kw">in </span>assignments {
+                column_values[offset] = value;
+                offset += step_height <span class="kw">as </span>usize;
+            }
+
+            result.insert(placement.column, column_values);
+        }
+
+        result
+    }
+
+    <span class="kw">fn </span>add_q_enable&lt;F: Clone&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>, unit: <span class="kw-2">&amp;mut </span>CompilationUnit&lt;F&gt;, q_enable: Column) {
         unit.polys = unit
             .polys
             .iter()
