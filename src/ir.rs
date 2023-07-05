@@ -1,9 +1,9 @@
-use std::{collections::HashMap, fmt::Debug, rc::Rc};
+use std::{collections::HashMap, fmt::Debug, hash::Hash, rc::Rc};
 
 use halo2_proofs::plonk::Expression;
 
 use crate::{
-    ast::{FixedGen, ImportedHalo2Advice, ImportedHalo2Fixed, StepType},
+    ast::{ImportedHalo2Advice, ImportedHalo2Fixed, StepType},
     compiler::{cell_manager::Placement, step_selector::StepSelector},
     util::uuid,
 };
@@ -49,7 +49,7 @@ pub enum ColumnType {
     Halo2Fixed,
 }
 
-#[derive(Clone, Debug, Hash)]
+#[derive(Clone, Debug)]
 pub struct Column {
     pub annotation: String,
 
@@ -121,6 +121,12 @@ impl Column {
 impl PartialEq for Column {
     fn eq(&self, other: &Self) -> bool {
         self.id == other.id
+    }
+}
+
+impl Hash for Column {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.id.hash(state);
     }
 }
 

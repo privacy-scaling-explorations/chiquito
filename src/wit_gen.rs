@@ -128,9 +128,6 @@ impl<F: Field + Hash> FixedGenContext<F> {
     }
 
     fn is_fixed_queriable(q: Queriable<F>) -> bool {
-        match q {
-            Queriable::Halo2FixedQuery(_, _) | Queriable::Fixed(_, _) => true,
-            _ => false,
-        }
+        matches!(q, Queriable::Halo2FixedQuery(_, _) | Queriable::Fixed(_, _))
     }
 }

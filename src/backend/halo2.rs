@@ -131,19 +131,14 @@ impl<F: Field + From<u64> + Hash> ChiquitoHalo2<F> {
                 self.annotate_circuit(&mut region);
 
                 // Fixed synthesize
-                for (column, values) in self.circuit.fixed_assignments {
+                for (column, values) in &self.circuit.fixed_assignments {
                     let column = self
                         .fixed_columns
                         .get(&column.uuid())
                         .expect("halo2 column");
 
                     for (offset, value) in values.iter().enumerate() {
-                        region.assign_fixed(
-                            || "",
-                            *column,
-                            offset,
-                            || Value::known(value.clone()),
-                        )?;
+                        region.assign_fixed(|| "", *column, offset, || Value::known(*value))?;
                     }
                 }
 
