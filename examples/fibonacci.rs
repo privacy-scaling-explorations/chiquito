@@ -14,8 +14,8 @@ use chiquito::{
         cb::*,   // functions for constraint building
         circuit, // main function for constructing an AST circuit
     },
-    ir::Circuit,
-    wit_gen::TraceGenerator,
+    ir::Circuit,             // compiled circuit type
+    wit_gen::TraceGenerator, // trace generation type
 };
 use halo2_proofs::{
     arithmetic::Field, circuit::SimpleFloorPlanner, dev::MockProver, halo2curves::bn256::Fr,

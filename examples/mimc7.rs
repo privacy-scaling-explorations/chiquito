@@ -23,6 +23,7 @@ use mimc7_constants::ROUND_KEYS;
 // MiMC7 always has 91 rounds
 pub const ROUNDS: usize = 91;
 
+// compilation result, contains circuit plus system to create witness.
 type CircuitResult<F> = (chiquito::ir::Circuit<F>, Option<TraceGenerator<F, (F, F)>>);
 
 fn mimc7_circuit<F: PrimeField + Eq + Hash>(
