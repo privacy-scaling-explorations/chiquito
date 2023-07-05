@@ -15,7 +15,7 @@ use chiquito::{
         cell_manager::SingleRowCellManager, step_selector::SimpleStepSelectorBuilder, Compiler,
     },
     dsl::{cb::*, circuit},
-    wit_gen::{Trace, TraceGenerator},
+    wit_gen::TraceGenerator,
 };
 
 use mimc7_constants::ROUND_KEYS;
@@ -23,12 +23,14 @@ use mimc7_constants::ROUND_KEYS;
 // MiMC7 always has 91 rounds
 pub const ROUNDS: usize = 91;
 
+type CircuitResult<F> = (chiquito::ir::Circuit<F>, Option<TraceGenerator<F, (F, F)>>);
+
 fn mimc7_circuit<F: PrimeField + Eq + Hash>(
     row_value: Column<Fixed>, /* row index i, a fixed column allocated in circuit config, used
                                * as the first column of lookup table */
     c_value: Column<Fixed>, /* round constant C_i, fixed column allocated in circuit config,
                              * used as the second column of lookup table */
-) -> (chiquito::ir::Circuit<F>, Option<TraceGenerator<F, (F, F)>>) {
+) -> CircuitResult<F> {
     // circuit takes two trace arguments (x_in: F, k: F), i.e. message x_in and secret key k, as
     // inputs circuit also takes four step arguments (x: F, k: F, c: F, row: F), i.e. iterator
     // x_{i+1} = (x_i+k_i+c_i)^7, secret key k, round constant c_i, and row index, as inputs

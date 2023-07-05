@@ -111,7 +111,7 @@ impl<F: Field + Hash> FixedGenContext<F> {
     /// assigned.
     pub fn assign(&mut self, offset: usize, lhs: Queriable<F>, rhs: F) {
         if !Self::is_fixed_queriable(lhs) {
-            panic!("trying to assign not fixed signal");
+            panic!("trying to assign non-fixed signal");
         }
 
         if let Some(assigments) = self.assigments.get_mut(&lhs) {

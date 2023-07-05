@@ -430,8 +430,6 @@ pub fn lookup<F: Debug + Clone>() -> LookupBuilder<F> {
 
 #[cfg(test)]
 mod tests {
-    use std::marker::PhantomData;
-
     use halo2_proofs::halo2curves::bn256::Fr;
 
     use super::*;

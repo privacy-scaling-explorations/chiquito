@@ -87,7 +87,7 @@ fn fibo_circuit<F: Field + From<u64> + Hash>() -> (Circuit<F>, Option<TraceGener
             })
         });
 
-        let mut fibo_last_step = ctx.step_type_def(fibo_last_step, |ctx| {
+        let fibo_last_step = ctx.step_type_def(fibo_last_step, |ctx| {
             let c = ctx.internal("c");
 
             ctx.setup(move |ctx| {
