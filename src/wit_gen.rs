@@ -123,7 +123,7 @@ impl<F: Field + Hash> FixedGenContext<F> {
         }
     }
 
-    pub fn get_assiggnments(self) -> FixedAssignment<F> {
+    pub fn get_assigments(self) -> FixedAssignment<F> {
         self.assigments
     }
 

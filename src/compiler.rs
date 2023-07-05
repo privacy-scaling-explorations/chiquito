@@ -359,7 +359,7 @@ impl<CM: CellManager, SSB: StepSelectorBuilder> Compiler<CM, SSB> {
             let mut ctx = FixedGenContext::new(unit.num_rows);
             (*fixed_gen)(&mut ctx);
 
-            let assignments = ctx.get_assiggnments();
+            let assignments = ctx.get_assigments();
 
             unit.fixed_assignments = self.place_fixed_assignments(unit, assignments);
         }
