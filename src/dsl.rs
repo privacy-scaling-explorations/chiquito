@@ -1,12 +1,13 @@
 use crate::{
     ast::{query::Queriable, Circuit, StepType, StepTypeUUID},
-    compiler::{FixedGenContext, TraceContext, WitnessGenContext},
     util::uuid,
+    wit_gen::{FixedGenContext, StepInstance, TraceContext},
 };
 
 use halo2_proofs::plonk::{Advice, Column as Halo2Column, Fixed};
 
 use core::fmt::Debug;
+use std::marker::PhantomData;
 
 use self::cb::{Constraint, LookupBuilder, Typing};
 
@@ -16,11 +17,11 @@ use self::cb::{Constraint, LookupBuilder, Typing};
 /// generic type representing the field of the circuit. `TraceArgs` is a generic type
 /// representing the arguments passed to the trace function. `StepArgs` is a generic type
 /// representing the arguments passed to the `step_type_def` function.
-pub struct CircuitContext<F, TraceArgs, StepArgs> {
-    sc: Circuit<F, TraceArgs, StepArgs>,
+pub struct CircuitContext<F, TraceArgs> {
+    sc: Circuit<F, TraceArgs>,
 }
 
-impl<F, TraceArgs, StepArgs> CircuitContext<F, TraceArgs, StepArgs> {
+impl<F, TraceArgs> CircuitContext<F, TraceArgs> {
     /// Adds a forward signal to the circuit with a name string and zero rotation and returns a
     /// `Queriable` instance representing the added forward signal.
     pub fn forward(&mut self, name: &str) -> Queriable<F> {
@@ -85,16 +86,33 @@ impl<F, TraceArgs, StepArgs> CircuitContext<F, TraceArgs, StepArgs> {
     /// Defines a step type using the provided `StepTypeHandler` and a function that takes a
     /// mutable reference to a `StepTypeContext`. This function typically adds constraints to a
     /// step type and defines witness generation.
-    pub fn step_type_def<D>(&mut self, handler: StepTypeHandler, def: D)
+    pub fn step_type_def<D, Args, S: Into<StepTypeDefInput>, R>(
+        &mut self,
+        step: S,
+        def: D,
+    ) -> StepTypeWGHandler<F, Args, R>
     where
-        D: FnOnce(&mut StepTypeContext<F, StepArgs>),
+        D: FnOnce(&mut StepTypeContext<F>) -> StepTypeWGHandler<F, Args, R>,
+        R: Fn(&mut StepInstance<F>, Args) + 'static,
     {
-        let mut context =
-            StepTypeContext::<F, StepArgs>::new(handler.uuid(), handler.annotation.to_string());
+        let handler: StepTypeHandler = match step.into() {
+            StepTypeDefInput::Handler(h) => h,
+            StepTypeDefInput::String(name) => {
+                let handler = StepTypeHandler::new(name.to_string());
 
-        def(&mut context);
+                self.sc.add_step_type(handler, name);
+
+                handler
+            }
+        };
+
+        let mut context = StepTypeContext::<F>::new(handler.uuid(), handler.annotation.to_string());
+
+        let result = def(&mut context);
 
         self.sc.add_step_type_def(context.step_type);
+
+        result
     }
 
     /// Sets the trace function that builds the witness. The trace function is responsible for
@@ -104,7 +122,7 @@ impl<F, TraceArgs, StepArgs> CircuitContext<F, TraceArgs, StepArgs> {
     /// `add` function to add step instances with witness values.
     pub fn trace<D>(&mut self, def: D)
     where
-        D: Fn(&mut dyn TraceContext<StepArgs>, TraceArgs) + 'static,
+        D: Fn(&mut TraceContext<F>, TraceArgs) + 'static,
     {
         self.sc.set_trace(def);
     }
@@ -115,21 +133,42 @@ impl<F, TraceArgs, StepArgs> CircuitContext<F, TraceArgs, StepArgs> {
     /// call the `assign` function to fill the fixed columns.
     pub fn fixed_gen<D>(&mut self, def: D)
     where
-        D: Fn(&mut dyn FixedGenContext<F>) + 'static,
+        D: Fn(&mut FixedGenContext<F>) + 'static,
     {
         self.sc.set_fixed_gen(def);
     }
 
     /// Enforce the type of the first step by adding a constraint to the circuit. Takes a
     /// `StepTypeHandler` parameter that represents the step type.
-    pub fn pragma_first_step(&mut self, step_type: StepTypeHandler) {
-        self.sc.first_step = Some(step_type);
+    pub fn pragma_first_step<STH: Into<StepTypeHandler>>(&mut self, step_type: STH) {
+        self.sc.first_step = Some(step_type.into().uuid());
     }
 
     /// Enforce the type of the last step by adding a constraint to the circuit. Takes a
     /// `StepTypeHandler` parameter that represents the step type.
-    pub fn pragma_last_step(&mut self, step_type: StepTypeHandler) {
-        self.sc.last_step = Some(step_type);
+    pub fn pragma_last_step<STH: Into<StepTypeHandler>>(&mut self, step_type: STH) {
+        self.sc.last_step = Some(step_type.into().uuid());
+    }
+
+    pub fn pragma_num_steps(&mut self, num_steps: usize) {
+        self.sc.num_steps = num_steps;
+    }
+}
+
+pub enum StepTypeDefInput {
+    Handler(StepTypeHandler),
+    String(&'static str),
+}
+
+impl From<StepTypeHandler> for StepTypeDefInput {
+    fn from(h: StepTypeHandler) -> Self {
+        StepTypeDefInput::Handler(h)
+    }
+}
+
+impl From<&'static str> for StepTypeDefInput {
+    fn from(s: &'static str) -> Self {
+        StepTypeDefInput::String(s)
     }
 }
 
@@ -137,11 +176,11 @@ impl<F, TraceArgs, StepArgs> CircuitContext<F, TraceArgs, StepArgs> {
 /// contains a `StepType` instance and implements methods to build the step type, add components,
 /// and manipulate the step type. `F` is a generic type representing the field of the step type.
 /// `Args` is the type of the step instance witness generation arguments.
-pub struct StepTypeContext<F, Args> {
-    step_type: StepType<F, Args>,
+pub struct StepTypeContext<F> {
+    step_type: StepType<F>,
 }
 
-impl<F, Args> StepTypeContext<F, Args> {
+impl<F> StepTypeContext<F> {
     pub fn new(uuid: u32, name: String) -> Self {
         Self {
             step_type: StepType::new(uuid, name),
@@ -177,7 +216,7 @@ impl<F, Args> StepTypeContext<F, Args> {
     /// Define step constraints.
     pub fn setup<D>(&mut self, def: D)
     where
-        D: Fn(&mut StepTypeSetupContext<F, Args>),
+        D: Fn(&mut StepTypeSetupContext<F>),
     {
         let mut ctx = StepTypeSetupContext {
             step_type: &mut self.step_type,
@@ -186,19 +225,22 @@ impl<F, Args> StepTypeContext<F, Args> {
         def(&mut ctx);
     }
 
-    /// Sets the witness generation function for the step type. The witness generation function is
-    /// responsible for assigning witness values to witness signals for one step
-    /// instance. It is entirely left for the user to implement and is Turing complete. Users
-    /// typically generate cell values and call the assign function to fill the witness signals.
-    pub fn wg<D>(&mut self, def: D)
+    pub fn wg<Args, D>(&mut self, def: D) -> StepTypeWGHandler<F, Args, D>
     where
-        D: Fn(&mut dyn WitnessGenContext<F>, Args) + 'static,
+        D: Fn(&mut StepInstance<F>, Args) + 'static,
     {
-        self.step_type.set_wg(def);
+        StepTypeWGHandler {
+            id: self.step_type.uuid(),
+            annotation: Box::leak(self.step_type.name.clone().into_boxed_str()),
+
+            wg: Box::new(def),
+
+            _p: PhantomData::default(),
+        }
     }
 }
 
-impl<F: Debug + Clone, Args> StepTypeContext<F, Args> {
+impl<F: Debug + Clone> StepTypeContext<F> {
     /// DEPRECATED
     pub fn add_lookup(&mut self, lookup_builder: &mut LookupBuilder<F>) {
         println!("DEPRECATED add_lookup: use setup for constraints in step types");
@@ -207,11 +249,11 @@ impl<F: Debug + Clone, Args> StepTypeContext<F, Args> {
     }
 }
 
-pub struct StepTypeSetupContext<'a, F, Args> {
-    step_type: &'a mut StepType<F, Args>,
+pub struct StepTypeSetupContext<'a, F> {
+    step_type: &'a mut StepType<F>,
 }
 
-impl<'a, F, Args> StepTypeSetupContext<'a, F, Args> {
+impl<'a, F> StepTypeSetupContext<'a, F> {
     /// Adds a constraint to the step type. Involves internal signal(s) and forward signals without
     /// SuperRotation only. Chiquito provides syntax sugar for defining complex constraints.
     /// Refer to the `cb` (constraint builder) module for more information.
@@ -245,7 +287,7 @@ impl<'a, F, Args> StepTypeSetupContext<'a, F, Args> {
     }
 }
 
-impl<'a, F: Debug + Clone, Args> StepTypeSetupContext<'a, F, Args> {
+impl<'a, F: Debug + Clone> StepTypeSetupContext<'a, F> {
     /// Adds a lookup to the step type.
     pub fn add_lookup(&mut self, lookup_builder: &mut LookupBuilder<F>) {
         self.step_type.lookups.push(lookup_builder.lookup.clone());
@@ -275,8 +317,29 @@ impl StepTypeHandler {
     }
 }
 
-pub struct ForwardSignalHandler {
-    // fs: ForwardSignal,
+impl<F, Args, D: Fn(&mut StepInstance<F>, Args) + 'static> From<&StepTypeWGHandler<F, Args, D>>
+    for StepTypeHandler
+{
+    fn from(h: &StepTypeWGHandler<F, Args, D>) -> Self {
+        StepTypeHandler {
+            id: h.id,
+            annotation: h.annotation,
+        }
+    }
+}
+
+pub struct StepTypeWGHandler<F, Args, D: Fn(&mut StepInstance<F>, Args) + 'static> {
+    id: u32,
+    pub annotation: &'static str,
+    pub wg: Box<D>,
+
+    _p: PhantomData<(F, Args)>,
+}
+
+impl<F, Args, D: Fn(&mut StepInstance<F>, Args) + 'static> StepTypeWGHandler<F, Args, D> {
+    pub fn uuid(&self) -> u32 {
+        self.id
+    }
 }
 
 /// Creates a `Circuit` instance by providing a name and a definition closure that is applied to a
@@ -284,9 +347,9 @@ pub struct ForwardSignalHandler {
 /// functions. This is the main function that users call to define a Chiquito circuit. Currently,
 /// the name is not used for annotation within the function, but it may be used in future
 /// implementations.
-pub fn circuit<F, TraceArgs, StepArgs, D>(_name: &str, def: D) -> Circuit<F, TraceArgs, StepArgs>
+pub fn circuit<F, TraceArgs, StepArgs, D>(_name: &str, def: D) -> Circuit<F, TraceArgs>
 where
-    D: Fn(&mut CircuitContext<F, TraceArgs, StepArgs>),
+    D: Fn(&mut CircuitContext<F, TraceArgs>),
 {
     // TODO annotate circuit
     let mut context = CircuitContext {

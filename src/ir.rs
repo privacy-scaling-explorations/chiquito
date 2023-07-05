@@ -1,18 +1,20 @@
-use std::{collections::HashMap, fmt::Debug, rc::Rc};
+use std::{collections::HashMap, fmt::Debug, hash::Hash, rc::Rc};
 
 use halo2_proofs::plonk::Expression;
 
 use crate::{
-    ast::{FixedGen, ImportedHalo2Advice, ImportedHalo2Fixed, StepType, Trace},
+    ast::{ImportedHalo2Advice, ImportedHalo2Fixed, StepType},
     compiler::{cell_manager::Placement, step_selector::StepSelector},
     util::uuid,
 };
 
+// pub mod sc;
+
 #[derive(Clone)]
-pub struct Circuit<F, TraceArgs, StepArgs> {
-    pub placement: Placement<F, StepArgs>,
-    pub selector: StepSelector<F, StepArgs>,
-    pub step_types: HashMap<u32, Rc<StepType<F, StepArgs>>>,
+pub struct Circuit<F> {
+    pub placement: Placement,
+    pub selector: StepSelector<F>,
+    pub step_types: HashMap<u32, Rc<StepType<F>>>,
 
     pub q_enable: Column,
     pub q_first: Option<Column>,
@@ -20,14 +22,15 @@ pub struct Circuit<F, TraceArgs, StepArgs> {
 
     pub columns: Vec<Column>,
     pub exposed: Vec<(Column, i32)>, // forward signal, rotation
+    pub num_rows: usize,
+
     pub polys: Vec<Poly<F>>,
     pub lookups: Vec<PolyLookup<F>>,
 
-    pub trace: Option<Rc<Trace<TraceArgs, StepArgs>>>,
-    pub fixed_gen: Option<Rc<FixedGen<F>>>,
+    pub fixed_assignments: Assignment<F>,
 }
 
-impl<F: Debug, TraceArgs, StepArgs: Debug> Debug for Circuit<F, TraceArgs, StepArgs> {
+impl<F: Debug> Debug for Circuit<F> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("Circuit")
             .field("placement", &self.placement)
@@ -38,7 +41,7 @@ impl<F: Debug, TraceArgs, StepArgs: Debug> Debug for Circuit<F, TraceArgs, StepA
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Hash)]
 pub enum ColumnType {
     Advice,
     Fixed,
@@ -118,6 +121,12 @@ impl Column {
 impl PartialEq for Column {
     fn eq(&self, other: &Self) -> bool {
         self.id == other.id
+    }
+}
+
+impl Hash for Column {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.id.hash(state);
     }
 }
 
@@ -201,6 +210,8 @@ pub struct PolyLookup<F> {
     pub annotation: String,
     pub exprs: Vec<(PolyExpr<F>, PolyExpr<F>)>,
 }
+
+pub type Assignment<F> = HashMap<Column, Vec<F>>;
 
 #[cfg(test)]
 mod tests {
