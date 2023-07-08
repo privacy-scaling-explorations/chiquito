@@ -100,14 +100,14 @@ impl<F: Default + Field, TraceArgs> AssigmentGenerator<F, TraceArgs> {
         match query {
             Queriable::Internal(signal) => self
                 .placement
-                .find_internal_signal_placement(step_uuid, &signal)
+                .find_internal_signal_placement(step_uuid, signal)
                 .into(),
 
             Queriable::Forward(forward, next) => {
-                self.get_forward_placement(step_uuid, &forward, *next)
+                self.get_forward_placement(step_uuid, forward, *next)
             }
 
-            Queriable::Shared(shared, rot) => self.get_shared_placement(&shared, *rot),
+            Queriable::Shared(shared, rot) => self.get_shared_placement(shared, *rot),
 
             Queriable::Halo2AdviceQuery(signal, rotation) => {
                 let column = self
@@ -138,7 +138,7 @@ impl<F: Default + Field, TraceArgs> AssigmentGenerator<F, TraceArgs> {
         forward: &ForwardSignal,
         next: bool,
     ) -> (Column, i32) {
-        let placement = self.placement.get_forward_placement(&forward);
+        let placement = self.placement.get_forward_placement(forward);
 
         let super_rotation = placement.rotation
             + if next {
@@ -151,7 +151,7 @@ impl<F: Default + Field, TraceArgs> AssigmentGenerator<F, TraceArgs> {
     }
 
     fn get_shared_placement(&self, shared: &SharedSignal, rotation: i32) -> (Column, i32) {
-        let placement = self.placement.get_shared_placement(&shared);
+        let placement = self.placement.get_shared_placement(shared);
 
         let super_rotation =
             placement.rotation + rotation * (self.placement.first_step_height() as i32);

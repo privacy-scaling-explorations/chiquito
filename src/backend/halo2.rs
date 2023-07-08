@@ -122,8 +122,6 @@ impl<F: Field + From<u64> + Hash> ChiquitoHalo2<F> {
     }
 
     pub fn synthesize(&self, layouter: &mut impl Layouter<F>, witness: Option<Assignments<F>>) {
-        let height = self.circuit.num_rows;
-
         let _ = layouter.assign_region(
             || "circuit",
             |mut region| {
@@ -155,7 +153,7 @@ impl<F: Field + From<u64> + Hash> ChiquitoHalo2<F> {
 
     fn assign_advice(&self, region: &mut Region<F>, witness: &Assignments<F>) -> Result<(), Error> {
         for (column, assignments) in witness {
-            let column = self.convert_advice_column(&column);
+            let column = self.convert_advice_column(column);
 
             for (offset, value) in assignments.iter().enumerate() {
                 region.assign_advice(|| "", column, offset, || Value::known(*value))?;

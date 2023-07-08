@@ -24,7 +24,7 @@ pub fn chiquito2Plaf<F: PrimeField<Repr = [u8; 32]>>(
     k: u32,
     debug: bool,
 ) -> (Plaf, ChiquitoPlafWitGen) {
-    let mut chiquito_plaf = ChiquitoPlaf::new(circuit.clone(), debug);
+    let mut chiquito_plaf = ChiquitoPlaf::new(circuit, debug);
     let plaf = chiquito_plaf.get_plaf(k);
     let empty_witness = plaf.gen_empty_witness();
     let wit_gen =
