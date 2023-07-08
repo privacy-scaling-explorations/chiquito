@@ -14,8 +14,8 @@ use chiquito::{
         cb::*,   // functions for constraint building
         circuit, // main function for constructing an AST circuit
     },
-    ir::Circuit,             // compiled circuit type
-    wit_gen::TraceGenerator, // trace generation type
+    ir::{assigments::AssigmentGenerator, Circuit}, // compiled circuit type
+    wit_gen::TraceGenerator,                       // trace generation type
 };
 use halo2_proofs::{
     arithmetic::Field, circuit::SimpleFloorPlanner, dev::MockProver, halo2curves::bn256::Fr,
@@ -27,7 +27,7 @@ use halo2_proofs::{
 // 1. type that implements a field trait
 // 2. empty trace arguments, i.e. (), because there are no external inputs to the Chiquito circuit
 // 3. two witness generation arguments both of u64 type, i.e. (u64, u64)
-fn fibo_circuit<F: Field + From<u64> + Hash>() -> (Circuit<F>, Option<TraceGenerator<F, ()>>) {
+fn fibo_circuit<F: Field + From<u64> + Hash>() -> (Circuit<F>, Option<AssigmentGenerator<F, ()>>) {
     // PLONKish table for the Fibonacci circuit:
     // | a | b | c |
     // | 1 | 1 | 2 |
@@ -109,6 +109,8 @@ fn fibo_circuit<F: Field + From<u64> + Hash>() -> (Circuit<F>, Option<TraceGener
             })
         });
 
+        ctx.pragma_num_steps(11);
+
         // trace function is responsible for adding step instantiations defined in step_type_def
         // function above trace function is Turing complete and allows arbitrary user
         // defined logics for assigning witness values
@@ -145,7 +147,7 @@ fn fibo_circuit<F: Field + From<u64> + Hash>() -> (Circuit<F>, Option<TraceGener
 struct FiboConfig<F: Field + From<u64>> {
     // ChiquitoHalo2 object in the bytecode circuit config struct
     compiled: ChiquitoHalo2<F>,
-    wit_gen: TraceGenerator<F, ()>,
+    wit_gen: AssigmentGenerator<F, ()>,
 }
 
 impl<F: Field + From<u64> + Hash> FiboConfig<F> {

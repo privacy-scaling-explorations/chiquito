@@ -8,7 +8,10 @@ use crate::{
     util::uuid,
 };
 
+use self::assigments::Assignments;
+
 // pub mod sc;
+pub mod assigments;
 
 #[derive(Clone)]
 pub struct Circuit<F> {
@@ -27,7 +30,7 @@ pub struct Circuit<F> {
     pub polys: Vec<Poly<F>>,
     pub lookups: Vec<PolyLookup<F>>,
 
-    pub fixed_assignments: Assignment<F>,
+    pub fixed_assignments: Assignments<F>,
 }
 
 impl<F: Debug> Debug for Circuit<F> {
@@ -210,8 +213,6 @@ pub struct PolyLookup<F> {
     pub annotation: String,
     pub exprs: Vec<(PolyExpr<F>, PolyExpr<F>)>,
 }
-
-pub type Assignment<F> = HashMap<Column, Vec<F>>;
 
 #[cfg(test)]
 mod tests {

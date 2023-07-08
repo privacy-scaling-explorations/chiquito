@@ -48,6 +48,13 @@ impl<F: Clone> StepSelector<F> {
             .expect("step not found {}")
             .clone()
     }
+
+    pub fn get_selector_assignment(&self, step_uuid: StepTypeUUID) -> Vec<SelectorAssignment<F>> {
+        self.selector_assignment
+            .get(&step_uuid)
+            .expect("selector assignment for step not found")
+            .clone()
+    }
 }
 
 pub trait StepSelectorBuilder {

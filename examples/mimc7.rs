@@ -15,7 +15,7 @@ use chiquito::{
         cell_manager::SingleRowCellManager, step_selector::SimpleStepSelectorBuilder, Compiler,
     },
     dsl::{cb::*, circuit},
-    wit_gen::TraceGenerator,
+    ir::assigments::AssigmentGenerator,
 };
 
 use mimc7_constants::ROUND_KEYS;
@@ -24,7 +24,10 @@ use mimc7_constants::ROUND_KEYS;
 pub const ROUNDS: usize = 91;
 
 // compilation result, contains circuit plus system to create witness.
-type CircuitResult<F> = (chiquito::ir::Circuit<F>, Option<TraceGenerator<F, (F, F)>>);
+type CircuitResult<F> = (
+    chiquito::ir::Circuit<F>,
+    Option<AssigmentGenerator<F, (F, F)>>,
+);
 
 fn mimc7_circuit<F: PrimeField + Eq + Hash>(
     row_value: Column<Fixed>, /* row index i, a fixed column allocated in circuit config, used
@@ -141,6 +144,8 @@ fn mimc7_circuit<F: PrimeField + Eq + Hash>(
         ctx.pragma_first_step(&mimc7_first_step);
         ctx.pragma_last_step(&mimc7_last_step);
 
+        ctx.pragma_num_steps(ROUNDS + 2 - 1);
+
         ctx.trace(move |ctx, (x_in_value, k_value)| {
             // step 0: calculate witness values from trace inputs, i.e. message x_in and secret key
             // k note that c_0 == 0
@@ -181,7 +186,7 @@ fn mimc7_circuit<F: PrimeField + Eq + Hash>(
 #[derive(Clone)]
 struct Mimc7Config<F: Field + From<u64>> {
     compiled: ChiquitoHalo2<F>, // halo2 backend object
-    wit_gen: Option<TraceGenerator<F, (F, F)>>,
+    wit_gen: Option<AssigmentGenerator<F, (F, F)>>,
 }
 
 impl<F: PrimeField + Hash> Mimc7Config<F> {
