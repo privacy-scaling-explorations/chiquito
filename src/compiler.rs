@@ -15,7 +15,7 @@ use crate::{
         assigments::{AssigmentGenerator, Assignments},
         Circuit, Column, ColumnType, Poly, PolyExpr, PolyLookup,
     },
-    util::uuid,
+    util::{uuid, UUID},
     wit_gen::{FixedAssignment, FixedGenContext, TraceGenerator},
 };
 
@@ -31,12 +31,12 @@ pub mod step_selector;
 pub struct CompilationUnit<F> {
     pub placement: Placement,
     pub selector: StepSelector<F>,
-    pub step_types: HashMap<u32, Rc<StepType<F>>>,
+    pub step_types: HashMap<UUID, Rc<StepType<F>>>,
     pub forward_signals: Vec<ForwardSignal>,
     pub shared_signals: Vec<SharedSignal>,
     pub fixed_signals: Vec<FixedSignal>,
 
-    pub annotations: HashMap<u32, String>,
+    pub annotations: HashMap<UUID, String>,
 
     pub columns: Vec<Column>,
     pub exposed: Vec<(Column, i32)>,

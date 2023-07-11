@@ -18,6 +18,7 @@ use crate::{
         ColumnType::{Advice as cAdvice, Fixed as cFixed, Halo2Advice, Halo2Fixed},
         PolyExpr,
     },
+    util::UUID,
 };
 
 #[allow(non_snake_case)]
@@ -31,8 +32,8 @@ pub struct ChiquitoHalo2<F: Field + From<u64>> {
 
     circuit: Circuit<F>,
 
-    advice_columns: HashMap<u32, Column<Advice>>,
-    fixed_columns: HashMap<u32, Column<Fixed>>,
+    advice_columns: HashMap<UUID, Column<Advice>>,
+    fixed_columns: HashMap<UUID, Column<Fixed>>,
     instance_column: Option<Column<Instance>>,
 }
 
@@ -48,8 +49,8 @@ impl<F: Field + From<u64> + Hash> ChiquitoHalo2<F> {
     }
 
     pub fn configure(&mut self, meta: &mut ConstraintSystem<F>) {
-        let mut advice_columns = HashMap::<u32, Column<Advice>>::new();
-        let mut fixed_columns = HashMap::<u32, Column<Fixed>>::new();
+        let mut advice_columns = HashMap::<UUID, Column<Advice>>::new();
+        let mut fixed_columns = HashMap::<UUID, Column<Fixed>>::new();
 
         for column in self.circuit.columns.iter() {
             match column.ctype {

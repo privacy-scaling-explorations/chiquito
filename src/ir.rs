@@ -5,7 +5,7 @@ use halo2_proofs::plonk::Expression;
 use crate::{
     ast::{ImportedHalo2Advice, ImportedHalo2Fixed, StepType},
     compiler::{cell_manager::Placement, step_selector::StepSelector},
-    util::uuid,
+    util::{uuid, UUID},
 };
 
 use self::assigments::Assignments;
@@ -17,7 +17,7 @@ pub mod assigments;
 pub struct Circuit<F> {
     pub placement: Placement,
     pub selector: StepSelector<F>,
-    pub step_types: HashMap<u32, Rc<StepType<F>>>,
+    pub step_types: HashMap<UUID, Rc<StepType<F>>>,
 
     pub q_enable: Column,
     pub q_first: Option<Column>,
@@ -62,7 +62,7 @@ pub struct Column {
 
     pub phase: usize,
 
-    pub(crate) id: u32,
+    pub(crate) id: u128,
 }
 
 impl Column {
@@ -116,7 +116,7 @@ impl Column {
         }
     }
 
-    pub fn uuid(&self) -> u32 {
+    pub fn uuid(&self) -> UUID {
         self.id
     }
 }

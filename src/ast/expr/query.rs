@@ -10,6 +10,7 @@ use crate::{
         SharedSignal,
     },
     dsl::StepTypeHandler,
+    util::UUID,
 };
 
 use super::{Expr, ToExpr};
@@ -82,7 +83,7 @@ impl<F> Queriable<F> {
         }
     }
 
-    pub fn uuid(&self) -> u32 {
+    pub fn uuid(&self) -> UUID {
         match self {
             Queriable::Internal(s) => s.uuid(),
             Queriable::Forward(s, _) => s.uuid(),

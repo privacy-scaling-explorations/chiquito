@@ -1,6 +1,6 @@
 use crate::{
     ast::{query::Queriable, Circuit, StepType, StepTypeUUID},
-    util::uuid,
+    util::{uuid, UUID},
     wit_gen::{FixedGenContext, StepInstance, TraceContext},
 };
 
@@ -181,7 +181,7 @@ pub struct StepTypeContext<F> {
 }
 
 impl<F> StepTypeContext<F> {
-    pub fn new(uuid: u32, name: String) -> Self {
+    pub fn new(uuid: UUID, name: String) -> Self {
         Self {
             step_type: StepType::new(uuid, name),
         }
@@ -308,7 +308,7 @@ impl StepTypeHandler {
         }
     }
 
-    pub fn uuid(&self) -> u32 {
+    pub fn uuid(&self) -> UUID {
         self.id
     }
 
@@ -329,7 +329,7 @@ impl<F, Args, D: Fn(&mut StepInstance<F>, Args) + 'static> From<&StepTypeWGHandl
 }
 
 pub struct StepTypeWGHandler<F, Args, D: Fn(&mut StepInstance<F>, Args) + 'static> {
-    id: u32,
+    id: UUID,
     pub annotation: &'static str,
     pub wg: Box<D>,
 
@@ -337,7 +337,7 @@ pub struct StepTypeWGHandler<F, Args, D: Fn(&mut StepInstance<F>, Args) + 'stati
 }
 
 impl<F, Args, D: Fn(&mut StepInstance<F>, Args) + 'static> StepTypeWGHandler<F, Args, D> {
-    pub fn uuid(&self) -> u32 {
+    pub fn uuid(&self) -> UUID {
         self.id
     }
 }

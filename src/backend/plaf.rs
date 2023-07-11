@@ -2,11 +2,14 @@ use std::{collections::HashMap, hash::Hash};
 
 use halo2_proofs::halo2curves::ff::PrimeField;
 
-use crate::ir::{
-    assigments::Assignments,
-    Circuit as cCircuit, Column as cColumn,
-    ColumnType::{Advice as cAdvice, Fixed as cFixed, Halo2Advice, Halo2Fixed},
-    PolyExpr as cPolyExpr,
+use crate::{
+    ir::{
+        assigments::Assignments,
+        Circuit as cCircuit, Column as cColumn,
+        ColumnType::{Advice as cAdvice, Fixed as cFixed, Halo2Advice, Halo2Fixed},
+        PolyExpr as cPolyExpr,
+    },
+    util::UUID,
 };
 
 use num_bigint::BigUint;
@@ -40,7 +43,7 @@ pub struct ChiquitoPlaf<F: PrimeField> {
     // Chiquito column id doesn't start from zero.
     // Plaf column index starts from 0 for each column type (advice, fixed, and instance).
     // Therefore a mapping is needed to convert chiquito column id to plaf index.
-    c_column_id_to_p_column_index: HashMap<u32, usize>,
+    c_column_id_to_p_column_index: HashMap<UUID, usize>,
 }
 
 impl<F: PrimeField<Repr = [u8; 32]>> ChiquitoPlaf<F> {
@@ -59,7 +62,7 @@ impl<F: PrimeField<Repr = [u8; 32]>> ChiquitoPlaf<F> {
 
         plaf.info.num_rows = 2usize.pow(k);
 
-        let mut c_column_id_to_p_column_index = HashMap::<u32, usize>::new();
+        let mut c_column_id_to_p_column_index = HashMap::<UUID, usize>::new();
         let mut advice_index = 0;
         let mut fixed_index = 0;
 
@@ -166,7 +169,7 @@ impl<F: PrimeField<Repr = [u8; 32]>> ChiquitoPlaf<F> {
         &self,
         column: &cColumn,
         plaf: &mut Plaf,
-        c_column_id_to_p_column_index: &mut HashMap<u32, usize>,
+        c_column_id_to_p_column_index: &mut HashMap<UUID, usize>,
         advice_index: &mut usize,
         fixed_index: &mut usize,
     ) {
@@ -236,7 +239,7 @@ impl<F: PrimeField<Repr = [u8; 32]>> ChiquitoPlaf<F> {
     fn add_id_index_mapping(
         &self,
         column: &cColumn,
-        c_column_id_to_p_column_index: &mut HashMap<u32, usize>,
+        c_column_id_to_p_column_index: &mut HashMap<UUID, usize>,
         counter: &mut usize,
     ) {
         c_column_id_to_p_column_index.insert(column.uuid(), *counter);
@@ -281,11 +284,11 @@ impl<F: PrimeField<Repr = [u8; 32]>> ChiquitoPlaf<F> {
 
 pub struct ChiquitoPlafWitGen {
     empty_witness: pWitness,
-    c_column_id_to_p_column_index: HashMap<u32, usize>,
+    c_column_id_to_p_column_index: HashMap<UUID, usize>,
 }
 
 impl ChiquitoPlafWitGen {
-    fn new(empty_witness: pWitness, c_column_id_to_p_column_index: HashMap<u32, usize>) -> Self {
+    fn new(empty_witness: pWitness, c_column_id_to_p_column_index: HashMap<UUID, usize>) -> Self {
         Self {
             empty_witness,
             c_column_id_to_p_column_index,
