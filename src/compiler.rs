@@ -206,9 +206,9 @@ impl<CM: CellManager, SSB: StepSelectorBuilder> Compiler<CM, SSB> {
             id: uuid(),
         };
 
-        self.add_q_enable(&mut unit, q_enable.clone());
+        self.add_q_enable(&mut unit, q_enable);
 
-        let q_first = if let Some(step_type) = ast.first_step {
+        if let Some(step_type) = ast.first_step {
             let q_first = Column {
                 annotation: "q_first".to_owned(),
                 ctype: ColumnType::Fixed,
@@ -218,14 +218,10 @@ impl<CM: CellManager, SSB: StepSelectorBuilder> Compiler<CM, SSB> {
                 id: uuid(),
             };
 
-            self.add_q_first(&mut unit, step_type, q_first.clone());
+            self.add_q_first(&mut unit, step_type, q_first);
+        }
 
-            Some(q_first)
-        } else {
-            None
-        };
-
-        let q_last = if let Some(step_type) = ast.last_step {
+        if let Some(step_type) = ast.last_step {
             let q_last = Column {
                 annotation: "q_last".to_owned(),
                 ctype: ColumnType::Fixed,
@@ -235,28 +231,17 @@ impl<CM: CellManager, SSB: StepSelectorBuilder> Compiler<CM, SSB> {
                 id: uuid(),
             };
 
-            self.add_q_last(&mut unit, step_type, q_last.clone());
-
-            Some(q_last)
-        } else {
-            None
-        };
+            self.add_q_last(&mut unit, step_type, q_last);
+        }
 
         let uuid = uuid();
 
         (
             Circuit::<F> {
-                placement: unit.placement.clone(),
-                selector: unit.selector.clone(),
                 columns: unit.columns.clone(),
                 exposed: unit.exposed,
-                num_rows: unit.num_rows,
                 polys: unit.polys,
                 lookups: unit.lookups,
-                step_types: unit.step_types,
-                q_enable,
-                q_first,
-                q_last,
                 fixed_assignments: unit.fixed_assignments,
                 id: uuid,
                 ast_id: ast.id,
