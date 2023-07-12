@@ -1,16 +1,15 @@
-use std::{collections::HashMap, hash::Hash, rc::Rc};
+use std::{collections::HashMap, hash::Hash};
 
 use halo2_proofs::halo2curves::ff::PrimeField;
 
 use crate::{
-    ast::{query::Queriable, ForwardSignal, InternalSignal, SharedSignal, StepType},
-    compiler::{cell_manager::Placement, step_selector::StepSelector},
     ir::{
+        assigments::Assignments,
         Circuit as cCircuit, Column as cColumn,
         ColumnType::{Advice as cAdvice, Fixed as cFixed, Halo2Advice, Halo2Fixed},
         PolyExpr as cPolyExpr,
     },
-    wit_gen::TraceWitness,
+    util::UUID,
 };
 
 use num_bigint::BigUint;
@@ -27,17 +26,12 @@ pub fn chiquito2Plaf<F: PrimeField<Repr = [u8; 32]>>(
     circuit: cCircuit<F>,
     k: u32,
     debug: bool,
-) -> (Plaf, ChiquitoPlafWitGen<F>) {
-    let mut chiquito_plaf = ChiquitoPlaf::new(circuit.clone(), debug);
+) -> (Plaf, ChiquitoPlafWitGen) {
+    let mut chiquito_plaf = ChiquitoPlaf::new(circuit, debug);
     let plaf = chiquito_plaf.get_plaf(k);
     let empty_witness = plaf.gen_empty_witness();
-    let wit_gen = ChiquitoPlafWitGen {
-        placement: circuit.placement,
-        selector: circuit.selector,
-        step_types: circuit.step_types,
-        plaf_witness: empty_witness,
-        c_column_id_to_p_column_index: chiquito_plaf.c_column_id_to_p_column_index,
-    };
+    let wit_gen =
+        ChiquitoPlafWitGen::new(empty_witness, chiquito_plaf.c_column_id_to_p_column_index);
 
     (plaf, wit_gen)
 }
@@ -49,7 +43,7 @@ pub struct ChiquitoPlaf<F: PrimeField> {
     // Chiquito column id doesn't start from zero.
     // Plaf column index starts from 0 for each column type (advice, fixed, and instance).
     // Therefore a mapping is needed to convert chiquito column id to plaf index.
-    c_column_id_to_p_column_index: HashMap<u32, usize>,
+    c_column_id_to_p_column_index: HashMap<UUID, usize>,
 }
 
 impl<F: PrimeField<Repr = [u8; 32]>> ChiquitoPlaf<F> {
@@ -68,7 +62,7 @@ impl<F: PrimeField<Repr = [u8; 32]>> ChiquitoPlaf<F> {
 
         plaf.info.num_rows = 2usize.pow(k);
 
-        let mut c_column_id_to_p_column_index = HashMap::<u32, usize>::new();
+        let mut c_column_id_to_p_column_index = HashMap::<UUID, usize>::new();
         let mut advice_index = 0;
         let mut fixed_index = 0;
 
@@ -175,7 +169,7 @@ impl<F: PrimeField<Repr = [u8; 32]>> ChiquitoPlaf<F> {
         &self,
         column: &cColumn,
         plaf: &mut Plaf,
-        c_column_id_to_p_column_index: &mut HashMap<u32, usize>,
+        c_column_id_to_p_column_index: &mut HashMap<UUID, usize>,
         advice_index: &mut usize,
         fixed_index: &mut usize,
     ) {
@@ -245,7 +239,7 @@ impl<F: PrimeField<Repr = [u8; 32]>> ChiquitoPlaf<F> {
     fn add_id_index_mapping(
         &self,
         column: &cColumn,
-        c_column_id_to_p_column_index: &mut HashMap<u32, usize>,
+        c_column_id_to_p_column_index: &mut HashMap<UUID, usize>,
         counter: &mut usize,
     ) {
         c_column_id_to_p_column_index.insert(column.uuid(), *counter);
@@ -288,182 +282,45 @@ impl<F: PrimeField<Repr = [u8; 32]>> ChiquitoPlaf<F> {
     }
 }
 
-pub struct ChiquitoPlafWitGen<F> {
-    placement: Placement,
-    selector: StepSelector<F>,
-    step_types: HashMap<u32, Rc<StepType<F>>>,
-    plaf_witness: pWitness,
-    c_column_id_to_p_column_index: HashMap<u32, usize>,
+pub struct ChiquitoPlafWitGen {
+    empty_witness: pWitness,
+    c_column_id_to_p_column_index: HashMap<UUID, usize>,
 }
 
-impl<F: PrimeField<Repr = [u8; 32]> + Hash> ChiquitoPlafWitGen<F> {
-    pub fn generate(&self, witness: Option<TraceWitness<F>>) -> pWitness {
-        let plaf_witness = pWitness {
-            num_rows: self.plaf_witness.num_rows,
-            columns: self.plaf_witness.columns.clone(),
-            witness: self.plaf_witness.witness.clone(),
-        };
-
-        if let Some(witness) = witness {
-            let mut processor = WitnessProcessor::<F> {
-                plaf_witness,
-                placement: self.placement.clone(),
-                c_column_id_to_p_column_index: self.c_column_id_to_p_column_index.clone(),
-                selector: self.selector.clone(),
-                step_types: self.step_types.clone(),
-                offset: 0,
-                cur_step: None,
-            };
-
-            processor.process(witness);
-
-            processor.plaf_witness
-        } else {
-            plaf_witness
+impl ChiquitoPlafWitGen {
+    fn new(empty_witness: pWitness, c_column_id_to_p_column_index: HashMap<UUID, usize>) -> Self {
+        Self {
+            empty_witness,
+            c_column_id_to_p_column_index,
         }
     }
-}
 
-struct WitnessProcessor<F: PrimeField<Repr = [u8; 32]> + Hash> {
-    plaf_witness: pWitness,
-    placement: Placement,
-    c_column_id_to_p_column_index: HashMap<u32, usize>,
-    selector: StepSelector<F>,
-    step_types: HashMap<u32, Rc<StepType<F>>>,
-    offset: usize,
-    cur_step: Option<Rc<StepType<F>>>,
-}
+    pub fn generate<F: PrimeField<Repr = [u8; 32]> + Hash>(
+        &self,
+        witness: Option<Assignments<F>>,
+    ) -> pWitness {
+        let mut plaf_witness = pWitness {
+            num_rows: self.empty_witness.num_rows,
+            columns: self.empty_witness.columns.clone(),
+            witness: self.empty_witness.witness.clone(),
+        };
 
-impl<F: PrimeField<Repr = [u8; 32]> + Hash> WitnessProcessor<F> {
-    fn process(&mut self, witness: TraceWitness<F>) {
-        for step_instance in witness.step_instances {
-            let cur_step = Rc::clone(
-                self.step_types
-                    .get(&step_instance.step_type_uuid)
-                    .expect("step type not found"),
-            );
+        if let Some(witness) = &witness {
+            for (column, assignments) in witness {
+                let p_column_index = self
+                    .c_column_id_to_p_column_index
+                    .get(&column.uuid())
+                    .unwrap_or_else(|| panic!("plaf column not found for column {:?}", column));
 
-            self.cur_step = Some(Rc::clone(&cur_step));
-
-            for assignment in step_instance.assignments {
-                self.assign(assignment.0, assignment.1);
-            }
-
-            let selector_assignment = self
-                .selector
-                .selector_assignment
-                .get(&cur_step.uuid())
-                .expect("selector assignment for step not found");
-
-            for (expr, value) in selector_assignment.iter() {
-                match expr {
-                    cPolyExpr::Query(column, rotation, annotation) => {
-                        let p_column_index = self
-                            .c_column_id_to_p_column_index
-                            .get(&column.uuid())
-                            .unwrap_or_else(|| {
-                                panic!(
-                                    "plaf column not found for selector expression {}",
-                                    annotation
-                                )
-                            });
-                        let offset = (self.offset as i32 + rotation) as usize;
-                        self.plaf_witness.witness[*p_column_index][offset] =
-                            Some(BigUint::from_bytes_le(&value.to_repr()));
-                    }
-                    _ => panic!("selector expression has wrong cPolyExpr enum type"),
+                for (offset, value) in assignments.iter().enumerate() {
+                    plaf_witness.witness[*p_column_index][offset] =
+                        Some(BigUint::from_bytes_le(&value.to_repr()));
                 }
             }
 
-            self.offset += self.placement.step_height(&cur_step) as usize;
-        }
-    }
-
-    fn assign(&mut self, lhs: Queriable<F>, rhs: F) {
-        if let Some(cur_step) = &self.cur_step {
-            let (p_column_index, rotation) = self.find_plaf_placement(cur_step, lhs);
-
-            let offset = (self.offset as i32 + rotation) as usize;
-            self.plaf_witness.witness[p_column_index][offset] =
-                Some(BigUint::from_bytes_le(&rhs.to_repr()));
+            plaf_witness
         } else {
-            panic!("jarrl assigning outside a step");
+            plaf_witness
         }
-    }
-
-    fn find_plaf_placement(&self, step: &StepType<F>, query: Queriable<F>) -> (usize, i32) {
-        match query {
-            Queriable::Internal(signal) => self.find_plaf_placement_internal(step, signal),
-
-            Queriable::Forward(forward, next) => {
-                self.find_plaf_placement_forward(step, forward, next)
-            }
-
-            Queriable::Shared(shared, rot) => self.find_plaf_placement_shared(step, shared, rot),
-
-            Queriable::Halo2AdviceQuery(_signal, _rotation) => {
-                panic!("Imported Halo2Advice is not supported")
-            }
-
-            _ => panic!("invalid advice assignment on queriable {:?}", query),
-        }
-    }
-
-    fn find_plaf_placement_internal(
-        &self,
-        step: &StepType<F>,
-        signal: InternalSignal,
-    ) -> (usize, i32) {
-        let placement = self
-            .placement
-            .find_internal_signal_placement(step.uuid(), &signal);
-
-        let p_column_index = self
-            .c_column_id_to_p_column_index
-            .get(&placement.column.uuid())
-            .unwrap_or_else(|| panic!("plaf column not found for internal signal {:?}", signal));
-
-        (*p_column_index, placement.rotation)
-    }
-
-    fn find_plaf_placement_forward(
-        &self,
-        step: &StepType<F>,
-        forward: ForwardSignal,
-        next: bool,
-    ) -> (usize, i32) {
-        let placement = self.placement.get_forward_placement(&forward);
-
-        let super_rotation = placement.rotation
-            + if next {
-                self.placement.step_height(step) as i32
-            } else {
-                0
-            };
-
-        let p_column_index = self
-            .c_column_id_to_p_column_index
-            .get(&placement.column.uuid())
-            .unwrap_or_else(|| panic!("plaf column not found for forward signal {:?}", forward));
-
-        (*p_column_index, super_rotation)
-    }
-
-    fn find_plaf_placement_shared(
-        &self,
-        step: &StepType<F>,
-        shared: SharedSignal,
-        rot: i32,
-    ) -> (usize, i32) {
-        let placement = self.placement.get_shared_placement(&shared);
-
-        let super_rotation = placement.rotation + rot * (self.placement.step_height(step) as i32);
-
-        let p_column_index = self
-            .c_column_id_to_p_column_index
-            .get(&placement.column.uuid())
-            .unwrap_or_else(|| panic!("plaf column not found for shared signal {:?}", shared));
-
-        (*p_column_index, super_rotation)
     }
 }

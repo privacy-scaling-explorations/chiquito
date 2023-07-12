@@ -100,10 +100,10 @@ pub struct FixedGenContext<F> {
 }
 
 impl<F: Field + Hash> FixedGenContext<F> {
-    pub fn new(num_steps: usize) -> Self {
+    pub fn new(num_rows: usize) -> Self {
         Self {
             assigments: Default::default(),
-            num_steps,
+            num_steps: num_rows,
         }
     }
 

@@ -1,8 +1,6 @@
 use std::{collections::HashMap, fmt::Debug};
 
-use crate::ast::{
-    FixedSignal, ForwardSignal, InternalSignal, SharedSignal, StepType, StepTypeUUID,
-};
+use crate::ast::{FixedSignal, ForwardSignal, InternalSignal, SharedSignal, StepTypeUUID};
 
 use super::{Column, CompilationUnit};
 
@@ -15,6 +13,18 @@ pub struct SignalPlacement {
 impl SignalPlacement {
     pub fn new(column: Column, rotation: i32) -> Self {
         Self { column, rotation }
+    }
+}
+
+impl From<(Column, i32)> for SignalPlacement {
+    fn from((column, rotation): (Column, i32)) -> Self {
+        SignalPlacement::new(column, rotation)
+    }
+}
+
+impl From<SignalPlacement> for (Column, i32) {
+    fn from(placement: SignalPlacement) -> Self {
+        (placement.column, placement.rotation)
     }
 }
 
@@ -69,8 +79,8 @@ impl Placement {
             .clone()
     }
 
-    pub fn step_height<F>(&self, step: &StepType<F>) -> u32 {
-        self.steps.get(&step.uuid()).expect("step not found").height
+    pub fn step_height(&self, step_uuid: StepTypeUUID) -> u32 {
+        self.steps.get(&step_uuid).expect("step not found").height
     }
 
     pub fn first_step_height(&self) -> u32 {

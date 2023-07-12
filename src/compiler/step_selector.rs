@@ -5,7 +5,10 @@ use halo2_proofs::{
     plonk::{Advice, Column as Halo2Column},
 };
 
-use crate::ast::{StepType, StepTypeUUID};
+use crate::{
+    ast::{StepType, StepTypeUUID},
+    util::UUID,
+};
 
 use super::{Column, CompilationUnit, PolyExpr};
 
@@ -46,6 +49,13 @@ impl<F: Clone> StepSelector<F> {
         self.selector_expr_not
             .get(&step_uuid)
             .expect("step not found {}")
+            .clone()
+    }
+
+    pub fn get_selector_assignment(&self, step_uuid: StepTypeUUID) -> Vec<SelectorAssignment<F>> {
+        self.selector_assignment
+            .get(&step_uuid)
+            .expect("selector assignment for step not found")
             .clone()
     }
 }
@@ -210,7 +220,7 @@ impl StepSelectorBuilder for TwoStepsSelectorBuilder {
     }
 }
 
-fn other_step_type<F>(unit: &CompilationUnit<F>, uuid: u32) -> Option<Rc<StepType<F>>> {
+fn other_step_type<F>(unit: &CompilationUnit<F>, uuid: UUID) -> Option<Rc<StepType<F>>> {
     for step_type in unit.step_types.values() {
         if step_type.uuid() != uuid {
             return Some(Rc::clone(step_type));

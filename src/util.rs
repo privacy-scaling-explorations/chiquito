@@ -1,7 +1,8 @@
-use std::sync::atomic::{AtomicU32, Ordering};
+use uuid::Uuid;
 
-static UUID_GEN: AtomicU32 = AtomicU32::new(1);
+#[allow(clippy::upper_case_acronyms)]
+pub type UUID = u128;
 
-pub fn uuid() -> u32 {
-    UUID_GEN.fetch_add(1, Ordering::SeqCst)
+pub fn uuid() -> UUID {
+    Uuid::now_v1(&[10; 6]).as_u128()
 }
