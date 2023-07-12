@@ -130,9 +130,32 @@ impl<F, TraceArgs> From<&astCircuit<F, TraceArgs>> for CompilationUnit<F> {
     }
 }
 
+pub struct CompilerConfig<CM: CellManager, SSB: StepSelectorBuilder> {
+    cell_manager: CM,
+    step_selector_builder: SSB,
+}
+
+pub fn config<CM: CellManager, SSB: StepSelectorBuilder>(
+    cell_manager: CM,
+    step_selector_builder: SSB,
+) -> CompilerConfig<CM, SSB> {
+    CompilerConfig {
+        cell_manager,
+        step_selector_builder,
+    }
+}
+
 pub struct Compiler<CM: CellManager, SSB: StepSelectorBuilder> {
     cell_manager: CM,
     step_selector_builder: SSB,
+}
+
+impl<CM: CellManager, SSB: StepSelectorBuilder> From<CompilerConfig<CM, SSB>>
+    for Compiler<CM, SSB>
+{
+    fn from(config: CompilerConfig<CM, SSB>) -> Self {
+        Compiler::new(config.cell_manager, config.step_selector_builder)
+    }
 }
 
 impl<CM: CellManager, SSB: StepSelectorBuilder> Compiler<CM, SSB> {
@@ -219,6 +242,8 @@ impl<CM: CellManager, SSB: StepSelectorBuilder> Compiler<CM, SSB> {
             None
         };
 
+        let uuid = uuid();
+
         (
             Circuit::<F> {
                 placement: unit.placement.clone(),
@@ -233,6 +258,8 @@ impl<CM: CellManager, SSB: StepSelectorBuilder> Compiler<CM, SSB> {
                 q_first,
                 q_last,
                 fixed_assignments: unit.fixed_assignments,
+                id: uuid,
+                ast_id: ast.id,
             },
             ast.trace.as_ref().map(|v| {
                 AssigmentGenerator::new(
@@ -241,6 +268,7 @@ impl<CM: CellManager, SSB: StepSelectorBuilder> Compiler<CM, SSB> {
                     unit.selector,
                     TraceGenerator::new(Rc::clone(v)),
                     unit.num_rows,
+                    uuid,
                 )
             }),
         )

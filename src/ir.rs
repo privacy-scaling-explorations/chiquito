@@ -10,8 +10,8 @@ use crate::{
 
 use self::assigments::Assignments;
 
-// pub mod sc;
 pub mod assigments;
+pub mod sc;
 
 #[derive(Clone)]
 pub struct Circuit<F> {
@@ -31,6 +31,9 @@ pub struct Circuit<F> {
     pub lookups: Vec<PolyLookup<F>>,
 
     pub fixed_assignments: Assignments<F>,
+
+    pub id: UUID,
+    pub ast_id: UUID,
 }
 
 impl<F: Debug> Debug for Circuit<F> {
@@ -62,7 +65,7 @@ pub struct Column {
 
     pub phase: usize,
 
-    pub(crate) id: u128,
+    pub(crate) id: UUID,
 }
 
 impl Column {

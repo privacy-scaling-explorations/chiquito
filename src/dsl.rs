@@ -11,6 +11,8 @@ use std::marker::PhantomData;
 
 use self::cb::{Constraint, LookupBuilder, Typing};
 
+pub use sc::*;
+
 /// A generic structure designed to handle the context of a circuit for generic types `F`,
 /// `TraceArgs` and `StepArgs`. The struct contains a `Circuit` instance and implements
 /// methods to build the circuit, add various components, and manipulate the circuit. `F` is a
@@ -362,3 +364,4 @@ where
 }
 
 pub mod cb;
+pub mod sc;

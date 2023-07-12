@@ -8,6 +8,7 @@ use halo2_proofs::{
 use crate::{
     ast::{query::Queriable, ForwardSignal, SharedSignal, StepTypeUUID},
     compiler::{cell_manager::Placement, step_selector::StepSelector},
+    util::UUID,
     wit_gen::{StepInstance, TraceGenerator},
 };
 
@@ -23,15 +24,18 @@ pub struct AssigmentGenerator<F, TraceArgs> {
     trace_gen: TraceGenerator<F, TraceArgs>,
 
     num_rows: usize,
+
+    ir_id: UUID,
 }
 
-impl<F: Default + Field, TraceArgs> AssigmentGenerator<F, TraceArgs> {
+impl<F: Field, TraceArgs> AssigmentGenerator<F, TraceArgs> {
     pub fn new(
         columns: Vec<Column>,
         placement: Placement,
         selector: StepSelector<F>,
         trace_gen: TraceGenerator<F, TraceArgs>,
         num_rows: usize,
+        ir_id: UUID,
     ) -> Self {
         Self {
             columns,
@@ -39,6 +43,7 @@ impl<F: Default + Field, TraceArgs> AssigmentGenerator<F, TraceArgs> {
             selector,
             trace_gen,
             num_rows,
+            ir_id,
         }
     }
 
@@ -53,6 +58,10 @@ impl<F: Default + Field, TraceArgs> AssigmentGenerator<F, TraceArgs> {
         }
 
         assigments
+    }
+
+    pub fn uuid(&self) -> UUID {
+        self.ir_id
     }
 
     fn assign_step(
