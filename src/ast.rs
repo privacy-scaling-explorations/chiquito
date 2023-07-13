@@ -4,7 +4,7 @@ use std::{collections::HashMap, fmt::Debug, rc::Rc};
 
 use crate::{
     dsl::StepTypeHandler,
-    util::uuid,
+    util::{uuid, UUID},
     wit_gen::{FixedGenContext, Trace, TraceContext},
 };
 
@@ -15,7 +15,7 @@ use halo2_proofs::plonk::{Advice, Column as Halo2Column, ColumnType, Fixed};
 /// Circuit
 #[derive(Clone)]
 pub struct Circuit<F, TraceArgs> {
-    pub step_types: HashMap<u32, Rc<StepType<F>>>,
+    pub step_types: HashMap<UUID, Rc<StepType<F>>>,
 
     pub forward_signals: Vec<ForwardSignal>,
     pub shared_signals: Vec<SharedSignal>,
@@ -24,7 +24,7 @@ pub struct Circuit<F, TraceArgs> {
     pub halo2_fixed: Vec<ImportedHalo2Fixed>,
     pub exposed: Vec<ForwardSignal>,
 
-    pub annotations: HashMap<u32, String>,
+    pub annotations: HashMap<UUID, String>,
 
     pub trace: Option<Rc<Trace<F, TraceArgs>>>,
     pub fixed_gen: Option<Rc<FixedGen<F>>>,
@@ -32,6 +32,8 @@ pub struct Circuit<F, TraceArgs> {
     pub first_step: Option<StepTypeUUID>,
     pub last_step: Option<StepTypeUUID>,
     pub num_steps: usize,
+
+    pub id: UUID,
 }
 
 impl<F: Debug, TraceArgs: Debug> Debug for Circuit<F, TraceArgs> {
@@ -65,6 +67,8 @@ impl<F, TraceArgs> Default for Circuit<F, TraceArgs> {
 
             first_step: None,
             last_step: None,
+
+            id: uuid(),
         }
     }
 }
@@ -164,7 +168,7 @@ impl<F, TraceArgs> Circuit<F, TraceArgs> {
         }
     }
 
-    pub fn get_step_type(&self, uuid: u32) -> Rc<StepType<F>> {
+    pub fn get_step_type(&self, uuid: UUID) -> Rc<StepType<F>> {
         let step_rc = self.step_types.get(&uuid).expect("step type not found");
 
         Rc::clone(step_rc)
@@ -173,7 +177,7 @@ impl<F, TraceArgs> Circuit<F, TraceArgs> {
 
 pub type FixedGen<F> = dyn Fn(&mut FixedGenContext<F>) + 'static;
 
-pub type StepTypeUUID = u32;
+pub type StepTypeUUID = UUID;
 
 /// Step
 pub struct StepType<F> {
@@ -184,7 +188,7 @@ pub struct StepType<F> {
     pub constraints: Vec<Constraint<F>>,
     pub transition_constraints: Vec<TransitionConstraint<F>>,
     pub lookups: Vec<Lookup<F>>,
-    pub annotations: HashMap<u32, String>,
+    pub annotations: HashMap<UUID, String>,
 }
 
 impl<F: Debug> Debug for StepType<F> {
@@ -199,7 +203,7 @@ impl<F: Debug> Debug for StepType<F> {
 }
 
 impl<F> StepType<F> {
-    pub fn new(uuid: u32, name: String) -> Self {
+    pub fn new(uuid: UUID, name: String) -> Self {
         Self {
             id: uuid,
             name,
@@ -347,7 +351,7 @@ impl<F: Debug + Clone> Lookup<F> {
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 /// ForwardSignal
 pub struct ForwardSignal {
-    id: u32,
+    id: UUID,
     phase: usize,
     annotation: &'static str,
 }
@@ -361,7 +365,7 @@ impl ForwardSignal {
         }
     }
 
-    pub fn uuid(&self) -> u32 {
+    pub fn uuid(&self) -> UUID {
         self.id
     }
 
@@ -372,7 +376,7 @@ impl ForwardSignal {
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct SharedSignal {
-    id: u32,
+    id: UUID,
     phase: usize,
     annotation: &'static str,
 }
@@ -386,7 +390,7 @@ impl SharedSignal {
         }
     }
 
-    pub fn uuid(&self) -> u32 {
+    pub fn uuid(&self) -> UUID {
         self.id
     }
 
@@ -397,7 +401,7 @@ impl SharedSignal {
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct FixedSignal {
-    id: u32,
+    id: UUID,
     annotation: &'static str,
 }
 
@@ -409,14 +413,14 @@ impl FixedSignal {
         }
     }
 
-    pub fn uuid(&self) -> u32 {
+    pub fn uuid(&self) -> UUID {
         self.id
     }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct InternalSignal {
-    id: u32,
+    id: UUID,
     annotation: &'static str,
 }
 
@@ -428,14 +432,14 @@ impl InternalSignal {
         }
     }
 
-    pub fn uuid(&self) -> u32 {
+    pub fn uuid(&self) -> UUID {
         self.id
     }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct ImportedHalo2Column<CT: ColumnType> {
-    id: u32,
+    id: UUID,
     pub column: Halo2Column<CT>,
     annotation: &'static str,
 }
@@ -449,7 +453,7 @@ impl<CT: ColumnType> ImportedHalo2Column<CT> {
         }
     }
 
-    pub fn uuid(&self) -> u32 {
+    pub fn uuid(&self) -> UUID {
         self.id
     }
 }

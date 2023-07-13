@@ -1,39 +1,34 @@
-use std::{collections::HashMap, fmt::Debug, hash::Hash, rc::Rc};
+use std::{fmt::Debug, hash::Hash};
 
 use halo2_proofs::plonk::Expression;
 
 use crate::{
-    ast::{ImportedHalo2Advice, ImportedHalo2Fixed, StepType},
-    compiler::{cell_manager::Placement, step_selector::StepSelector},
-    util::uuid,
+    ast::{ImportedHalo2Advice, ImportedHalo2Fixed},
+    util::{uuid, UUID},
 };
 
-// pub mod sc;
+use self::assigments::Assignments;
+
+pub mod assigments;
+pub mod sc;
 
 #[derive(Clone)]
 pub struct Circuit<F> {
-    pub placement: Placement,
-    pub selector: StepSelector<F>,
-    pub step_types: HashMap<u32, Rc<StepType<F>>>,
-
-    pub q_enable: Column,
-    pub q_first: Option<Column>,
-    pub q_last: Option<Column>,
-
     pub columns: Vec<Column>,
-    pub exposed: Vec<(Column, i32)>, // forward signal, rotation
-    pub num_rows: usize,
+    pub exposed: Vec<(Column, i32)>,
 
     pub polys: Vec<Poly<F>>,
     pub lookups: Vec<PolyLookup<F>>,
 
-    pub fixed_assignments: Assignment<F>,
+    pub fixed_assignments: Assignments<F>,
+
+    pub id: UUID,
+    pub ast_id: UUID,
 }
 
 impl<F: Debug> Debug for Circuit<F> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("Circuit")
-            .field("placement", &self.placement)
             .field("columns", &self.columns)
             .field("polys", &self.polys)
             .field("lookups", &self.lookups)
@@ -59,7 +54,7 @@ pub struct Column {
 
     pub phase: usize,
 
-    pub(crate) id: u32,
+    pub(crate) id: UUID,
 }
 
 impl Column {
@@ -113,7 +108,7 @@ impl Column {
         }
     }
 
-    pub fn uuid(&self) -> u32 {
+    pub fn uuid(&self) -> UUID {
         self.id
     }
 }
@@ -210,8 +205,6 @@ pub struct PolyLookup<F> {
     pub annotation: String,
     pub exprs: Vec<(PolyExpr<F>, PolyExpr<F>)>,
 }
-
-pub type Assignment<F> = HashMap<Column, Vec<F>>;
 
 #[cfg(test)]
 mod tests {
