@@ -40,6 +40,7 @@ pub struct CompilationUnit<F> {
 
     pub columns: Vec<Column>,
     pub exposed: Vec<(Column, i32)>,
+    pub num_steps: usize,
     pub num_rows: usize,
 
     pub polys: Vec<Poly<F>>,
@@ -62,6 +63,7 @@ impl<F> Default for CompilationUnit<F> {
 
             columns: Default::default(),
             exposed: Default::default(),
+            num_steps: Default::default(),
             num_rows: Default::default(),
 
             polys: Default::default(),
@@ -125,6 +127,7 @@ impl<F, TraceArgs> From<&astCircuit<F, TraceArgs>> for CompilationUnit<F> {
             forward_signals: ast.forward_signals.clone(),
             shared_signals: ast.shared_signals.clone(),
             fixed_signals: ast.fixed_signals.clone(),
+            num_steps: ast.num_steps,
             ..Default::default()
         }
     }
@@ -185,7 +188,7 @@ impl<CM: CellManager, SSB: StepSelectorBuilder> Compiler<CM, SSB> {
         if !unit.placement.same_height() {
             panic!("Cannot calculate the number of rows");
         }
-        unit.num_rows = ast.num_steps * (unit.placement.first_step_height() as usize);
+        unit.num_rows = unit.num_steps * (unit.placement.first_step_height() as usize);
 
         self.compile_fixed(ast, &mut unit);
 
@@ -335,7 +338,7 @@ impl<CM: CellManager, SSB: StepSelectorBuilder> Compiler<CM, SSB> {
         unit: &mut CompilationUnit<F>,
     ) {
         if let Some(fixed_gen) = &ast.fixed_gen {
-            let mut ctx = FixedGenContext::new(unit.num_rows);
+            let mut ctx = FixedGenContext::new(unit.num_steps);
             (*fixed_gen)(&mut ctx);
 
             let assignments = ctx.get_assigments();
