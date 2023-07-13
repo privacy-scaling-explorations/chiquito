@@ -1,4 +1,4 @@
 var sourcesIndex = JSON.parse('{\
-"chiquito":["",[["ast",[["expr",[],["query.rs"]]],["expr.rs"]],["backend",[],["halo2.rs","mod.rs","plaf.rs"]],["compiler",[],["cell_manager.rs","step_selector.rs"]],["dsl",[],["cb.rs"]]],["ast.rs","compiler.rs","dsl.rs","ir.rs","lib.rs","stdlib.rs","util.rs","wit_gen.rs"]]\
+"chiquito":["",[["ast",[["expr",[],["query.rs"]]],["expr.rs"]],["backend",[],["halo2.rs","mod.rs","plaf.rs"]],["compiler",[],["cell_manager.rs","step_selector.rs"]],["dsl",[],["cb.rs","sc.rs"]],["ir",[],["assigments.rs","sc.rs"]]],["ast.rs","compiler.rs","dsl.rs","ir.rs","lib.rs","stdlib.rs","util.rs","wit_gen.rs"]]\
 }');
 createSourceSidebar();

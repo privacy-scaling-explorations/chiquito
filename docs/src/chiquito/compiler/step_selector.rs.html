@@ -219,6 +219,16 @@
 <span id="219">219</span>
 <span id="220">220</span>
 <span id="221">221</span>
+<span id="222">222</span>
+<span id="223">223</span>
+<span id="224">224</span>
+<span id="225">225</span>
+<span id="226">226</span>
+<span id="227">227</span>
+<span id="228">228</span>
+<span id="229">229</span>
+<span id="230">230</span>
+<span id="231">231</span>
 </pre><pre class="rust"><code><span class="kw">use </span>std::{collections::HashMap, rc::Rc};
 
 <span class="kw">use </span>halo2_proofs::{
@@ -226,7 +236,10 @@
     plonk::{Advice, Column <span class="kw">as </span>Halo2Column},
 };
 
-<span class="kw">use </span><span class="kw">crate</span>::ast::{StepType, StepTypeUUID};
+<span class="kw">use crate</span>::{
+    ast::{StepType, StepTypeUUID},
+    util::UUID,
+};
 
 <span class="kw">use super</span>::{Column, CompilationUnit, PolyExpr};
 
@@ -267,6 +280,13 @@
         <span class="self">self</span>.selector_expr_not
             .get(<span class="kw-2">&amp;</span>step_uuid)
             .expect(<span class="string">&quot;step not found {}&quot;</span>)
+            .clone()
+    }
+
+    <span class="kw">pub fn </span>get_selector_assignment(<span class="kw-2">&amp;</span><span class="self">self</span>, step_uuid: StepTypeUUID) -&gt; Vec&lt;SelectorAssignment&lt;F&gt;&gt; {
+        <span class="self">self</span>.selector_assignment
+            .get(<span class="kw-2">&amp;</span>step_uuid)
+            .expect(<span class="string">&quot;selector assignment for step not found&quot;</span>)
             .clone()
     }
 }
@@ -431,7 +451,7 @@
     }
 }
 
-<span class="kw">fn </span>other_step_type&lt;F&gt;(unit: <span class="kw-2">&amp;</span>CompilationUnit&lt;F&gt;, uuid: u32) -&gt; <span class="prelude-ty">Option</span>&lt;Rc&lt;StepType&lt;F&gt;&gt;&gt; {
+<span class="kw">fn </span>other_step_type&lt;F&gt;(unit: <span class="kw-2">&amp;</span>CompilationUnit&lt;F&gt;, uuid: UUID) -&gt; <span class="prelude-ty">Option</span>&lt;Rc&lt;StepType&lt;F&gt;&gt;&gt; {
     <span class="kw">for </span>step_type <span class="kw">in </span>unit.step_types.values() {
         <span class="kw">if </span>step_type.uuid() != uuid {
             <span class="kw">return </span><span class="prelude-val">Some</span>(Rc::clone(step_type));

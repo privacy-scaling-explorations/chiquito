@@ -232,49 +232,37 @@
 <span id="232">232</span>
 <span id="233">233</span>
 <span id="234">234</span>
-<span id="235">235</span>
-<span id="236">236</span>
-<span id="237">237</span>
-<span id="238">238</span>
-<span id="239">239</span>
-<span id="240">240</span>
-<span id="241">241</span>
-</pre><pre class="rust"><code><span class="kw">use </span>std::{collections::HashMap, fmt::Debug, hash::Hash, rc::Rc};
+</pre><pre class="rust"><code><span class="kw">use </span>std::{fmt::Debug, hash::Hash};
 
 <span class="kw">use </span>halo2_proofs::plonk::Expression;
 
 <span class="kw">use crate</span>::{
-    ast::{ImportedHalo2Advice, ImportedHalo2Fixed, StepType},
-    compiler::{cell_manager::Placement, step_selector::StepSelector},
-    util::uuid,
+    ast::{ImportedHalo2Advice, ImportedHalo2Fixed},
+    util::{uuid, UUID},
 };
 
-<span class="comment">// pub mod sc;
+<span class="kw">use </span><span class="self">self</span>::assigments::Assignments;
 
-</span><span class="attribute">#[derive(Clone)]
+<span class="kw">pub mod </span>assigments;
+<span class="kw">pub mod </span>sc;
+
+<span class="attribute">#[derive(Clone)]
 </span><span class="kw">pub struct </span>Circuit&lt;F&gt; {
-    <span class="kw">pub </span>placement: Placement,
-    <span class="kw">pub </span>selector: StepSelector&lt;F&gt;,
-    <span class="kw">pub </span>step_types: HashMap&lt;u32, Rc&lt;StepType&lt;F&gt;&gt;&gt;,
-
-    <span class="kw">pub </span>q_enable: Column,
-    <span class="kw">pub </span>q_first: <span class="prelude-ty">Option</span>&lt;Column&gt;,
-    <span class="kw">pub </span>q_last: <span class="prelude-ty">Option</span>&lt;Column&gt;,
-
     <span class="kw">pub </span>columns: Vec&lt;Column&gt;,
-    <span class="kw">pub </span>exposed: Vec&lt;(Column, i32)&gt;, <span class="comment">// forward signal, rotation
-    </span><span class="kw">pub </span>num_rows: usize,
+    <span class="kw">pub </span>exposed: Vec&lt;(Column, i32)&gt;,
 
     <span class="kw">pub </span>polys: Vec&lt;Poly&lt;F&gt;&gt;,
     <span class="kw">pub </span>lookups: Vec&lt;PolyLookup&lt;F&gt;&gt;,
 
-    <span class="kw">pub </span>fixed_assignments: Assignment&lt;F&gt;,
+    <span class="kw">pub </span>fixed_assignments: Assignments&lt;F&gt;,
+
+    <span class="kw">pub </span>id: UUID,
+    <span class="kw">pub </span>ast_id: UUID,
 }
 
 <span class="kw">impl</span>&lt;F: Debug&gt; Debug <span class="kw">for </span>Circuit&lt;F&gt; {
     <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>std::fmt::Formatter&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; std::fmt::Result {
         f.debug_struct(<span class="string">&quot;Circuit&quot;</span>)
-            .field(<span class="string">&quot;placement&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.placement)
             .field(<span class="string">&quot;columns&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.columns)
             .field(<span class="string">&quot;polys&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.polys)
             .field(<span class="string">&quot;lookups&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.lookups)
@@ -300,7 +288,7 @@
 
     <span class="kw">pub </span>phase: usize,
 
-    <span class="kw">pub</span>(<span class="kw">crate</span>) id: u32,
+    <span class="kw">pub</span>(<span class="kw">crate</span>) id: UUID,
 }
 
 <span class="kw">impl </span>Column {
@@ -354,7 +342,7 @@
         }
     }
 
-    <span class="kw">pub fn </span>uuid(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; u32 {
+    <span class="kw">pub fn </span>uuid(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; UUID {
         <span class="self">self</span>.id
     }
 }
@@ -451,8 +439,6 @@
     <span class="kw">pub </span>annotation: String,
     <span class="kw">pub </span>exprs: Vec&lt;(PolyExpr&lt;F&gt;, PolyExpr&lt;F&gt;)&gt;,
 }
-
-<span class="kw">pub type </span>Assignment&lt;F&gt; = HashMap&lt;Column, Vec&lt;F&gt;&gt;;
 
 <span class="attribute">#[cfg(test)]
 </span><span class="kw">mod </span>tests {

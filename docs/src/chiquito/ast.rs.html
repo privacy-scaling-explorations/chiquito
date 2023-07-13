@@ -456,13 +456,17 @@
 <span id="456">456</span>
 <span id="457">457</span>
 <span id="458">458</span>
+<span id="459">459</span>
+<span id="460">460</span>
+<span id="461">461</span>
+<span id="462">462</span>
 </pre><pre class="rust"><code><span class="kw">pub mod </span>expr;
 
 <span class="kw">use </span>std::{collections::HashMap, fmt::Debug, rc::Rc};
 
 <span class="kw">use crate</span>::{
     dsl::StepTypeHandler,
-    util::uuid,
+    util::{uuid, UUID},
     wit_gen::{FixedGenContext, Trace, TraceContext},
 };
 
@@ -473,7 +477,7 @@
 <span class="doccomment">/// Circuit
 </span><span class="attribute">#[derive(Clone)]
 </span><span class="kw">pub struct </span>Circuit&lt;F, TraceArgs&gt; {
-    <span class="kw">pub </span>step_types: HashMap&lt;u32, Rc&lt;StepType&lt;F&gt;&gt;&gt;,
+    <span class="kw">pub </span>step_types: HashMap&lt;UUID, Rc&lt;StepType&lt;F&gt;&gt;&gt;,
 
     <span class="kw">pub </span>forward_signals: Vec&lt;ForwardSignal&gt;,
     <span class="kw">pub </span>shared_signals: Vec&lt;SharedSignal&gt;,
@@ -482,7 +486,7 @@
     <span class="kw">pub </span>halo2_fixed: Vec&lt;ImportedHalo2Fixed&gt;,
     <span class="kw">pub </span>exposed: Vec&lt;ForwardSignal&gt;,
 
-    <span class="kw">pub </span>annotations: HashMap&lt;u32, String&gt;,
+    <span class="kw">pub </span>annotations: HashMap&lt;UUID, String&gt;,
 
     <span class="kw">pub </span>trace: <span class="prelude-ty">Option</span>&lt;Rc&lt;Trace&lt;F, TraceArgs&gt;&gt;&gt;,
     <span class="kw">pub </span>fixed_gen: <span class="prelude-ty">Option</span>&lt;Rc&lt;FixedGen&lt;F&gt;&gt;&gt;,
@@ -490,6 +494,8 @@
     <span class="kw">pub </span>first_step: <span class="prelude-ty">Option</span>&lt;StepTypeUUID&gt;,
     <span class="kw">pub </span>last_step: <span class="prelude-ty">Option</span>&lt;StepTypeUUID&gt;,
     <span class="kw">pub </span>num_steps: usize,
+
+    <span class="kw">pub </span>id: UUID,
 }
 
 <span class="kw">impl</span>&lt;F: Debug, TraceArgs: Debug&gt; Debug <span class="kw">for </span>Circuit&lt;F, TraceArgs&gt; {
@@ -523,6 +529,8 @@
 
             first_step: <span class="prelude-val">None</span>,
             last_step: <span class="prelude-val">None</span>,
+
+            id: uuid(),
         }
     }
 }
@@ -622,7 +630,7 @@
         }
     }
 
-    <span class="kw">pub fn </span>get_step_type(<span class="kw-2">&amp;</span><span class="self">self</span>, uuid: u32) -&gt; Rc&lt;StepType&lt;F&gt;&gt; {
+    <span class="kw">pub fn </span>get_step_type(<span class="kw-2">&amp;</span><span class="self">self</span>, uuid: UUID) -&gt; Rc&lt;StepType&lt;F&gt;&gt; {
         <span class="kw">let </span>step_rc = <span class="self">self</span>.step_types.get(<span class="kw-2">&amp;</span>uuid).expect(<span class="string">&quot;step type not found&quot;</span>);
 
         Rc::clone(step_rc)
@@ -631,7 +639,7 @@
 
 <span class="kw">pub type </span>FixedGen&lt;F&gt; = <span class="kw">dyn </span>Fn(<span class="kw-2">&amp;mut </span>FixedGenContext&lt;F&gt;) + <span class="lifetime">&#39;static</span>;
 
-<span class="kw">pub type </span>StepTypeUUID = u32;
+<span class="kw">pub type </span>StepTypeUUID = UUID;
 
 <span class="doccomment">/// Step
 </span><span class="kw">pub struct </span>StepType&lt;F&gt; {
@@ -642,7 +650,7 @@
     <span class="kw">pub </span>constraints: Vec&lt;Constraint&lt;F&gt;&gt;,
     <span class="kw">pub </span>transition_constraints: Vec&lt;TransitionConstraint&lt;F&gt;&gt;,
     <span class="kw">pub </span>lookups: Vec&lt;Lookup&lt;F&gt;&gt;,
-    <span class="kw">pub </span>annotations: HashMap&lt;u32, String&gt;,
+    <span class="kw">pub </span>annotations: HashMap&lt;UUID, String&gt;,
 }
 
 <span class="kw">impl</span>&lt;F: Debug&gt; Debug <span class="kw">for </span>StepType&lt;F&gt; {
@@ -657,7 +665,7 @@
 }
 
 <span class="kw">impl</span>&lt;F&gt; StepType&lt;F&gt; {
-    <span class="kw">pub fn </span>new(uuid: u32, name: String) -&gt; <span class="self">Self </span>{
+    <span class="kw">pub fn </span>new(uuid: UUID, name: String) -&gt; <span class="self">Self </span>{
         <span class="self">Self </span>{
             id: uuid,
             name,
@@ -805,7 +813,7 @@
 <span class="attribute">#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 </span><span class="doccomment">/// ForwardSignal
 </span><span class="kw">pub struct </span>ForwardSignal {
-    id: u32,
+    id: UUID,
     phase: usize,
     annotation: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str,
 }
@@ -819,7 +827,7 @@
         }
     }
 
-    <span class="kw">pub fn </span>uuid(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; u32 {
+    <span class="kw">pub fn </span>uuid(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; UUID {
         <span class="self">self</span>.id
     }
 
@@ -830,7 +838,7 @@
 
 <span class="attribute">#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 </span><span class="kw">pub struct </span>SharedSignal {
-    id: u32,
+    id: UUID,
     phase: usize,
     annotation: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str,
 }
@@ -844,7 +852,7 @@
         }
     }
 
-    <span class="kw">pub fn </span>uuid(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; u32 {
+    <span class="kw">pub fn </span>uuid(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; UUID {
         <span class="self">self</span>.id
     }
 
@@ -855,7 +863,7 @@
 
 <span class="attribute">#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 </span><span class="kw">pub struct </span>FixedSignal {
-    id: u32,
+    id: UUID,
     annotation: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str,
 }
 
@@ -867,14 +875,14 @@
         }
     }
 
-    <span class="kw">pub fn </span>uuid(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; u32 {
+    <span class="kw">pub fn </span>uuid(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; UUID {
         <span class="self">self</span>.id
     }
 }
 
 <span class="attribute">#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 </span><span class="kw">pub struct </span>InternalSignal {
-    id: u32,
+    id: UUID,
     annotation: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str,
 }
 
@@ -886,14 +894,14 @@
         }
     }
 
-    <span class="kw">pub fn </span>uuid(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; u32 {
+    <span class="kw">pub fn </span>uuid(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; UUID {
         <span class="self">self</span>.id
     }
 }
 
 <span class="attribute">#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 </span><span class="kw">pub struct </span>ImportedHalo2Column&lt;CT: ColumnType&gt; {
-    id: u32,
+    id: UUID,
     <span class="kw">pub </span>column: Halo2Column&lt;CT&gt;,
     annotation: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str,
 }
@@ -907,7 +915,7 @@
         }
     }
 
-    <span class="kw">pub fn </span>uuid(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; u32 {
+    <span class="kw">pub fn </span>uuid(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; UUID {
         <span class="self">self</span>.id
     }
 }

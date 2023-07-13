@@ -176,6 +176,7 @@
 <span id="176">176</span>
 <span id="177">177</span>
 <span id="178">178</span>
+<span id="179">179</span>
 </pre><pre class="rust"><code><span class="kw">use </span>std::{
     fmt::Debug,
     marker::PhantomData,
@@ -188,6 +189,7 @@
         SharedSignal,
     },
     dsl::StepTypeHandler,
+    util::UUID,
 };
 
 <span class="kw">use super</span>::{Expr, ToExpr};
@@ -260,7 +262,7 @@
         }
     }
 
-    <span class="kw">pub fn </span>uuid(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; u32 {
+    <span class="kw">pub fn </span>uuid(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; UUID {
         <span class="kw">match </span><span class="self">self </span>{
             Queriable::Internal(s) =&gt; s.uuid(),
             Queriable::Forward(s, <span class="kw">_</span>) =&gt; s.uuid(),

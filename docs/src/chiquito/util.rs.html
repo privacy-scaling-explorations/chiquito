@@ -5,12 +5,14 @@
 <span id="5">5</span>
 <span id="6">6</span>
 <span id="7">7</span>
-</pre><pre class="rust"><code><span class="kw">use </span>std::sync::atomic::{AtomicU32, Ordering};
+<span id="8">8</span>
+</pre><pre class="rust"><code><span class="kw">use </span>uuid::Uuid;
 
-<span class="kw">static </span>UUID_GEN: AtomicU32 = AtomicU32::new(<span class="number">1</span>);
+<span class="attribute">#[allow(clippy::upper_case_acronyms)]
+</span><span class="kw">pub type </span>UUID = u128;
 
-<span class="kw">pub fn </span>uuid() -&gt; u32 {
-    UUID_GEN.fetch_add(<span class="number">1</span>, Ordering::SeqCst)
+<span class="kw">pub fn </span>uuid() -&gt; UUID {
+    Uuid::now_v1(<span class="kw-2">&amp;</span>[<span class="number">10</span>; <span class="number">6</span>]).as_u128()
 }
 </code></pre></div>
 </section></div></main><div id="rustdoc-vars" data-root-path="../../" data-current-crate="chiquito" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.65.0-nightly (015a824f2 2022-08-22)" ></div></body></html>

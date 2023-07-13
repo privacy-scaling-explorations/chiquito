@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":[["MappingContext",""],["MappingGenerator",""],["SuperCircuit",""]],"type":[["Mapping",""],["SuperAssignments",""]]};

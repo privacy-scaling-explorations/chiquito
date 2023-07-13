@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"mod":[["cell_manager",""],["step_selector",""]],"struct":[["CompilationUnit",""],["Compiler",""]]};
+window.SIDEBAR_ITEMS = {"fn":[["config",""]],"mod":[["cell_manager",""],["step_selector",""]],"struct":[["CompilationUnit",""],["Compiler",""],["CompilerConfig",""]]};
