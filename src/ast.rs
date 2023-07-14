@@ -15,6 +15,7 @@ use halo2_proofs::plonk::{Advice, Column as Halo2Column, ColumnType, Fixed};
 use self::query::Queriable;
 
 /// Signal abstraction
+#[derive(Clone, Debug)]
 pub enum Signal {
     Forward(ForwardSignal),
     Shared(SharedSignal),
@@ -42,7 +43,7 @@ pub struct Circuit<F, TraceArgs> {
     pub fixed_signals: Vec<FixedSignal>,
     pub halo2_advice: Vec<ImportedHalo2Advice>,
     pub halo2_fixed: Vec<ImportedHalo2Fixed>,
-    pub exposed: Vec<ForwardSignal>,
+    pub exposed: Vec<Signal>,
 
     pub annotations: HashMap<UUID, String>,
 
@@ -124,8 +125,8 @@ impl<F, TraceArgs> Circuit<F, TraceArgs> {
         signal
     }
 
-    pub fn expose(&mut self, forward_signal: ForwardSignal) {
-        self.exposed.push(forward_signal);
+    pub fn expose(&mut self, signal: Signal) {
+        self.exposed.push(signal);
     }
 
     pub fn add_halo2_advice(
@@ -192,6 +193,15 @@ impl<F, TraceArgs> Circuit<F, TraceArgs> {
         let step_rc = self.step_types.get(&uuid).expect("step type not found");
 
         Rc::clone(step_rc)
+    }
+
+    pub fn expose_first(&mut self, signal: Signal) {
+    }
+
+    pub fn expose_last(&mut self, signal: Signal) {
+    }
+
+    pub fn expose_step(&mut self, signal: Signal, step: usize) {
     }
 }
 

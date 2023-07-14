@@ -9,7 +9,7 @@ use halo2_proofs::{
 use crate::{
     ast::{
         query::Queriable, Circuit as astCircuit, Expr, FixedSignal, ForwardSignal,
-        ImportedHalo2Advice, ImportedHalo2Fixed, SharedSignal, StepType, StepTypeUUID,
+        ImportedHalo2Advice, ImportedHalo2Fixed, SharedSignal, StepType, StepTypeUUID, Signal,
     },
     ir::{
         assigments::{AssigmentGenerator, Assignments},
@@ -325,10 +325,17 @@ impl<CM: CellManager, SSB: StepSelectorBuilder> Compiler<CM, SSB> {
         ast: &astCircuit<F, TraceArgs>,
         unit: &mut CompilationUnit<F>,
     ) {
-        for forward_signal in ast.exposed.clone() {
-            let forward_placement = unit.placement.get_forward_placement(&forward_signal);
-            let exposed = (forward_placement.column, forward_placement.rotation);
-            unit.exposed.push(exposed);
+        for signal in ast.exposed.clone() {
+            match signal {
+                Signal::Forward(forward_signal) => {
+                    let forward_placement = unit.placement.get_forward_placement(&forward_signal);
+                    let exposed = (forward_placement.column, forward_placement.rotation);
+                    unit.exposed.push(exposed);
+                }
+                _ => {
+                    panic!("Expected a Forward Signal")
+                }
+            }
         }
     }
 
