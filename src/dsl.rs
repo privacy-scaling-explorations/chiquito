@@ -53,14 +53,20 @@ impl<F, TraceArgs> CircuitContext<F, TraceArgs> {
     }
 
     /// Exposes the first step instance value of a forward signal as public.
-    pub fn expose(&mut self, forward: Queriable<F>) {
-        match forward {
-            Queriable::Forward(forward_signal, _) => {
-                self.sc.expose(forward_signal);
+    pub fn expose(&mut self, queriable: Queriable<F>, offset: ExposeOffset) {
+        match queriable {
+            Queriable::Forward(forward_signal, _) | Queriable::Shared(shared_signal, _) => {
+                let signal = Signal::from(queriable);
+                match offset {
+                    ExposeOffset::First => self.sc.expose_first(signal),
+                    ExposeOffset::Last => self.sc.expose_last(signal),
+                    ExposeOffset::Step(step) => self.sc.expose_step(signal, step),
+                }
             }
-            _ => panic!("Expected forward signal"),
+            _ => panic!("Expected either ForwardSignal or SharedSignal"),
         }
     }
+    
 
     /// Imports a halo2 advice column with a name string into the circuit and returns a
     /// `Queriable` instance representing the imported column.
