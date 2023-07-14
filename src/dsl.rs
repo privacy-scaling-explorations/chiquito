@@ -67,6 +67,7 @@ impl<F, TraceArgs> CircuitContext<F, TraceArgs> {
         }
     }
     
+    /// Helper function to handle setting the offset when exposing a signal
     fn handle_expose(&mut self, signal: Signal, offset: ExposeOffset) {
         match offset {
             ExposeOffset::First => self.sc.expose_first(signal),
@@ -182,7 +183,6 @@ pub enum ExposeOffset {
     Last,
     Step(usize),
 }
-
 
 impl From<StepTypeHandler> for StepTypeDefInput {
     fn from(h: StepTypeHandler) -> Self {
