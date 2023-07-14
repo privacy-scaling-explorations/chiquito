@@ -162,6 +162,13 @@ pub enum StepTypeDefInput {
     String(&'static str),
 }
 
+pub enum ExposeOffset {
+    First,
+    Last,
+    Step(usize),
+}
+
+
 impl From<StepTypeHandler> for StepTypeDefInput {
     fn from(h: StepTypeHandler) -> Self {
         StepTypeDefInput::Handler(h)
