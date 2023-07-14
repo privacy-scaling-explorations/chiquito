@@ -1,5 +1,5 @@
 use crate::{
-    ast::{query::Queriable, Circuit, StepType, StepTypeUUID},
+    ast::{query::Queriable, Circuit, StepType, StepTypeUUID, Signal},
     util::{uuid, UUID},
     wit_gen::{FixedGenContext, StepInstance, TraceContext},
 };
@@ -55,17 +55,26 @@ impl<F, TraceArgs> CircuitContext<F, TraceArgs> {
     /// Exposes the first step instance value of a forward signal as public.
     pub fn expose(&mut self, queriable: Queriable<F>, offset: ExposeOffset) {
         match queriable {
-            Queriable::Forward(forward_signal, _) | Queriable::Shared(shared_signal, _) => {
-                let signal = Signal::from(queriable);
-                match offset {
-                    ExposeOffset::First => self.sc.expose_first(signal),
-                    ExposeOffset::Last => self.sc.expose_last(signal),
-                    ExposeOffset::Step(step) => self.sc.expose_step(signal, step),
-                }
+            Queriable::Forward(forward_signal, _) => {
+                let signal = Signal::Forward(forward_signal);
+                self.handle_expose(signal, offset);
+            }
+            Queriable::Shared(shared_signal, _) => {
+                let signal = Signal::Shared(shared_signal);
+                self.handle_expose(signal, offset);
             }
             _ => panic!("Expected either ForwardSignal or SharedSignal"),
         }
     }
+    
+    fn handle_expose(&mut self, signal: Signal, offset: ExposeOffset) {
+        match offset {
+            ExposeOffset::First => self.sc.expose_first(signal),
+            ExposeOffset::Last => self.sc.expose_last(signal),
+            ExposeOffset::Step(step) => self.sc.expose_step(signal, step),
+        }
+    }
+    
     
 
     /// Imports a halo2 advice column with a name string into the circuit and returns a
