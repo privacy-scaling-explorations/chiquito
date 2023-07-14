@@ -32,6 +32,7 @@ pub struct Circuit<F, TraceArgs> {
     pub first_step: Option<StepTypeUUID>,
     pub last_step: Option<StepTypeUUID>,
     pub num_steps: usize,
+    pub q_enable: bool, 
 
     pub id: UUID,
 }
@@ -69,6 +70,7 @@ impl<F, TraceArgs> Default for Circuit<F, TraceArgs> {
             last_step: None,
 
             id: uuid(),
+            q_enable: true,
         }
     }
 }
