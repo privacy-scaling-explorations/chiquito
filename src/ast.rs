@@ -12,6 +12,26 @@ pub use expr::*;
 
 use halo2_proofs::plonk::{Advice, Column as Halo2Column, ColumnType, Fixed};
 
+use self::query::Queriable;
+
+/// Signal abstraction
+pub enum Signal {
+    Forward(ForwardSignal),
+    Shared(SharedSignal),
+    Fixed(FixedSignal),
+}
+
+impl<F> From<Queriable<F>> for Signal {
+    fn from(queriable: Queriable<F>) -> Self {
+        match queriable {
+            Queriable::Forward(forward_signal, _) => Signal::Forward(forward_signal),
+            Queriable::Shared(shared_signal, _) => Signal::Shared(shared_signal),
+            Queriable::Fixed(fixed_signal, _) => Signal::Fixed(fixed_signal),
+            _ => panic!("Expected a FixedSignal, ForwardSignal or SharedSignal"),
+        }
+    }
+}
+
 /// Circuit
 #[derive(Clone)]
 pub struct Circuit<F, TraceArgs> {
