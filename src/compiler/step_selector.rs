@@ -14,12 +14,23 @@ use super::{Column, CompilationUnit, PolyExpr};
 
 pub type SelectorAssignment<F> = (PolyExpr<F>, F);
 
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct StepSelector<F> {
     pub selector_expr: HashMap<StepTypeUUID, PolyExpr<F>>,
     pub selector_expr_not: HashMap<StepTypeUUID, PolyExpr<F>>,
     pub selector_assignment: HashMap<StepTypeUUID, Vec<SelectorAssignment<F>>>,
     pub columns: Vec<Column>,
+}
+
+impl<F: Clone> Clone for StepSelector<F> {
+    fn clone(&self) -> Self {
+        Self {
+            selector_expr: self.selector_expr.clone(),
+            selector_expr_not: self.selector_expr_not.clone(),
+            selector_assignment: self.selector_assignment.clone(),
+            columns: self.columns.clone(),
+        }
+    }
 }
 
 impl<F> Default for StepSelector<F> {
