@@ -196,12 +196,21 @@ impl<F, TraceArgs> Circuit<F, TraceArgs> {
     }
 
     pub fn expose_first(&mut self, signal: Signal) {
+        // process the Signal as a ForwardSignal, SharedSignal, or FixedSignal
+        // expose the first signal as an instance variable
+        // TODO: Is the offset the i32 in Vec<(Column, i32)> for the Halo2Column?
     }
 
     pub fn expose_last(&mut self, signal: Signal) {
+        // process the Signal as a ForwardSignal, SharedSignal, or FixedSignal
+        // expose the last signal as an instance variable
+        // TODO: Is the offset the i32 in Vec<(Column, i32)> for the Halo2Column?
     }
 
     pub fn expose_step(&mut self, signal: Signal, step: usize) {
+        // process the Signal as a ForwardSignal, SharedSignal, or FixedSignal
+        // expose the signal at the step as an instance variable
+        // TODO: Is the offset the i32 in Vec<(Column, i32)> for the Halo2Column?
     }
 }
 
