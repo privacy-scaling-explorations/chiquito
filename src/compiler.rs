@@ -333,7 +333,10 @@ impl<CM: CellManager, SSB: StepSelectorBuilder> Compiler<CM, SSB> {
                     match offset {
                         ExposeOffset::First => (placement.column, placement.rotation),
                         ExposeOffset::Last => unimplemented!(),  // replace with actual code
-                        ExposeOffset::Step(step) => unimplemented!(),  // replace with actual code
+                        ExposeOffset::Step(step) => {
+                            let rot = placement.rotation + step * unit.placement.first_step_height();
+                            (placement.column, rot)
+                        },
                     }
                 },
                 Queriable::Shared(shared_signal, _) => {
@@ -341,10 +344,13 @@ impl<CM: CellManager, SSB: StepSelectorBuilder> Compiler<CM, SSB> {
                     match offset {
                         ExposeOffset::First => (placement.column, placement.rotation),
                         ExposeOffset::Last => unimplemented!(),  // replace with actual code
-                        ExposeOffset::Step(step) => unimplemented!(),  // replace with actual code
+                        ExposeOffset::Step(step) => {
+                            let rot = placement.rotation + step * unit.placement.first_step_height();
+                            (placement.column, rot)
+                        },
                     }
                 },
-                _ => panic!("Queriable was not Forward or Shared"),  // or however you want to handle this case
+                _ => panic!("Queriable was not Forward or Shared"),
             };
     
             unit.exposed.push(exposed);
