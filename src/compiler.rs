@@ -331,10 +331,11 @@ impl<CM: CellManager, SSB: StepSelectorBuilder> Compiler<CM, SSB> {
                 Queriable::Forward(forward_signal, _) => {
                     let placement = unit.placement.get_forward_placement(forward_signal);
                     match offset {
-                        ExposeOffset::First => (placement.column, placement.rotation),
-                        ExposeOffset::Last => unimplemented!(),  // replace with actual code
+                        ExposeOffset::First => (placement.column, 0),
+                        ExposeOffset::Last => (placement.column, placement.rotation), 
                         ExposeOffset::Step(step) => {
-                            let rot = placement.rotation + step * unit.placement.first_step_height();
+                            // TODO: this is a bit of a hack, we need to make sure `step` and `unit.placement.first_step_height()` are within i32 bounds
+                            let rot = placement.rotation + (*step as i32) * (unit.placement.first_step_height() as i32);
                             (placement.column, rot)
                         },
                     }
@@ -342,10 +343,10 @@ impl<CM: CellManager, SSB: StepSelectorBuilder> Compiler<CM, SSB> {
                 Queriable::Shared(shared_signal, _) => {
                     let placement = unit.placement.get_shared_placement(shared_signal);
                     match offset {
-                        ExposeOffset::First => (placement.column, placement.rotation),
-                        ExposeOffset::Last => unimplemented!(),  // replace with actual code
+                        ExposeOffset::First => (placement.column, 0),
+                        ExposeOffset::Last => (placement.column, placement.rotation),  
                         ExposeOffset::Step(step) => {
-                            let rot = placement.rotation + step * unit.placement.first_step_height();
+                            let rot = placement.rotation + (*step as i32) * (unit.placement.first_step_height() as i32);
                             (placement.column, rot)
                         },
                     }
