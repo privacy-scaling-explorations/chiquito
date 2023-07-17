@@ -55,11 +55,8 @@ impl<F, TraceArgs> CircuitContext<F, TraceArgs> {
     /// Exposes the first step instance value of a forward signal as public.
     pub fn expose(&mut self, queriable: Queriable<F>, offset: ExposeOffset) {
         match queriable {
-            Queriable::Forward(forward_signal, _) => {
-                self.sc.exposed_forward.push((forward_signal, offset));
-            }
-            Queriable::Shared(shared_signal, _) => {
-                self.sc.exposed_shared.push((shared_signal, offset));
+            Queriable::Forward(..) | Queriable::Shared(..) => {
+                self.sc.exposed.push((queriable, offset));
             }
             _ => panic!("Expected either ForwardSignal or SharedSignal"),
         }

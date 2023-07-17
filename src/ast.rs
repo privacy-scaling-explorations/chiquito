@@ -12,6 +12,8 @@ pub use expr::*;
 
 use halo2_proofs::plonk::{Advice, Column as Halo2Column, ColumnType, Fixed};
 
+use self::query::Queriable;
+
 /// Circuit
 #[derive(Clone)]
 pub struct Circuit<F, TraceArgs> {
@@ -22,8 +24,7 @@ pub struct Circuit<F, TraceArgs> {
     pub fixed_signals: Vec<FixedSignal>,
     pub halo2_advice: Vec<ImportedHalo2Advice>,
     pub halo2_fixed: Vec<ImportedHalo2Fixed>,
-    pub exposed_forward: Vec<(ForwardSignal, ExposeOffset)>,
-    pub exposed_shared: Vec<(SharedSignal, ExposeOffset)>,
+    pub exposed: Vec<(Queriable<F>, ExposeOffset)>,
 
     pub annotations: HashMap<UUID, String>,
 
@@ -57,8 +58,7 @@ impl<F, TraceArgs> Default for Circuit<F, TraceArgs> {
             fixed_signals: Default::default(),
             halo2_advice: Default::default(),
             halo2_fixed: Default::default(),
-            exposed_forward: Default::default(),
-            exposed_shared: Default::default(),
+            exposed: Default::default(),
 
             num_steps: Default::default(),
 
@@ -106,13 +106,18 @@ impl<F, TraceArgs> Circuit<F, TraceArgs> {
         signal
     }
 
-    pub fn expose_forward(&mut self, forward_signal: ForwardSignal, offset: ExposeOffset) {
-        self.exposed_forward.push((forward_signal, offset));
+    pub fn expose(&mut self, signal: Queriable<F>, offset: ExposeOffset) {
+        match signal {
+            Queriable::Forward(..) | Queriable::Shared(..) => {
+                self.exposed.push((signal, offset));
+            }
+            _ => {
+                // TODO: Add a proper error here
+                panic!("cannot expose fixed or internal signals")
+            }
+        }
     }
-
-    pub fn expose_shared(&mut self, shared_signal: SharedSignal, offset: ExposeOffset) {
-        self.exposed_shared.push((shared_signal, offset));
-    }
+    
 
     pub fn add_halo2_advice(
         &mut self,

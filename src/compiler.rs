@@ -326,28 +326,31 @@ impl<CM: CellManager, SSB: StepSelectorBuilder> Compiler<CM, SSB> {
         ast: &astCircuit<F, TraceArgs>,
         unit: &mut CompilationUnit<F>,
     ) {
-        for (forward_signal, offset) in ast.exposed_forward.clone() {
-            let forward_placement = unit.placement.get_forward_placement(&forward_signal);
-            match offset {
-                ExposeOffset::First => {
-                    let exposed_forward = (forward_placement.column, forward_placement.rotation);
+        for (queriable, offset) in &ast.exposed {
+            let exposed = match queriable {
+                Queriable::Forward(forward_signal, _) => {
+                    let placement = unit.placement.get_forward_placement(forward_signal);
+                    match offset {
+                        ExposeOffset::First => (placement.column, placement.rotation),
+                        ExposeOffset::Last => unimplemented!(),  // replace with actual code
+                        ExposeOffset::Step(step) => unimplemented!(),  // replace with actual code
+                    }
                 },
-                ExposeOffset::Last => {
-                    (_, _)
+                Queriable::Shared(shared_signal, _) => {
+                    let placement = unit.placement.get_shared_placement(shared_signal);
+                    match offset {
+                        ExposeOffset::First => (placement.column, placement.rotation),
+                        ExposeOffset::Last => unimplemented!(),  // replace with actual code
+                        ExposeOffset::Step(step) => unimplemented!(),  // replace with actual code
+                    }
                 },
-                ExposeOffset::Step(step) => {
-                    (_, _)
-                },
-            }
-            unit.exposed.push(exposed_forward);
-        }
-        // add a case for ast.exposed_shared
-        for (shared_signal, _) in ast.exposed_shared.clone() {
-            let shared_placement = unit.placement.get_shared_placement(&shared_signal);
-            let exposed_shared = (shared_placement.column, shared_placement.rotation);
-            unit.exposed.push(exposed_shared);
+                _ => panic!("Queriable was not Forward or Shared"),  // or however you want to handle this case
+            };
+    
+            unit.exposed.push(exposed);
         }
     }
+    
 
     fn compile_fixed<F: Field + Hash, TraceArgs>(
         &self,
