@@ -369,3 +369,18 @@ where
 
 pub mod cb;
 pub mod sc;
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_disable_q_enable() {
+        let circuit: Circuit<i32, i32> = Circuit::default();
+        let mut context = CircuitContext { sc: circuit };
+
+        context.pragma_disable_q_enable();
+
+        assert_eq!(context.sc.q_enable, false);
+    }
+}

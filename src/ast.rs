@@ -462,3 +462,14 @@ impl<CT: ColumnType> ImportedHalo2Column<CT> {
 
 pub type ImportedHalo2Advice = ImportedHalo2Column<Advice>;
 pub type ImportedHalo2Fixed = ImportedHalo2Column<Fixed>;
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_q_enable() {
+        let circuit: Circuit<i32, i32> = Circuit::default();
+        assert_eq!(circuit.q_enable, true);
+    }
+}
