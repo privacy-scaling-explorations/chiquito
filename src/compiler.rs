@@ -9,7 +9,7 @@ use halo2_proofs::{
 use crate::{
     ast::{
         query::Queriable, Circuit as astCircuit, Expr, FixedSignal, ForwardSignal,
-        ImportedHalo2Advice, ImportedHalo2Fixed, SharedSignal, StepType, StepTypeUUID, Signal,
+        ImportedHalo2Advice, ImportedHalo2Fixed, SharedSignal, StepType, StepTypeUUID,
     },
     ir::{
         assigments::{AssigmentGenerator, Assignments},
@@ -17,6 +17,7 @@ use crate::{
     },
     util::{uuid, UUID},
     wit_gen::{FixedAssignment, FixedGenContext, TraceGenerator},
+    dsl::ExposeOffset
 };
 
 use self::{
@@ -325,17 +326,26 @@ impl<CM: CellManager, SSB: StepSelectorBuilder> Compiler<CM, SSB> {
         ast: &astCircuit<F, TraceArgs>,
         unit: &mut CompilationUnit<F>,
     ) {
-        for signal in ast.exposed.clone() {
-            match signal {
-                Signal::Forward(forward_signal) => {
-                    let forward_placement = unit.placement.get_forward_placement(&forward_signal);
-                    let exposed = (forward_placement.column, forward_placement.rotation);
-                    unit.exposed.push(exposed);
-                }
-                _ => {
-                    panic!("Expected a Forward Signal")
-                }
+        for (forward_signal, offset) in ast.exposed_forward.clone() {
+            let forward_placement = unit.placement.get_forward_placement(&forward_signal);
+            match offset {
+                ExposeOffset::First => {
+                    let exposed_forward = (forward_placement.column, forward_placement.rotation);
+                },
+                ExposeOffset::Last => {
+                    (_, _)
+                },
+                ExposeOffset::Step(step) => {
+                    (_, _)
+                },
             }
+            unit.exposed.push(exposed_forward);
+        }
+        // add a case for ast.exposed_shared
+        for (shared_signal, _) in ast.exposed_shared.clone() {
+            let shared_placement = unit.placement.get_shared_placement(&shared_signal);
+            let exposed_shared = (shared_placement.column, shared_placement.rotation);
+            unit.exposed.push(exposed_shared);
         }
     }
 

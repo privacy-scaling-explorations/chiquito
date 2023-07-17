@@ -1,5 +1,5 @@
 use crate::{
-    ast::{query::Queriable, Circuit, StepType, StepTypeUUID, Signal},
+    ast::{query::Queriable, Circuit, StepType, StepTypeUUID},
     util::{uuid, UUID},
     wit_gen::{FixedGenContext, StepInstance, TraceContext},
 };
@@ -56,27 +56,14 @@ impl<F, TraceArgs> CircuitContext<F, TraceArgs> {
     pub fn expose(&mut self, queriable: Queriable<F>, offset: ExposeOffset) {
         match queriable {
             Queriable::Forward(forward_signal, _) => {
-                let signal = Signal::Forward(forward_signal);
-                self.handle_expose(signal, offset);
+                self.sc.exposed_forward.push((forward_signal, offset));
             }
             Queriable::Shared(shared_signal, _) => {
-                let signal = Signal::Shared(shared_signal);
-                self.handle_expose(signal, offset);
+                self.sc.exposed_shared.push((shared_signal, offset));
             }
             _ => panic!("Expected either ForwardSignal or SharedSignal"),
         }
     }
-    
-    /// Helper function to handle setting the offset when exposing a signal
-    fn handle_expose(&mut self, signal: Signal, offset: ExposeOffset) {
-        match offset {
-            ExposeOffset::First => self.sc.expose_first(signal),
-            ExposeOffset::Last => self.sc.expose_last(signal),
-            ExposeOffset::Step(step) => self.sc.expose_step(signal, step),
-        }
-    }
-    
-    
 
     /// Imports a halo2 advice column with a name string into the circuit and returns a
     /// `Queriable` instance representing the imported column.
@@ -178,6 +165,7 @@ pub enum StepTypeDefInput {
     String(&'static str),
 }
 
+#[derive(Clone, Copy)]
 pub enum ExposeOffset {
     First,
     Last,

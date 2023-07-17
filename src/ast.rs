@@ -3,7 +3,7 @@ pub mod expr;
 use std::{collections::HashMap, fmt::Debug, rc::Rc};
 
 use crate::{
-    dsl::StepTypeHandler,
+    dsl::{StepTypeHandler, ExposeOffset},
     util::{uuid, UUID},
     wit_gen::{FixedGenContext, Trace, TraceContext},
 };
@@ -11,27 +11,6 @@ use crate::{
 pub use expr::*;
 
 use halo2_proofs::plonk::{Advice, Column as Halo2Column, ColumnType, Fixed};
-
-use self::query::Queriable;
-
-/// Signal abstraction
-#[derive(Clone, Debug)]
-pub enum Signal {
-    Forward(ForwardSignal),
-    Shared(SharedSignal),
-    Fixed(FixedSignal),
-}
-
-impl<F> From<Queriable<F>> for Signal {
-    fn from(queriable: Queriable<F>) -> Self {
-        match queriable {
-            Queriable::Forward(forward_signal, _) => Signal::Forward(forward_signal),
-            Queriable::Shared(shared_signal, _) => Signal::Shared(shared_signal),
-            Queriable::Fixed(fixed_signal, _) => Signal::Fixed(fixed_signal),
-            _ => panic!("Expected a FixedSignal, ForwardSignal or SharedSignal"),
-        }
-    }
-}
 
 /// Circuit
 #[derive(Clone)]
@@ -43,7 +22,8 @@ pub struct Circuit<F, TraceArgs> {
     pub fixed_signals: Vec<FixedSignal>,
     pub halo2_advice: Vec<ImportedHalo2Advice>,
     pub halo2_fixed: Vec<ImportedHalo2Fixed>,
-    pub exposed: Vec<Signal>,
+    pub exposed_forward: Vec<(ForwardSignal, ExposeOffset)>,
+    pub exposed_shared: Vec<(SharedSignal, ExposeOffset)>,
 
     pub annotations: HashMap<UUID, String>,
 
@@ -77,7 +57,8 @@ impl<F, TraceArgs> Default for Circuit<F, TraceArgs> {
             fixed_signals: Default::default(),
             halo2_advice: Default::default(),
             halo2_fixed: Default::default(),
-            exposed: Default::default(),
+            exposed_forward: Default::default(),
+            exposed_shared: Default::default(),
 
             num_steps: Default::default(),
 
@@ -125,8 +106,12 @@ impl<F, TraceArgs> Circuit<F, TraceArgs> {
         signal
     }
 
-    pub fn expose(&mut self, signal: Signal) {
-        self.exposed.push(signal);
+    pub fn expose_forward(&mut self, forward_signal: ForwardSignal, offset: ExposeOffset) {
+        self.exposed_forward.push((forward_signal, offset));
+    }
+
+    pub fn expose_shared(&mut self, shared_signal: SharedSignal, offset: ExposeOffset) {
+        self.exposed_shared.push((shared_signal, offset));
     }
 
     pub fn add_halo2_advice(
@@ -193,24 +178,6 @@ impl<F, TraceArgs> Circuit<F, TraceArgs> {
         let step_rc = self.step_types.get(&uuid).expect("step type not found");
 
         Rc::clone(step_rc)
-    }
-
-    pub fn expose_first(&mut self, signal: Signal) {
-        // process the Signal as a ForwardSignal, SharedSignal, or FixedSignal
-        // expose the first signal as an instance variable
-        // TODO: Is the offset the i32 in Vec<(Column, i32)> for the Halo2Column?
-    }
-
-    pub fn expose_last(&mut self, signal: Signal) {
-        // process the Signal as a ForwardSignal, SharedSignal, or FixedSignal
-        // expose the last signal as an instance variable
-        // TODO: Is the offset the i32 in Vec<(Column, i32)> for the Halo2Column?
-    }
-
-    pub fn expose_step(&mut self, signal: Signal, step: usize) {
-        // process the Signal as a ForwardSignal, SharedSignal, or FixedSignal
-        // expose the signal at the step as an instance variable
-        // TODO: Is the offset the i32 in Vec<(Column, i32)> for the Halo2Column?
     }
 }
 
