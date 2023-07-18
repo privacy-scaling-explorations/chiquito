@@ -335,8 +335,8 @@ impl CellManager for MaxWidthCellManager {
         if self.same_height {
             let height = placement
                 .steps
-                .iter()
-                .map(|(_, step)| step.height)
+                .values()
+                .map(|step| step.height)
                 .max()
                 .unwrap_or(0);
 
