@@ -305,14 +305,126 @@
 <span id="305">305</span>
 <span id="306">306</span>
 <span id="307">307</span>
+<span id="308">308</span>
+<span id="309">309</span>
+<span id="310">310</span>
+<span id="311">311</span>
+<span id="312">312</span>
+<span id="313">313</span>
+<span id="314">314</span>
+<span id="315">315</span>
+<span id="316">316</span>
+<span id="317">317</span>
+<span id="318">318</span>
+<span id="319">319</span>
+<span id="320">320</span>
+<span id="321">321</span>
+<span id="322">322</span>
+<span id="323">323</span>
+<span id="324">324</span>
+<span id="325">325</span>
+<span id="326">326</span>
+<span id="327">327</span>
+<span id="328">328</span>
+<span id="329">329</span>
+<span id="330">330</span>
+<span id="331">331</span>
+<span id="332">332</span>
+<span id="333">333</span>
+<span id="334">334</span>
+<span id="335">335</span>
+<span id="336">336</span>
+<span id="337">337</span>
+<span id="338">338</span>
+<span id="339">339</span>
+<span id="340">340</span>
+<span id="341">341</span>
+<span id="342">342</span>
+<span id="343">343</span>
+<span id="344">344</span>
+<span id="345">345</span>
+<span id="346">346</span>
+<span id="347">347</span>
+<span id="348">348</span>
+<span id="349">349</span>
+<span id="350">350</span>
+<span id="351">351</span>
+<span id="352">352</span>
+<span id="353">353</span>
+<span id="354">354</span>
+<span id="355">355</span>
+<span id="356">356</span>
+<span id="357">357</span>
+<span id="358">358</span>
+<span id="359">359</span>
+<span id="360">360</span>
+<span id="361">361</span>
+<span id="362">362</span>
+<span id="363">363</span>
+<span id="364">364</span>
+<span id="365">365</span>
+<span id="366">366</span>
+<span id="367">367</span>
+<span id="368">368</span>
+<span id="369">369</span>
+<span id="370">370</span>
+<span id="371">371</span>
+<span id="372">372</span>
+<span id="373">373</span>
+<span id="374">374</span>
+<span id="375">375</span>
+<span id="376">376</span>
+<span id="377">377</span>
+<span id="378">378</span>
+<span id="379">379</span>
+<span id="380">380</span>
+<span id="381">381</span>
+<span id="382">382</span>
+<span id="383">383</span>
+<span id="384">384</span>
+<span id="385">385</span>
+<span id="386">386</span>
+<span id="387">387</span>
+<span id="388">388</span>
+<span id="389">389</span>
+<span id="390">390</span>
+<span id="391">391</span>
+<span id="392">392</span>
+<span id="393">393</span>
+<span id="394">394</span>
+<span id="395">395</span>
+<span id="396">396</span>
+<span id="397">397</span>
+<span id="398">398</span>
+<span id="399">399</span>
+<span id="400">400</span>
+<span id="401">401</span>
+<span id="402">402</span>
+<span id="403">403</span>
+<span id="404">404</span>
+<span id="405">405</span>
+<span id="406">406</span>
+<span id="407">407</span>
+<span id="408">408</span>
+<span id="409">409</span>
+<span id="410">410</span>
+<span id="411">411</span>
+<span id="412">412</span>
+<span id="413">413</span>
+<span id="414">414</span>
+<span id="415">415</span>
+<span id="416">416</span>
+<span id="417">417</span>
+<span id="418">418</span>
+<span id="419">419</span>
 </pre><pre class="rust"><code><span class="kw">use </span>std::{collections::HashMap, hash::Hash};
 
 <span class="kw">use </span>halo2_proofs::{
     arithmetic::Field,
-    circuit::{Cell, Layouter, Region, RegionIndex, Value},
+    circuit::{Cell, Layouter, Region, RegionIndex, SimpleFloorPlanner, Value},
     plonk::{
-        Advice, Any, Column, ConstraintSystem, Error, Expression, FirstPhase, Fixed, Instance,
-        SecondPhase, ThirdPhase, VirtualCells,
+        Advice, Any, Circuit <span class="kw">as </span>h2Circuit, Column, ConstraintSystem, Error, Expression, FirstPhase,
+        Fixed, Instance, SecondPhase, ThirdPhase, VirtualCells,
     },
     poly::Rotation,
 };
@@ -321,6 +433,7 @@
     ast::ToField,
     ir::{
         assigments::Assignments,
+        sc::SuperAssignments,
         Circuit, Column <span class="kw">as </span>cColumn,
         ColumnType::{Advice <span class="kw">as </span>cAdvice, Fixed <span class="kw">as </span>cFixed, Halo2Advice, Halo2Fixed},
         PolyExpr,
@@ -333,7 +446,7 @@
     ChiquitoHalo2::new(circuit)
 }
 
-<span class="attribute">#[derive(Clone, Debug)]
+<span class="attribute">#[derive(Clone, Debug, Default)]
 </span><span class="kw">pub struct </span>ChiquitoHalo2&lt;F: Field + From&lt;u64&gt;&gt; {
     <span class="kw">pub </span>debug: bool,
 
@@ -342,16 +455,20 @@
     advice_columns: HashMap&lt;UUID, Column&lt;Advice&gt;&gt;,
     fixed_columns: HashMap&lt;UUID, Column&lt;Fixed&gt;&gt;,
     instance_column: <span class="prelude-ty">Option</span>&lt;Column&lt;Instance&gt;&gt;,
+
+    ir_id: UUID,
 }
 
 <span class="kw">impl</span>&lt;F: Field + From&lt;u64&gt; + Hash&gt; ChiquitoHalo2&lt;F&gt; {
     <span class="kw">pub fn </span>new(circuit: Circuit&lt;F&gt;) -&gt; ChiquitoHalo2&lt;F&gt; {
+        <span class="kw">let </span>ir_id = circuit.id;
         ChiquitoHalo2 {
             debug: <span class="bool-val">true</span>,
             circuit,
             advice_columns: Default::default(),
             fixed_columns: Default::default(),
             instance_column: Default::default(),
+            ir_id,
         }
     }
 
@@ -429,7 +546,7 @@
         }
     }
 
-    <span class="kw">pub fn </span>synthesize(<span class="kw-2">&amp;</span><span class="self">self</span>, layouter: <span class="kw-2">&amp;mut </span><span class="kw">impl </span>Layouter&lt;F&gt;, witness: <span class="prelude-ty">Option</span>&lt;Assignments&lt;F&gt;&gt;) {
+    <span class="kw">pub fn </span>synthesize(<span class="kw-2">&amp;</span><span class="self">self</span>, layouter: <span class="kw-2">&amp;mut </span><span class="kw">impl </span>Layouter&lt;F&gt;, witness: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>Assignments&lt;F&gt;&gt;) {
         <span class="kw">let _ </span>= layouter.assign_region(
             || <span class="string">&quot;circuit&quot;</span>,
             |<span class="kw-2">mut </span>region| {
@@ -610,6 +727,113 @@
         <span class="number">1 </span>=&gt; meta.advice_column_in(SecondPhase),
         <span class="number">2 </span>=&gt; meta.advice_column_in(ThirdPhase),
         <span class="kw">_ </span>=&gt; <span class="macro">panic!</span>(<span class="string">&quot;jarll wrong phase&quot;</span>),
+    }
+}
+
+<span class="attribute">#[derive(Clone, Default)]
+</span><span class="kw">pub struct </span>ChiquitoHalo2Circuit&lt;F: Field + From&lt;u64&gt;&gt; {
+    compiled: ChiquitoHalo2&lt;F&gt;,
+    witness: <span class="prelude-ty">Option</span>&lt;Assignments&lt;F&gt;&gt;,
+}
+
+<span class="kw">impl</span>&lt;F: Field + From&lt;u64&gt;&gt; ChiquitoHalo2Circuit&lt;F&gt; {
+    <span class="kw">pub fn </span>new(compiled: ChiquitoHalo2&lt;F&gt;, witness: <span class="prelude-ty">Option</span>&lt;Assignments&lt;F&gt;&gt;) -&gt; <span class="self">Self </span>{
+        <span class="self">Self </span>{ compiled, witness }
+    }
+}
+
+<span class="kw">impl</span>&lt;F: Field + From&lt;u64&gt; + Hash&gt; h2Circuit&lt;F&gt; <span class="kw">for </span>ChiquitoHalo2Circuit&lt;F&gt; {
+    <span class="kw">type </span>Config = ChiquitoHalo2&lt;F&gt;;
+
+    <span class="kw">type </span>FloorPlanner = SimpleFloorPlanner;
+
+    <span class="kw">type </span>Params = ChiquitoHalo2&lt;F&gt;;
+
+    <span class="kw">fn </span>without_witnesses(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="self">Self </span>{
+        <span class="self">Self</span>::default()
+    }
+
+    <span class="kw">fn </span>params(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="self">Self</span>::Params {
+        <span class="self">self</span>.compiled.clone()
+    }
+
+    <span class="kw">fn </span>configure_with_params(
+        meta: <span class="kw-2">&amp;mut </span>ConstraintSystem&lt;F&gt;,
+        <span class="kw-2">mut </span>compiled: <span class="self">Self</span>::Params,
+    ) -&gt; <span class="self">Self</span>::Config {
+        compiled.configure(meta);
+
+        compiled
+    }
+
+    <span class="kw">fn </span>synthesize(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
+        compiled: <span class="self">Self</span>::Config,
+        <span class="kw-2">mut </span>layouter: <span class="kw">impl </span>Layouter&lt;F&gt;,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;(), Error&gt; {
+        compiled.synthesize(<span class="kw-2">&amp;mut </span>layouter, <span class="self">self</span>.witness.as_ref());
+
+        <span class="prelude-val">Ok</span>(())
+    }
+
+    <span class="kw">fn </span>configure(<span class="kw">_</span>: <span class="kw-2">&amp;mut </span>ConstraintSystem&lt;F&gt;) -&gt; <span class="self">Self</span>::Config {
+        <span class="macro">unreachable!</span>()
+    }
+}
+
+<span class="attribute">#[derive(Debug, Default)]
+</span><span class="kw">pub struct </span>ChiquitoHalo2SuperCircuit&lt;F: Field + From&lt;u64&gt;&gt; {
+    sub_circuits: Vec&lt;ChiquitoHalo2&lt;F&gt;&gt;,
+    witness: SuperAssignments&lt;F&gt;,
+}
+
+<span class="kw">impl</span>&lt;F: Field + From&lt;u64&gt;&gt; ChiquitoHalo2SuperCircuit&lt;F&gt; {
+    <span class="kw">pub fn </span>new(sub_circuits: Vec&lt;ChiquitoHalo2&lt;F&gt;&gt;, witness: SuperAssignments&lt;F&gt;) -&gt; <span class="self">Self </span>{
+        <span class="self">Self </span>{
+            sub_circuits,
+            witness,
+        }
+    }
+}
+
+<span class="kw">impl</span>&lt;F: Field + From&lt;u64&gt; + Hash&gt; h2Circuit&lt;F&gt; <span class="kw">for </span>ChiquitoHalo2SuperCircuit&lt;F&gt; {
+    <span class="kw">type </span>Config = Vec&lt;ChiquitoHalo2&lt;F&gt;&gt;;
+
+    <span class="kw">type </span>FloorPlanner = SimpleFloorPlanner;
+
+    <span class="kw">type </span>Params = Vec&lt;ChiquitoHalo2&lt;F&gt;&gt;;
+
+    <span class="kw">fn </span>without_witnesses(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="self">Self </span>{
+        <span class="self">Self</span>::default()
+    }
+
+    <span class="kw">fn </span>params(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="self">Self</span>::Params {
+        <span class="self">self</span>.sub_circuits.clone()
+    }
+
+    <span class="kw">fn </span>configure_with_params(
+        meta: <span class="kw-2">&amp;mut </span>ConstraintSystem&lt;F&gt;,
+        <span class="kw-2">mut </span>sub_circuits: <span class="self">Self</span>::Params,
+    ) -&gt; <span class="self">Self</span>::Config {
+        sub_circuits.iter_mut().for_each(|c| c.configure(meta));
+
+        sub_circuits
+    }
+
+    <span class="kw">fn </span>synthesize(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
+        sub_circuits: <span class="self">Self</span>::Config,
+        <span class="kw-2">mut </span>layouter: <span class="kw">impl </span>Layouter&lt;F&gt;,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;(), Error&gt; {
+        <span class="kw">for </span>sub_circuit <span class="kw">in </span>sub_circuits {
+            sub_circuit.synthesize(<span class="kw-2">&amp;mut </span>layouter, <span class="self">self</span>.witness.get(<span class="kw-2">&amp;</span>sub_circuit.ir_id))
+        }
+
+        <span class="prelude-val">Ok</span>(())
+    }
+
+    <span class="kw">fn </span>configure(<span class="kw">_</span>: <span class="kw-2">&amp;mut </span>ConstraintSystem&lt;F&gt;) -&gt; <span class="self">Self</span>::Config {
+        <span class="macro">unreachable!</span>()
     }
 }
 </code></pre></div>

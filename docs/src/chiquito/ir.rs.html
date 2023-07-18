@@ -246,7 +246,7 @@
 <span class="kw">pub mod </span>assigments;
 <span class="kw">pub mod </span>sc;
 
-<span class="attribute">#[derive(Clone)]
+<span class="attribute">#[derive(Clone, Default)]
 </span><span class="kw">pub struct </span>Circuit&lt;F&gt; {
     <span class="kw">pub </span>columns: Vec&lt;Column&gt;,
     <span class="kw">pub </span>exposed: Vec&lt;(Column, i32)&gt;,

@@ -180,6 +180,18 @@
 <span id="180">180</span>
 <span id="181">181</span>
 <span id="182">182</span>
+<span id="183">183</span>
+<span id="184">184</span>
+<span id="185">185</span>
+<span id="186">186</span>
+<span id="187">187</span>
+<span id="188">188</span>
+<span id="189">189</span>
+<span id="190">190</span>
+<span id="191">191</span>
+<span id="192">192</span>
+<span id="193">193</span>
+<span id="194">194</span>
 </pre><pre class="rust"><code><span class="kw">use </span>std::collections::HashMap;
 
 <span class="kw">use </span>halo2_proofs::{
@@ -198,8 +210,7 @@
 
 <span class="kw">pub type </span>Assignments&lt;F&gt; = HashMap&lt;Column, Vec&lt;F&gt;&gt;;
 
-<span class="attribute">#[derive(Clone)]
-</span><span class="kw">pub struct </span>AssigmentGenerator&lt;F, TraceArgs&gt; {
+<span class="kw">pub struct </span>AssigmentGenerator&lt;F, TraceArgs&gt; {
     columns: Vec&lt;Column&gt;,
     placement: Placement,
     selector: StepSelector&lt;F&gt;,
@@ -208,6 +219,19 @@
     num_rows: usize,
 
     ir_id: UUID,
+}
+
+<span class="kw">impl</span>&lt;F: Clone, TraceArgs&gt; Clone <span class="kw">for </span>AssigmentGenerator&lt;F, TraceArgs&gt; {
+    <span class="kw">fn </span>clone(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="self">Self </span>{
+        <span class="self">Self </span>{
+            columns: <span class="self">self</span>.columns.clone(),
+            placement: <span class="self">self</span>.placement.clone(),
+            selector: <span class="self">self</span>.selector.clone(),
+            trace_gen: <span class="self">self</span>.trace_gen.clone(),
+            num_rows: <span class="self">self</span>.num_rows,
+            ir_id: <span class="self">self</span>.ir_id,
+        }
+    }
 }
 
 <span class="kw">impl</span>&lt;F: Field, TraceArgs&gt; AssigmentGenerator&lt;F, TraceArgs&gt; {
