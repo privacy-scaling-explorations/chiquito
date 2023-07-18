@@ -234,11 +234,13 @@ impl CellManager for SingleRowCellManager {
 #[derive(Debug, Default)]
 pub struct MaxWidthCellManager {
     max_width: usize,
+    same_height: bool,
 }
 
 impl CellManager for MaxWidthCellManager {
     fn place<F>(&self, unit: &mut CompilationUnit<F>) {
-        if !unit.shared_signals.is_empty() || !unit.fixed_signals.is_empty() {
+        if (!unit.shared_signals.is_empty() || !unit.fixed_signals.is_empty()) && !self.same_height
+        {
             panic!("Shared signals and fixed signals are not supported for MaxWidthCellManager, which might return steps with variable heights.");
         }
 
@@ -330,6 +332,20 @@ impl CellManager for MaxWidthCellManager {
             placement.steps.insert(step.uuid(), step_placement);
         }
 
+        if self.same_height {
+            let height = placement
+                .steps
+                .iter()
+                .map(|(_, step)| step.height)
+                .max()
+                .unwrap_or(0);
+
+            placement
+                .steps
+                .iter_mut()
+                .for_each(|(_, step)| step.height = height);
+        }
+
         unit.columns.extend_from_slice(&placement.columns);
         unit.placement = placement;
     }
@@ -371,7 +387,10 @@ mod tests {
 
         // forward signals: a, b; step1 internal: c1, d, e; step2 internal c2
 
-        let cm = MaxWidthCellManager { max_width: 2 };
+        let cm = MaxWidthCellManager {
+            max_width: 2,
+            same_height: false,
+        };
 
         cm.place(&mut unit);
 
@@ -401,6 +420,76 @@ mod tests {
                 .expect("should be there")
                 .height,
             2
+        );
+        assert_eq!(
+            unit.placement
+                .steps
+                .get(&step2.uuid())
+                .expect("should be there")
+                .signals
+                .len(),
+            1
+        );
+    }
+
+    #[test]
+    fn test_max_width_cm_2_columns_same_height() {
+        let mut unit = CompilationUnit::<()> {
+            forward_signals: vec![
+                ForwardSignal::new_with_phase(0, "a".to_string()),
+                ForwardSignal::new_with_phase(0, "a".to_string()),
+            ],
+            ..Default::default()
+        };
+
+        let mut step1 = StepType::new(1500, "step1".to_string());
+        step1.add_signal("c1");
+        step1.add_signal("d");
+        step1.add_signal("e");
+        let mut step2 = StepType::new(1501, "step2".to_string());
+        step2.add_signal("c2");
+
+        let step1 = Rc::new(step1);
+        let step2 = Rc::new(step2);
+
+        unit.step_types.insert(1500, Rc::clone(&step1));
+        unit.step_types.insert(1501, Rc::clone(&step2));
+
+        // forward signals: a, b; step1 internal: c1, d, e; step2 internal c2
+
+        let cm = MaxWidthCellManager {
+            max_width: 2,
+            same_height: true,
+        };
+
+        cm.place(&mut unit);
+
+        assert_eq!(unit.placement.columns.len(), 2);
+        assert_eq!(unit.placement.forward.len(), 2);
+        assert_eq!(
+            unit.placement
+                .steps
+                .get(&step1.uuid())
+                .expect("should be there")
+                .height,
+            3
+        );
+        assert_eq!(
+            unit.placement
+                .steps
+                .get(&step1.uuid())
+                .expect("should be there")
+                .signals
+                .len(),
+            3
+        );
+        assert_eq!(
+            unit.placement
+                .steps
+                .get(&step2.uuid())
+                .expect("should be there")
+                .height,
+            3 // it is 3 to be the same height, but one row is unused
         );
         assert_eq!(
             unit.placement
