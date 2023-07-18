@@ -3,7 +3,7 @@ pub mod expr;
 use std::{collections::HashMap, fmt::Debug, rc::Rc};
 
 use crate::{
-    dsl::{StepTypeHandler, ExposeOffset},
+    dsl::StepTypeHandler,
     util::{uuid, UUID},
     wit_gen::{FixedGenContext, Trace, TraceContext},
 };
@@ -429,6 +429,12 @@ impl FixedSignal {
     }
 }
 
+#[derive(Clone, Copy)]
+pub enum ExposeOffset {
+    First,
+    Last,
+    Step(usize),
+}
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct InternalSignal {
     id: UUID,

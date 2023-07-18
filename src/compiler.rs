@@ -9,7 +9,7 @@ use halo2_proofs::{
 use crate::{
     ast::{
         query::Queriable, Circuit as astCircuit, Expr, FixedSignal, ForwardSignal,
-        ImportedHalo2Advice, ImportedHalo2Fixed, SharedSignal, StepType, StepTypeUUID,
+        ImportedHalo2Advice, ImportedHalo2Fixed, SharedSignal, StepType, StepTypeUUID, ExposeOffset,
     },
     ir::{
         assigments::{AssigmentGenerator, Assignments},
@@ -17,7 +17,6 @@ use crate::{
     },
     util::{uuid, UUID},
     wit_gen::{FixedAssignment, FixedGenContext, TraceGenerator},
-    dsl::ExposeOffset
 };
 
 use self::{

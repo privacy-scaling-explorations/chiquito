@@ -1,5 +1,5 @@
 use crate::{
-    ast::{query::Queriable, Circuit, StepType, StepTypeUUID},
+    ast::{query::Queriable, Circuit, StepType, StepTypeUUID, ExposeOffset},
     util::{uuid, UUID},
     wit_gen::{FixedGenContext, StepInstance, TraceContext},
 };
@@ -160,13 +160,6 @@ impl<F, TraceArgs> CircuitContext<F, TraceArgs> {
 pub enum StepTypeDefInput {
     Handler(StepTypeHandler),
     String(&'static str),
-}
-
-#[derive(Clone, Copy)]
-pub enum ExposeOffset {
-    First,
-    Last,
-    Step(usize),
 }
 
 impl From<StepTypeHandler> for StepTypeDefInput {
