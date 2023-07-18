@@ -2,10 +2,10 @@ use std::{collections::HashMap, hash::Hash};
 
 use halo2_proofs::{
     arithmetic::Field,
-    circuit::{Cell, Layouter, Region, RegionIndex, Value},
+    circuit::{Cell, Layouter, Region, RegionIndex, SimpleFloorPlanner, Value},
     plonk::{
-        Advice, Any, Column, ConstraintSystem, Error, Expression, FirstPhase, Fixed, Instance,
-        SecondPhase, ThirdPhase, VirtualCells,
+        Advice, Any, Circuit as h2Circuit, Column, ConstraintSystem, Error, Expression, FirstPhase,
+        Fixed, Instance, SecondPhase, ThirdPhase, VirtualCells,
     },
     poly::Rotation,
 };
@@ -14,6 +14,7 @@ use crate::{
     ast::ToField,
     ir::{
         assigments::Assignments,
+        sc::SuperAssignments,
         Circuit, Column as cColumn,
         ColumnType::{Advice as cAdvice, Fixed as cFixed, Halo2Advice, Halo2Fixed},
         PolyExpr,
@@ -26,7 +27,7 @@ pub fn chiquito2Halo2<F: Field + From<u64> + Hash>(circuit: Circuit<F>) -> Chiqu
     ChiquitoHalo2::new(circuit)
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Default)]
 pub struct ChiquitoHalo2<F: Field + From<u64>> {
     pub debug: bool,
 
@@ -35,16 +36,20 @@ pub struct ChiquitoHalo2<F: Field + From<u64>> {
     advice_columns: HashMap<UUID, Column<Advice>>,
     fixed_columns: HashMap<UUID, Column<Fixed>>,
     instance_column: Option<Column<Instance>>,
+
+    ir_id: UUID,
 }
 
 impl<F: Field + From<u64> + Hash> ChiquitoHalo2<F> {
     pub fn new(circuit: Circuit<F>) -> ChiquitoHalo2<F> {
+        let ir_id = circuit.id;
         ChiquitoHalo2 {
             debug: true,
             circuit,
             advice_columns: Default::default(),
             fixed_columns: Default::default(),
             instance_column: Default::default(),
+            ir_id,
         }
     }
 
@@ -122,7 +127,7 @@ impl<F: Field + From<u64> + Hash> ChiquitoHalo2<F> {
         }
     }
 
-    pub fn synthesize(&self, layouter: &mut impl Layouter<F>, witness: Option<Assignments<F>>) {
+    pub fn synthesize(&self, layouter: &mut impl Layouter<F>, witness: Option<&Assignments<F>>) {
         let _ = layouter.assign_region(
             || "circuit",
             |mut region| {
@@ -303,5 +308,112 @@ pub fn to_halo2_advice<F: Field>(
         1 => meta.advice_column_in(SecondPhase),
         2 => meta.advice_column_in(ThirdPhase),
         _ => panic!("jarll wrong phase"),
+    }
+}
+
+#[derive(Clone, Default)]
+pub struct ChiquitoHalo2Circuit<F: Field + From<u64>> {
+    compiled: ChiquitoHalo2<F>,
+    witness: Option<Assignments<F>>,
+}
+
+impl<F: Field + From<u64>> ChiquitoHalo2Circuit<F> {
+    pub fn new(compiled: ChiquitoHalo2<F>, witness: Option<Assignments<F>>) -> Self {
+        Self { compiled, witness }
+    }
+}
+
+impl<F: Field + From<u64> + Hash> h2Circuit<F> for ChiquitoHalo2Circuit<F> {
+    type Config = ChiquitoHalo2<F>;
+
+    type FloorPlanner = SimpleFloorPlanner;
+
+    type Params = ChiquitoHalo2<F>;
+
+    fn without_witnesses(&self) -> Self {
+        Self::default()
+    }
+
+    fn params(&self) -> Self::Params {
+        self.compiled.clone()
+    }
+
+    fn configure_with_params(
+        meta: &mut ConstraintSystem<F>,
+        mut compiled: Self::Params,
+    ) -> Self::Config {
+        compiled.configure(meta);
+
+        compiled
+    }
+
+    fn synthesize(
+        &self,
+        compiled: Self::Config,
+        mut layouter: impl Layouter<F>,
+    ) -> Result<(), Error> {
+        compiled.synthesize(&mut layouter, self.witness.as_ref());
+
+        Ok(())
+    }
+
+    fn configure(_: &mut ConstraintSystem<F>) -> Self::Config {
+        unreachable!()
+    }
+}
+
+#[derive(Debug, Default)]
+pub struct ChiquitoHalo2SuperCircuit<F: Field + From<u64>> {
+    sub_circuits: Vec<ChiquitoHalo2<F>>,
+    witness: SuperAssignments<F>,
+}
+
+impl<F: Field + From<u64>> ChiquitoHalo2SuperCircuit<F> {
+    pub fn new(sub_circuits: Vec<ChiquitoHalo2<F>>, witness: SuperAssignments<F>) -> Self {
+        Self {
+            sub_circuits,
+            witness,
+        }
+    }
+}
+
+impl<F: Field + From<u64> + Hash> h2Circuit<F> for ChiquitoHalo2SuperCircuit<F> {
+    type Config = Vec<ChiquitoHalo2<F>>;
+
+    type FloorPlanner = SimpleFloorPlanner;
+
+    type Params = Vec<ChiquitoHalo2<F>>;
+
+    fn without_witnesses(&self) -> Self {
+        Self::default()
+    }
+
+    fn params(&self) -> Self::Params {
+        self.sub_circuits.clone()
+    }
+
+    fn configure_with_params(
+        meta: &mut ConstraintSystem<F>,
+        mut sub_circuits: Self::Params,
+    ) -> Self::Config {
+        sub_circuits.iter_mut().for_each(|c| c.configure(meta));
+
+        sub_circuits
+    }
+
+    fn synthesize(
+        &self,
+        sub_circuits: Self::Config,
+        mut layouter: impl Layouter<F>,
+    ) -> Result<(), Error> {
+        for sub_circuit in sub_circuits {
+            sub_circuit.synthesize(&mut layouter, self.witness.get(&sub_circuit.ir_id))
+        }
+
+        Ok(())
+    }
+
+    fn configure(_: &mut ConstraintSystem<F>) -> Self::Config {
+        unreachable!()
     }
 }

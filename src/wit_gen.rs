@@ -71,9 +71,16 @@ impl<F> TraceContext<F> {
 
 pub type Trace<F, TraceArgs> = dyn Fn(&mut TraceContext<F>, TraceArgs) + 'static;
 
-#[derive(Clone)]
 pub struct TraceGenerator<F, TraceArgs> {
     trace: Rc<Trace<F, TraceArgs>>,
+}
+
+impl<F, TraceArgs> Clone for TraceGenerator<F, TraceArgs> {
+    fn clone(&self) -> Self {
+        Self {
+            trace: self.trace.clone(),
+        }
+    }
 }
 
 impl<F: Default, TraceArgs> TraceGenerator<F, TraceArgs> {

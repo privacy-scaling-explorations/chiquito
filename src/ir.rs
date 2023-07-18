@@ -12,7 +12,7 @@ use self::assigments::Assignments;
 pub mod assigments;
 pub mod sc;
 
-#[derive(Clone)]
+#[derive(Clone, Default)]
 pub struct Circuit<F> {
     pub columns: Vec<Column>,
     pub exposed: Vec<(Column, i32)>,

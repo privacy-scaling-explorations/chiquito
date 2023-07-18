@@ -237,7 +237,7 @@ impl<F> StepTypeContext<F> {
 
             wg: Box::new(def),
 
-            _p: PhantomData::default(),
+            _p: PhantomData,
         }
     }
 }

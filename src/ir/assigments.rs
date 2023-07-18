@@ -16,7 +16,6 @@ use super::{Column, PolyExpr};
 
 pub type Assignments<F> = HashMap<Column, Vec<F>>;
 
-#[derive(Clone)]
 pub struct AssigmentGenerator<F, TraceArgs> {
     columns: Vec<Column>,
     placement: Placement,
@@ -26,6 +25,19 @@ pub struct AssigmentGenerator<F, TraceArgs> {
     num_rows: usize,
 
     ir_id: UUID,
+}
+
+impl<F: Clone, TraceArgs> Clone for AssigmentGenerator<F, TraceArgs> {
+    fn clone(&self) -> Self {
+        Self {
+            columns: self.columns.clone(),
+            placement: self.placement.clone(),
+            selector: self.selector.clone(),
+            trace_gen: self.trace_gen.clone(),
+            num_rows: self.num_rows,
+            ir_id: self.ir_id,
+        }
+    }
 }
 
 impl<F: Field, TraceArgs> AssigmentGenerator<F, TraceArgs> {
