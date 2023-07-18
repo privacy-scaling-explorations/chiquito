@@ -332,9 +332,8 @@ impl<CM: CellManager, SSB: StepSelectorBuilder> Compiler<CM, SSB> {
                     let placement = unit.placement.get_forward_placement(forward_signal);
                     match offset {
                         ExposeOffset::First => (placement.column, 0),
-                        ExposeOffset::Last => (placement.column, placement.rotation), 
+                        ExposeOffset::Last => (placement.column, (unit.placement.steps.len() as i32) - 1), 
                         ExposeOffset::Step(step) => {
-                            // TODO: this is a bit of a hack, we need to make sure `step` and `unit.placement.first_step_height()` are within i32 bounds
                             let rot = placement.rotation + (*step as i32) * (unit.placement.first_step_height() as i32);
                             (placement.column, rot)
                         },
@@ -344,7 +343,7 @@ impl<CM: CellManager, SSB: StepSelectorBuilder> Compiler<CM, SSB> {
                     let placement = unit.placement.get_shared_placement(shared_signal);
                     match offset {
                         ExposeOffset::First => (placement.column, 0),
-                        ExposeOffset::Last => (placement.column, placement.rotation),  
+                        ExposeOffset::Last => (placement.column, (unit.placement.steps.len() as i32) - 1),  
                         ExposeOffset::Step(step) => {
                             let rot = placement.rotation + (*step as i32) * (unit.placement.first_step_height() as i32);
                             (placement.column, rot)
