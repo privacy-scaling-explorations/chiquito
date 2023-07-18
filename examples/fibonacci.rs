@@ -2,9 +2,13 @@ use std::hash::Hash;
 
 use chiquito::{
     ast::expr::*,
-    backend::halo2::{chiquito2Halo2, ChiquitoHalo2}, /* compiles to Chiquito Halo2 backend,
-                                                      * which can be integrated into Halo2
-                                                      * circuit */
+    backend::halo2::{chiquito2Halo2, ChiquitoHalo2Circuit}, /* compiles to
+                                                             * Chiquito Halo2
+                                                             * backend,
+                                                             * which can be
+                                                             * integrated into
+                                                             * Halo2
+                                                             * circuit */
     compiler::{
         cell_manager::SingleRowCellManager, // input for constructing the compiler
         step_selector::SimpleStepSelectorBuilder, // input for constructing the compiler
@@ -16,10 +20,7 @@ use chiquito::{
     },
     ir::{assigments::AssigmentGenerator, Circuit}, // compiled circuit type
 };
-use halo2_proofs::{
-    arithmetic::Field, circuit::SimpleFloorPlanner, dev::MockProver, halo2curves::bn256::Fr,
-    plonk::ConstraintSystem,
-};
+use halo2_proofs::{arithmetic::Field, dev::MockProver, halo2curves::bn256::Fr};
 
 // the main circuit function: returns the compiled IR of a Chiquito circuit
 // Generic types F, (), (u64, 64) stand for:
@@ -141,73 +142,11 @@ fn fibo_circuit<F: Field + From<u64> + Hash>() -> (Circuit<F>, Option<AssigmentG
 // After compiling Chiquito AST to an IR, it is further parsed by a Chiquito Halo2 backend and
 // integrated into a Halo2 circuit, which is done by the boilerplate code below.
 
-// *** Halo2 boilerplate ***
-#[derive(Clone)]
-struct FiboConfig<F: Field + From<u64>> {
-    // ChiquitoHalo2 object in the bytecode circuit config struct
-    compiled: ChiquitoHalo2<F>,
-    wit_gen: AssigmentGenerator<F, ()>,
-}
-
-impl<F: Field + From<u64> + Hash> FiboConfig<F> {
-    fn new(meta: &mut ConstraintSystem<F>) -> FiboConfig<F> {
-        let (chiquito, wit_gen) = fibo_circuit::<F>();
-
-        // chiquito2Halo2 function in Halo2 backend can convert ir::Circuit object to a
-        // ChiquitoHalo2 object, which can be further integrated into a Halo2 circuit in the
-        // example below
-        let mut compiled = chiquito2Halo2(chiquito);
-
-        // ChiquitoHalo2 objects have their own configure and synthesize functions defined in the
-        // Chiquito Halo2 backend
-        compiled.configure(meta);
-
-        FiboConfig {
-            compiled,
-            wit_gen: wit_gen.expect("trace generator not returned"),
-        }
-    }
-}
-
-#[derive(Default)]
-struct FiboCircuit {}
-
-// integrate Chiquito circuit into a Halo2 circuit
-impl<F: Field + From<u64> + Hash> halo2_proofs::plonk::Circuit<F> for FiboCircuit {
-    type Config = FiboConfig<F>;
-    type Params = ();
-
-    type FloorPlanner = SimpleFloorPlanner;
-
-    // function in Halo2 circuit interface
-    fn without_witnesses(&self) -> Self {
-        Self::default()
-    }
-
-    // function in Halo2 circuit interface
-    fn configure(meta: &mut halo2_proofs::plonk::ConstraintSystem<F>) -> Self::Config {
-        FiboConfig::<F>::new(meta)
-    }
-
-    // function in Halo2 circuit interface
-    fn synthesize(
-        &self,
-        config: Self::Config,
-        mut layouter: impl halo2_proofs::circuit::Layouter<F>,
-    ) -> Result<(), halo2_proofs::plonk::Error> {
-        // ChiquitoHalo2 objects have their own configure and synthesize functions defined in the
-        // Chiquito Halo2 backend
-        config
-            .compiled
-            .synthesize(&mut layouter, Some(config.wit_gen.generate(())));
-
-        Ok(())
-    }
-}
-
 // standard main function for a Halo2 circuit
 fn main() {
-    let circuit = FiboCircuit {};
+    let (chiquito, wit_gen) = fibo_circuit::<Fr>();
+    let compiled = chiquito2Halo2(chiquito);
+    let circuit = ChiquitoHalo2Circuit::new(compiled, wit_gen.map(|g| g.generate(())));
 
     let prover = MockProver::<Fr>::run(7, &circuit, Vec::new()).unwrap();
 
