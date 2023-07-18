@@ -413,6 +413,95 @@
 <span id="413">413</span>
 <span id="414">414</span>
 <span id="415">415</span>
+<span id="416">416</span>
+<span id="417">417</span>
+<span id="418">418</span>
+<span id="419">419</span>
+<span id="420">420</span>
+<span id="421">421</span>
+<span id="422">422</span>
+<span id="423">423</span>
+<span id="424">424</span>
+<span id="425">425</span>
+<span id="426">426</span>
+<span id="427">427</span>
+<span id="428">428</span>
+<span id="429">429</span>
+<span id="430">430</span>
+<span id="431">431</span>
+<span id="432">432</span>
+<span id="433">433</span>
+<span id="434">434</span>
+<span id="435">435</span>
+<span id="436">436</span>
+<span id="437">437</span>
+<span id="438">438</span>
+<span id="439">439</span>
+<span id="440">440</span>
+<span id="441">441</span>
+<span id="442">442</span>
+<span id="443">443</span>
+<span id="444">444</span>
+<span id="445">445</span>
+<span id="446">446</span>
+<span id="447">447</span>
+<span id="448">448</span>
+<span id="449">449</span>
+<span id="450">450</span>
+<span id="451">451</span>
+<span id="452">452</span>
+<span id="453">453</span>
+<span id="454">454</span>
+<span id="455">455</span>
+<span id="456">456</span>
+<span id="457">457</span>
+<span id="458">458</span>
+<span id="459">459</span>
+<span id="460">460</span>
+<span id="461">461</span>
+<span id="462">462</span>
+<span id="463">463</span>
+<span id="464">464</span>
+<span id="465">465</span>
+<span id="466">466</span>
+<span id="467">467</span>
+<span id="468">468</span>
+<span id="469">469</span>
+<span id="470">470</span>
+<span id="471">471</span>
+<span id="472">472</span>
+<span id="473">473</span>
+<span id="474">474</span>
+<span id="475">475</span>
+<span id="476">476</span>
+<span id="477">477</span>
+<span id="478">478</span>
+<span id="479">479</span>
+<span id="480">480</span>
+<span id="481">481</span>
+<span id="482">482</span>
+<span id="483">483</span>
+<span id="484">484</span>
+<span id="485">485</span>
+<span id="486">486</span>
+<span id="487">487</span>
+<span id="488">488</span>
+<span id="489">489</span>
+<span id="490">490</span>
+<span id="491">491</span>
+<span id="492">492</span>
+<span id="493">493</span>
+<span id="494">494</span>
+<span id="495">495</span>
+<span id="496">496</span>
+<span id="497">497</span>
+<span id="498">498</span>
+<span id="499">499</span>
+<span id="500">500</span>
+<span id="501">501</span>
+<span id="502">502</span>
+<span id="503">503</span>
+<span id="504">504</span>
 </pre><pre class="rust"><code><span class="kw">use </span>std::{collections::HashMap, fmt::Debug};
 
 <span class="kw">use </span><span class="kw">crate</span>::ast::{FixedSignal, ForwardSignal, InternalSignal, SharedSignal, StepTypeUUID};
@@ -649,11 +738,13 @@
 <span class="attribute">#[derive(Debug, Default)]
 </span><span class="kw">pub struct </span>MaxWidthCellManager {
     max_width: usize,
+    same_height: bool,
 }
 
 <span class="kw">impl </span>CellManager <span class="kw">for </span>MaxWidthCellManager {
     <span class="kw">fn </span>place&lt;F&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>, unit: <span class="kw-2">&amp;mut </span>CompilationUnit&lt;F&gt;) {
-        <span class="kw">if </span>!unit.shared_signals.is_empty() || !unit.fixed_signals.is_empty() {
+        <span class="kw">if </span>(!unit.shared_signals.is_empty() || !unit.fixed_signals.is_empty()) &amp;&amp; !<span class="self">self</span>.same_height
+        {
             <span class="macro">panic!</span>(<span class="string">&quot;Shared signals and fixed signals are not supported for MaxWidthCellManager, which might return steps with variable heights.&quot;</span>);
         }
 
@@ -745,6 +836,20 @@
             placement.steps.insert(step.uuid(), step_placement);
         }
 
+        <span class="kw">if </span><span class="self">self</span>.same_height {
+            <span class="kw">let </span>height = placement
+                .steps
+                .values()
+                .map(|step| step.height)
+                .max()
+                .unwrap_or(<span class="number">0</span>);
+
+            placement
+                .steps
+                .iter_mut()
+                .for_each(|(<span class="kw">_</span>, step)| step.height = height);
+        }
+
         unit.columns.extend_from_slice(<span class="kw-2">&amp;</span>placement.columns);
         unit.placement = placement;
     }
@@ -786,7 +891,10 @@
 
         <span class="comment">// forward signals: a, b; step1 internal: c1, d, e; step2 internal c2
 
-        </span><span class="kw">let </span>cm = MaxWidthCellManager { max_width: <span class="number">2 </span>};
+        </span><span class="kw">let </span>cm = MaxWidthCellManager {
+            max_width: <span class="number">2</span>,
+            same_height: <span class="bool-val">false</span>,
+        };
 
         cm.place(<span class="kw-2">&amp;mut </span>unit);
 
@@ -816,6 +924,76 @@
                 .expect(<span class="string">&quot;should be there&quot;</span>)
                 .height,
             <span class="number">2
+        </span>);
+        <span class="macro">assert_eq!</span>(
+            unit.placement
+                .steps
+                .get(<span class="kw-2">&amp;</span>step2.uuid())
+                .expect(<span class="string">&quot;should be there&quot;</span>)
+                .signals
+                .len(),
+            <span class="number">1
+        </span>);
+    }
+
+    <span class="attribute">#[test]
+    </span><span class="kw">fn </span>test_max_width_cm_2_columns_same_height() {
+        <span class="kw">let </span><span class="kw-2">mut </span>unit = CompilationUnit::&lt;()&gt; {
+            forward_signals: <span class="macro">vec!</span>[
+                ForwardSignal::new_with_phase(<span class="number">0</span>, <span class="string">&quot;a&quot;</span>.to_string()),
+                ForwardSignal::new_with_phase(<span class="number">0</span>, <span class="string">&quot;a&quot;</span>.to_string()),
+            ],
+            ..Default::default()
+        };
+
+        <span class="kw">let </span><span class="kw-2">mut </span>step1 = StepType::new(<span class="number">1500</span>, <span class="string">&quot;step1&quot;</span>.to_string());
+        step1.add_signal(<span class="string">&quot;c1&quot;</span>);
+        step1.add_signal(<span class="string">&quot;d&quot;</span>);
+        step1.add_signal(<span class="string">&quot;e&quot;</span>);
+        <span class="kw">let </span><span class="kw-2">mut </span>step2 = StepType::new(<span class="number">1501</span>, <span class="string">&quot;step2&quot;</span>.to_string());
+        step2.add_signal(<span class="string">&quot;c2&quot;</span>);
+
+        <span class="kw">let </span>step1 = Rc::new(step1);
+        <span class="kw">let </span>step2 = Rc::new(step2);
+
+        unit.step_types.insert(<span class="number">1500</span>, Rc::clone(<span class="kw-2">&amp;</span>step1));
+        unit.step_types.insert(<span class="number">1501</span>, Rc::clone(<span class="kw-2">&amp;</span>step2));
+
+        <span class="comment">// forward signals: a, b; step1 internal: c1, d, e; step2 internal c2
+
+        </span><span class="kw">let </span>cm = MaxWidthCellManager {
+            max_width: <span class="number">2</span>,
+            same_height: <span class="bool-val">true</span>,
+        };
+
+        cm.place(<span class="kw-2">&amp;mut </span>unit);
+
+        <span class="macro">assert_eq!</span>(unit.placement.columns.len(), <span class="number">2</span>);
+        <span class="macro">assert_eq!</span>(unit.placement.forward.len(), <span class="number">2</span>);
+        <span class="macro">assert_eq!</span>(
+            unit.placement
+                .steps
+                .get(<span class="kw-2">&amp;</span>step1.uuid())
+                .expect(<span class="string">&quot;should be there&quot;</span>)
+                .height,
+            <span class="number">3
+        </span>);
+        <span class="macro">assert_eq!</span>(
+            unit.placement
+                .steps
+                .get(<span class="kw-2">&amp;</span>step1.uuid())
+                .expect(<span class="string">&quot;should be there&quot;</span>)
+                .signals
+                .len(),
+            <span class="number">3
+        </span>);
+        <span class="macro">assert_eq!</span>(
+            unit.placement
+                .steps
+                .get(<span class="kw-2">&amp;</span>step2.uuid())
+                .expect(<span class="string">&quot;should be there&quot;</span>)
+                .height,
+            <span class="number">3 </span><span class="comment">// it is 3 to be the same height, but one row is unused
         </span>);
         <span class="macro">assert_eq!</span>(
             unit.placement
