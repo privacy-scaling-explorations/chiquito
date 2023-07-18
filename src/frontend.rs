@@ -5,7 +5,6 @@ use crate::{
         StepTypeUUID, TransitionConstraint,
     },
     dsl::StepTypeHandler,
-    wit_gen::{StepInstance, TraceWitness},
     util::UUID,
 };
 
@@ -118,7 +117,11 @@ impl<'de> Visitor<'de> for CircuitVisitor {
                 }
             }
         }
-        let step_types = step_types.ok_or_else(|| de::Error::missing_field("step_types"))?.into_iter().map(|(k, v)| (k, Rc::new(v))).collect();
+        let step_types = step_types
+            .ok_or_else(|| de::Error::missing_field("step_types"))?
+            .into_iter()
+            .map(|(k, v)| (k, Rc::new(v)))
+            .collect();
         let forward_signals =
             forward_signals.ok_or_else(|| de::Error::missing_field("forward_signals"))?;
         let shared_signals =
@@ -231,15 +234,15 @@ impl<'de> Visitor<'de> for StepTypeVisitor {
         let transition_constraints = transition_constraints
             .ok_or_else(|| de::Error::missing_field("transition_constraints"))?;
         let annotations = annotations.ok_or_else(|| de::Error::missing_field("annotations"))?;
-        Ok(StepType {
-            id,
-            name,
-            signals,
-            constraints,
-            transition_constraints,
-            lookups: Default::default(),
-            annotations,
-        })
+
+        let mut step_type = StepType::<u32>::new(id, name);
+        step_type.signals = signals;
+        step_type.constraints = constraints;
+        step_type.transition_constraints = transition_constraints;
+        step_type.lookups = Default::default();
+        step_type.annotations = annotations;
+
+        Ok(step_type)
     }
 }
 
@@ -386,10 +389,7 @@ macro_rules! impl_visitor_internal_fixed_steptypehandler {
                 let id = id.ok_or_else(|| de::Error::missing_field("id"))?;
                 let annotation =
                     annotation.ok_or_else(|| de::Error::missing_field("annotation"))?;
-                Ok(Self::Value {
-                    id,
-                    annotation: Box::leak(annotation.into_boxed_str()),
-                })
+                Ok(<$type>::new_with_id(id, annotation))
             }
         }
     };
@@ -457,11 +457,7 @@ macro_rules! impl_visitor_forward_shared {
                 let phase = phase.ok_or_else(|| de::Error::missing_field("phase"))?;
                 let annotation =
                     annotation.ok_or_else(|| de::Error::missing_field("annotation"))?;
-                Ok(Self::Value {
-                    id,
-                    phase,
-                    annotation: Box::leak(annotation.into_boxed_str()),
-                })
+                Ok(<$type>::new_with_id(id, phase, annotation))
             }
         }
     };
@@ -469,102 +465,6 @@ macro_rules! impl_visitor_forward_shared {
 
 impl_visitor_forward_shared!(ForwardSignalVisitor, ForwardSignal, "struct ForwardSignal");
 impl_visitor_forward_shared!(SharedSignalVisitor, SharedSignal, "struct SharedSignal");
-
-struct TraceWitnessVisitor;
-
-impl<'de> Visitor<'de> for TraceWitnessVisitor {
-    type Value = TraceWitness<u32>;
-
-    fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
-        formatter.write_str("struct TraceWitness")
-    }
-
-    fn visit_map<A>(self, mut map: A) -> Result<TraceWitness<u32>, A::Error>
-    where
-        A: MapAccess<'de>,
-    {
-        let mut step_instances = None;
-        let mut height = None;
-
-        while let Some(key) = map.next_key::<String>()? {
-            match key.as_str() {
-                "step_instances" => {
-                    if step_instances.is_some() {
-                        return Err(de::Error::duplicate_field("step_instances"));
-                    }
-                    step_instances = Some(map.next_value()?);
-                }
-                "height" => {
-                    if height.is_some() {
-                        return Err(de::Error::duplicate_field("height"));
-                    }
-                    height = Some(map.next_value()?);
-                }
-                _ => {
-                    return Err(de::Error::unknown_field(
-                        &key,
-                        &["step_instances", "height"],
-                    ))
-                }
-            }
-        }
-        let step_instances =
-            step_instances.ok_or_else(|| de::Error::missing_field("step_instances"))?;
-        let height = height.ok_or_else(|| de::Error::missing_field("height"))?;
-        Ok(Self::Value {
-            step_instances,
-            height,
-        })
-    }
-}
-
-struct StepInstanceVisitor;
-
-impl<'de> Visitor<'de> for StepInstanceVisitor {
-    type Value = StepInstance<u32>;
-
-    fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
-        formatter.write_str("struct StepInstance")
-    }
-
-    fn visit_map<A>(self, mut map: A) -> Result<StepInstance<u32>, A::Error>
-    where
-        A: MapAccess<'de>,
-    {
-        let mut step_type_uuid = None;
-        let mut assignments = None;
-
-        while let Some(key) = map.next_key::<String>()? {
-            match key.as_str() {
-                "step_type_uuid" => {
-                    if step_type_uuid.is_some() {
-                        return Err(de::Error::duplicate_field("step_type_uuid"));
-                    }
-                    step_type_uuid = Some(map.next_value()?);
-                }
-                "assignments" => {
-                    if assignments.is_some() {
-                        return Err(de::Error::duplicate_field("assignments"));
-                    }
-                    assignments = Some(map.next_value::<HashMap<UUID, u32>>()?);
-                }
-                _ => {
-                    return Err(de::Error::unknown_field(
-                        &key,
-                        &["step_type_uuid", "assignments"],
-                    ))
-                }
-            }
-        }
-        let step_type_uuid =
-            step_type_uuid.ok_or_else(|| de::Error::missing_field("step_type_uuid"))?;
-        let assignments = assignments.ok_or_else(|| de::Error::missing_field("assignments"))?;
-        Ok(Self::Value {
-            step_type_uuid,
-            assignments,
-        })
-    }
-}
 
 macro_rules! impl_deserialize {
     ($name:ident, $type:ty) => {
@@ -588,8 +488,6 @@ impl_deserialize!(StepTypeHandlerVisitor, StepTypeHandler);
 impl_deserialize!(ConstraintVisitor, Constraint<u32>);
 impl_deserialize!(TransitionConstraintVisitor, TransitionConstraint<u32>);
 impl_deserialize!(StepTypeVisitor, StepType<u32>);
-impl_deserialize!(TraceWitnessVisitor, TraceWitness<u32>);
-impl_deserialize!(StepInstanceVisitor, StepInstance<u32>);
 
 impl<'de> Deserialize<'de> for Circuit<u32, ()> {
     fn deserialize<D>(deserializer: D) -> Result<Circuit<u32, ()>, D::Error>
