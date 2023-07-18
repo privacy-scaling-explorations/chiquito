@@ -1,16 +1,13 @@
 use std::hash::Hash;
 
 use halo2_proofs::{
-    arithmetic::Field,
-    circuit::SimpleFloorPlanner,
     dev::MockProver,
     halo2curves::{bn256::Fr, group::ff::PrimeField},
-    plonk::{Column, ConstraintSystem, Fixed},
 };
 
 use chiquito::{
     ast::query::Queriable,
-    backend::halo2::{chiquito2Halo2, ChiquitoHalo2},
+    backend::halo2::{chiquito2Halo2, ChiquitoHalo2Circuit},
     compiler::{
         cell_manager::SingleRowCellManager, step_selector::SimpleStepSelectorBuilder, Compiler,
     },
@@ -29,12 +26,7 @@ type CircuitResult<F> = (
     Option<AssigmentGenerator<F, (F, F)>>,
 );
 
-fn mimc7_circuit<F: PrimeField + Eq + Hash>(
-    row_value: Column<Fixed>, /* row index i, a fixed column allocated in circuit config, used
-                               * as the first column of lookup table */
-    c_value: Column<Fixed>, /* round constant C_i, fixed column allocated in circuit config,
-                             * used as the second column of lookup table */
-) -> CircuitResult<F> {
+fn mimc7_circuit<F: PrimeField + Eq + Hash>() -> CircuitResult<F> {
     // circuit takes two trace arguments (x_in: F, k: F), i.e. message x_in and secret key k, as
     // inputs circuit also takes four step arguments (x: F, k: F, c: F, row: F), i.e. iterator
     // x_{i+1} = (x_i+k_i+c_i)^7, secret key k, round constant c_i, and row index, as inputs
@@ -46,9 +38,12 @@ fn mimc7_circuit<F: PrimeField + Eq + Hash>(
         let c = ctx.forward("c");
         let row = ctx.forward("row");
 
-        // convert halo2 columns to queriable columns defined in Chiquito
-        let lookup_row: Queriable<F> = ctx.import_halo2_fixed("lookup row", row_value);
-        let lookup_c: Queriable<F> = ctx.import_halo2_fixed("lookup row", c_value);
+        // row index i, a fixed column allocated in circuit config, used as the first column of
+        // lookup table
+        let lookup_row: Queriable<F> = ctx.fixed("lookup row");
+        // round constant C_i, fixed column allocated in circuit config, used as the second column
+        // of lookup table
+        let lookup_c: Queriable<F> = ctx.fixed("lookup row");
 
         // populate the lookup columns
         ctx.fixed_gen(move |ctx| {
@@ -182,69 +177,14 @@ fn mimc7_circuit<F: PrimeField + Eq + Hash>(
     compiler.compile(&mimc7)
 }
 
-// * Halo2 boilerplate *
-#[derive(Clone)]
-struct Mimc7Config<F: Field + From<u64>> {
-    compiled: ChiquitoHalo2<F>, // halo2 backend object
-    wit_gen: Option<AssigmentGenerator<F, (F, F)>>,
-}
-
-impl<F: PrimeField + Hash> Mimc7Config<F> {
-    fn new(meta: &mut ConstraintSystem<F>) -> Mimc7Config<F> {
-        let row_value = meta.fixed_column();
-        let c_value = meta.fixed_column();
-
-        let (circuit, wit_gen) = mimc7_circuit::<F>(row_value, c_value);
-
-        let mut compiled = chiquito2Halo2(circuit);
-        compiled.configure(meta); // allocate columns to halo2 backend object
-
-        Mimc7Config { compiled, wit_gen }
-    }
-}
-
-#[derive(Default)]
-struct Mimc7Circuit<F: PrimeField> {
-    // define trace inputs
-    x_in_value: F,
-    k_value: F,
-}
-
-impl<F: PrimeField + Hash> halo2_proofs::plonk::Circuit<F> for Mimc7Circuit<F> {
-    type Config = Mimc7Config<F>;
-    type FloorPlanner = SimpleFloorPlanner;
-    type Params = ();
-
-    fn without_witnesses(&self) -> Self {
-        Self::default()
-    }
-
-    fn configure(meta: &mut halo2_proofs::plonk::ConstraintSystem<F>) -> Self::Config {
-        Mimc7Config::<F>::new(meta)
-    }
-
-    fn synthesize(
-        &self,
-        config: Self::Config,
-        mut layouter: impl halo2_proofs::circuit::Layouter<F>,
-    ) -> Result<(), halo2_proofs::plonk::Error> {
-        config.compiled.synthesize(
-            &mut layouter,
-            config
-                .wit_gen
-                .map(|wg| wg.generate((self.x_in_value, self.k_value))),
-        );
-        Ok(())
-    }
-}
-
 fn main() {
-    // halo2 boilerplate
-    let circuit = Mimc7Circuit {
-        // fill in trace inputs
-        x_in_value: Fr::from_str_vartime("1").expect("expected a number"),
-        k_value: Fr::from_str_vartime("2").expect("expected a number"),
-    };
+    let x_in_value = Fr::from_str_vartime("1").expect("expected a number");
+    let k_value = Fr::from_str_vartime("2").expect("expected a number");
+
+    let (chiquito, wit_gen) = mimc7_circuit::<Fr>();
+    let compiled = chiquito2Halo2(chiquito);
+    let circuit =
+        ChiquitoHalo2Circuit::new(compiled, wit_gen.map(|g| g.generate((x_in_value, k_value))));
 
     let prover = MockProver::<Fr>::run(10, &circuit, Vec::new()).unwrap();
 
