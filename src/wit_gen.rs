@@ -40,13 +40,12 @@ pub struct TraceWitness<F> {
     pub height: usize,
 }
 
-// should this function take a StepInstance or an arbitrary value to fill cells?
-type PaddingLambda<F> = Box<dyn Fn(&mut StepInstance<F>)>;
+pub type PaddingLambda<F> = Box<dyn Fn() -> TraceArgs>;
 
 #[derive(Debug, Default)]
 pub struct TraceContext<F> {
     witness: TraceWitness<F>,
-    padding: Option<(StepTypeUUID, PaddingLambda)>
+    padding: Option<(StepTypeUUID, PaddingLambda<F>)>
 }
 
 impl<F> TraceContext<F> {
@@ -66,6 +65,20 @@ impl<F> TraceContext<F> {
         (*step.wg)(&mut witness, args);
 
         self.witness.step_instances.push(witness);
+
+        // here we pad the rest of the circuit
+        while self.witness.step_instances.len() < self.witness.height {
+            if let Some((padding_uuid, padding_lambda)) = &self.padding {
+                let mut padded_witness = StepInstance::new(*padding_uuid);
+
+                let trace_args = padding_lambda();
+                (*step.wg)(&mut padded_witness, trace_args);
+
+                self.witness.step_instances.push(padded_witness);
+            } else {
+                panic!("Missing padding step!");
+            }
+        }
     }
 
     pub fn set_height(&mut self, height: usize) {
@@ -107,7 +120,7 @@ impl<F: Default, TraceArgs> TraceGenerator<F, TraceArgs> {
 
         (self.trace)(&mut ctx, args);
         // pad the circuit before getting the witness
-        
+
         ctx.get_witness()
     }
 }
