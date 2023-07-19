@@ -40,6 +40,7 @@ pub struct TraceWitness<F> {
     pub height: usize,
 }
 
+// what TraceArgs can we pass that won't affect the rest of the circuit?
 pub type PaddingLambda<F> = Box<dyn Fn() -> TraceArgs>;
 
 #[derive(Debug, Default)]
@@ -85,14 +86,8 @@ impl<F> TraceContext<F> {
         self.witness.height = height;
     }
 
-    pub fn pad(self) {
-        let (step_type_uuid, padding_lambda) = self.padding.unwrap();
-
-        let mut witness = StepInstance::new(step_type_uuid);
-
-        padding_lambda(&mut witness);
-
-        self.witness.step_instances.push(witness);
+    pub fn set_padding(&mut self, uuid: StepTypeUUID, lambda: PaddingLambda<F>) {
+        self.padding = Some((uuid, lambda));
     }
 }
 
