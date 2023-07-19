@@ -314,6 +314,13 @@ impl StepTypeHandler {
         }
     }
 
+    pub fn new_with_id(id: UUID, annotation: String) -> Self {
+        Self {
+            id,
+            annotation: Box::leak(annotation.into_boxed_str()),
+        }
+    }
+
     pub fn uuid(&self) -> UUID {
         self.id
     }

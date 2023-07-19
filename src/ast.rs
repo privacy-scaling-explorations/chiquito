@@ -367,6 +367,14 @@ impl ForwardSignal {
         }
     }
 
+    pub fn new_with_id(id: UUID, phase: usize, annotation: String) -> Self {
+        Self {
+            id,
+            phase,
+            annotation: Box::leak(annotation.into_boxed_str()),
+        }
+    }
+
     pub fn uuid(&self) -> UUID {
         self.id
     }
@@ -387,6 +395,14 @@ impl SharedSignal {
     pub fn new_with_phase(phase: usize, annotation: String) -> SharedSignal {
         SharedSignal {
             id: uuid(),
+            phase,
+            annotation: Box::leak(annotation.into_boxed_str()),
+        }
+    }
+
+    pub fn new_with_id(id: UUID, phase: usize, annotation: String) -> Self {
+        Self {
+            id,
             phase,
             annotation: Box::leak(annotation.into_boxed_str()),
         }
@@ -415,6 +431,13 @@ impl FixedSignal {
         }
     }
 
+    pub fn new_with_id(id: UUID, annotation: String) -> Self {
+        Self {
+            id,
+            annotation: Box::leak(annotation.into_boxed_str()),
+        }
+    }
+
     pub fn uuid(&self) -> UUID {
         self.id
     }
@@ -430,6 +453,13 @@ impl InternalSignal {
     pub fn new(annotation: String) -> InternalSignal {
         InternalSignal {
             id: uuid(),
+            annotation: Box::leak(annotation.into_boxed_str()),
+        }
+    }
+
+    pub fn new_with_id(id: UUID, annotation: String) -> Self {
+        Self {
+            id,
             annotation: Box::leak(annotation.into_boxed_str()),
         }
     }
