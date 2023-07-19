@@ -9,9 +9,9 @@ use crate::{
 };
 
 use core::result::Result;
+use halo2_proofs::halo2curves::bn256::Fr;
 use serde::de::{self, Deserialize, Deserializer, MapAccess, Visitor};
 use std::{collections::HashMap, fmt, rc::Rc};
-use halo2_proofs::halo2curves::bn256::Fr;
 
 struct CircuitVisitor;
 
