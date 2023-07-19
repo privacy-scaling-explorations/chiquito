@@ -504,7 +504,6 @@ mod tests {
     use super::*;
     #[test]
     fn test_circuit() {
-        // use crate::convert_to_chiquito::to_chiquito_ast;
         let json = r#"
         {
             "step_types": {
