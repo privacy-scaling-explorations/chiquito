@@ -490,6 +490,19 @@
 <span id="490">490</span>
 <span id="491">491</span>
 <span id="492">492</span>
+<span id="493">493</span>
+<span id="494">494</span>
+<span id="495">495</span>
+<span id="496">496</span>
+<span id="497">497</span>
+<span id="498">498</span>
+<span id="499">499</span>
+<span id="500">500</span>
+<span id="501">501</span>
+<span id="502">502</span>
+<span id="503">503</span>
+<span id="504">504</span>
+<span id="505">505</span>
 </pre><pre class="rust"><code><span class="kw">pub mod </span>expr;
 
 <span class="kw">use </span>std::{collections::HashMap, fmt::Debug, rc::Rc};
@@ -524,6 +537,7 @@
     <span class="kw">pub </span>first_step: <span class="prelude-ty">Option</span>&lt;StepTypeUUID&gt;,
     <span class="kw">pub </span>last_step: <span class="prelude-ty">Option</span>&lt;StepTypeUUID&gt;,
     <span class="kw">pub </span>num_steps: usize,
+    <span class="kw">pub </span>q_enable: bool, 
 
     <span class="kw">pub </span>id: UUID,
 }
@@ -561,6 +575,7 @@
             last_step: <span class="prelude-val">None</span>,
 
             id: uuid(),
+            q_enable: <span class="bool-val">true</span>,
         }
     }
 }
@@ -982,5 +997,16 @@
 
 <span class="kw">pub type </span>ImportedHalo2Advice = ImportedHalo2Column&lt;Advice&gt;;
 <span class="kw">pub type </span>ImportedHalo2Fixed = ImportedHalo2Column&lt;Fixed&gt;;
+
+<span class="attribute">#[cfg(test)]
+</span><span class="kw">mod </span>tests {
+    <span class="kw">use super</span>::<span class="kw-2">*</span>;
+
+    <span class="attribute">#[test]
+    </span><span class="kw">fn </span>test_q_enable() {
+        <span class="kw">let </span>circuit: Circuit&lt;i32, i32&gt; = Circuit::default();
+        <span class="macro">assert_eq!</span>(circuit.q_enable, <span class="bool-val">true</span>);
+    }
+}
 </code></pre></div>
 </section></div></main><div id="rustdoc-vars" data-root-path="../../" data-current-crate="chiquito" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.65.0-nightly (015a824f2 2022-08-22)" ></div></body></html>

@@ -372,6 +372,25 @@
 <span id="372">372</span>
 <span id="373">373</span>
 <span id="374">374</span>
+<span id="375">375</span>
+<span id="376">376</span>
+<span id="377">377</span>
+<span id="378">378</span>
+<span id="379">379</span>
+<span id="380">380</span>
+<span id="381">381</span>
+<span id="382">382</span>
+<span id="383">383</span>
+<span id="384">384</span>
+<span id="385">385</span>
+<span id="386">386</span>
+<span id="387">387</span>
+<span id="388">388</span>
+<span id="389">389</span>
+<span id="390">390</span>
+<span id="391">391</span>
+<span id="392">392</span>
+<span id="393">393</span>
 </pre><pre class="rust"><code><span class="kw">use crate</span>::{
     ast::{query::Queriable, Circuit, StepType, StepTypeUUID},
     util::{uuid, UUID},
@@ -528,6 +547,10 @@
 
     <span class="kw">pub fn </span>pragma_num_steps(<span class="kw-2">&amp;mut </span><span class="self">self</span>, num_steps: usize) {
         <span class="self">self</span>.sc.num_steps = num_steps;
+    }
+
+    <span class="kw">pub fn </span>pragma_disable_q_enable(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {
+        <span class="self">self</span>.sc.q_enable = <span class="bool-val">false</span>;
     }
 }
 
@@ -746,5 +769,20 @@
 
 <span class="kw">pub mod </span>cb;
 <span class="kw">pub mod </span>sc;
+
+<span class="attribute">#[cfg(test)]
+</span><span class="kw">mod </span>tests {
+    <span class="kw">use super</span>::<span class="kw-2">*</span>;
+
+    <span class="attribute">#[test]
+    </span><span class="kw">fn </span>test_disable_q_enable() {
+        <span class="kw">let </span>circuit: Circuit&lt;i32, i32&gt; = Circuit::default();
+        <span class="kw">let </span><span class="kw-2">mut </span>context = CircuitContext { sc: circuit };
+
+        context.pragma_disable_q_enable();
+
+        <span class="macro">assert_eq!</span>(context.sc.q_enable, <span class="bool-val">false</span>);
+    }
+}
 </code></pre></div>
 </section></div></main><div id="rustdoc-vars" data-root-path="../../" data-current-crate="chiquito" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.65.0-nightly (015a824f2 2022-08-22)" ></div></body></html>
