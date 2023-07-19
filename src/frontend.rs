@@ -880,27 +880,27 @@ mod tests {
                 }
                 },
                 {
-                "Const": 3
+                "Const": [3, 0, 0, 0]
                 },
                 {
                 "Mul": [
                     {
-                    "Const": 4
+                    "Const": [4, 0, 0, 0]
                     },
                     {
-                    "Const": 5
+                    "Const": [5, 0, 0, 0]
                     }
                 ]
                 },
                 {
                 "Neg": {
-                    "Const": 2
+                    "Const": [2, 0, 0, 0]
                 }
                 },
                 {
                 "Pow": [
                     {
-                    "Const": 3
+                    "Const": [3, 0, 0, 0]
                     },
                     4
                 ]
@@ -961,27 +961,27 @@ mod tests {
                 }
                 },
                 {
-                "Const": 3
+                "Const": [3, 0, 0, 0]
                 },
                 {
                 "Mul": [
                     {
-                    "Const": 4
+                    "Const": [4, 0, 0, 0]
                     },
                     {
-                    "Const": 5
+                    "Const": [5, 0, 0, 0]
                     }
                 ]
                 },
                 {
                 "Neg": {
-                    "Const": 2
+                    "Const": [2, 0, 0, 0]
                 }
                 },
                 {
                 "Pow": [
                     {
-                    "Const": 3
+                    "Const": [3, 0, 0, 0]
                     },
                     4
                 ]
