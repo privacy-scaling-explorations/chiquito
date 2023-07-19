@@ -344,13 +344,13 @@ impl<CM: CellManager, SSB: StepSelectorBuilder> Compiler<CM, SSB> {
                 Queriable::Shared(shared_signal, _) => {
                     let placement = unit.placement.get_shared_placement(shared_signal);
                     match offset {
-                        ExposeOffset::First => (placement.column, 0),
+                        ExposeOffset::First => (placement.column, placement.rotation),
                         ExposeOffset::Last => {
-                            (placement.column, (unit.placement.steps.len() as i32) - 1)
-                        }
+                            let rot = placement.rotation + ((unit.num_steps - 1) as i32) * (unit.placement.first_step_height() as i32);
+                            (placement.column, rot)
+                        },
                         ExposeOffset::Step(step) => {
-                            let rot = placement.rotation
-                                + (*step as i32) * (unit.placement.first_step_height() as i32);
+                            let rot = placement.rotation + (*step as i32) * (unit.placement.first_step_height() as i32);
                             (placement.column, rot)
                         }
                     }
