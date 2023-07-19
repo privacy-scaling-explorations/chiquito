@@ -200,16 +200,19 @@ impl<CM: CellManager, SSB: StepSelectorBuilder> Compiler<CM, SSB> {
             self.compile_step(&mut unit, step);
         }
 
-        let q_enable = Column {
-            annotation: "q_enable".to_owned(),
-            ctype: ColumnType::Fixed,
-            halo2_advice: None,
-            halo2_fixed: None,
-            phase: 0,
-            id: uuid(),
-        };
+        if ast.q_enable {
+            let q_enable = Column {
+                annotation: "q_enable".to_owned(),
+                ctype: ColumnType::Fixed,
+                halo2_advice: None,
+                halo2_fixed: None,
+                phase: 0,
+                id: uuid(),
+            };
 
-        self.add_q_enable(&mut unit, q_enable);
+            self.add_q_enable(&mut unit, q_enable);
+        }
+            
 
         if let Some(step_type) = ast.first_step {
             let q_first = Column {
