@@ -460,6 +460,36 @@
 <span id="460">460</span>
 <span id="461">461</span>
 <span id="462">462</span>
+<span id="463">463</span>
+<span id="464">464</span>
+<span id="465">465</span>
+<span id="466">466</span>
+<span id="467">467</span>
+<span id="468">468</span>
+<span id="469">469</span>
+<span id="470">470</span>
+<span id="471">471</span>
+<span id="472">472</span>
+<span id="473">473</span>
+<span id="474">474</span>
+<span id="475">475</span>
+<span id="476">476</span>
+<span id="477">477</span>
+<span id="478">478</span>
+<span id="479">479</span>
+<span id="480">480</span>
+<span id="481">481</span>
+<span id="482">482</span>
+<span id="483">483</span>
+<span id="484">484</span>
+<span id="485">485</span>
+<span id="486">486</span>
+<span id="487">487</span>
+<span id="488">488</span>
+<span id="489">489</span>
+<span id="490">490</span>
+<span id="491">491</span>
+<span id="492">492</span>
 </pre><pre class="rust"><code><span class="kw">pub mod </span>expr;
 
 <span class="kw">use </span>std::{collections::HashMap, fmt::Debug, rc::Rc};
@@ -827,6 +857,14 @@
         }
     }
 
+    <span class="kw">pub fn </span>new_with_id(id: UUID, phase: usize, annotation: String) -&gt; <span class="self">Self </span>{
+        <span class="self">Self </span>{
+            id,
+            phase,
+            annotation: Box::leak(annotation.into_boxed_str()),
+        }
+    }
+
     <span class="kw">pub fn </span>uuid(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; UUID {
         <span class="self">self</span>.id
     }
@@ -847,6 +885,14 @@
     <span class="kw">pub fn </span>new_with_phase(phase: usize, annotation: String) -&gt; SharedSignal {
         SharedSignal {
             id: uuid(),
+            phase,
+            annotation: Box::leak(annotation.into_boxed_str()),
+        }
+    }
+
+    <span class="kw">pub fn </span>new_with_id(id: UUID, phase: usize, annotation: String) -&gt; <span class="self">Self </span>{
+        <span class="self">Self </span>{
+            id,
             phase,
             annotation: Box::leak(annotation.into_boxed_str()),
         }
@@ -875,6 +921,13 @@
         }
     }
 
+    <span class="kw">pub fn </span>new_with_id(id: UUID, annotation: String) -&gt; <span class="self">Self </span>{
+        <span class="self">Self </span>{
+            id,
+            annotation: Box::leak(annotation.into_boxed_str()),
+        }
+    }
+
     <span class="kw">pub fn </span>uuid(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; UUID {
         <span class="self">self</span>.id
     }
@@ -890,6 +943,13 @@
     <span class="kw">pub fn </span>new(annotation: String) -&gt; InternalSignal {
         InternalSignal {
             id: uuid(),
+            annotation: Box::leak(annotation.into_boxed_str()),
+        }
+    }
+
+    <span class="kw">pub fn </span>new_with_id(id: UUID, annotation: String) -&gt; <span class="self">Self </span>{
+        <span class="self">Self </span>{
+            id,
             annotation: Box::leak(annotation.into_boxed_str()),
         }
     }
