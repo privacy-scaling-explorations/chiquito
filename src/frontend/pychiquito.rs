@@ -2,7 +2,7 @@ use crate::{
     ast::{
         expr::{query::Queriable, Expr},
         Circuit, Constraint, FixedSignal, ForwardSignal, InternalSignal, SharedSignal, StepType,
-        StepTypeUUID, TransitionConstraint,
+        StepTypeUUID, TransitionConstraint, ExposeOffset,
     },
     dsl::StepTypeHandler,
     util::UUID,
@@ -68,7 +68,7 @@ impl<'de> Visitor<'de> for CircuitVisitor {
                     if exposed.is_some() {
                         return Err(de::Error::duplicate_field("exposed"));
                     }
-                    exposed = Some(map.next_value::<Vec<ForwardSignal>>()?);
+                    exposed = Some(map.next_value::<Vec<(Queriable<Fr>, ExposeOffset)>>()?);
                 }
                 "annotations" => {
                     if annotations.is_some() {
