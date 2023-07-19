@@ -3,7 +3,7 @@ use std::{collections::HashMap, hash::Hash, rc::Rc};
 use halo2_proofs::arithmetic::Field;
 
 use crate::{
-    ast::{query::Queriable, StepTypeUUID},
+    ast::{query::Queriable, StepTypeUUID, StepType},
     dsl::StepTypeWGHandler,
 };
 
@@ -40,9 +40,13 @@ pub struct TraceWitness<F> {
     pub height: usize,
 }
 
+// should this function take a StepInstance or an arbitrary value to fill cells?
+type PaddingLambda<F> = Box<dyn Fn(&mut StepInstance<F>)>;
+
 #[derive(Debug, Default)]
 pub struct TraceContext<F> {
     witness: TraceWitness<F>,
+    padding: Option<(StepTypeUUID, PaddingLambda)>
 }
 
 impl<F> TraceContext<F> {
@@ -66,6 +70,16 @@ impl<F> TraceContext<F> {
 
     pub fn set_height(&mut self, height: usize) {
         self.witness.height = height;
+    }
+
+    pub fn pad(self) {
+        let (step_type_uuid, padding_lambda) = self.padding.unwrap();
+
+        let mut witness = StepInstance::new(step_type_uuid);
+
+        padding_lambda(&mut witness);
+
+        self.witness.step_instances.push(witness);
     }
 }
 
@@ -92,7 +106,8 @@ impl<F: Default, TraceArgs> TraceGenerator<F, TraceArgs> {
         let mut ctx = TraceContext::default();
 
         (self.trace)(&mut ctx, args);
-
+        // pad the circuit before getting the witness
+        
         ctx.get_witness()
     }
 }
