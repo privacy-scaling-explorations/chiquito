@@ -9,8 +9,9 @@ authors = ["Leo Lara <leo@leolara.me>"]
 
 [dependencies]
 halo2_proofs = { git = "https://github.com/privacy-scaling-explorations/halo2.git", features = [
-    "circuit-params",
+    "circuit-params", 
 ], tag = "v2023_04_20" }
+halo2curves = { git = 'https://github.com/privacy-scaling-explorations/halo2curves', tag = "0.3.2", features = [ "derive_serde" ] }
 polyexen = { git = "https://github.com/Dhole/polyexen.git", rev = "67148a8aabb000a61a169b2533b2526c5b76c42f" }
 num-bigint = { version = "0.4", features = ["rand"] }
 uuid = { version = "1.4.0", features = ["v1", "rng"] }

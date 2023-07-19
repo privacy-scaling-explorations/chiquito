@@ -11,17 +11,18 @@ use crate::{
 use core::result::Result;
 use serde::de::{self, Deserialize, Deserializer, MapAccess, Visitor};
 use std::{collections::HashMap, fmt, rc::Rc};
+use halo2_proofs::halo2curves::bn256::Fr;
 
 struct CircuitVisitor;
 
 impl<'de> Visitor<'de> for CircuitVisitor {
-    type Value = Circuit<u32, ()>;
+    type Value = Circuit<Fr, ()>;
 
     fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
         formatter.write_str("struct Cricuit")
     }
 
-    fn visit_map<A>(self, mut map: A) -> Result<Circuit<u32, ()>, A::Error>
+    fn visit_map<A>(self, mut map: A) -> Result<Circuit<Fr, ()>, A::Error>
     where
         A: MapAccess<'de>,
     {
@@ -42,7 +43,7 @@ impl<'de> Visitor<'de> for CircuitVisitor {
                     if step_types.is_some() {
                         return Err(de::Error::duplicate_field("step_types"));
                     }
-                    step_types = Some(map.next_value::<HashMap<UUID, StepType<u32>>>()?);
+                    step_types = Some(map.next_value::<HashMap<UUID, StepType<Fr>>>()?);
                 }
                 "forward_signals" => {
                     if forward_signals.is_some() {
@@ -156,13 +157,13 @@ impl<'de> Visitor<'de> for CircuitVisitor {
 struct StepTypeVisitor;
 
 impl<'de> Visitor<'de> for StepTypeVisitor {
-    type Value = StepType<u32>;
+    type Value = StepType<Fr>;
 
     fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
         formatter.write_str("struct StepType")
     }
 
-    fn visit_map<A>(self, mut map: A) -> Result<StepType<u32>, A::Error>
+    fn visit_map<A>(self, mut map: A) -> Result<StepType<Fr>, A::Error>
     where
         A: MapAccess<'de>,
     {
@@ -197,14 +198,14 @@ impl<'de> Visitor<'de> for StepTypeVisitor {
                     if constraints.is_some() {
                         return Err(de::Error::duplicate_field("constraints"));
                     }
-                    constraints = Some(map.next_value::<Vec<Constraint<u32>>>()?);
+                    constraints = Some(map.next_value::<Vec<Constraint<Fr>>>()?);
                 }
                 "transition_constraints" => {
                     if transition_constraints.is_some() {
                         return Err(de::Error::duplicate_field("transition_constraints"));
                     }
                     transition_constraints =
-                        Some(map.next_value::<Vec<TransitionConstraint<u32>>>()?);
+                        Some(map.next_value::<Vec<TransitionConstraint<Fr>>>()?);
                 }
                 "annotations" => {
                     if annotations.is_some() {
@@ -235,7 +236,7 @@ impl<'de> Visitor<'de> for StepTypeVisitor {
             .ok_or_else(|| de::Error::missing_field("transition_constraints"))?;
         let annotations = annotations.ok_or_else(|| de::Error::missing_field("annotations"))?;
 
-        let mut step_type = StepType::<u32>::new(id, name);
+        let mut step_type = StepType::<Fr>::new(id, name);
         step_type.signals = signals;
         step_type.constraints = constraints;
         step_type.transition_constraints = transition_constraints;
@@ -275,7 +276,7 @@ macro_rules! impl_visitor_constraint_transition {
                             if expr.is_some() {
                                 return Err(de::Error::duplicate_field("expr"));
                             }
-                            expr = Some(map.next_value::<Expr<u32>>()?);
+                            expr = Some(map.next_value::<Expr<Fr>>()?);
                         }
                         _ => return Err(de::Error::unknown_field(&key, &["annotation", "expr"])),
                     }
@@ -289,23 +290,23 @@ macro_rules! impl_visitor_constraint_transition {
     };
 }
 
-impl_visitor_constraint_transition!(ConstraintVisitor, Constraint<u32>, "struct Constraint");
+impl_visitor_constraint_transition!(ConstraintVisitor, Constraint<Fr>, "struct Constraint");
 impl_visitor_constraint_transition!(
     TransitionConstraintVisitor,
-    TransitionConstraint<u32>,
+    TransitionConstraint<Fr>,
     "struct TransitionConstraint"
 );
 
 struct ExprVisitor;
 
 impl<'de> Visitor<'de> for ExprVisitor {
-    type Value = Expr<u32>;
+    type Value = Expr<Fr>;
 
     fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
         formatter.write_str("enum Expr")
     }
 
-    fn visit_map<A>(self, mut map: A) -> Result<Expr<u32>, A::Error>
+    fn visit_map<A>(self, mut map: A) -> Result<Expr<Fr>, A::Error>
     where
         A: MapAccess<'de>,
     {
@@ -479,18 +480,18 @@ macro_rules! impl_deserialize {
     };
 }
 
-impl_deserialize!(ExprVisitor, Expr<u32>);
+impl_deserialize!(ExprVisitor, Expr<Fr>);
 impl_deserialize!(InternalSignalVisitor, InternalSignal);
 impl_deserialize!(FixedSignalVisitor, FixedSignal);
 impl_deserialize!(ForwardSignalVisitor, ForwardSignal);
 impl_deserialize!(SharedSignalVisitor, SharedSignal);
 impl_deserialize!(StepTypeHandlerVisitor, StepTypeHandler);
-impl_deserialize!(ConstraintVisitor, Constraint<u32>);
-impl_deserialize!(TransitionConstraintVisitor, TransitionConstraint<u32>);
-impl_deserialize!(StepTypeVisitor, StepType<u32>);
+impl_deserialize!(ConstraintVisitor, Constraint<Fr>);
+impl_deserialize!(TransitionConstraintVisitor, TransitionConstraint<Fr>);
+impl_deserialize!(StepTypeVisitor, StepType<Fr>);
 
-impl<'de> Deserialize<'de> for Circuit<u32, ()> {
-    fn deserialize<D>(deserializer: D) -> Result<Circuit<u32, ()>, D::Error>
+impl<'de> Deserialize<'de> for Circuit<Fr, ()> {
+    fn deserialize<D>(deserializer: D) -> Result<Circuit<Fr, ()>, D::Error>
     where
         D: Deserializer<'de>,
     {
@@ -692,7 +693,7 @@ mod tests {
             "id": 1
         }
         "#;
-        let circuit: Circuit<u32, ()> = serde_json::from_str(json).unwrap();
+        let circuit: Circuit<Fr, ()> = serde_json::from_str(json).unwrap();
         println!("{:?}", circuit);
     }
 
@@ -826,7 +827,7 @@ mod tests {
             }
         }
         "#;
-        let step_type: StepType<u32> = serde_json::from_str(json).unwrap();
+        let step_type: StepType<Fr> = serde_json::from_str(json).unwrap();
         println!("{:?}", step_type);
     }
 
@@ -907,9 +908,9 @@ mod tests {
             ]
             }
         }"#;
-        let constraint: Constraint<u32> = serde_json::from_str(json).unwrap();
+        let constraint: Constraint<Fr> = serde_json::from_str(json).unwrap();
         println!("{:?}", constraint);
-        let transition_constraint: TransitionConstraint<u32> = serde_json::from_str(json).unwrap();
+        let transition_constraint: TransitionConstraint<Fr> = serde_json::from_str(json).unwrap();
         println!("{:?}", transition_constraint);
     }
 
@@ -987,7 +988,7 @@ mod tests {
                 }
             ]
             }"#;
-        let expr: Expr<u32> = serde_json::from_str(json).unwrap();
+        let expr: Expr<Fr> = serde_json::from_str(json).unwrap();
         println!("{:?}", expr);
     }
 }
