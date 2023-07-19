@@ -155,6 +155,10 @@ impl<F, TraceArgs> CircuitContext<F, TraceArgs> {
     pub fn pragma_num_steps(&mut self, num_steps: usize) {
         self.sc.num_steps = num_steps;
     }
+
+    pub fn pragma_disable_q_enable(&mut self) {
+        self.sc.q_enable = false;
+    }
 }
 
 pub enum StepTypeDefInput {
@@ -372,3 +376,18 @@ where
 
 pub mod cb;
 pub mod sc;
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_disable_q_enable() {
+        let circuit: Circuit<i32, i32> = Circuit::default();
+        let mut context = CircuitContext { sc: circuit };
+
+        context.pragma_disable_q_enable();
+
+        assert_eq!(context.sc.q_enable, false);
+    }
+}

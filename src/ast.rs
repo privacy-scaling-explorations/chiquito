@@ -32,6 +32,7 @@ pub struct Circuit<F, TraceArgs> {
     pub first_step: Option<StepTypeUUID>,
     pub last_step: Option<StepTypeUUID>,
     pub num_steps: usize,
+    pub q_enable: bool, 
 
     pub id: UUID,
 }
@@ -69,6 +70,7 @@ impl<F, TraceArgs> Default for Circuit<F, TraceArgs> {
             last_step: None,
 
             id: uuid(),
+            q_enable: true,
         }
     }
 }
@@ -490,3 +492,14 @@ impl<CT: ColumnType> ImportedHalo2Column<CT> {
 
 pub type ImportedHalo2Advice = ImportedHalo2Column<Advice>;
 pub type ImportedHalo2Fixed = ImportedHalo2Column<Fixed>;
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_q_enable() {
+        let circuit: Circuit<i32, i32> = Circuit::default();
+        assert_eq!(circuit.q_enable, true);
+    }
+}
