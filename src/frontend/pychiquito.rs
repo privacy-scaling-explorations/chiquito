@@ -35,6 +35,7 @@ impl<'de> Visitor<'de> for CircuitVisitor {
         let mut first_step = None;
         let mut last_step = None;
         let mut num_steps = None;
+        let mut q_enable = None;
         let mut id = None;
 
         while let Some(key) = map.next_key::<String>()? {
@@ -93,6 +94,12 @@ impl<'de> Visitor<'de> for CircuitVisitor {
                     }
                     num_steps = Some(map.next_value::<usize>()?);
                 }
+                "q_enable" => {
+                    if q_enable.is_some() {
+                        return Err(de::Error::duplicate_field("q_enable"));
+                    }
+                    q_enable = Some(map.next_value::<bool>()?);
+                }
                 "id" => {
                     if id.is_some() {
                         return Err(de::Error::duplicate_field("id"));
@@ -112,6 +119,7 @@ impl<'de> Visitor<'de> for CircuitVisitor {
                             "first_step",
                             "last_step",
                             "num_steps",
+                            "q_enable",
                             "id",
                         ],
                     ))
@@ -134,6 +142,7 @@ impl<'de> Visitor<'de> for CircuitVisitor {
         let first_step = first_step.ok_or_else(|| de::Error::missing_field("first_step"))?;
         let last_step = last_step.ok_or_else(|| de::Error::missing_field("last_step"))?;
         let num_steps = num_steps.ok_or_else(|| de::Error::missing_field("num_steps"))?;
+        let q_enable = q_enable.ok_or_else(|| de::Error::missing_field("q_enable"))?;
         let id = id.ok_or_else(|| de::Error::missing_field("id"))?;
 
         Ok(Circuit {
@@ -150,6 +159,7 @@ impl<'de> Visitor<'de> for CircuitVisitor {
             fixed_gen: None,
             first_step,
             last_step,
+            q_enable,
             id,
         })
     }
