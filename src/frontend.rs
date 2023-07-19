@@ -719,7 +719,7 @@ mod tests {
                     "expr":{
                         "Sum":[
                             {
-                                "Const":1
+                                "Const":[1, 0, 0, 0]
                             },
                             {
                                 "Mul":[
@@ -730,7 +730,7 @@ mod tests {
                                         }
                                     },
                                     {
-                                        "Const":3
+                                        "Const":[3, 0, 0, 0]
                                     }
                                 ]
                             }
@@ -742,7 +742,7 @@ mod tests {
                     "expr":{
                         "Sum":[
                             {
-                                "Const":1
+                                "Const":[1, 0, 0, 0]
                             },
                             {
                                 "Mul":[
@@ -757,7 +757,7 @@ mod tests {
                                         ]
                                     },
                                     {
-                                        "Const":3
+                                        "Const":[3, 0, 0, 0]
                                     }
                                 ]
                             }
@@ -771,7 +771,7 @@ mod tests {
                     "expr":{
                         "Sum":[
                             {
-                                "Const":1
+                                "Const":[1, 0, 0, 0]
                             },
                             {
                                 "Mul":[
@@ -786,7 +786,7 @@ mod tests {
                                         ]
                                     },
                                     {
-                                        "Const":3
+                                        "Const":[3, 0, 0, 0]
                                     }
                                 ]
                             }
@@ -798,7 +798,7 @@ mod tests {
                     "expr":{
                         "Sum":[
                             {
-                                "Const":1
+                                "Const":[1, 0, 0, 0]
                             },
                             {
                                 "Mul":[
@@ -812,7 +812,7 @@ mod tests {
                                         ]
                                     },
                                     {
-                                        "Const":3
+                                        "Const":[3, 0, 0, 0]
                                     }
                                 ]
                             }
