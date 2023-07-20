@@ -34,7 +34,7 @@ pub struct Circuit<F, TraceArgs> {
     pub first_step: Option<StepTypeUUID>,
     pub last_step: Option<StepTypeUUID>,
     pub num_steps: usize,
-    pub q_enable: bool, 
+    pub q_enable: bool,
 
     pub id: UUID,
 }
@@ -119,7 +119,6 @@ impl<F, TraceArgs> Circuit<F, TraceArgs> {
             }
         }
     }
-    
 
     pub fn add_halo2_advice(
         &mut self,

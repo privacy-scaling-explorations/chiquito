@@ -1,5 +1,5 @@
 use crate::{
-    ast::{query::Queriable, Circuit, StepType, StepTypeUUID, ExposeOffset},
+    ast::{query::Queriable, Circuit, ExposeOffset, StepType, StepTypeUUID},
     util::{uuid, UUID},
     wit_gen::{FixedGenContext, StepInstance, TraceContext},
 };

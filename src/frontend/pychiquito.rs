@@ -1,17 +1,17 @@
 use crate::{
     ast::{
         expr::{query::Queriable, Expr},
-        Circuit, Constraint, FixedSignal, ForwardSignal, InternalSignal, SharedSignal, StepType,
-        StepTypeUUID, TransitionConstraint, ExposeOffset,
+        Circuit, Constraint, ExposeOffset, FixedSignal, ForwardSignal, InternalSignal,
+        SharedSignal, StepType, StepTypeUUID, TransitionConstraint,
     },
-    wit_gen::{StepInstance, TraceWitness},
     dsl::StepTypeHandler,
-    util::UUID, ir::assigments,
+    util::UUID,
+    wit_gen::{StepInstance, TraceWitness},
 };
 
 use core::result::Result;
 use halo2_proofs::halo2curves::bn256::Fr;
-use serde::de::{self, Deserialize, Deserializer, MapAccess, Visitor};
+use serde::de::{self, Deserialize, Deserializer, IgnoredAny, MapAccess, Visitor};
 use std::{collections::HashMap, fmt, rc::Rc};
 
 struct CircuitVisitor;
@@ -381,9 +381,7 @@ impl<'de> Visitor<'de> for QueriableVisitor {
             .next_key()?
             .ok_or_else(|| de::Error::custom("map is empty"))?;
         match key.as_str() {
-            "Internal" => map
-                .next_value()
-                .map(|signal| Queriable::Internal(signal)),
+            "Internal" => map.next_value().map(|signal| Queriable::Internal(signal)),
             "Forward" => map
                 .next_value()
                 .map(|(signal, rotation)| Queriable::Forward(signal, rotation)),
@@ -398,13 +396,7 @@ impl<'de> Visitor<'de> for QueriableVisitor {
                 .map(|step_type| Queriable::StepTypeNext(step_type)),
             _ => Err(de::Error::unknown_variant(
                 &key,
-                &[
-                    "Internal",
-                    "Forward",
-                    "Shared",
-                    "Fixed",
-                    "StepTypeNext",
-                ],
+                &["Internal", "Forward", "Shared", "Fixed", "StepTypeNext"],
             )),
         }
     }
@@ -427,19 +419,16 @@ impl<'de> Visitor<'de> for ExposeOffsetVisitor {
             .next_key()?
             .ok_or_else(|| de::Error::custom("map is empty"))?;
         match key.as_str() {
-            "First" => Ok(ExposeOffset::First),
-            "Last" => Ok(ExposeOffset::Last),
-            "Step" => map
-                .next_value()
-                .map(|offset| ExposeOffset::Step(offset)),
-            _ => Err(de::Error::unknown_variant(
-                &key,
-                &[
-                    "First",
-                    "Last",
-                    "Step"
-                ],
-            )),
+            "First" => {
+                let _ = map.next_value::<IgnoredAny>()?;
+                Ok(ExposeOffset::First)
+            }
+            "Last" => {
+                let _ = map.next_value::<IgnoredAny>()?;
+                Ok(ExposeOffset::Last)
+            }
+            "Step" => map.next_value().map(|offset| ExposeOffset::Step(offset)),
+            _ => Err(de::Error::unknown_variant(&key, &["First", "Last", "Step"])),
         }
     }
 }
@@ -659,7 +648,7 @@ impl<'de> Visitor<'de> for StepInstanceVisitor {
         }
         let step_type_uuid =
             step_type_uuid.ok_or_else(|| de::Error::missing_field("step_type_uuid"))?;
-        
+
         let assignments: HashMap<Queriable<Fr>, Fr> = assignments
             .ok_or_else(|| de::Error::missing_field("assignments"))?
             .into_iter()
@@ -834,18 +823,40 @@ mod tests {
         let trace_witness: TraceWitness<Fr> = serde_json::from_str(json).unwrap();
         println!("{:?}", trace_witness);
     }
-    
+
+    #[test]
+    fn test_expose_offset() {
+        let mut json = r#"
+        {
+            "Step": 1
+        }
+        "#;
+        let _: ExposeOffset = serde_json::from_str(json).unwrap();
+        json = r#"
+        {
+            "Last": -1
+        }
+        "#;
+        let _: ExposeOffset = serde_json::from_str(json).unwrap();
+        json = r#"
+        {
+            "First": 1
+        }
+        "#;
+        let _: ExposeOffset = serde_json::from_str(json).unwrap();
+    }
+
     #[test]
     fn test_circuit() {
         let json = r#"
         {
             "step_types": {
-                "10": {
-                    "id": 10,
+                "205524326356431126935662643926474033674": {
+                    "id": 205524326356431126935662643926474033674,
                     "name": "fibo_step",
                     "signals": [
                         {
-                            "id": 11,
+                            "id": 205524332694684128074575021569884162570,
                             "annotation": "c"
                         }
                     ],
@@ -857,7 +868,7 @@ mod tests {
                                     {
                                         "Forward": [
                                             {
-                                                "id": 8,
+                                                "id": 205524314472206749795829327634996267530,
                                                 "phase": 0,
                                                 "annotation": "a"
                                             },
@@ -867,7 +878,7 @@ mod tests {
                                     {
                                         "Forward": [
                                             {
-                                                "id": 9,
+                                                "id": 205524322395023001221676493137926294026,
                                                 "phase": 0,
                                                 "annotation": "b"
                                             },
@@ -877,7 +888,7 @@ mod tests {
                                     {
                                         "Neg": {
                                             "Internal": {
-                                                "id": 11,
+                                                "id": 205524332694684128074575021569884162570,
                                                 "annotation": "c"
                                             }
                                         }
@@ -894,7 +905,7 @@ mod tests {
                                     {
                                         "Forward": [
                                             {
-                                                "id": 9,
+                                                "id": 205524322395023001221676493137926294026,
                                                 "phase": 0,
                                                 "annotation": "b"
                                             },
@@ -905,7 +916,7 @@ mod tests {
                                         "Neg": {
                                             "Forward": [
                                                 {
-                                                    "id": 8,
+                                                    "id": 205524314472206749795829327634996267530,
                                                     "phase": 0,
                                                     "annotation": "a"
                                                 },
@@ -922,7 +933,7 @@ mod tests {
                                 "Sum": [
                                     {
                                         "Internal": {
-                                            "id": 11,
+                                            "id": 205524332694684128074575021569884162570,
                                             "annotation": "c"
                                         }
                                     },
@@ -930,7 +941,7 @@ mod tests {
                                         "Neg": {
                                             "Forward": [
                                                 {
-                                                    "id": 9,
+                                                    "id": 205524322395023001221676493137926294026,
                                                     "phase": 0,
                                                     "annotation": "b"
                                                 },
@@ -943,15 +954,15 @@ mod tests {
                         }
                     ],
                     "annotations": {
-                        "11": "c"
+                        "205524332694684128074575021569884162570": "c"
                     }
                 },
-                "12": {
-                    "id": 12,
+                "205524373893328635494146417612672338442": {
+                    "id": 205524373893328635494146417612672338442,
                     "name": "fibo_last_step",
                     "signals": [
                         {
-                            "id": 13,
+                            "id": 205524377062455136063336753318874188298,
                             "annotation": "c"
                         }
                     ],
@@ -963,7 +974,7 @@ mod tests {
                                     {
                                         "Forward": [
                                             {
-                                                "id": 8,
+                                                "id": 205524314472206749795829327634996267530,
                                                 "phase": 0,
                                                 "annotation": "a"
                                             },
@@ -973,7 +984,7 @@ mod tests {
                                     {
                                         "Forward": [
                                             {
-                                                "id": 9,
+                                                "id": 205524322395023001221676493137926294026,
                                                 "phase": 0,
                                                 "annotation": "b"
                                             },
@@ -983,7 +994,7 @@ mod tests {
                                     {
                                         "Neg": {
                                             "Internal": {
-                                                "id": 13,
+                                                "id": 205524377062455136063336753318874188298,
                                                 "annotation": "c"
                                             }
                                         }
@@ -994,35 +1005,82 @@ mod tests {
                     ],
                     "transition_constraints": [],
                     "annotations": {
-                        "13": "c"
+                        "205524377062455136063336753318874188298": "c"
                     }
                 }
             },
             "forward_signals": [
                 {
-                    "id": 8,
+                    "id": 205524314472206749795829327634996267530,
                     "phase": 0,
                     "annotation": "a"
                 },
                 {
-                    "id": 9,
+                    "id": 205524322395023001221676493137926294026,
                     "phase": 0,
                     "annotation": "b"
                 }
             ],
             "shared_signals": [],
             "fixed_signals": [],
-            "exposed": [],
+            "exposed": [
+                [
+                    {
+                        "Forward": [
+                            {
+                                "id": 205524322395023001221676493137926294026,
+                                "phase": 0,
+                                "annotation": "b"
+                            },
+                            false
+                        ]
+                    },
+                    {
+                        "First": 0
+                    }
+                ],
+                [
+                    {
+                        "Forward": [
+                            {
+                                "id": 205524314472206749795829327634996267530,
+                                "phase": 0,
+                                "annotation": "a"
+                            },
+                            false
+                        ]
+                    },
+                    {
+                        "Last": -1
+                    }
+                ],
+                [
+                    {
+                        "Forward": [
+                            {
+                                "id": 205524314472206749795829327634996267530,
+                                "phase": 0,
+                                "annotation": "a"
+                            },
+                            false
+                        ]
+                    },
+                    {
+                        "Step": 1
+                    }
+                ]
+            ],
             "annotations": {
-                "8": "a",
-                "9": "b",
-                "10": "fibo_step",
-                "12": "fibo_last_step"
+                "205524314472206749795829327634996267530": "a",
+                "205524322395023001221676493137926294026": "b",
+                "205524326356431126935662643926474033674": "fibo_step",
+                "205524373893328635494146417612672338442": "fibo_last_step"
             },
-            "first_step": 10,
-            "last_step": null,
+            "first_step": 205524326356431126935662643926474033674,
+            "last_step": 205524373893328635494146417612672338442,
             "num_steps": 0,
-            "id": 1
+            "q_enable": false,
+            "id": 205522563529815184552233780032226069002
         }
         "#;
         let circuit: Circuit<Fr, ()> = serde_json::from_str(json).unwrap();
