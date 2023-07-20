@@ -5,14 +5,54 @@ use crate::{
         SharedSignal, StepType, StepTypeUUID, TransitionConstraint,
     },
     dsl::StepTypeHandler,
-    util::UUID,
-    wit_gen::{StepInstance, TraceWitness},
+    util::{UUID, uuid},
+    wit_gen::{StepInstance, TraceWitness, Trace}, backend::halo2::{ChiquitoHalo2Circuit, chiquito2Halo2, ChiquitoHalo2}, compiler::{Compiler, cell_manager::SingleRowCellManager, step_selector::SimpleStepSelectorBuilder},
 };
 
 use core::result::Result;
 use halo2_proofs::halo2curves::bn256::Fr;
 use serde::de::{self, Deserialize, Deserializer, IgnoredAny, MapAccess, Visitor};
-use std::{collections::HashMap, fmt, rc::Rc};
+use std::{collections::HashMap, fmt, rc::Rc, sync::Mutex, cell::RefCell};
+use lazy_static::lazy_static;
+use once_cell::unsync::OnceCell;
+
+// Cannot use lazy static even with Rc<RefCell<T>>. Lazy static requires multi-thread Sync trait, which is not satisfied by Rc fields in Circuit.
+// lazy_static!(
+//     // Rc<RefCell<T>> provides single threaded multiple mutable ownerships.
+//     // Cannot use Mutex because Circuit contains Rc fields. They need to be Arc to use Mutex.
+//     pub static ref CIRCUIT_MAP: Rc<RefCell<HashMap<UUID, Circuit<Fr, ()>>>> = Rc::new(RefCell::new(HashMap::new()));
+// );
+
+thread_local! {
+    pub static CIRCUIT_MAP: RefCell<HashMap<UUID, ChiquitoHalo2<Fr>>> = RefCell::new(HashMap::new());
+}
+
+// pub fn insert_circuit(uuid: UUID, circuit: Circuit<Fr, ()>) {
+//     if let Some(circuit_map) = CIRCUIT_MAP.get() {
+//         circuit_map.insert(uuid, circuit);
+//     } else {
+//         panic!("CIRCUIT_MAP has not been initialized");
+//     }
+// }
+
+pub fn ast_json_to_halo2(ast_json: &str) -> UUID {
+    let circuit: Circuit<Fr, ()> = serde_json::from_str(ast_json).expect("Json deserialization to Circuit failed.");
+    let compiler = Compiler::new(SingleRowCellManager {}, SimpleStepSelectorBuilder {});
+    let (chiquito, _) = compiler.compile(&circuit);
+    let chiquito_halo2 = chiquito2Halo2(chiquito);
+    let uuid = uuid();
+    CIRCUIT_MAP.with(|circuit_map| {
+        circuit_map.borrow_mut().insert(uuid, chiquito_halo2);
+    });
+
+    uuid
+}
+
+// pub fn verify_proof(witness_json: &str, ast_id: UUID) {
+//     let witness: TraceWitness<Fr> = serde_json::from_str(witness_json).expect("Json deserialization to TraceWitness failed.");
+//     let circuit: ChiquitoHalo2Circuit<_> = ChiquitoHalo2Circuit::new(compiled, wit_gen.map(|g| g.generate(())));
+
+// }
 
 struct CircuitVisitor;
 
@@ -851,12 +891,12 @@ mod tests {
         let json = r#"
         {
             "step_types": {
-                "205524326356431126935662643926474033674": {
-                    "id": 205524326356431126935662643926474033674,
+                "165829846419916543761634621090335164938": {
+                    "id": 165829846419916543761634621090335164938,
                     "name": "fibo_step",
                     "signals": [
                         {
-                            "id": 205524332694684128074575021569884162570,
+                            "id": 165829853550451170044562283705672534538,
                             "annotation": "c"
                         }
                     ],
@@ -868,7 +908,7 @@ mod tests {
                                     {
                                         "Forward": [
                                             {
-                                                "id": 205524314472206749795829327634996267530,
+                                                "id": 165829834535692166620980242291792415242,
                                                 "phase": 0,
                                                 "annotation": "a"
                                             },
@@ -878,7 +918,7 @@ mod tests {
                                     {
                                         "Forward": [
                                             {
-                                                "id": 205524322395023001221676493137926294026,
+                                                "id": 165829841666226792907280256603100154378,
                                                 "phase": 0,
                                                 "annotation": "b"
                                             },
@@ -888,7 +928,7 @@ mod tests {
                                     {
                                         "Neg": {
                                             "Internal": {
-                                                "id": 205524332694684128074575021569884162570,
+                                                "id": 165829853550451170044562283705672534538,
                                                 "annotation": "c"
                                             }
                                         }
@@ -905,7 +945,7 @@ mod tests {
                                     {
                                         "Forward": [
                                             {
-                                                "id": 205524322395023001221676493137926294026,
+                                                "id": 165829841666226792907280256603100154378,
                                                 "phase": 0,
                                                 "annotation": "b"
                                             },
@@ -916,7 +956,7 @@ mod tests {
                                         "Neg": {
                                             "Forward": [
                                                 {
-                                                    "id": 205524314472206749795829327634996267530,
+                                                    "id": 165829834535692166620980242291792415242,
                                                     "phase": 0,
                                                     "annotation": "a"
                                                 },
@@ -933,7 +973,7 @@ mod tests {
                                 "Sum": [
                                     {
                                         "Internal": {
-                                            "id": 205524332694684128074575021569884162570,
+                                            "id": 165829853550451170044562283705672534538,
                                             "annotation": "c"
                                         }
                                     },
@@ -941,7 +981,7 @@ mod tests {
                                         "Neg": {
                                             "Forward": [
                                                 {
-                                                    "id": 205524322395023001221676493137926294026,
+                                                    "id": 165829841666226792907280256603100154378,
                                                     "phase": 0,
                                                     "annotation": "b"
                                                 },
@@ -954,15 +994,15 @@ mod tests {
                         }
                     ],
                     "annotations": {
-                        "205524332694684128074575021569884162570": "c"
+                        "165829853550451170044562283705672534538": "c"
                     }
                 },
-                "205524373893328635494146417612672338442": {
-                    "id": 205524373893328635494146417612672338442,
+                "165829889995405926606699416066057701898": {
+                    "id": 165829889995405926606699416066057701898,
                     "name": "fibo_last_step",
                     "signals": [
                         {
-                            "id": 205524377062455136063336753318874188298,
+                            "id": 165829893956814052317916134558749297162,
                             "annotation": "c"
                         }
                     ],
@@ -974,7 +1014,7 @@ mod tests {
                                     {
                                         "Forward": [
                                             {
-                                                "id": 205524314472206749795829327634996267530,
+                                                "id": 165829834535692166620980242291792415242,
                                                 "phase": 0,
                                                 "annotation": "a"
                                             },
@@ -984,7 +1024,7 @@ mod tests {
                                     {
                                         "Forward": [
                                             {
-                                                "id": 205524322395023001221676493137926294026,
+                                                "id": 165829841666226792907280256603100154378,
                                                 "phase": 0,
                                                 "annotation": "b"
                                             },
@@ -994,7 +1034,7 @@ mod tests {
                                     {
                                         "Neg": {
                                             "Internal": {
-                                                "id": 205524377062455136063336753318874188298,
+                                                "id": 165829893956814052317916134558749297162,
                                                 "annotation": "c"
                                             }
                                         }
@@ -1005,18 +1045,18 @@ mod tests {
                     ],
                     "transition_constraints": [],
                     "annotations": {
-                        "205524377062455136063336753318874188298": "c"
+                        "165829893956814052317916134558749297162": "c"
                     }
                 }
             },
             "forward_signals": [
                 {
-                    "id": 205524314472206749795829327634996267530,
+                    "id": 165829834535692166620980242291792415242,
                     "phase": 0,
                     "annotation": "a"
                 },
                 {
-                    "id": 205524322395023001221676493137926294026,
+                    "id": 165829841666226792907280256603100154378,
                     "phase": 0,
                     "annotation": "b"
                 }
@@ -1028,7 +1068,7 @@ mod tests {
                     {
                         "Forward": [
                             {
-                                "id": 205524322395023001221676493137926294026,
+                                "id": 165829841666226792907280256603100154378,
                                 "phase": 0,
                                 "annotation": "b"
                             },
@@ -1043,7 +1083,7 @@ mod tests {
                     {
                         "Forward": [
                             {
-                                "id": 205524314472206749795829327634996267530,
+                                "id": 165829834535692166620980242291792415242,
                                 "phase": 0,
                                 "annotation": "a"
                             },
@@ -1058,7 +1098,7 @@ mod tests {
                     {
                         "Forward": [
                             {
-                                "id": 205524314472206749795829327634996267530,
+                                "id": 165829834535692166620980242291792415242,
                                 "phase": 0,
                                 "annotation": "a"
                             },
@@ -1071,16 +1111,16 @@ mod tests {
                 ]
             ],
             "annotations": {
-                "205524314472206749795829327634996267530": "a",
-                "205524322395023001221676493137926294026": "b",
-                "205524326356431126935662643926474033674": "fibo_step",
-                "205524373893328635494146417612672338442": "fibo_last_step"
+                "165829834535692166620980242291792415242": "a",
+                "165829841666226792907280256603100154378": "b",
+                "165829846419916543761634621090335164938": "fibo_step",
+                "165829889995405926606699416066057701898": "fibo_last_step"
             },
-            "first_step": 205524326356431126935662643926474033674,
-            "last_step": 205524373893328635494146417612672338442,
+            "first_step": 165829846419916543761634621090335164938,
+            "last_step": 165829889995405926606699416066057701898,
             "num_steps": 0,
             "q_enable": false,
-            "id": 205522563529815184552233780032226069002
+            "id": 165827959997367079128743088602248514058
         }
         "#;
         let circuit: Circuit<Fr, ()> = serde_json::from_str(json).unwrap();
