@@ -4,25 +4,29 @@ use crate::{
         Circuit, Constraint, ExposeOffset, FixedSignal, ForwardSignal, InternalSignal,
         SharedSignal, StepType, StepTypeUUID, TransitionConstraint,
     },
+    backend::halo2::{chiquito2Halo2, ChiquitoHalo2, ChiquitoHalo2Circuit},
+    compiler::{
+        cell_manager::SingleRowCellManager, step_selector::SimpleStepSelectorBuilder, Compiler,
+    },
     dsl::StepTypeHandler,
-    util::{UUID, uuid},
     ir::assigments::AssigmentGenerator,
-    wit_gen::{StepInstance, TraceWitness, Trace}, backend::halo2::{ChiquitoHalo2Circuit, chiquito2Halo2, ChiquitoHalo2}, compiler::{Compiler, cell_manager::SingleRowCellManager, step_selector::SimpleStepSelectorBuilder},
+    util::{uuid, UUID},
+    wit_gen::{StepInstance, Trace, TraceWitness},
 };
 
 use core::result::Result;
-use halo2_proofs::{halo2curves::bn256::Fr, plonk::Assigned, dev::MockProver};
-use serde::de::{self, Deserialize, Deserializer, IgnoredAny, MapAccess, Visitor};
-use std::{collections::HashMap, fmt, rc::Rc, sync::Mutex, cell::RefCell};
+use halo2_proofs::{dev::MockProver, halo2curves::bn256::Fr, plonk::Assigned};
 use lazy_static::lazy_static;
 use once_cell::unsync::OnceCell;
+use serde::de::{self, Deserialize, Deserializer, IgnoredAny, MapAccess, Visitor};
+use std::{cell::RefCell, collections::HashMap, fmt, rc::Rc, sync::Mutex};
 
-// Cannot use lazy static even with Rc<RefCell<T>>. Lazy static requires multi-thread Sync trait, which is not satisfied by Rc fields in Circuit.
-// lazy_static!(
+// Cannot use lazy static even with Rc<RefCell<T>>. Lazy static requires multi-thread Sync trait,
+// which is not satisfied by Rc fields in Circuit. lazy_static!(
 //     // Rc<RefCell<T>> provides single threaded multiple mutable ownerships.
 //     // Cannot use Mutex because Circuit contains Rc fields. They need to be Arc to use Mutex.
-//     pub static ref CIRCUIT_MAP: Rc<RefCell<HashMap<UUID, Circuit<Fr, ()>>>> = Rc::new(RefCell::new(HashMap::new()));
-// );
+//     pub static ref CIRCUIT_MAP: Rc<RefCell<HashMap<UUID, Circuit<Fr, ()>>>> =
+// Rc::new(RefCell::new(HashMap::new())); );
 
 thread_local! {
     pub static CIRCUIT_MAP: RefCell<HashMap<UUID, (ChiquitoHalo2<Fr>, Option<AssigmentGenerator<Fr, ()>>)>> = RefCell::new(HashMap::new());
@@ -37,13 +41,16 @@ thread_local! {
 // }
 
 pub fn chiquito_ast_to_halo2(ast_json: &str) -> UUID {
-    let circuit: Circuit<Fr, ()> = serde_json::from_str(ast_json).expect("Json deserialization to Circuit failed.");
+    let circuit: Circuit<Fr, ()> =
+        serde_json::from_str(ast_json).expect("Json deserialization to Circuit failed.");
     let compiler = Compiler::new(SingleRowCellManager {}, SimpleStepSelectorBuilder {});
     let (chiquito, assignment_generator) = compiler.compile(&circuit);
     let chiquito_halo2 = chiquito2Halo2(chiquito);
     let uuid = uuid();
     CIRCUIT_MAP.with(|circuit_map| {
-        circuit_map.borrow_mut().insert(uuid, (chiquito_halo2, assignment_generator));
+        circuit_map
+            .borrow_mut()
+            .insert(uuid, (chiquito_halo2, assignment_generator));
     });
 
     println!("{:?}", uuid);
@@ -59,14 +66,18 @@ pub fn uuid_to_halo2(uuid: UUID) -> (ChiquitoHalo2<Fr>, Option<AssigmentGenerato
 }
 
 pub fn chiquito_verify_proof(witness_json: &str, ast_id: UUID) {
-    let trace_witness: TraceWitness<Fr> = serde_json::from_str(witness_json).expect("Json deserialization to TraceWitness failed.");
+    let trace_witness: TraceWitness<Fr> =
+        serde_json::from_str(witness_json).expect("Json deserialization to TraceWitness failed.");
     let (compiled, assignment_generator) = uuid_to_halo2(ast_id);
-    let circuit: ChiquitoHalo2Circuit<_> = ChiquitoHalo2Circuit::new(compiled, assignment_generator.map(|g| g.generate_with_witness(trace_witness)));
-    
+    let circuit: ChiquitoHalo2Circuit<_> = ChiquitoHalo2Circuit::new(
+        compiled,
+        assignment_generator.map(|g| g.generate_with_witness(trace_witness)),
+    );
+
     let prover = MockProver::<Fr>::run(7, &circuit, Vec::new()).unwrap();
-    
+
     let result = prover.verify_par();
-    
+
     println!("{:#?}", result);
 
     if let Err(failures) = &result {
