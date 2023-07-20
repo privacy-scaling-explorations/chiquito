@@ -6,6 +6,7 @@ use crate::{
     dsl::StepTypeHandler,
     util::{uuid, UUID},
     wit_gen::{FixedGenContext, Trace, TraceContext},
+    errors::ASTError,
 };
 
 pub use expr::*;
@@ -108,18 +109,15 @@ impl<F, TraceArgs> Circuit<F, TraceArgs> {
         signal
     }
 
-    pub fn expose(&mut self, signal: Queriable<F>, offset: ExposeOffset) {
+    pub fn expose(&mut self, signal: Queriable<F>, offset: ExposeOffset) -> Result<(), ASTError> {
         match signal {
             Queriable::Forward(..) | Queriable::Shared(..) => {
                 self.exposed.push((signal, offset));
-            }
-            _ => {
-                // TODO: Add a proper error here
-                panic!("cannot expose fixed or internal signals")
-            }
+                Ok(())
+            },
+            _ => Err(ASTError::UnexpectedQueriable),
         }
     }
-    
 
     pub fn add_halo2_advice(
         &mut self,

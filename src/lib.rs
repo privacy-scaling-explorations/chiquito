@@ -7,3 +7,4 @@ pub mod ir;
 pub mod stdlib;
 mod util;
 pub mod wit_gen;
+pub mod errors;
