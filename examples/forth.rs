@@ -21,10 +21,9 @@ use chiquito::{
 use halo2curves::ff::Field;
 
 // Generic types:
-// 1) F for a type that implements the field element trait
-// 2) (u64, u64) are the elements that are in the stack; the stack is made up of two signals with many steps so each basic operation consumes 1 step
-// 3) u8 for the operation; we will map 1 -> +, 2 -> -, 3 -> *, 4 -> /
-// 4) u64 for the result of the operation
+// 1) (F, F) are the elements that are in the stack; the stack is made up of two signals with many steps so each basic operation consumes 1 step
+// 2) F for the operation; we will map 1 -> +, 2 -> -, 3 -> *, 4 -> / ; these will be constrained with a lookup table
+// 3) F for the result of the operation
 fn forth_circuit<F: Field + From<u64>>() -> (Circuit<F>, Option<AssigmentGenerator<F, ()>>) {
     // PLONKish table for the FORTH stack:
     // | s1 | s2 | o | r |
@@ -32,5 +31,25 @@ fn forth_circuit<F: Field + From<u64>>() -> (Circuit<F>, Option<AssigmentGenerat
     // |  3 |  2 | 3 | 6 |
     // |  4 |  2 | 4 | 2 |
 
-    
+    let forth = circuit::<(F, F), F>("FORTH", |ctx| {
+
+        let s1 = ctx.forward("s1");
+        let s2 = ctx.forward("s2");
+        let o = ctx.forward("o");
+        let r = ctx.forward("r");
+
+        let operation_lookup: Queriable<(F, F)> = ctx.fixed("op lookup");
+
+        // populate lookup column; this can be increased as more operations are added (e.g. 5 -> %, 6 -> ^, etc.)
+        ctx.fixed_gen(move |ctx| {
+            for i in 1..=4 {
+                ctx.assign(i, operation_lookup, F::from(i as u64));
+            }
+        });
+
+        // stack operation step
+        let stack_step = ctx.step_type_def("stack step", |ctx| {
+            
+        });
+    });
 }
