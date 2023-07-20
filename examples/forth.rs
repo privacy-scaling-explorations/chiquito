@@ -49,7 +49,26 @@ fn forth_circuit<F: Field + From<u64>>() -> (Circuit<F>, Option<AssigmentGenerat
 
         // stack operation step
         let stack_step = ctx.step_type_def("stack step", |ctx| {
-            
+            ctx.setup(move |ctx| {
+                // are matches allowed in circuit definitions?
+                match o {
+                    1 => {
+                        ctx.constr(eq(s1 + s2, c));
+                    }
+                    2 => {
+                        ctx.constr(eq(s1 - s2, c));
+                    }
+                    3 => {
+                        ctx.constr(eq(s1 * s2, c));
+                    }
+                    4 => {
+                        ctx.constr(eq(s1 / s2, c));
+                    }
+                    _ => {
+                        panic!("invalid operation")
+                    }
+                }
+            });
         });
     });
 }
