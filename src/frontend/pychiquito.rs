@@ -6,11 +6,12 @@ use crate::{
     },
     dsl::StepTypeHandler,
     util::{UUID, uuid},
+    ir::assigments::AssigmentGenerator,
     wit_gen::{StepInstance, TraceWitness, Trace}, backend::halo2::{ChiquitoHalo2Circuit, chiquito2Halo2, ChiquitoHalo2}, compiler::{Compiler, cell_manager::SingleRowCellManager, step_selector::SimpleStepSelectorBuilder},
 };
 
 use core::result::Result;
-use halo2_proofs::halo2curves::bn256::Fr;
+use halo2_proofs::{halo2curves::bn256::Fr, plonk::Assigned, dev::MockProver};
 use serde::de::{self, Deserialize, Deserializer, IgnoredAny, MapAccess, Visitor};
 use std::{collections::HashMap, fmt, rc::Rc, sync::Mutex, cell::RefCell};
 use lazy_static::lazy_static;
@@ -24,7 +25,7 @@ use once_cell::unsync::OnceCell;
 // );
 
 thread_local! {
-    pub static CIRCUIT_MAP: RefCell<HashMap<UUID, ChiquitoHalo2<Fr>>> = RefCell::new(HashMap::new());
+    pub static CIRCUIT_MAP: RefCell<HashMap<UUID, (ChiquitoHalo2<Fr>, Option<AssigmentGenerator<Fr, ()>>)>> = RefCell::new(HashMap::new());
 }
 
 // pub fn insert_circuit(uuid: UUID, circuit: Circuit<Fr, ()>) {
@@ -35,24 +36,45 @@ thread_local! {
 //     }
 // }
 
-pub fn ast_json_to_halo2(ast_json: &str) -> UUID {
+pub fn chiquito_ast_to_halo2(ast_json: &str) -> UUID {
     let circuit: Circuit<Fr, ()> = serde_json::from_str(ast_json).expect("Json deserialization to Circuit failed.");
     let compiler = Compiler::new(SingleRowCellManager {}, SimpleStepSelectorBuilder {});
-    let (chiquito, _) = compiler.compile(&circuit);
+    let (chiquito, assignment_generator) = compiler.compile(&circuit);
     let chiquito_halo2 = chiquito2Halo2(chiquito);
     let uuid = uuid();
     CIRCUIT_MAP.with(|circuit_map| {
-        circuit_map.borrow_mut().insert(uuid, chiquito_halo2);
+        circuit_map.borrow_mut().insert(uuid, (chiquito_halo2, assignment_generator));
     });
+
+    println!("{:?}", uuid);
 
     uuid
 }
 
-// pub fn verify_proof(witness_json: &str, ast_id: UUID) {
-//     let witness: TraceWitness<Fr> = serde_json::from_str(witness_json).expect("Json deserialization to TraceWitness failed.");
-//     let circuit: ChiquitoHalo2Circuit<_> = ChiquitoHalo2Circuit::new(compiled, wit_gen.map(|g| g.generate(())));
+pub fn uuid_to_halo2(uuid: UUID) -> (ChiquitoHalo2<Fr>, Option<AssigmentGenerator<Fr, ()>>) {
+    CIRCUIT_MAP.with(|circuit_map| {
+        let circuit_map = circuit_map.borrow();
+        circuit_map.get(&uuid).unwrap().clone()
+    })
+}
 
-// }
+pub fn chiquito_verify_proof(witness_json: &str, ast_id: UUID) {
+    let trace_witness: TraceWitness<Fr> = serde_json::from_str(witness_json).expect("Json deserialization to TraceWitness failed.");
+    let (compiled, assignment_generator) = uuid_to_halo2(ast_id);
+    let circuit: ChiquitoHalo2Circuit<_> = ChiquitoHalo2Circuit::new(compiled, assignment_generator.map(|g| g.generate_with_witness(trace_witness)));
+    
+    let prover = MockProver::<Fr>::run(7, &circuit, Vec::new()).unwrap();
+    
+    let result = prover.verify_par();
+    
+    println!("{:#?}", result);
+
+    if let Err(failures) = &result {
+        for failure in failures.iter() {
+            println!("{}", failure);
+        }
+    }
+}
 
 struct CircuitVisitor;
 
@@ -891,12 +913,12 @@ mod tests {
         let json = r#"
         {
             "step_types": {
-                "165829846419916543761634621090335164938": {
-                    "id": 165829846419916543761634621090335164938,
+                "323742766081112356711641560186675137034": {
+                    "id": 323742766081112356711641560186675137034,
                     "name": "fibo_step",
                     "signals": [
                         {
-                            "id": 165829853550451170044562283705672534538,
+                            "id": 323742771627083732710575285499165542922,
                             "annotation": "c"
                         }
                     ],
@@ -908,7 +930,7 @@ mod tests {
                                     {
                                         "Forward": [
                                             {
-                                                "id": 165829834535692166620980242291792415242,
+                                                "id": 323742756573732854998836525876134939146,
                                                 "phase": 0,
                                                 "annotation": "a"
                                             },
@@ -918,7 +940,7 @@ mod tests {
                                     {
                                         "Forward": [
                                             {
-                                                "id": 165829841666226792907280256603100154378,
+                                                "id": 323742762119704230996139103698587093514,
                                                 "phase": 0,
                                                 "annotation": "b"
                                             },
@@ -928,7 +950,7 @@ mod tests {
                                     {
                                         "Neg": {
                                             "Internal": {
-                                                "id": 165829853550451170044562283705672534538,
+                                                "id": 323742771627083732710575285499165542922,
                                                 "annotation": "c"
                                             }
                                         }
@@ -945,7 +967,7 @@ mod tests {
                                     {
                                         "Forward": [
                                             {
-                                                "id": 165829841666226792907280256603100154378,
+                                                "id": 323742762119704230996139103698587093514,
                                                 "phase": 0,
                                                 "annotation": "b"
                                             },
@@ -956,7 +978,7 @@ mod tests {
                                         "Neg": {
                                             "Forward": [
                                                 {
-                                                    "id": 165829834535692166620980242291792415242,
+                                                    "id": 323742756573732854998836525876134939146,
                                                     "phase": 0,
                                                     "annotation": "a"
                                                 },
@@ -973,7 +995,7 @@ mod tests {
                                 "Sum": [
                                     {
                                         "Internal": {
-                                            "id": 165829853550451170044562283705672534538,
+                                            "id": 323742771627083732710575285499165542922,
                                             "annotation": "c"
                                         }
                                     },
@@ -981,7 +1003,7 @@ mod tests {
                                         "Neg": {
                                             "Forward": [
                                                 {
-                                                    "id": 165829841666226792907280256603100154378,
+                                                    "id": 323742762119704230996139103698587093514,
                                                     "phase": 0,
                                                     "annotation": "b"
                                                 },
@@ -994,15 +1016,15 @@ mod tests {
                         }
                     ],
                     "annotations": {
-                        "165829853550451170044562283705672534538": "c"
+                        "323742771627083732710575285499165542922": "c"
                     }
                 },
-                "165829889995405926606699416066057701898": {
-                    "id": 165829889995405926606699416066057701898,
+                "323742803318348738415880229152331794954": {
+                    "id": 323742803318348738415880229152331794954,
                     "name": "fibo_last_step",
                     "signals": [
                         {
-                            "id": 165829893956814052317916134558749297162,
+                            "id": 323742806487475238984698454939322157578,
                             "annotation": "c"
                         }
                     ],
@@ -1014,7 +1036,7 @@ mod tests {
                                     {
                                         "Forward": [
                                             {
-                                                "id": 165829834535692166620980242291792415242,
+                                                "id": 323742756573732854998836525876134939146,
                                                 "phase": 0,
                                                 "annotation": "a"
                                             },
@@ -1024,7 +1046,7 @@ mod tests {
                                     {
                                         "Forward": [
                                             {
-                                                "id": 165829841666226792907280256603100154378,
+                                                "id": 323742762119704230996139103698587093514,
                                                 "phase": 0,
                                                 "annotation": "b"
                                             },
@@ -1034,7 +1056,7 @@ mod tests {
                                     {
                                         "Neg": {
                                             "Internal": {
-                                                "id": 165829893956814052317916134558749297162,
+                                                "id": 323742806487475238984698454939322157578,
                                                 "annotation": "c"
                                             }
                                         }
@@ -1045,86 +1067,42 @@ mod tests {
                     ],
                     "transition_constraints": [],
                     "annotations": {
-                        "165829893956814052317916134558749297162": "c"
+                        "323742806487475238984698454939322157578": "c"
                     }
                 }
             },
             "forward_signals": [
                 {
-                    "id": 165829834535692166620980242291792415242,
+                    "id": 323742756573732854998836525876134939146,
                     "phase": 0,
                     "annotation": "a"
                 },
                 {
-                    "id": 165829841666226792907280256603100154378,
+                    "id": 323742762119704230996139103698587093514,
                     "phase": 0,
                     "annotation": "b"
                 }
             ],
             "shared_signals": [],
             "fixed_signals": [],
-            "exposed": [
-                [
-                    {
-                        "Forward": [
-                            {
-                                "id": 165829841666226792907280256603100154378,
-                                "phase": 0,
-                                "annotation": "b"
-                            },
-                            false
-                        ]
-                    },
-                    {
-                        "First": 0
-                    }
-                ],
-                [
-                    {
-                        "Forward": [
-                            {
-                                "id": 165829834535692166620980242291792415242,
-                                "phase": 0,
-                                "annotation": "a"
-                            },
-                            false
-                        ]
-                    },
-                    {
-                        "Last": -1
-                    }
-                ],
-                [
-                    {
-                        "Forward": [
-                            {
-                                "id": 165829834535692166620980242291792415242,
-                                "phase": 0,
-                                "annotation": "a"
-                            },
-                            false
-                        ]
-                    },
-                    {
-                        "Step": 1
-                    }
-                ]
-            ],
+            "exposed": [],
             "annotations": {
-                "165829834535692166620980242291792415242": "a",
-                "165829841666226792907280256603100154378": "b",
-                "165829846419916543761634621090335164938": "fibo_step",
-                "165829889995405926606699416066057701898": "fibo_last_step"
+                "323742756573732854998836525876134939146": "a",
+                "323742762119704230996139103698587093514": "b",
+                "323742766081112356711641560186675137034": "fibo_step",
+                "323742803318348738415880229152331794954": "fibo_last_step"
             },
-            "first_step": 165829846419916543761634621090335164938,
-            "last_step": 165829889995405926606699416066057701898,
-            "num_steps": 0,
-            "q_enable": false,
-            "id": 165827959997367079128743088602248514058
+            "first_step": 323742766081112356711641560186675137034,
+            "last_step": 323742803318348738415880229152331794954,
+            "num_steps": 11,
+            "q_enable": true,
+            "id": 323740290201033785952451286075739605514
         }
         "#;
         let circuit: Circuit<Fr, ()> = serde_json::from_str(json).unwrap();
         println!("{:?}", circuit);
+        let uuid = chiquito_ast_to_halo2(json);
+        println!("{:?}", uuid);
     }
 
     #[test]
