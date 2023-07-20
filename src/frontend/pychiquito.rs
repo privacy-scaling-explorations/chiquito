@@ -4,8 +4,9 @@ use crate::{
         Circuit, Constraint, FixedSignal, ForwardSignal, InternalSignal, SharedSignal, StepType,
         StepTypeUUID, TransitionConstraint, ExposeOffset,
     },
+    wit_gen::{StepInstance, TraceWitness},
     dsl::StepTypeHandler,
-    util::UUID,
+    util::UUID, ir::assigments,
 };
 
 use core::result::Result;
@@ -363,6 +364,86 @@ impl<'de> Visitor<'de> for ExprVisitor {
     }
 }
 
+struct QueriableVisitor;
+
+impl<'de> Visitor<'de> for QueriableVisitor {
+    type Value = Queriable<Fr>;
+
+    fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+        formatter.write_str("enum Queriable")
+    }
+
+    fn visit_map<A>(self, mut map: A) -> Result<Queriable<Fr>, A::Error>
+    where
+        A: MapAccess<'de>,
+    {
+        let key: String = map
+            .next_key()?
+            .ok_or_else(|| de::Error::custom("map is empty"))?;
+        match key.as_str() {
+            "Internal" => map
+                .next_value()
+                .map(|signal| Queriable::Internal(signal)),
+            "Forward" => map
+                .next_value()
+                .map(|(signal, rotation)| Queriable::Forward(signal, rotation)),
+            "Shared" => map
+                .next_value()
+                .map(|(signal, rotation)| Queriable::Shared(signal, rotation)),
+            "Fixed" => map
+                .next_value()
+                .map(|(signal, rotation)| Queriable::Fixed(signal, rotation)),
+            "StepTypeNext" => map
+                .next_value()
+                .map(|step_type| Queriable::StepTypeNext(step_type)),
+            _ => Err(de::Error::unknown_variant(
+                &key,
+                &[
+                    "Internal",
+                    "Forward",
+                    "Shared",
+                    "Fixed",
+                    "StepTypeNext",
+                ],
+            )),
+        }
+    }
+}
+
+struct ExposeOffsetVisitor;
+
+impl<'de> Visitor<'de> for ExposeOffsetVisitor {
+    type Value = ExposeOffset;
+
+    fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+        formatter.write_str("enum ExposeOffset")
+    }
+
+    fn visit_map<A>(self, mut map: A) -> Result<ExposeOffset, A::Error>
+    where
+        A: MapAccess<'de>,
+    {
+        let key: String = map
+            .next_key()?
+            .ok_or_else(|| de::Error::custom("map is empty"))?;
+        match key.as_str() {
+            "First" => Ok(ExposeOffset::First),
+            "Last" => Ok(ExposeOffset::Last),
+            "Step" => map
+                .next_value()
+                .map(|offset| ExposeOffset::Step(offset)),
+            _ => Err(de::Error::unknown_variant(
+                &key,
+                &[
+                    "First",
+                    "Last",
+                    "Step"
+                ],
+            )),
+        }
+    }
+}
+
 macro_rules! impl_visitor_internal_fixed_steptypehandler {
     ($name:ident, $type:ty, $display:expr) => {
         struct $name;
@@ -490,7 +571,124 @@ macro_rules! impl_deserialize {
     };
 }
 
+struct TraceWitnessVisitor;
+
+impl<'de> Visitor<'de> for TraceWitnessVisitor {
+    type Value = TraceWitness<Fr>;
+
+    fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+        formatter.write_str("struct TraceWitness")
+    }
+
+    fn visit_map<A>(self, mut map: A) -> Result<TraceWitness<Fr>, A::Error>
+    where
+        A: MapAccess<'de>,
+    {
+        let mut step_instances = None;
+        let mut height = None;
+
+        while let Some(key) = map.next_key::<String>()? {
+            match key.as_str() {
+                "step_instances" => {
+                    if step_instances.is_some() {
+                        return Err(de::Error::duplicate_field("step_instances"));
+                    }
+                    step_instances = Some(map.next_value()?);
+                }
+                "height" => {
+                    if height.is_some() {
+                        return Err(de::Error::duplicate_field("height"));
+                    }
+                    height = Some(map.next_value()?);
+                }
+                _ => {
+                    return Err(de::Error::unknown_field(
+                        &key,
+                        &["step_instances", "height"],
+                    ))
+                }
+            }
+        }
+        let step_instances =
+            step_instances.ok_or_else(|| de::Error::missing_field("step_instances"))?;
+        let height = height.ok_or_else(|| de::Error::missing_field("height"))?;
+        Ok(Self::Value {
+            step_instances,
+            height,
+        })
+    }
+}
+
+struct StepInstanceVisitor;
+
+impl<'de> Visitor<'de> for StepInstanceVisitor {
+    type Value = StepInstance<Fr>;
+
+    fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+        formatter.write_str("struct StepInstance")
+    }
+
+    fn visit_map<A>(self, mut map: A) -> Result<StepInstance<Fr>, A::Error>
+    where
+        A: MapAccess<'de>,
+    {
+        let mut step_type_uuid = None;
+        let mut assignments = None;
+
+        while let Some(key) = map.next_key::<String>()? {
+            match key.as_str() {
+                "step_type_uuid" => {
+                    if step_type_uuid.is_some() {
+                        return Err(de::Error::duplicate_field("step_type_uuid"));
+                    }
+                    step_type_uuid = Some(map.next_value()?);
+                }
+                "assignments" => {
+                    if assignments.is_some() {
+                        return Err(de::Error::duplicate_field("assignments"));
+                    }
+                    assignments = Some(map.next_value::<HashMap<UUID, (Queriable<Fr>, Fr)>>()?);
+                }
+                _ => {
+                    return Err(de::Error::unknown_field(
+                        &key,
+                        &["step_type_uuid", "assignments"],
+                    ))
+                }
+            }
+        }
+        let step_type_uuid =
+            step_type_uuid.ok_or_else(|| de::Error::missing_field("step_type_uuid"))?;
+        
+        let assignments: HashMap<Queriable<Fr>, Fr> = assignments
+            .ok_or_else(|| de::Error::missing_field("assignments"))?
+            .into_iter()
+            .map(|(_, v)| v)
+            .collect();
+
+        Ok(Self::Value {
+            step_type_uuid,
+            assignments,
+        })
+    }
+}
+
+macro_rules! impl_deserialize {
+    ($name:ident, $type:ty) => {
+        impl<'de> Deserialize<'de> for $type {
+            fn deserialize<D>(deserializer: D) -> Result<$type, D::Error>
+            where
+                D: Deserializer<'de>,
+            {
+                deserializer.deserialize_map($name)
+            }
+        }
+    };
+}
+
 impl_deserialize!(ExprVisitor, Expr<Fr>);
+impl_deserialize!(QueriableVisitor, Queriable<Fr>);
+impl_deserialize!(ExposeOffsetVisitor, ExposeOffset);
 impl_deserialize!(InternalSignalVisitor, InternalSignal);
 impl_deserialize!(FixedSignalVisitor, FixedSignal);
 impl_deserialize!(ForwardSignalVisitor, ForwardSignal);
@@ -499,6 +697,8 @@ impl_deserialize!(StepTypeHandlerVisitor, StepTypeHandler);
 impl_deserialize!(ConstraintVisitor, Constraint<Fr>);
 impl_deserialize!(TransitionConstraintVisitor, TransitionConstraint<Fr>);
 impl_deserialize!(StepTypeVisitor, StepType<Fr>);
+impl_deserialize!(TraceWitnessVisitor, TraceWitness<Fr>);
+impl_deserialize!(StepInstanceVisitor, StepInstance<Fr>);
 
 impl<'de> Deserialize<'de> for Circuit<Fr, ()> {
     fn deserialize<D>(deserializer: D) -> Result<Circuit<Fr, ()>, D::Error>
@@ -512,6 +712,129 @@ impl<'de> Deserialize<'de> for Circuit<Fr, ()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn test_trace_witness() {
+        let json = r#"
+        {
+            "step_instances": [
+                {
+                    "step_type_uuid": 270606747459021742275781620564109167114,
+                    "assignments": {
+                        "270606737951642240564318377467548666378": [
+                            {
+                                "Forward": [
+                                    {
+                                        "id": 270606737951642240564318377467548666378,
+                                        "phase": 0,
+                                        "annotation": "a"
+                                    },
+                                    false
+                                ]
+                            },
+                            [
+                                55,
+                                0,
+                                0,
+                                0
+                            ]
+                        ],
+                        "270606743497613616562965561253747624458": [
+                            {
+                                "Forward": [
+                                    {
+                                        "id": 270606743497613616562965561253747624458,
+                                        "phase": 0,
+                                        "annotation": "b"
+                                    },
+                                    false
+                                ]
+                            },
+                            [
+                                89,
+                                0,
+                                0,
+                                0
+                            ]
+                        ],
+                        "270606753004993118272949371872716917258": [
+                            {
+                                "Internal": {
+                                    "id": 270606753004993118272949371872716917258,
+                                    "annotation": "c"
+                                }
+                            },
+                            [
+                                144,
+                                0,
+                                0,
+                                0
+                            ]
+                        ]
+                    }
+                },
+                {
+                    "step_type_uuid": 270606783111694873693576112554652600842,
+                    "assignments": {
+                        "270606737951642240564318377467548666378": [
+                            {
+                                "Forward": [
+                                    {
+                                        "id": 270606737951642240564318377467548666378,
+                                        "phase": 0,
+                                        "annotation": "a"
+                                    },
+                                    false
+                                ]
+                            },
+                            [
+                                89,
+                                0,
+                                0,
+                                0
+                            ]
+                        ],
+                        "270606743497613616562965561253747624458": [
+                            {
+                                "Forward": [
+                                    {
+                                        "id": 270606743497613616562965561253747624458,
+                                        "phase": 0,
+                                        "annotation": "b"
+                                    },
+                                    false
+                                ]
+                            },
+                            [
+                                144,
+                                0,
+                                0,
+                                0
+                            ]
+                        ],
+                        "270606786280821374261518951164072823306": [
+                            {
+                                "Internal": {
+                                    "id": 270606786280821374261518951164072823306,
+                                    "annotation": "c"
+                                }
+                            },
+                            [
+                                233,
+                                0,
+                                0,
+                                0
+                            ]
+                        ]
+                    }
+                }
+            ],
+            "height": 0
+        }
+        "#;
+        let trace_witness: TraceWitness<Fr> = serde_json::from_str(json).unwrap();
+        println!("{:?}", trace_witness);
+    }
+    
     #[test]
     fn test_circuit() {
         let json = r#"
