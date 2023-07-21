@@ -4,8 +4,6 @@ use std::{
     ops::{Add, Mul, Neg, Sub},
 };
 
-use serde::{Deserialize, Serialize};
-
 use crate::{
     ast::{
         FixedSignal, ForwardSignal, ImportedHalo2Advice, ImportedHalo2Fixed, InternalSignal,

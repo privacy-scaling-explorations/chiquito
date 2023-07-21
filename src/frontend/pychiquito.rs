@@ -70,7 +70,6 @@ impl<'de> Visitor<'de> for CircuitVisitor {
                         return Err(de::Error::duplicate_field("exposed"));
                     }
                     exposed = Some(map.next_value::<Vec<(Queriable<Fr>, ExposeOffset)>>()?);
-                    exposed = Some(map.next_value::<Vec<(Queriable<Fr>, ExposeOffset)>>()?);
                 }
                 "annotations" => {
                     if annotations.is_some() {
@@ -95,12 +94,6 @@ impl<'de> Visitor<'de> for CircuitVisitor {
                         return Err(de::Error::duplicate_field("num_steps"));
                     }
                     num_steps = Some(map.next_value::<usize>()?);
-                }
-                "q_enable" => {
-                    if q_enable.is_some() {
-                        return Err(de::Error::duplicate_field("q_enable"));
-                    }
-                    q_enable = Some(map.next_value::<bool>()?);
                 }
                 "q_enable" => {
                     if q_enable.is_some() {
@@ -553,19 +546,6 @@ macro_rules! impl_visitor_forward_shared {
 impl_visitor_forward_shared!(ForwardSignalVisitor, ForwardSignal, "struct ForwardSignal");
 impl_visitor_forward_shared!(SharedSignalVisitor, SharedSignal, "struct SharedSignal");
 
-macro_rules! impl_deserialize {
-    ($name:ident, $type:ty) => {
-        impl<'de> Deserialize<'de> for $type {
-            fn deserialize<D>(deserializer: D) -> Result<$type, D::Error>
-            where
-                D: Deserializer<'de>,
-            {
-                deserializer.deserialize_map($name)
-            }
-        }
-    };
-}
-
 struct TraceWitnessVisitor;
 
 impl<'de> Visitor<'de> for TraceWitnessVisitor {
@@ -657,8 +637,7 @@ impl<'de> Visitor<'de> for StepInstanceVisitor {
 
         let assignments: HashMap<Queriable<Fr>, Fr> = assignments
             .ok_or_else(|| de::Error::missing_field("assignments"))?
-            .into_iter()
-            .map(|(_, v)| v)
+            .into_values()
             .collect();
 
         Ok(Self::Value {
