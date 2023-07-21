@@ -68,6 +68,9 @@ fn forth_circuit<F: Field + From<u64>>() -> (Circuit<F>, Option<AssigmentGenerat
                         panic!("invalid operation")
                     }
                 }
+
+                // initialize lookup
+                ctx.add_lookup(lookup().add(o, operation_lookup));
             });
         });
     });
