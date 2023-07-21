@@ -503,6 +503,19 @@
 <span id="503">503</span>
 <span id="504">504</span>
 <span id="505">505</span>
+<span id="506">506</span>
+<span id="507">507</span>
+<span id="508">508</span>
+<span id="509">509</span>
+<span id="510">510</span>
+<span id="511">511</span>
+<span id="512">512</span>
+<span id="513">513</span>
+<span id="514">514</span>
+<span id="515">515</span>
+<span id="516">516</span>
+<span id="517">517</span>
+<span id="518">518</span>
 </pre><pre class="rust"><code><span class="kw">pub mod </span>expr;
 
 <span class="kw">use </span>std::{collections::HashMap, fmt::Debug, rc::Rc};
@@ -517,6 +530,8 @@
 
 <span class="kw">use </span>halo2_proofs::plonk::{Advice, Column <span class="kw">as </span>Halo2Column, ColumnType, Fixed};
 
+<span class="kw">use </span><span class="self">self</span>::query::Queriable;
+
 <span class="doccomment">/// Circuit
 </span><span class="attribute">#[derive(Clone)]
 </span><span class="kw">pub struct </span>Circuit&lt;F, TraceArgs&gt; {
@@ -527,7 +542,7 @@
     <span class="kw">pub </span>fixed_signals: Vec&lt;FixedSignal&gt;,
     <span class="kw">pub </span>halo2_advice: Vec&lt;ImportedHalo2Advice&gt;,
     <span class="kw">pub </span>halo2_fixed: Vec&lt;ImportedHalo2Fixed&gt;,
-    <span class="kw">pub </span>exposed: Vec&lt;ForwardSignal&gt;,
+    <span class="kw">pub </span>exposed: Vec&lt;(Queriable&lt;F&gt;, ExposeOffset)&gt;,
 
     <span class="kw">pub </span>annotations: HashMap&lt;UUID, String&gt;,
 
@@ -537,7 +552,7 @@
     <span class="kw">pub </span>first_step: <span class="prelude-ty">Option</span>&lt;StepTypeUUID&gt;,
     <span class="kw">pub </span>last_step: <span class="prelude-ty">Option</span>&lt;StepTypeUUID&gt;,
     <span class="kw">pub </span>num_steps: usize,
-    <span class="kw">pub </span>q_enable: bool, 
+    <span class="kw">pub </span>q_enable: bool,
 
     <span class="kw">pub </span>id: UUID,
 }
@@ -611,8 +626,13 @@
         signal
     }
 
-    <span class="kw">pub fn </span>expose(<span class="kw-2">&amp;mut </span><span class="self">self</span>, forward_signal: ForwardSignal) {
-        <span class="self">self</span>.exposed.push(forward_signal);
+    <span class="kw">pub fn </span>expose(<span class="kw-2">&amp;mut </span><span class="self">self</span>, signal: Queriable&lt;F&gt;, offset: ExposeOffset) {
+        <span class="kw">match </span>signal {
+            Queriable::Forward(..) | Queriable::Shared(..) =&gt; {
+                <span class="self">self</span>.exposed.push((signal, offset));
+            }
+            <span class="kw">_ </span>=&gt; <span class="macro">panic!</span>(<span class="string">&quot;Can only expose forward and shared signals.&quot;</span>),
+        }
     }
 
     <span class="kw">pub fn </span>add_halo2_advice(
@@ -948,6 +968,12 @@
     }
 }
 
+<span class="attribute">#[derive(Clone, Copy)]
+</span><span class="kw">pub enum </span>ExposeOffset {
+    First,
+    Last,
+    Step(usize),
+}
 <span class="attribute">#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 </span><span class="kw">pub struct </span>InternalSignal {
     id: UUID,
@@ -1005,7 +1031,7 @@
     <span class="attribute">#[test]
     </span><span class="kw">fn </span>test_q_enable() {
         <span class="kw">let </span>circuit: Circuit&lt;i32, i32&gt; = Circuit::default();
-        <span class="macro">assert_eq!</span>(circuit.q_enable, <span class="bool-val">true</span>);
+        <span class="macro">assert!</span>(circuit.q_enable);
     }
 }
 </code></pre></div>

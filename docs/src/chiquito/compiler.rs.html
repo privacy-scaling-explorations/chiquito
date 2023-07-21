@@ -675,6 +675,41 @@
 <span id="675">675</span>
 <span id="676">676</span>
 <span id="677">677</span>
+<span id="678">678</span>
+<span id="679">679</span>
+<span id="680">680</span>
+<span id="681">681</span>
+<span id="682">682</span>
+<span id="683">683</span>
+<span id="684">684</span>
+<span id="685">685</span>
+<span id="686">686</span>
+<span id="687">687</span>
+<span id="688">688</span>
+<span id="689">689</span>
+<span id="690">690</span>
+<span id="691">691</span>
+<span id="692">692</span>
+<span id="693">693</span>
+<span id="694">694</span>
+<span id="695">695</span>
+<span id="696">696</span>
+<span id="697">697</span>
+<span id="698">698</span>
+<span id="699">699</span>
+<span id="700">700</span>
+<span id="701">701</span>
+<span id="702">702</span>
+<span id="703">703</span>
+<span id="704">704</span>
+<span id="705">705</span>
+<span id="706">706</span>
+<span id="707">707</span>
+<span id="708">708</span>
+<span id="709">709</span>
+<span id="710">710</span>
+<span id="711">711</span>
+<span id="712">712</span>
 </pre><pre class="rust"><code><span class="kw">use </span>core::fmt::Debug;
 <span class="kw">use </span>std::{collections::HashMap, hash::Hash, rc::Rc};
 
@@ -685,7 +720,7 @@
 
 <span class="kw">use crate</span>::{
     ast::{
-        query::Queriable, Circuit <span class="kw">as </span>astCircuit, Expr, FixedSignal, ForwardSignal,
+        query::Queriable, Circuit <span class="kw">as </span>astCircuit, ExposeOffset, Expr, FixedSignal, ForwardSignal,
         ImportedHalo2Advice, ImportedHalo2Fixed, SharedSignal, StepType, StepTypeUUID,
     },
     ir::{
@@ -889,7 +924,6 @@
 
             <span class="self">self</span>.add_q_enable(<span class="kw-2">&amp;mut </span>unit, q_enable);
         }
-            
 
         <span class="kw">if let </span><span class="prelude-val">Some</span>(step_type) = ast.first_step {
             <span class="kw">let </span>q_first = Column {
@@ -1005,9 +1039,45 @@
         ast: <span class="kw-2">&amp;</span>astCircuit&lt;F, TraceArgs&gt;,
         unit: <span class="kw-2">&amp;mut </span>CompilationUnit&lt;F&gt;,
     ) {
-        <span class="kw">for </span>forward_signal <span class="kw">in </span>ast.exposed.clone() {
-            <span class="kw">let </span>forward_placement = unit.placement.get_forward_placement(<span class="kw-2">&amp;</span>forward_signal);
-            <span class="kw">let </span>exposed = (forward_placement.column, forward_placement.rotation);
+        <span class="kw">for </span>(queriable, offset) <span class="kw">in </span><span class="kw-2">&amp;</span>ast.exposed {
+            <span class="kw">let </span>exposed = <span class="kw">match </span>queriable {
+                Queriable::Forward(forward_signal, <span class="kw">_</span>) =&gt; {
+                    <span class="kw">let </span>placement = unit.placement.get_forward_placement(forward_signal);
+                    <span class="kw">match </span>offset {
+                        ExposeOffset::First =&gt; (placement.column, placement.rotation),
+                        ExposeOffset::Last =&gt; {
+                            <span class="kw">let </span>rot = placement.rotation
+                                + ((unit.num_steps - <span class="number">1</span>) <span class="kw">as </span>i32)
+                                    * (unit.placement.first_step_height() <span class="kw">as </span>i32);
+                            (placement.column, rot)
+                        }
+                        ExposeOffset::Step(step) =&gt; {
+                            <span class="kw">let </span>rot = placement.rotation
+                                + (<span class="kw-2">*</span>step <span class="kw">as </span>i32) * (unit.placement.first_step_height() <span class="kw">as </span>i32);
+                            (placement.column, rot)
+                        }
+                    }
+                }
+                Queriable::Shared(shared_signal, <span class="kw">_</span>) =&gt; {
+                    <span class="kw">let </span>placement = unit.placement.get_shared_placement(shared_signal);
+                    <span class="kw">match </span>offset {
+                        ExposeOffset::First =&gt; (placement.column, placement.rotation),
+                        ExposeOffset::Last =&gt; {
+                            <span class="kw">let </span>rot = placement.rotation
+                                + ((unit.num_steps - <span class="number">1</span>) <span class="kw">as </span>i32)
+                                    * (unit.placement.first_step_height() <span class="kw">as </span>i32);
+                            (placement.column, rot)
+                        }
+                        ExposeOffset::Step(step) =&gt; {
+                            <span class="kw">let </span>rot = placement.rotation
+                                + (<span class="kw-2">*</span>step <span class="kw">as </span>i32) * (unit.placement.first_step_height() <span class="kw">as </span>i32);
+                            (placement.column, rot)
+                        }
+                    }
+                }
+                <span class="kw">_ </span>=&gt; <span class="macro">panic!</span>(<span class="string">&quot;Queriable was not Forward or Shared&quot;</span>),
+            };
+
             unit.exposed.push(exposed);
         }
     }

@@ -991,11 +991,91 @@
 <span id="991">991</span>
 <span id="992">992</span>
 <span id="993">993</span>
+<span id="994">994</span>
+<span id="995">995</span>
+<span id="996">996</span>
+<span id="997">997</span>
+<span id="998">998</span>
+<span id="999">999</span>
+<span id="1000">1000</span>
+<span id="1001">1001</span>
+<span id="1002">1002</span>
+<span id="1003">1003</span>
+<span id="1004">1004</span>
+<span id="1005">1005</span>
+<span id="1006">1006</span>
+<span id="1007">1007</span>
+<span id="1008">1008</span>
+<span id="1009">1009</span>
+<span id="1010">1010</span>
+<span id="1011">1011</span>
+<span id="1012">1012</span>
+<span id="1013">1013</span>
+<span id="1014">1014</span>
+<span id="1015">1015</span>
+<span id="1016">1016</span>
+<span id="1017">1017</span>
+<span id="1018">1018</span>
+<span id="1019">1019</span>
+<span id="1020">1020</span>
+<span id="1021">1021</span>
+<span id="1022">1022</span>
+<span id="1023">1023</span>
+<span id="1024">1024</span>
+<span id="1025">1025</span>
+<span id="1026">1026</span>
+<span id="1027">1027</span>
+<span id="1028">1028</span>
+<span id="1029">1029</span>
+<span id="1030">1030</span>
+<span id="1031">1031</span>
+<span id="1032">1032</span>
+<span id="1033">1033</span>
+<span id="1034">1034</span>
+<span id="1035">1035</span>
+<span id="1036">1036</span>
+<span id="1037">1037</span>
+<span id="1038">1038</span>
+<span id="1039">1039</span>
+<span id="1040">1040</span>
+<span id="1041">1041</span>
+<span id="1042">1042</span>
+<span id="1043">1043</span>
+<span id="1044">1044</span>
+<span id="1045">1045</span>
+<span id="1046">1046</span>
+<span id="1047">1047</span>
+<span id="1048">1048</span>
+<span id="1049">1049</span>
+<span id="1050">1050</span>
+<span id="1051">1051</span>
+<span id="1052">1052</span>
+<span id="1053">1053</span>
+<span id="1054">1054</span>
+<span id="1055">1055</span>
+<span id="1056">1056</span>
+<span id="1057">1057</span>
+<span id="1058">1058</span>
+<span id="1059">1059</span>
+<span id="1060">1060</span>
+<span id="1061">1061</span>
+<span id="1062">1062</span>
+<span id="1063">1063</span>
+<span id="1064">1064</span>
+<span id="1065">1065</span>
+<span id="1066">1066</span>
+<span id="1067">1067</span>
+<span id="1068">1068</span>
+<span id="1069">1069</span>
+<span id="1070">1070</span>
+<span id="1071">1071</span>
+<span id="1072">1072</span>
+<span id="1073">1073</span>
 </pre><pre class="rust"><code><span class="kw">use crate</span>::{
     ast::{
         expr::{query::Queriable, Expr},
-        Circuit, Constraint, FixedSignal, ForwardSignal, InternalSignal, SharedSignal, StepType,
-        StepTypeUUID, TransitionConstraint,
+        Circuit, Constraint, ExposeOffset, FixedSignal, ForwardSignal, InternalSignal,
+        SharedSignal, StepType, StepTypeUUID, TransitionConstraint,
     },
     dsl::StepTypeHandler,
     util::UUID,
@@ -1003,7 +1083,7 @@
 
 <span class="kw">use </span>core::result::Result;
 <span class="kw">use </span>halo2_proofs::halo2curves::bn256::Fr;
-<span class="kw">use </span>serde::de::{<span class="self">self</span>, Deserialize, Deserializer, MapAccess, Visitor};
+<span class="kw">use </span>serde::de::{<span class="self">self</span>, Deserialize, Deserializer, IgnoredAny, MapAccess, Visitor};
 <span class="kw">use </span>std::{collections::HashMap, fmt, rc::Rc};
 
 <span class="kw">struct </span>CircuitVisitor;
@@ -1028,6 +1108,7 @@
         <span class="kw">let </span><span class="kw-2">mut </span>first_step = <span class="prelude-val">None</span>;
         <span class="kw">let </span><span class="kw-2">mut </span>last_step = <span class="prelude-val">None</span>;
         <span class="kw">let </span><span class="kw-2">mut </span>num_steps = <span class="prelude-val">None</span>;
+        <span class="kw">let </span><span class="kw-2">mut </span>q_enable = <span class="prelude-val">None</span>;
         <span class="kw">let </span><span class="kw-2">mut </span>id = <span class="prelude-val">None</span>;
 
         <span class="kw">while let </span><span class="prelude-val">Some</span>(key) = map.next_key::&lt;String&gt;()<span class="question-mark">? </span>{
@@ -1060,7 +1141,7 @@
                     <span class="kw">if </span>exposed.is_some() {
                         <span class="kw">return </span><span class="prelude-val">Err</span>(de::Error::duplicate_field(<span class="string">&quot;exposed&quot;</span>));
                     }
-                    exposed = <span class="prelude-val">Some</span>(map.next_value::&lt;Vec&lt;ForwardSignal&gt;&gt;()<span class="question-mark">?</span>);
+                    exposed = <span class="prelude-val">Some</span>(map.next_value::&lt;Vec&lt;(Queriable&lt;Fr&gt;, ExposeOffset)&gt;&gt;()<span class="question-mark">?</span>);
                 }
                 <span class="string">&quot;annotations&quot; </span>=&gt; {
                     <span class="kw">if </span>annotations.is_some() {
@@ -1086,6 +1167,12 @@
                     }
                     num_steps = <span class="prelude-val">Some</span>(map.next_value::&lt;usize&gt;()<span class="question-mark">?</span>);
                 }
+                <span class="string">&quot;q_enable&quot; </span>=&gt; {
+                    <span class="kw">if </span>q_enable.is_some() {
+                        <span class="kw">return </span><span class="prelude-val">Err</span>(de::Error::duplicate_field(<span class="string">&quot;q_enable&quot;</span>));
+                    }
+                    q_enable = <span class="prelude-val">Some</span>(map.next_value::&lt;bool&gt;()<span class="question-mark">?</span>);
+                }
                 <span class="string">&quot;id&quot; </span>=&gt; {
                     <span class="kw">if </span>id.is_some() {
                         <span class="kw">return </span><span class="prelude-val">Err</span>(de::Error::duplicate_field(<span class="string">&quot;id&quot;</span>));
@@ -1105,6 +1192,7 @@
                             <span class="string">&quot;first_step&quot;</span>,
                             <span class="string">&quot;last_step&quot;</span>,
                             <span class="string">&quot;num_steps&quot;</span>,
+                            <span class="string">&quot;q_enable&quot;</span>,
                             <span class="string">&quot;id&quot;</span>,
                         ],
                     ))
@@ -1127,6 +1215,7 @@
         <span class="kw">let </span>first_step = first_step.ok_or_else(|| de::Error::missing_field(<span class="string">&quot;first_step&quot;</span>))<span class="question-mark">?</span>;
         <span class="kw">let </span>last_step = last_step.ok_or_else(|| de::Error::missing_field(<span class="string">&quot;last_step&quot;</span>))<span class="question-mark">?</span>;
         <span class="kw">let </span>num_steps = num_steps.ok_or_else(|| de::Error::missing_field(<span class="string">&quot;num_steps&quot;</span>))<span class="question-mark">?</span>;
+        <span class="kw">let </span>q_enable = q_enable.ok_or_else(|| de::Error::missing_field(<span class="string">&quot;q_enable&quot;</span>))<span class="question-mark">?</span>;
         <span class="kw">let </span>id = id.ok_or_else(|| de::Error::missing_field(<span class="string">&quot;id&quot;</span>))<span class="question-mark">?</span>;
 
         <span class="prelude-val">Ok</span>(Circuit {
@@ -1143,6 +1232,7 @@
             fixed_gen: <span class="prelude-val">None</span>,
             first_step,
             last_step,
+            q_enable,
             id,
         })
     }
@@ -1346,6 +1436,73 @@
     }
 }
 
+<span class="kw">struct </span>QueriableVisitor;
+
+<span class="kw">impl</span>&lt;<span class="lifetime">&#39;de</span>&gt; Visitor&lt;<span class="lifetime">&#39;de</span>&gt; <span class="kw">for </span>QueriableVisitor {
+    <span class="kw">type </span>Value = Queriable&lt;Fr&gt;;
+
+    <span class="kw">fn </span>expecting(<span class="kw-2">&amp;</span><span class="self">self</span>, formatter: <span class="kw-2">&amp;mut </span>fmt::Formatter) -&gt; fmt::Result {
+        formatter.write_str(<span class="string">&quot;enum Queriable&quot;</span>)
+    }
+
+    <span class="kw">fn </span>visit_map&lt;A&gt;(<span class="self">self</span>, <span class="kw-2">mut </span>map: A) -&gt; <span class="prelude-ty">Result</span>&lt;Queriable&lt;Fr&gt;, A::Error&gt;
+    <span class="kw">where
+        </span>A: MapAccess&lt;<span class="lifetime">&#39;de</span>&gt;,
+    {
+        <span class="kw">let </span>key: String = map
+            .next_key()<span class="question-mark">?
+            </span>.ok_or_else(|| de::Error::custom(<span class="string">&quot;map is empty&quot;</span>))<span class="question-mark">?</span>;
+        <span class="kw">match </span>key.as_str() {
+            <span class="string">&quot;Internal&quot; </span>=&gt; map.next_value().map(Queriable::Internal),
+            <span class="string">&quot;Forward&quot; </span>=&gt; map
+                .next_value()
+                .map(|(signal, rotation)| Queriable::Forward(signal, rotation)),
+            <span class="string">&quot;Shared&quot; </span>=&gt; map
+                .next_value()
+                .map(|(signal, rotation)| Queriable::Shared(signal, rotation)),
+            <span class="string">&quot;Fixed&quot; </span>=&gt; map
+                .next_value()
+                .map(|(signal, rotation)| Queriable::Fixed(signal, rotation)),
+            <span class="string">&quot;StepTypeNext&quot; </span>=&gt; map.next_value().map(Queriable::StepTypeNext),
+            <span class="kw">_ </span>=&gt; <span class="prelude-val">Err</span>(de::Error::unknown_variant(
+                <span class="kw-2">&amp;</span>key,
+                <span class="kw-2">&amp;</span>[<span class="string">&quot;Internal&quot;</span>, <span class="string">&quot;Forward&quot;</span>, <span class="string">&quot;Shared&quot;</span>, <span class="string">&quot;Fixed&quot;</span>, <span class="string">&quot;StepTypeNext&quot;</span>],
+            )),
+        }
+    }
+}
+
+<span class="kw">struct </span>ExposeOffsetVisitor;
+
+<span class="kw">impl</span>&lt;<span class="lifetime">&#39;de</span>&gt; Visitor&lt;<span class="lifetime">&#39;de</span>&gt; <span class="kw">for </span>ExposeOffsetVisitor {
+    <span class="kw">type </span>Value = ExposeOffset;
+
+    <span class="kw">fn </span>expecting(<span class="kw-2">&amp;</span><span class="self">self</span>, formatter: <span class="kw-2">&amp;mut </span>fmt::Formatter) -&gt; fmt::Result {
+        formatter.write_str(<span class="string">&quot;enum ExposeOffset&quot;</span>)
+    }
+
+    <span class="kw">fn </span>visit_map&lt;A&gt;(<span class="self">self</span>, <span class="kw-2">mut </span>map: A) -&gt; <span class="prelude-ty">Result</span>&lt;ExposeOffset, A::Error&gt;
+    <span class="kw">where
+        </span>A: MapAccess&lt;<span class="lifetime">&#39;de</span>&gt;,
+    {
+        <span class="kw">let </span>key: String = map
+            .next_key()<span class="question-mark">?
+            </span>.ok_or_else(|| de::Error::custom(<span class="string">&quot;map is empty&quot;</span>))<span class="question-mark">?</span>;
+        <span class="kw">match </span>key.as_str() {
+            <span class="string">&quot;First&quot; </span>=&gt; {
+                <span class="kw">let _ </span>= map.next_value::&lt;IgnoredAny&gt;()<span class="question-mark">?</span>;
+                <span class="prelude-val">Ok</span>(ExposeOffset::First)
+            }
+            <span class="string">&quot;Last&quot; </span>=&gt; {
+                <span class="kw">let _ </span>= map.next_value::&lt;IgnoredAny&gt;()<span class="question-mark">?</span>;
+                <span class="prelude-val">Ok</span>(ExposeOffset::Last)
+            }
+            <span class="string">&quot;Step&quot; </span>=&gt; map.next_value().map(ExposeOffset::Step),
+            <span class="kw">_ </span>=&gt; <span class="prelude-val">Err</span>(de::Error::unknown_variant(<span class="kw-2">&amp;</span>key, <span class="kw-2">&amp;</span>[<span class="string">&quot;First&quot;</span>, <span class="string">&quot;Last&quot;</span>, <span class="string">&quot;Step&quot;</span>])),
+        }
+    }
+}
+
 <span class="macro">macro_rules! </span>impl_visitor_internal_fixed_steptypehandler {
     (<span class="macro-nonterminal">$name</span>:ident, <span class="macro-nonterminal">$</span><span class="kw">type</span>:<span class="macro-nonterminal">ty</span>, <span class="macro-nonterminal">$display</span>:expr) =&gt; {
         <span class="kw">struct </span><span class="macro-nonterminal">$name</span>;
@@ -1474,6 +1631,8 @@
 }
 
 <span class="macro">impl_deserialize!</span>(ExprVisitor, Expr&lt;Fr&gt;);
+<span class="macro">impl_deserialize!</span>(QueriableVisitor, Queriable&lt;Fr&gt;);
+<span class="macro">impl_deserialize!</span>(ExposeOffsetVisitor, ExposeOffset);
 <span class="macro">impl_deserialize!</span>(InternalSignalVisitor, InternalSignal);
 <span class="macro">impl_deserialize!</span>(FixedSignalVisitor, FixedSignal);
 <span class="macro">impl_deserialize!</span>(ForwardSignalVisitor, ForwardSignal);
@@ -1500,12 +1659,12 @@
         <span class="kw">let </span>json = <span class="string">r#&quot;
         {
             &quot;step_types&quot;: {
-                &quot;10&quot;: {
-                    &quot;id&quot;: 10,
+                &quot;323742766081112356711641560186675137034&quot;: {
+                    &quot;id&quot;: 323742766081112356711641560186675137034,
                     &quot;name&quot;: &quot;fibo_step&quot;,
                     &quot;signals&quot;: [
                         {
-                            &quot;id&quot;: 11,
+                            &quot;id&quot;: 323742771627083732710575285499165542922,
                             &quot;annotation&quot;: &quot;c&quot;
                         }
                     ],
@@ -1517,7 +1676,7 @@
                                     {
                                         &quot;Forward&quot;: [
                                             {
-                                                &quot;id&quot;: 8,
+                                                &quot;id&quot;: 323742756573732854998836525876134939146,
                                                 &quot;phase&quot;: 0,
                                                 &quot;annotation&quot;: &quot;a&quot;
                                             },
@@ -1527,7 +1686,7 @@
                                     {
                                         &quot;Forward&quot;: [
                                             {
-                                                &quot;id&quot;: 9,
+                                                &quot;id&quot;: 323742762119704230996139103698587093514,
                                                 &quot;phase&quot;: 0,
                                                 &quot;annotation&quot;: &quot;b&quot;
                                             },
@@ -1537,7 +1696,7 @@
                                     {
                                         &quot;Neg&quot;: {
                                             &quot;Internal&quot;: {
-                                                &quot;id&quot;: 11,
+                                                &quot;id&quot;: 323742771627083732710575285499165542922,
                                                 &quot;annotation&quot;: &quot;c&quot;
                                             }
                                         }
@@ -1554,7 +1713,7 @@
                                     {
                                         &quot;Forward&quot;: [
                                             {
-                                                &quot;id&quot;: 9,
+                                                &quot;id&quot;: 323742762119704230996139103698587093514,
                                                 &quot;phase&quot;: 0,
                                                 &quot;annotation&quot;: &quot;b&quot;
                                             },
@@ -1565,7 +1724,7 @@
                                         &quot;Neg&quot;: {
                                             &quot;Forward&quot;: [
                                                 {
-                                                    &quot;id&quot;: 8,
+                                                    &quot;id&quot;: 323742756573732854998836525876134939146,
                                                     &quot;phase&quot;: 0,
                                                     &quot;annotation&quot;: &quot;a&quot;
                                                 },
@@ -1582,7 +1741,7 @@
                                 &quot;Sum&quot;: [
                                     {
                                         &quot;Internal&quot;: {
-                                            &quot;id&quot;: 11,
+                                            &quot;id&quot;: 323742771627083732710575285499165542922,
                                             &quot;annotation&quot;: &quot;c&quot;
                                         }
                                     },
@@ -1590,7 +1749,7 @@
                                         &quot;Neg&quot;: {
                                             &quot;Forward&quot;: [
                                                 {
-                                                    &quot;id&quot;: 9,
+                                                    &quot;id&quot;: 323742762119704230996139103698587093514,
                                                     &quot;phase&quot;: 0,
                                                     &quot;annotation&quot;: &quot;b&quot;
                                                 },
@@ -1603,15 +1762,15 @@
                         }
                     ],
                     &quot;annotations&quot;: {
-                        &quot;11&quot;: &quot;c&quot;
+                        &quot;323742771627083732710575285499165542922&quot;: &quot;c&quot;
                     }
                 },
-                &quot;12&quot;: {
-                    &quot;id&quot;: 12,
+                &quot;323742803318348738415880229152331794954&quot;: {
+                    &quot;id&quot;: 323742803318348738415880229152331794954,
                     &quot;name&quot;: &quot;fibo_last_step&quot;,
                     &quot;signals&quot;: [
                         {
-                            &quot;id&quot;: 13,
+                            &quot;id&quot;: 323742806487475238984698454939322157578,
                             &quot;annotation&quot;: &quot;c&quot;
                         }
                     ],
@@ -1623,7 +1782,7 @@
                                     {
                                         &quot;Forward&quot;: [
                                             {
-                                                &quot;id&quot;: 8,
+                                                &quot;id&quot;: 323742756573732854998836525876134939146,
                                                 &quot;phase&quot;: 0,
                                                 &quot;annotation&quot;: &quot;a&quot;
                                             },
@@ -1633,7 +1792,7 @@
                                     {
                                         &quot;Forward&quot;: [
                                             {
-                                                &quot;id&quot;: 9,
+                                                &quot;id&quot;: 323742762119704230996139103698587093514,
                                                 &quot;phase&quot;: 0,
                                                 &quot;annotation&quot;: &quot;b&quot;
                                             },
@@ -1643,7 +1802,7 @@
                                     {
                                         &quot;Neg&quot;: {
                                             &quot;Internal&quot;: {
-                                                &quot;id&quot;: 13,
+                                                &quot;id&quot;: 323742806487475238984698454939322157578,
                                                 &quot;annotation&quot;: &quot;c&quot;
                                             }
                                         }
@@ -1654,18 +1813,18 @@
                     ],
                     &quot;transition_constraints&quot;: [],
                     &quot;annotations&quot;: {
-                        &quot;13&quot;: &quot;c&quot;
+                        &quot;323742806487475238984698454939322157578&quot;: &quot;c&quot;
                     }
                 }
             },
             &quot;forward_signals&quot;: [
                 {
-                    &quot;id&quot;: 8,
+                    &quot;id&quot;: 323742756573732854998836525876134939146,
                     &quot;phase&quot;: 0,
                     &quot;annotation&quot;: &quot;a&quot;
                 },
                 {
-                    &quot;id&quot;: 9,
+                    &quot;id&quot;: 323742762119704230996139103698587093514,
                     &quot;phase&quot;: 0,
                     &quot;annotation&quot;: &quot;b&quot;
                 }
@@ -1674,15 +1833,16 @@
             &quot;fixed_signals&quot;: [],
             &quot;exposed&quot;: [],
             &quot;annotations&quot;: {
-                &quot;8&quot;: &quot;a&quot;,
-                &quot;9&quot;: &quot;b&quot;,
-                &quot;10&quot;: &quot;fibo_step&quot;,
-                &quot;12&quot;: &quot;fibo_last_step&quot;
+                &quot;323742756573732854998836525876134939146&quot;: &quot;a&quot;,
+                &quot;323742762119704230996139103698587093514&quot;: &quot;b&quot;,
+                &quot;323742766081112356711641560186675137034&quot;: &quot;fibo_step&quot;,
+                &quot;323742803318348738415880229152331794954&quot;: &quot;fibo_last_step&quot;
             },
-            &quot;first_step&quot;: 10,
-            &quot;last_step&quot;: null,
-            &quot;num_steps&quot;: 0,
-            &quot;id&quot;: 1
+            &quot;first_step&quot;: 323742766081112356711641560186675137034,
+            &quot;last_step&quot;: 323742803318348738415880229152331794954,
+            &quot;num_steps&quot;: 11,
+            &quot;q_enable&quot;: true,
+            &quot;id&quot;: 323740290201033785952451286075739605514
         }
         &quot;#</span>;
         <span class="kw">let </span>circuit: Circuit&lt;Fr, ()&gt; = serde_json::from_str(json).unwrap();
