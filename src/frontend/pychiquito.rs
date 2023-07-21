@@ -380,7 +380,7 @@ impl<'de> Visitor<'de> for QueriableVisitor {
             .next_key()?
             .ok_or_else(|| de::Error::custom("map is empty"))?;
         match key.as_str() {
-            "Internal" => map.next_value().map(|signal| Queriable::Internal(signal)),
+            "Internal" => map.next_value().map(Queriable::Internal),
             "Forward" => map
                 .next_value()
                 .map(|(signal, rotation)| Queriable::Forward(signal, rotation)),
@@ -392,7 +392,7 @@ impl<'de> Visitor<'de> for QueriableVisitor {
                 .map(|(signal, rotation)| Queriable::Fixed(signal, rotation)),
             "StepTypeNext" => map
                 .next_value()
-                .map(|step_type| Queriable::StepTypeNext(step_type)),
+                .map(Queriable::StepTypeNext),
             _ => Err(de::Error::unknown_variant(
                 &key,
                 &["Internal", "Forward", "Shared", "Fixed", "StepTypeNext"],
@@ -426,7 +426,7 @@ impl<'de> Visitor<'de> for ExposeOffsetVisitor {
                 let _ = map.next_value::<IgnoredAny>()?;
                 Ok(ExposeOffset::Last)
             }
-            "Step" => map.next_value().map(|offset| ExposeOffset::Step(offset)),
+            "Step" => map.next_value().map(ExposeOffset::Step),
             _ => Err(de::Error::unknown_variant(&key, &["First", "Last", "Step"])),
         }
     }
