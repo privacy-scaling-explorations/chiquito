@@ -1,8 +1,8 @@
 use crate::{
     ast::{
         expr::{query::Queriable, Expr},
-        Circuit, Constraint, FixedSignal, ForwardSignal, InternalSignal, SharedSignal, StepType,
-        StepTypeUUID, TransitionConstraint,
+        Circuit, Constraint, ExposeOffset, FixedSignal, ForwardSignal, InternalSignal,
+        SharedSignal, StepType, StepTypeUUID, TransitionConstraint,
     },
     dsl::StepTypeHandler,
     util::UUID,
@@ -10,7 +10,7 @@ use crate::{
 
 use core::result::Result;
 use halo2_proofs::halo2curves::bn256::Fr;
-use serde::de::{self, Deserialize, Deserializer, MapAccess, Visitor};
+use serde::de::{self, Deserialize, Deserializer, IgnoredAny, MapAccess, Visitor};
 use std::{collections::HashMap, fmt, rc::Rc};
 
 struct CircuitVisitor;
@@ -35,6 +35,7 @@ impl<'de> Visitor<'de> for CircuitVisitor {
         let mut first_step = None;
         let mut last_step = None;
         let mut num_steps = None;
+        let mut q_enable = None;
         let mut id = None;
 
         while let Some(key) = map.next_key::<String>()? {
@@ -67,7 +68,7 @@ impl<'de> Visitor<'de> for CircuitVisitor {
                     if exposed.is_some() {
                         return Err(de::Error::duplicate_field("exposed"));
                     }
-                    exposed = Some(map.next_value::<Vec<ForwardSignal>>()?);
+                    exposed = Some(map.next_value::<Vec<(Queriable<Fr>, ExposeOffset)>>()?);
                 }
                 "annotations" => {
                     if annotations.is_some() {
@@ -93,6 +94,12 @@ impl<'de> Visitor<'de> for CircuitVisitor {
                     }
                     num_steps = Some(map.next_value::<usize>()?);
                 }
+                "q_enable" => {
+                    if q_enable.is_some() {
+                        return Err(de::Error::duplicate_field("q_enable"));
+                    }
+                    q_enable = Some(map.next_value::<bool>()?);
+                }
                 "id" => {
                     if id.is_some() {
                         return Err(de::Error::duplicate_field("id"));
@@ -112,6 +119,7 @@ impl<'de> Visitor<'de> for CircuitVisitor {
                             "first_step",
                             "last_step",
                             "num_steps",
+                            "q_enable",
                             "id",
                         ],
                     ))
@@ -134,6 +142,7 @@ impl<'de> Visitor<'de> for CircuitVisitor {
         let first_step = first_step.ok_or_else(|| de::Error::missing_field("first_step"))?;
         let last_step = last_step.ok_or_else(|| de::Error::missing_field("last_step"))?;
         let num_steps = num_steps.ok_or_else(|| de::Error::missing_field("num_steps"))?;
+        let q_enable = q_enable.ok_or_else(|| de::Error::missing_field("q_enable"))?;
         let id = id.ok_or_else(|| de::Error::missing_field("id"))?;
 
         Ok(Circuit {
@@ -150,6 +159,7 @@ impl<'de> Visitor<'de> for CircuitVisitor {
             fixed_gen: None,
             first_step,
             last_step,
+            q_enable,
             id,
         })
     }
@@ -353,6 +363,73 @@ impl<'de> Visitor<'de> for ExprVisitor {
     }
 }
 
+struct QueriableVisitor;
+
+impl<'de> Visitor<'de> for QueriableVisitor {
+    type Value = Queriable<Fr>;
+
+    fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+        formatter.write_str("enum Queriable")
+    }
+
+    fn visit_map<A>(self, mut map: A) -> Result<Queriable<Fr>, A::Error>
+    where
+        A: MapAccess<'de>,
+    {
+        let key: String = map
+            .next_key()?
+            .ok_or_else(|| de::Error::custom("map is empty"))?;
+        match key.as_str() {
+            "Internal" => map.next_value().map(Queriable::Internal),
+            "Forward" => map
+                .next_value()
+                .map(|(signal, rotation)| Queriable::Forward(signal, rotation)),
+            "Shared" => map
+                .next_value()
+                .map(|(signal, rotation)| Queriable::Shared(signal, rotation)),
+            "Fixed" => map
+                .next_value()
+                .map(|(signal, rotation)| Queriable::Fixed(signal, rotation)),
+            "StepTypeNext" => map.next_value().map(Queriable::StepTypeNext),
+            _ => Err(de::Error::unknown_variant(
+                &key,
+                &["Internal", "Forward", "Shared", "Fixed", "StepTypeNext"],
+            )),
+        }
+    }
+}
+
+struct ExposeOffsetVisitor;
+
+impl<'de> Visitor<'de> for ExposeOffsetVisitor {
+    type Value = ExposeOffset;
+
+    fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+        formatter.write_str("enum ExposeOffset")
+    }
+
+    fn visit_map<A>(self, mut map: A) -> Result<ExposeOffset, A::Error>
+    where
+        A: MapAccess<'de>,
+    {
+        let key: String = map
+            .next_key()?
+            .ok_or_else(|| de::Error::custom("map is empty"))?;
+        match key.as_str() {
+            "First" => {
+                let _ = map.next_value::<IgnoredAny>()?;
+                Ok(ExposeOffset::First)
+            }
+            "Last" => {
+                let _ = map.next_value::<IgnoredAny>()?;
+                Ok(ExposeOffset::Last)
+            }
+            "Step" => map.next_value().map(ExposeOffset::Step),
+            _ => Err(de::Error::unknown_variant(&key, &["First", "Last", "Step"])),
+        }
+    }
+}
+
 macro_rules! impl_visitor_internal_fixed_steptypehandler {
     ($name:ident, $type:ty, $display:expr) => {
         struct $name;
@@ -481,6 +558,8 @@ macro_rules! impl_deserialize {
 }
 
 impl_deserialize!(ExprVisitor, Expr<Fr>);
+impl_deserialize!(QueriableVisitor, Queriable<Fr>);
+impl_deserialize!(ExposeOffsetVisitor, ExposeOffset);
 impl_deserialize!(InternalSignalVisitor, InternalSignal);
 impl_deserialize!(FixedSignalVisitor, FixedSignal);
 impl_deserialize!(ForwardSignalVisitor, ForwardSignal);
@@ -507,12 +586,12 @@ mod tests {
         let json = r#"
         {
             "step_types": {
-                "10": {
-                    "id": 10,
+                "323742766081112356711641560186675137034": {
+                    "id": 323742766081112356711641560186675137034,
                     "name": "fibo_step",
                     "signals": [
                         {
-                            "id": 11,
+                            "id": 323742771627083732710575285499165542922,
                             "annotation": "c"
                         }
                     ],
@@ -524,7 +603,7 @@ mod tests {
                                     {
                                         "Forward": [
                                             {
-                                                "id": 8,
+                                                "id": 323742756573732854998836525876134939146,
                                                 "phase": 0,
                                                 "annotation": "a"
                                             },
@@ -534,7 +613,7 @@ mod tests {
                                     {
                                         "Forward": [
                                             {
-                                                "id": 9,
+                                                "id": 323742762119704230996139103698587093514,
                                                 "phase": 0,
                                                 "annotation": "b"
                                             },
@@ -544,7 +623,7 @@ mod tests {
                                     {
                                         "Neg": {
                                             "Internal": {
-                                                "id": 11,
+                                                "id": 323742771627083732710575285499165542922,
                                                 "annotation": "c"
                                             }
                                         }
@@ -561,7 +640,7 @@ mod tests {
                                     {
                                         "Forward": [
                                             {
-                                                "id": 9,
+                                                "id": 323742762119704230996139103698587093514,
                                                 "phase": 0,
                                                 "annotation": "b"
                                             },
@@ -572,7 +651,7 @@ mod tests {
                                         "Neg": {
                                             "Forward": [
                                                 {
-                                                    "id": 8,
+                                                    "id": 323742756573732854998836525876134939146,
                                                     "phase": 0,
                                                     "annotation": "a"
                                                 },
@@ -589,7 +668,7 @@ mod tests {
                                 "Sum": [
                                     {
                                         "Internal": {
-                                            "id": 11,
+                                            "id": 323742771627083732710575285499165542922,
                                             "annotation": "c"
                                         }
                                     },
@@ -597,7 +676,7 @@ mod tests {
                                         "Neg": {
                                             "Forward": [
                                                 {
-                                                    "id": 9,
+                                                    "id": 323742762119704230996139103698587093514,
                                                     "phase": 0,
                                                     "annotation": "b"
                                                 },
@@ -610,15 +689,15 @@ mod tests {
                         }
                     ],
                     "annotations": {
-                        "11": "c"
+                        "323742771627083732710575285499165542922": "c"
                     }
                 },
-                "12": {
-                    "id": 12,
+                "323742803318348738415880229152331794954": {
+                    "id": 323742803318348738415880229152331794954,
                     "name": "fibo_last_step",
                     "signals": [
                         {
-                            "id": 13,
+                            "id": 323742806487475238984698454939322157578,
                             "annotation": "c"
                         }
                     ],
@@ -630,7 +709,7 @@ mod tests {
                                     {
                                         "Forward": [
                                             {
-                                                "id": 8,
+                                                "id": 323742756573732854998836525876134939146,
                                                 "phase": 0,
                                                 "annotation": "a"
                                             },
@@ -640,7 +719,7 @@ mod tests {
                                     {
                                         "Forward": [
                                             {
-                                                "id": 9,
+                                                "id": 323742762119704230996139103698587093514,
                                                 "phase": 0,
                                                 "annotation": "b"
                                             },
@@ -650,7 +729,7 @@ mod tests {
                                     {
                                         "Neg": {
                                             "Internal": {
-                                                "id": 13,
+                                                "id": 323742806487475238984698454939322157578,
                                                 "annotation": "c"
                                             }
                                         }
@@ -661,18 +740,18 @@ mod tests {
                     ],
                     "transition_constraints": [],
                     "annotations": {
-                        "13": "c"
+                        "323742806487475238984698454939322157578": "c"
                     }
                 }
             },
             "forward_signals": [
                 {
-                    "id": 8,
+                    "id": 323742756573732854998836525876134939146,
                     "phase": 0,
                     "annotation": "a"
                 },
                 {
-                    "id": 9,
+                    "id": 323742762119704230996139103698587093514,
                     "phase": 0,
                     "annotation": "b"
                 }
@@ -681,15 +760,16 @@ mod tests {
             "fixed_signals": [],
             "exposed": [],
             "annotations": {
-                "8": "a",
-                "9": "b",
-                "10": "fibo_step",
-                "12": "fibo_last_step"
+                "323742756573732854998836525876134939146": "a",
+                "323742762119704230996139103698587093514": "b",
+                "323742766081112356711641560186675137034": "fibo_step",
+                "323742803318348738415880229152331794954": "fibo_last_step"
             },
-            "first_step": 10,
-            "last_step": null,
-            "num_steps": 0,
-            "id": 1
+            "first_step": 323742766081112356711641560186675137034,
+            "last_step": 323742803318348738415880229152331794954,
+            "num_steps": 11,
+            "q_enable": true,
+            "id": 323740290201033785952451286075739605514
         }
         "#;
         let circuit: Circuit<Fr, ()> = serde_json::from_str(json).unwrap();
