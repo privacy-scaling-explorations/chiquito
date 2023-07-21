@@ -113,7 +113,7 @@ impl<F, TraceArgs> Circuit<F, TraceArgs> {
             Queriable::Forward(..) | Queriable::Shared(..) => {
                 self.exposed.push((signal, offset));
             }
-            _ => panic!("Can only expose forward and shared signals.")
+            _ => panic!("Can only expose forward and shared signals."),
         }
     }
 

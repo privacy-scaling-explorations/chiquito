@@ -54,7 +54,7 @@ impl<F, TraceArgs> CircuitContext<F, TraceArgs> {
 
     /// Exposes the first step instance value of a forward signal as public.
     pub fn expose(&mut self, queriable: Queriable<F>, offset: ExposeOffset) {
-        let _ = self.sc.expose(queriable, offset);
+        self.sc.expose(queriable, offset);
     }
 
     /// Imports a halo2 advice column with a name string into the circuit and returns a
