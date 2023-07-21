@@ -4,7 +4,6 @@ use std::{collections::HashMap, fmt::Debug, rc::Rc};
 
 use crate::{
     dsl::StepTypeHandler,
-    errors::ASTError,
     util::{uuid, UUID},
     wit_gen::{FixedGenContext, Trace, TraceContext},
 };
@@ -109,13 +108,12 @@ impl<F, TraceArgs> Circuit<F, TraceArgs> {
         signal
     }
 
-    pub fn expose(&mut self, signal: Queriable<F>, offset: ExposeOffset) -> Result<(), ASTError> {
+    pub fn expose(&mut self, signal: Queriable<F>, offset: ExposeOffset) {
         match signal {
             Queriable::Forward(..) | Queriable::Shared(..) => {
                 self.exposed.push((signal, offset));
-                Ok(())
             }
-            _ => Err(ASTError::UnexpectedQueriable),
+            _ => panic!("Can only expose forward and shared signals.")
         }
     }
 
