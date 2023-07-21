@@ -121,7 +121,6 @@ impl<'de> Visitor<'de> for CircuitVisitor {
                             "last_step",
                             "num_steps",
                             "q_enable",
-                            "q_enable",
                             "id",
                         ],
                     ))
