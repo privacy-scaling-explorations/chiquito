@@ -4,7 +4,7 @@ use halo2_proofs::arithmetic::Field;
 
 use crate::{
     ast::{query::Queriable, StepTypeUUID, StepType},
-    dsl::StepTypeWGHandler, util::UUID,
+    dsl::{StepTypeWGHandler, StepTypeHandler},
 };
 
 /// A struct that represents a witness generation context. It provides an interface for assigning
@@ -40,7 +40,8 @@ pub struct TraceWitness<F> {
     pub height: usize,
 }
 
-pub type PaddingLambda<F> = Box<dyn Fn() -> TraceArgs> + 'static;
+// returning a Vec<F> makes it so that TraceArgs don't have to be passed to TraceContext's generics
+pub type PaddingLambda<F> = dyn Fn() -> Vec<F> + 'static;
 
 #[derive(Debug, Default)]
 pub struct TraceContext<F> {
@@ -61,48 +62,34 @@ impl<F> TraceContext<F> {
         args: Args,
     ) {
         let mut witness = StepInstance::new(step.uuid());
-        self.set_padding
 
         (*step.wg)(&mut witness, args);
 
         self.witness.step_instances.push(witness);
-
-        // ctx.pad should take in a circuit context so that it can assign cells.
-        // padding lambda should be set here so that it copies the StepType of the last step
     }
 
     pub fn set_height(&mut self, height: usize) {
         self.witness.height = height;
     }
 
-    pub fn set_padding(&mut self, uuid: StepTypeUUID, lambda: PaddingLambda<F>) {
-        self.padding = Some((uuid, lambda));
-    }
-
-    // This function creates a padding lambda that has a customizable 
-    // StepType given a UUID
-    pub fn create_padding_lambda(&mut self, uuid: UUID) -> PaddingLambda<F> {
-        let padding_lambda = move || {
-            let mut step_type = StepType::new(uuid, "padding".to_owned());
-        };
-
-        Box::new(padding_lambda)
+    // This is an external function users can use to create their own padding constraint vs. the default
+    pub fn set_padding<Args, WG: Fn(&mut StepInstance<F>, Args) + 'static>(&mut self, step_handler: &StepTypeHandler, lambda: PaddingLambda<F>) {
+        self.padding = Some((step_handler.uuid(), lambda));
     }
 
     // this function pads the rest of the circuit with the 
     // StepInstance of the StepType in TraceContext::padding
-    pub fn pad<Args, WG: Fn(&mut StepInstance<F>, Args) + 'static>(&mut self, step: &mut StepInstance<F>) {
+    fn pad(&mut self) {
         // here we set the padding
         while self.witness.step_instances.len() < self.witness.height {
             if let Some((padding_uuid, padding_lambda)) = &self.padding {
                 let mut padded_witness = StepInstance::new(*padding_uuid);
 
+                // How should these TraceArgs be used? How do we add them to this scope without changing the type parameters for TraceContext?
                 let trace_args = padding_lambda();
-                (*step.wg)(&mut padded_witness, trace_args);
 
                 self.witness.step_instances.push(padded_witness);
             } else {
-                // Add proper error handling here
                 panic!("Missing padding step!");
             }
         }
@@ -132,8 +119,9 @@ impl<F: Default, TraceArgs> TraceGenerator<F, TraceArgs> {
         let mut ctx = TraceContext::default();
 
         (self.trace)(&mut ctx, args);
+
         // pad the circuit before getting the witness
-        ctx.pad(step)
+        ctx.pad();
 
         ctx.get_witness()
     }
