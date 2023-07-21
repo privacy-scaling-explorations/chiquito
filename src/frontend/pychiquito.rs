@@ -390,9 +390,7 @@ impl<'de> Visitor<'de> for QueriableVisitor {
             "Fixed" => map
                 .next_value()
                 .map(|(signal, rotation)| Queriable::Fixed(signal, rotation)),
-            "StepTypeNext" => map
-                .next_value()
-                .map(Queriable::StepTypeNext),
+            "StepTypeNext" => map.next_value().map(Queriable::StepTypeNext),
             _ => Err(de::Error::unknown_variant(
                 &key,
                 &["Internal", "Forward", "Shared", "Fixed", "StepTypeNext"],

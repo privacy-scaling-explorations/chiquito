@@ -383,6 +383,6 @@ mod tests {
 
         context.pragma_disable_q_enable();
 
-        assert_eq!(context.sc.q_enable, false);
+        assert!(!context.sc.q_enable);
     }
 }

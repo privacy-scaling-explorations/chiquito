@@ -515,6 +515,6 @@ mod tests {
     #[test]
     fn test_q_enable() {
         let circuit: Circuit<i32, i32> = Circuit::default();
-        assert_eq!(circuit.q_enable, true);
+        assert!(circuit.q_enable);
     }
 }
