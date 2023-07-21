@@ -4,9 +4,9 @@ use std::{collections::HashMap, fmt::Debug, rc::Rc};
 
 use crate::{
     dsl::StepTypeHandler,
+    errors::ASTError,
     util::{uuid, UUID},
     wit_gen::{FixedGenContext, Trace, TraceContext},
-    errors::ASTError,
 };
 
 pub use expr::*;
@@ -35,7 +35,7 @@ pub struct Circuit<F, TraceArgs> {
     pub first_step: Option<StepTypeUUID>,
     pub last_step: Option<StepTypeUUID>,
     pub num_steps: usize,
-    pub q_enable: bool, 
+    pub q_enable: bool,
 
     pub id: UUID,
 }
@@ -114,7 +114,7 @@ impl<F, TraceArgs> Circuit<F, TraceArgs> {
             Queriable::Forward(..) | Queriable::Shared(..) => {
                 self.exposed.push((signal, offset));
                 Ok(())
-            },
+            }
             _ => Err(ASTError::UnexpectedQueriable),
         }
     }

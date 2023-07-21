@@ -212,7 +212,6 @@ impl<CM: CellManager, SSB: StepSelectorBuilder> Compiler<CM, SSB> {
 
             self.add_q_enable(&mut unit, q_enable);
         }
-            
 
         if let Some(step_type) = ast.first_step {
             let q_first = Column {
@@ -335,11 +334,14 @@ impl<CM: CellManager, SSB: StepSelectorBuilder> Compiler<CM, SSB> {
                     match offset {
                         ExposeOffset::First => (placement.column, placement.rotation),
                         ExposeOffset::Last => {
-                            let rot = placement.rotation + ((unit.num_steps - 1) as i32) * (unit.placement.first_step_height() as i32);
+                            let rot = placement.rotation
+                                + ((unit.num_steps - 1) as i32)
+                                    * (unit.placement.first_step_height() as i32);
                             (placement.column, rot)
-                        },
+                        }
                         ExposeOffset::Step(step) => {
-                            let rot = placement.rotation + (*step as i32) * (unit.placement.first_step_height() as i32);
+                            let rot = placement.rotation
+                                + (*step as i32) * (unit.placement.first_step_height() as i32);
                             (placement.column, rot)
                         }
                     }
@@ -349,11 +351,14 @@ impl<CM: CellManager, SSB: StepSelectorBuilder> Compiler<CM, SSB> {
                     match offset {
                         ExposeOffset::First => (placement.column, placement.rotation),
                         ExposeOffset::Last => {
-                            let rot = placement.rotation + ((unit.num_steps - 1) as i32) * (unit.placement.first_step_height() as i32);
+                            let rot = placement.rotation
+                                + ((unit.num_steps - 1) as i32)
+                                    * (unit.placement.first_step_height() as i32);
                             (placement.column, rot)
-                        },
+                        }
                         ExposeOffset::Step(step) => {
-                            let rot = placement.rotation + (*step as i32) * (unit.placement.first_step_height() as i32);
+                            let rot = placement.rotation
+                                + (*step as i32) * (unit.placement.first_step_height() as i32);
                             (placement.column, rot)
                         }
                     }
