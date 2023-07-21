@@ -1,5 +1,5 @@
 use crate::{
-    ast::{query::Queriable, Circuit, StepType, StepTypeUUID},
+    ast::{query::Queriable, Circuit, ExposeOffset, StepType, StepTypeUUID},
     util::{uuid, UUID},
     wit_gen::{FixedGenContext, StepInstance, TraceContext},
 };
@@ -53,13 +53,8 @@ impl<F, TraceArgs> CircuitContext<F, TraceArgs> {
     }
 
     /// Exposes the first step instance value of a forward signal as public.
-    pub fn expose(&mut self, forward: Queriable<F>) {
-        match forward {
-            Queriable::Forward(forward_signal, _) => {
-                self.sc.expose(forward_signal);
-            }
-            _ => panic!("Expected forward signal"),
-        }
+    pub fn expose(&mut self, queriable: Queriable<F>, offset: ExposeOffset) {
+        self.sc.expose(queriable, offset);
     }
 
     /// Imports a halo2 advice column with a name string into the circuit and returns a
@@ -388,6 +383,6 @@ mod tests {
 
         context.pragma_disable_q_enable();
 
-        assert_eq!(context.sc.q_enable, false);
+        assert!(!context.sc.q_enable);
     }
 }
