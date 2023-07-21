@@ -4,7 +4,7 @@ use halo2_proofs::arithmetic::Field;
 
 use crate::{
     ast::{query::Queriable, StepTypeUUID, StepType},
-    dsl::StepTypeWGHandler,
+    dsl::StepTypeWGHandler, util::UUID,
 };
 
 /// A struct that represents a witness generation context. It provides an interface for assigning
@@ -40,8 +40,7 @@ pub struct TraceWitness<F> {
     pub height: usize,
 }
 
-// what TraceArgs can we pass that won't affect the rest of the circuit?
-pub type PaddingLambda<F> = Box<dyn Fn() -> TraceArgs>;
+pub type PaddingLambda<F> = Box<dyn Fn() -> TraceArgs> + 'static;
 
 #[derive(Debug, Default)]
 pub struct TraceContext<F> {
@@ -62,12 +61,38 @@ impl<F> TraceContext<F> {
         args: Args,
     ) {
         let mut witness = StepInstance::new(step.uuid());
+        self.set_padding
 
         (*step.wg)(&mut witness, args);
 
         self.witness.step_instances.push(witness);
 
-        // here we pad the rest of the circuit
+        // ctx.pad should take in a circuit context so that it can assign cells.
+        // padding lambda should be set here so that it copies the StepType of the last step
+    }
+
+    pub fn set_height(&mut self, height: usize) {
+        self.witness.height = height;
+    }
+
+    pub fn set_padding(&mut self, uuid: StepTypeUUID, lambda: PaddingLambda<F>) {
+        self.padding = Some((uuid, lambda));
+    }
+
+    // This function creates a padding lambda that has a customizable 
+    // StepType given a UUID
+    pub fn create_padding_lambda(&mut self, uuid: UUID) -> PaddingLambda<F> {
+        let padding_lambda = move || {
+            let mut step_type = StepType::new(uuid, "padding".to_owned());
+        };
+
+        Box::new(padding_lambda)
+    }
+
+    // this function pads the rest of the circuit with the 
+    // StepInstance of the StepType in TraceContext::padding
+    pub fn pad<Args, WG: Fn(&mut StepInstance<F>, Args) + 'static>(&mut self, step: &mut StepInstance<F>) {
+        // here we set the padding
         while self.witness.step_instances.len() < self.witness.height {
             if let Some((padding_uuid, padding_lambda)) = &self.padding {
                 let mut padded_witness = StepInstance::new(*padding_uuid);
@@ -77,17 +102,10 @@ impl<F> TraceContext<F> {
 
                 self.witness.step_instances.push(padded_witness);
             } else {
+                // Add proper error handling here
                 panic!("Missing padding step!");
             }
         }
-    }
-
-    pub fn set_height(&mut self, height: usize) {
-        self.witness.height = height;
-    }
-
-    pub fn set_padding(&mut self, uuid: StepTypeUUID, lambda: PaddingLambda<F>) {
-        self.padding = Some((uuid, lambda));
     }
 }
 
@@ -115,6 +133,7 @@ impl<F: Default, TraceArgs> TraceGenerator<F, TraceArgs> {
 
         (self.trace)(&mut ctx, args);
         // pad the circuit before getting the witness
+        ctx.pad(step)
 
         ctx.get_witness()
     }
