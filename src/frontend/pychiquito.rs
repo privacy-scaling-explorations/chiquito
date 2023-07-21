@@ -70,6 +70,7 @@ impl<'de> Visitor<'de> for CircuitVisitor {
                         return Err(de::Error::duplicate_field("exposed"));
                     }
                     exposed = Some(map.next_value::<Vec<(Queriable<Fr>, ExposeOffset)>>()?);
+                    exposed = Some(map.next_value::<Vec<(Queriable<Fr>, ExposeOffset)>>()?);
                 }
                 "annotations" => {
                     if annotations.is_some() {
@@ -101,6 +102,12 @@ impl<'de> Visitor<'de> for CircuitVisitor {
                     }
                     q_enable = Some(map.next_value::<bool>()?);
                 }
+                "q_enable" => {
+                    if q_enable.is_some() {
+                        return Err(de::Error::duplicate_field("q_enable"));
+                    }
+                    q_enable = Some(map.next_value::<bool>()?);
+                }
                 "id" => {
                     if id.is_some() {
                         return Err(de::Error::duplicate_field("id"));
@@ -120,6 +127,7 @@ impl<'de> Visitor<'de> for CircuitVisitor {
                             "first_step",
                             "last_step",
                             "num_steps",
+                            "q_enable",
                             "q_enable",
                             "id",
                         ],
@@ -381,7 +389,7 @@ impl<'de> Visitor<'de> for QueriableVisitor {
             .next_key()?
             .ok_or_else(|| de::Error::custom("map is empty"))?;
         match key.as_str() {
-            "Internal" => map.next_value().map(|signal| Queriable::Internal(signal)),
+            "Internal" => map.next_value().map(Queriable::Internal),
             "Forward" => map
                 .next_value()
                 .map(|(signal, rotation)| Queriable::Forward(signal, rotation)),
@@ -391,9 +399,7 @@ impl<'de> Visitor<'de> for QueriableVisitor {
             "Fixed" => map
                 .next_value()
                 .map(|(signal, rotation)| Queriable::Fixed(signal, rotation)),
-            "StepTypeNext" => map
-                .next_value()
-                .map(|step_type| Queriable::StepTypeNext(step_type)),
+            "StepTypeNext" => map.next_value().map(Queriable::StepTypeNext),
             _ => Err(de::Error::unknown_variant(
                 &key,
                 &["Internal", "Forward", "Shared", "Fixed", "StepTypeNext"],
@@ -427,7 +433,7 @@ impl<'de> Visitor<'de> for ExposeOffsetVisitor {
                 let _ = map.next_value::<IgnoredAny>()?;
                 Ok(ExposeOffset::Last)
             }
-            "Step" => map.next_value().map(|offset| ExposeOffset::Step(offset)),
+            "Step" => map.next_value().map(ExposeOffset::Step),
             _ => Err(de::Error::unknown_variant(&key, &["First", "Last", "Step"])),
         }
     }

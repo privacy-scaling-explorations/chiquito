@@ -113,10 +113,7 @@ impl<F, TraceArgs> Circuit<F, TraceArgs> {
             Queriable::Forward(..) | Queriable::Shared(..) => {
                 self.exposed.push((signal, offset));
             }
-            _ => {
-                // TODO: Add a proper error here
-                panic!("cannot expose fixed or internal signals")
-            }
+            _ => panic!("Can only expose forward and shared signals."),
         }
     }
 
@@ -516,6 +513,6 @@ mod tests {
     #[test]
     fn test_q_enable() {
         let circuit: Circuit<i32, i32> = Circuit::default();
-        assert_eq!(circuit.q_enable, true);
+        assert!(circuit.q_enable);
     }
 }
