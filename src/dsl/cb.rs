@@ -5,7 +5,7 @@ use halo2_proofs::arithmetic::Field;
 use crate::ast::{query::Queriable, Expr, ToExpr};
 
 use super::{
-    lb::{InPlaceLookupBuilder, LookupTable},
+    lb::{InPlaceLookupBuilder, LookupTableStore},
     StepTypeHandler,
 };
 
@@ -391,8 +391,8 @@ pub fn lookup<F: Debug + Clone>() -> InPlaceLookupBuilder<F> {
     InPlaceLookupBuilder::default()
 }
 
-pub fn table<F: Default>() -> LookupTable<F> {
-    LookupTable::default()
+pub fn table<F: Default>() -> LookupTableStore<F> {
+    LookupTableStore::default()
 }
 
 #[cfg(test)]

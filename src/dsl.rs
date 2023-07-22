@@ -11,7 +11,7 @@ use std::marker::PhantomData;
 
 use self::{
     cb::{Constraint, Typing},
-    lb::{LookupBuilder, LookupTable, LookupTableRegistry},
+    lb::{LookupBuilder, LookupTableRegistry, LookupTableStore},
 };
 
 pub use sc::*;
@@ -144,7 +144,7 @@ impl<F, TraceArgs> CircuitContext<F, TraceArgs> {
         self.circuit.set_fixed_gen(def);
     }
 
-    pub fn new_table(&self, table: LookupTable<F>) -> LookupTableHanlder {
+    pub fn new_table(&self, table: LookupTableStore<F>) -> LookupTableHanlder {
         let uuid = table.uuid();
         self.tables.add(table);
 
@@ -379,66 +379,6 @@ where
     def(&mut context);
 
     context.circuit
-}
-
-#[derive(Debug, Clone, Copy)]
-pub struct LookupTableHanlder {
-    uuid: UUID,
-}
-
-impl LookupTableHanlder {
-    pub fn apply<F, C: Into<Constraint<F>>>(&self, constraint: C) -> LookupTableBuilder<F> {
-        LookupTableBuilder::new(self.uuid).apply(constraint)
-    }
-
-    /// Adds a selector column specific to the lookup table. Because the function returns a mutable
-    /// reference to the `LookupBuilder<F>`, it can an chain multiple `add` and `enable` function
-    /// calls to build the lookup table. Requires calling `lookup` to create an
-    /// empty `LookupBuilder` instance at the very front.
-    pub fn when<F, C: Into<Constraint<F>>>(&self, enable: C) -> LookupTableBuilder<F> {
-        LookupTableBuilder::new(self.uuid).when(enable)
-    }
-}
-
-pub struct LookupTableBuilder<F> {
-    id: UUID,
-    src: Vec<Constraint<F>>,
-    enable: Option<Constraint<F>>,
-}
-
-impl<F> LookupTableBuilder<F> {
-    fn new(id: UUID) -> Self {
-        Self {
-            id,
-            src: Default::default(),
-            enable: Default::default(),
-        }
-    }
-
-    #[allow(clippy::should_implement_trait)]
-    pub fn apply<C: Into<Constraint<F>>>(mut self, constraint: C) -> Self {
-        self.src.push(constraint.into());
-
-        self
-    }
-
-    /// Adds a selector column specific to the lookup table. Because the function returns a mutable
-    /// reference to the `LookupBuilder<F>`, it can an chain multiple `add` and `enable` function
-    /// calls to build the lookup table. Requires calling `lookup` to create an
-    /// empty `LookupBuilder` instance at the very front.
-    pub fn when<C: Into<Constraint<F>>>(mut self, enable: C) -> Self {
-        self.enable = Some(enable.into());
-
-        self
-    }
-}
-
-impl<F: Clone + Debug> LookupBuilder<F> for LookupTableBuilder<F> {
-    fn build(self, ctx: &StepTypeSetupContext<F>) -> Lookup<F> {
-        let table = ctx.tables.get(self.id);
-
-        table.build(self.src, self.enable)
-    }
 }
 
 pub mod cb;

@@ -62,12 +62,12 @@ impl<F: Debug + Clone> InPlaceLookupBuilder<F> {
 }
 
 #[derive(Debug, Clone)]
-pub struct LookupTable<F> {
+pub struct LookupTableStore<F> {
     id: UUID,
     dest: Vec<Expr<F>>,
 }
 
-impl<F> Default for LookupTable<F> {
+impl<F> Default for LookupTableStore<F> {
     fn default() -> Self {
         Self {
             id: uuid(),
@@ -76,7 +76,7 @@ impl<F> Default for LookupTable<F> {
     }
 }
 
-impl<F> LookupTable<F> {
+impl<F> LookupTableStore<F> {
     #[allow(clippy::should_implement_trait)]
     pub fn add<E: Into<Expr<F>>>(mut self, expr: E) -> Self {
         self.dest.push(expr.into());
@@ -89,7 +89,7 @@ impl<F> LookupTable<F> {
     }
 }
 
-impl<F: Debug + Clone> LookupTable<F> {
+impl<F: Debug + Clone> LookupTableStore<F> {
     pub fn build(self, src: Vec<Constraint<F>>, enable: Option<Constraint<F>>) -> Lookup<F> {
         assert_eq!(
             self.dest.len(),
@@ -112,7 +112,7 @@ impl<F: Debug + Clone> LookupTable<F> {
 }
 
 #[derive(Debug)]
-pub struct LookupTableRegistry<F>(Arc<Mutex<HashMap<UUID, LookupTable<F>>>>);
+pub struct LookupTableRegistry<F>(Arc<Mutex<HashMap<UUID, LookupTableStore<F>>>>);
 
 impl<F> Clone for LookupTableRegistry<F> {
     fn clone(&self) -> Self {
@@ -127,13 +127,73 @@ impl<F> Default for LookupTableRegistry<F> {
 }
 
 impl<F> LookupTableRegistry<F> {
-    pub fn add(&self, table: LookupTable<F>) {
+    pub fn add(&self, table: LookupTableStore<F>) {
         self.0.lock().as_mut().unwrap().insert(table.uuid(), table);
     }
 }
 
 impl<F: Clone> LookupTableRegistry<F> {
-    pub fn get(&self, uuid: UUID) -> LookupTable<F> {
+    pub fn get(&self, uuid: UUID) -> LookupTableStore<F> {
         (*self.0.lock().unwrap().get(&uuid).unwrap()).clone()
+    }
+}
+
+#[derive(Debug, Clone, Copy)]
+pub struct LookupTable {
+    uuid: UUID,
+}
+
+impl LookupTable {
+    pub fn apply<F, C: Into<Constraint<F>>>(&self, constraint: C) -> LookupTableBuilder<F> {
+        LookupTableBuilder::new(self.uuid).apply(constraint)
+    }
+
+    /// Adds a selector column specific to the lookup table. Because the function returns a mutable
+    /// reference to the `LookupBuilder<F>`, it can an chain multiple `add` and `enable` function
+    /// calls to build the lookup table. Requires calling `lookup` to create an
+    /// empty `LookupBuilder` instance at the very front.
+    pub fn when<F, C: Into<Constraint<F>>>(&self, enable: C) -> LookupTableBuilder<F> {
+        LookupTableBuilder::new(self.uuid).when(enable)
+    }
+}
+
+pub struct LookupTableBuilder<F> {
+    id: UUID,
+    src: Vec<Constraint<F>>,
+    enable: Option<Constraint<F>>,
+}
+
+impl<F> LookupTableBuilder<F> {
+    fn new(id: UUID) -> Self {
+        Self {
+            id,
+            src: Default::default(),
+            enable: Default::default(),
+        }
+    }
+
+    #[allow(clippy::should_implement_trait)]
+    pub fn apply<C: Into<Constraint<F>>>(mut self, constraint: C) -> Self {
+        self.src.push(constraint.into());
+
+        self
+    }
+
+    /// Adds a selector column specific to the lookup table. Because the function returns a mutable
+    /// reference to the `LookupBuilder<F>`, it can an chain multiple `add` and `enable` function
+    /// calls to build the lookup table. Requires calling `lookup` to create an
+    /// empty `LookupBuilder` instance at the very front.
+    pub fn when<C: Into<Constraint<F>>>(mut self, enable: C) -> Self {
+        self.enable = Some(enable.into());
+
+        self
+    }
+}
+
+impl<F: Clone + Debug> LookupBuilder<F> for LookupTableBuilder<F> {
+    fn build(self, ctx: &StepTypeSetupContext<F>) -> Lookup<F> {
+        let table = ctx.tables.get(self.id);
+
+        table.build(self.src, self.enable)
     }
 }
