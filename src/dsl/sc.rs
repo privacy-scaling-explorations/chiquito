@@ -56,7 +56,7 @@ impl<F: Field + Hash, MappingArgs> SuperCircuitContext<F, MappingArgs> {
         let compiler = Compiler::from(config);
 
         let (unit, assignment) = compiler.compile_phase1(&sub_circuit);
-        let assignment = assignment.unwrap_or(AssigmentGenerator::empty(unit.uuid));
+        let assignment = assignment.unwrap_or_else(|| AssigmentGenerator::empty(unit.uuid));
 
         self.sub_circuit_phase1.push(unit);
 

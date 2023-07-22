@@ -1,5 +1,5 @@
 use crate::{
-    ast::{query::Queriable, Circuit, ExposeOffset, Lookup, StepType, StepTypeUUID},
+    ast::{query::Queriable, Circuit, ExposeOffset, StepType, StepTypeUUID},
     util::{uuid, UUID},
     wit_gen::{FixedGenContext, StepInstance, TraceContext},
 };
@@ -11,7 +11,7 @@ use std::marker::PhantomData;
 
 use self::{
     cb::{Constraint, Typing},
-    lb::{LookupBuilder, LookupTableRegistry, LookupTableStore},
+    lb::{LookupBuilder, LookupTable, LookupTableRegistry, LookupTableStore},
 };
 
 pub use sc::*;
@@ -144,11 +144,11 @@ impl<F, TraceArgs> CircuitContext<F, TraceArgs> {
         self.circuit.set_fixed_gen(def);
     }
 
-    pub fn new_table(&self, table: LookupTableStore<F>) -> LookupTableHanlder {
+    pub fn new_table(&self, table: LookupTableStore<F>) -> LookupTable {
         let uuid = table.uuid();
         self.tables.add(table);
 
-        LookupTableHanlder { uuid }
+        LookupTable { uuid }
     }
 
     /// Enforce the type of the first step by adding a constraint to the circuit. Takes a

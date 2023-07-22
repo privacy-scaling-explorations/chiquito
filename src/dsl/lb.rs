@@ -140,7 +140,7 @@ impl<F: Clone> LookupTableRegistry<F> {
 
 #[derive(Debug, Clone, Copy)]
 pub struct LookupTable {
-    uuid: UUID,
+    pub(crate) uuid: UUID,
 }
 
 impl LookupTable {

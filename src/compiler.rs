@@ -256,16 +256,16 @@ impl<F, TraceArgs> From<&astCircuit<F, TraceArgs>> for CompilationUnit<F> {
     }
 }
 
-impl<F> Into<Circuit<F>> for CompilationUnit<F> {
-    fn into(self) -> Circuit<F> {
+impl<F> From<CompilationUnit<F>> for Circuit<F> {
+    fn from(unit: CompilationUnit<F>) -> Self {
         Circuit::<F> {
-            columns: self.columns,
-            exposed: self.exposed,
-            polys: self.polys,
-            lookups: self.lookups,
-            fixed_assignments: self.fixed_assignments,
-            id: self.uuid,
-            ast_id: self.ast_id,
+            columns: unit.columns,
+            exposed: unit.exposed,
+            polys: unit.polys,
+            lookups: unit.lookups,
+            fixed_assignments: unit.fixed_assignments,
+            id: unit.uuid,
+            ast_id: unit.ast_id,
         }
     }
 }
@@ -795,15 +795,17 @@ impl<CM: CellManager, SSB: StepSelectorBuilder> Compiler<CM, SSB> {
     }
 
     fn add_default_columns<F>(&self, unit: &mut CompilationUnit<F>) {
-        unit.q_enable
-            .clone()
-            .map(|q_enable: Column| unit.columns.push(q_enable));
-        unit.first_step
-            .clone()
-            .map(|(_, q_first)| unit.columns.push(q_first));
-        unit.last_step
-            .clone()
-            .map(|(_, q_last)| unit.columns.push(q_last));
+        if let Some(q_enable) = &unit.q_enable {
+            unit.columns.push(q_enable.clone())
+        }
+
+        if let Some((_, q_first)) = &unit.first_step {
+            unit.columns.push(q_first.clone());
+        }
+
+        if let Some((_, q_last)) = &unit.last_step {
+            unit.columns.push(q_last.clone());
+        }
     }
 
     fn add_halo2_columns<F, TraceArgs>(

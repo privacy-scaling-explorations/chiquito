@@ -11,7 +11,7 @@ use chiquito::{
     compiler::{
         cell_manager::SingleRowCellManager, config, step_selector::SimpleStepSelectorBuilder,
     },
-    dsl::{super_circuit, CircuitContext, LookupTableHanlder},
+    dsl::{lb::LookupTable, super_circuit, CircuitContext},
     ir::sc::SuperCircuit,
 };
 
@@ -23,7 +23,7 @@ pub const ROUNDS: usize = 91;
 fn mimc7_constants<F: PrimeField + Eq + Hash>(
     ctx: &mut CircuitContext<F, ()>,
     _: (),
-) -> LookupTableHanlder {
+) -> LookupTable {
     use chiquito::dsl::cb::*;
 
     ctx.pragma_num_steps(ROUNDS);
@@ -48,7 +48,7 @@ fn mimc7_constants<F: PrimeField + Eq + Hash>(
 
 fn mimc7_circuit<F: PrimeField + Eq + Hash>(
     ctx: &mut CircuitContext<F, (F, F)>,
-    constants: LookupTableHanlder,
+    constants: LookupTable,
 ) {
     use chiquito::dsl::cb::*;
 

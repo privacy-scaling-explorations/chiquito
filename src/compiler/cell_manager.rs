@@ -47,15 +47,15 @@ pub struct Placement {
 
 impl Placement {
     pub fn get_forward_placement(&self, forward: &ForwardSignal) -> Option<SignalPlacement> {
-        self.forward.get(forward).map(|s| s.clone())
+        self.forward.get(forward).cloned()
     }
 
     pub fn get_shared_placement(&self, shared: &SharedSignal) -> Option<SignalPlacement> {
-        self.shared.get(shared).map(|s| s.clone())
+        self.shared.get(shared).cloned()
     }
 
     pub fn get_fixed_placement(&self, fixed: &FixedSignal) -> Option<SignalPlacement> {
-        self.fixed.get(fixed).map(|s| s.clone())
+        self.fixed.get(fixed).cloned()
     }
 
     pub fn find_internal_signal_placement(
