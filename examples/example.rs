@@ -8,7 +8,7 @@ use chiquito::{
 use halo2_proofs::halo2curves::bn256::Fr;
 
 fn main() {
-    let sc = circuit::<Fr, Vec<i32>, i32, _>("a circuit", |ctx| {
+    let sc = circuit::<Fr, Vec<i32>, _>("a circuit", |ctx| {
         let a = ctx.forward("a");
         let b = ctx.forward("b");
         let c = ctx.forward("c");

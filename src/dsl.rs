@@ -1,5 +1,5 @@
 use crate::{
-    ast::{query::Queriable, Circuit, ExposeOffset, StepType, StepTypeUUID},
+    ast::{query::Queriable, Circuit, ExposeOffset, Lookup, StepType, StepTypeUUID},
     util::{uuid, UUID},
     wit_gen::{FixedGenContext, StepInstance, TraceContext},
 };
@@ -9,10 +9,14 @@ use halo2_proofs::plonk::{Advice, Column as Halo2Column, Fixed};
 use core::fmt::Debug;
 use std::marker::PhantomData;
 
-use self::cb::{Constraint, LookupBuilder, Typing};
+use self::{
+    cb::{Constraint, Typing},
+    lb::{LookupBuilder, LookupTable, LookupTableRegistry},
+};
 
 pub use sc::*;
 
+#[derive(Debug)]
 /// A generic structure designed to handle the context of a circuit for generic types `F`,
 /// `TraceArgs` and `StepArgs`. The struct contains a `Circuit` instance and implements
 /// methods to build the circuit, add various components, and manipulate the circuit. `F` is a
@@ -20,53 +24,54 @@ pub use sc::*;
 /// representing the arguments passed to the trace function. `StepArgs` is a generic type
 /// representing the arguments passed to the `step_type_def` function.
 pub struct CircuitContext<F, TraceArgs> {
-    sc: Circuit<F, TraceArgs>,
+    circuit: Circuit<F, TraceArgs>,
+    tables: LookupTableRegistry<F>,
 }
 
 impl<F, TraceArgs> CircuitContext<F, TraceArgs> {
     /// Adds a forward signal to the circuit with a name string and zero rotation and returns a
     /// `Queriable` instance representing the added forward signal.
     pub fn forward(&mut self, name: &str) -> Queriable<F> {
-        Queriable::Forward(self.sc.add_forward(name, 0), false)
+        Queriable::Forward(self.circuit.add_forward(name, 0), false)
     }
 
     /// Adds a forward signal to the circuit with a name string and a specified phase and returns a
     /// `Queriable` instance representing the added forward signal.
     pub fn forward_with_phase(&mut self, name: &str, phase: usize) -> Queriable<F> {
-        Queriable::Forward(self.sc.add_forward(name, phase), false)
+        Queriable::Forward(self.circuit.add_forward(name, phase), false)
     }
 
     /// Adds a shared signal to the circuit with a name string and zero rotation and returns a
     /// `Queriable` instance representing the added shared signal.
     pub fn shared(&mut self, name: &str) -> Queriable<F> {
-        Queriable::Shared(self.sc.add_shared(name, 0), 0)
+        Queriable::Shared(self.circuit.add_shared(name, 0), 0)
     }
 
     /// Adds a shared signal to the circuit with a name string and a specified phase and returns a
     /// `Queriable` instance representing the added shared signal.
     pub fn shared_with_phase(&mut self, name: &str, phase: usize) -> Queriable<F> {
-        Queriable::Shared(self.sc.add_shared(name, phase), 0)
+        Queriable::Shared(self.circuit.add_shared(name, phase), 0)
     }
 
     pub fn fixed(&mut self, name: &str) -> Queriable<F> {
-        Queriable::Fixed(self.sc.add_fixed(name), 0)
+        Queriable::Fixed(self.circuit.add_fixed(name), 0)
     }
 
     /// Exposes the first step instance value of a forward signal as public.
     pub fn expose(&mut self, queriable: Queriable<F>, offset: ExposeOffset) {
-        self.sc.expose(queriable, offset);
+        self.circuit.expose(queriable, offset);
     }
 
     /// Imports a halo2 advice column with a name string into the circuit and returns a
     /// `Queriable` instance representing the imported column.
     pub fn import_halo2_advice(&mut self, name: &str, column: Halo2Column<Advice>) -> Queriable<F> {
-        Queriable::Halo2AdviceQuery(self.sc.add_halo2_advice(name, column), 0)
+        Queriable::Halo2AdviceQuery(self.circuit.add_halo2_advice(name, column), 0)
     }
 
     /// Imports a halo2 fixed column with a name string into the circuit and returns a
     /// `Queriable` instance representing the imported column.
     pub fn import_halo2_fixed(&mut self, name: &str, column: Halo2Column<Fixed>) -> Queriable<F> {
-        Queriable::Halo2FixedQuery(self.sc.add_halo2_fixed(name, column), 0)
+        Queriable::Halo2FixedQuery(self.circuit.add_halo2_fixed(name, column), 0)
     }
 
     /// Adds a new step type with the specified name to the circuit and returns a
@@ -75,7 +80,7 @@ impl<F, TraceArgs> CircuitContext<F, TraceArgs> {
     pub fn step_type(&mut self, name: &str) -> StepTypeHandler {
         let handler = StepTypeHandler::new(name.to_string());
 
-        self.sc.add_step_type(handler, name);
+        self.circuit.add_step_type(handler, name);
 
         handler
     }
@@ -97,17 +102,21 @@ impl<F, TraceArgs> CircuitContext<F, TraceArgs> {
             StepTypeDefInput::String(name) => {
                 let handler = StepTypeHandler::new(name.to_string());
 
-                self.sc.add_step_type(handler, name);
+                self.circuit.add_step_type(handler, name);
 
                 handler
             }
         };
 
-        let mut context = StepTypeContext::<F>::new(handler.uuid(), handler.annotation.to_string());
+        let mut context = StepTypeContext::<F>::new(
+            handler.uuid(),
+            handler.annotation.to_string(),
+            self.tables.clone(),
+        );
 
         let result = def(&mut context);
 
-        self.sc.add_step_type_def(context.step_type);
+        self.circuit.add_step_type_def(context.step_type);
 
         result
     }
@@ -121,7 +130,7 @@ impl<F, TraceArgs> CircuitContext<F, TraceArgs> {
     where
         D: Fn(&mut TraceContext<F>, TraceArgs) + 'static,
     {
-        self.sc.set_trace(def);
+        self.circuit.set_trace(def);
     }
 
     /// Sets the fixed generation function for the circuit. The fixed generation function is
@@ -132,27 +141,34 @@ impl<F, TraceArgs> CircuitContext<F, TraceArgs> {
     where
         D: Fn(&mut FixedGenContext<F>) + 'static,
     {
-        self.sc.set_fixed_gen(def);
+        self.circuit.set_fixed_gen(def);
+    }
+
+    pub fn new_table(&self, table: LookupTable<F>) -> LookupTableHanlder {
+        let uuid = table.uuid();
+        self.tables.add(table);
+
+        LookupTableHanlder { uuid }
     }
 
     /// Enforce the type of the first step by adding a constraint to the circuit. Takes a
     /// `StepTypeHandler` parameter that represents the step type.
     pub fn pragma_first_step<STH: Into<StepTypeHandler>>(&mut self, step_type: STH) {
-        self.sc.first_step = Some(step_type.into().uuid());
+        self.circuit.first_step = Some(step_type.into().uuid());
     }
 
     /// Enforce the type of the last step by adding a constraint to the circuit. Takes a
     /// `StepTypeHandler` parameter that represents the step type.
     pub fn pragma_last_step<STH: Into<StepTypeHandler>>(&mut self, step_type: STH) {
-        self.sc.last_step = Some(step_type.into().uuid());
+        self.circuit.last_step = Some(step_type.into().uuid());
     }
 
     pub fn pragma_num_steps(&mut self, num_steps: usize) {
-        self.sc.num_steps = num_steps;
+        self.circuit.num_steps = num_steps;
     }
 
     pub fn pragma_disable_q_enable(&mut self) {
-        self.sc.q_enable = false;
+        self.circuit.q_enable = false;
     }
 }
 
@@ -179,12 +195,14 @@ impl From<&'static str> for StepTypeDefInput {
 /// `Args` is the type of the step instance witness generation arguments.
 pub struct StepTypeContext<F> {
     step_type: StepType<F>,
+    tables: LookupTableRegistry<F>,
 }
 
 impl<F> StepTypeContext<F> {
-    pub fn new(uuid: UUID, name: String) -> Self {
+    pub fn new(uuid: UUID, name: String, tables: LookupTableRegistry<F>) -> Self {
         Self {
             step_type: StepType::new(uuid, name),
+            tables,
         }
     }
 
@@ -221,6 +239,7 @@ impl<F> StepTypeContext<F> {
     {
         let mut ctx = StepTypeSetupContext {
             step_type: &mut self.step_type,
+            tables: self.tables.clone(),
         };
 
         def(&mut ctx);
@@ -241,17 +260,9 @@ impl<F> StepTypeContext<F> {
     }
 }
 
-impl<F: Debug + Clone> StepTypeContext<F> {
-    /// DEPRECATED
-    pub fn add_lookup(&mut self, lookup_builder: &mut LookupBuilder<F>) {
-        println!("DEPRECATED add_lookup: use setup for constraints in step types");
-
-        self.step_type.lookups.push(lookup_builder.lookup.clone());
-    }
-}
-
 pub struct StepTypeSetupContext<'a, F> {
     step_type: &'a mut StepType<F>,
+    tables: LookupTableRegistry<F>,
 }
 
 impl<'a, F> StepTypeSetupContext<'a, F> {
@@ -290,8 +301,8 @@ impl<'a, F> StepTypeSetupContext<'a, F> {
 
 impl<'a, F: Debug + Clone> StepTypeSetupContext<'a, F> {
     /// Adds a lookup to the step type.
-    pub fn add_lookup(&mut self, lookup_builder: &mut LookupBuilder<F>) {
-        self.step_type.lookups.push(lookup_builder.lookup.clone());
+    pub fn add_lookup<LB: LookupBuilder<F>>(&mut self, lookup_builder: LB) {
+        self.step_type.lookups.push(lookup_builder.build(self));
     }
 }
 
@@ -355,21 +366,83 @@ impl<F, Args, D: Fn(&mut StepInstance<F>, Args) + 'static> StepTypeWGHandler<F, 
 /// functions. This is the main function that users call to define a Chiquito circuit. Currently,
 /// the name is not used for annotation within the function, but it may be used in future
 /// implementations.
-pub fn circuit<F, TraceArgs, StepArgs, D>(_name: &str, def: D) -> Circuit<F, TraceArgs>
+pub fn circuit<F, TraceArgs, D>(_name: &str, def: D) -> Circuit<F, TraceArgs>
 where
     D: Fn(&mut CircuitContext<F, TraceArgs>),
 {
     // TODO annotate circuit
     let mut context = CircuitContext {
-        sc: Circuit::default(),
+        circuit: Circuit::default(),
+        tables: LookupTableRegistry::default(),
     };
 
     def(&mut context);
 
-    context.sc
+    context.circuit
+}
+
+#[derive(Debug, Clone, Copy)]
+pub struct LookupTableHanlder {
+    uuid: UUID,
+}
+
+impl LookupTableHanlder {
+    pub fn apply<F, C: Into<Constraint<F>>>(&self, constraint: C) -> LookupTableBuilder<F> {
+        LookupTableBuilder::new(self.uuid).apply(constraint)
+    }
+
+    /// Adds a selector column specific to the lookup table. Because the function returns a mutable
+    /// reference to the `LookupBuilder<F>`, it can an chain multiple `add` and `enable` function
+    /// calls to build the lookup table. Requires calling `lookup` to create an
+    /// empty `LookupBuilder` instance at the very front.
+    pub fn when<F, C: Into<Constraint<F>>>(&self, enable: C) -> LookupTableBuilder<F> {
+        LookupTableBuilder::new(self.uuid).when(enable)
+    }
+}
+
+pub struct LookupTableBuilder<F> {
+    id: UUID,
+    src: Vec<Constraint<F>>,
+    enable: Option<Constraint<F>>,
+}
+
+impl<F> LookupTableBuilder<F> {
+    fn new(id: UUID) -> Self {
+        Self {
+            id,
+            src: Default::default(),
+            enable: Default::default(),
+        }
+    }
+
+    #[allow(clippy::should_implement_trait)]
+    pub fn apply<C: Into<Constraint<F>>>(mut self, constraint: C) -> Self {
+        self.src.push(constraint.into());
+
+        self
+    }
+
+    /// Adds a selector column specific to the lookup table. Because the function returns a mutable
+    /// reference to the `LookupBuilder<F>`, it can an chain multiple `add` and `enable` function
+    /// calls to build the lookup table. Requires calling `lookup` to create an
+    /// empty `LookupBuilder` instance at the very front.
+    pub fn when<C: Into<Constraint<F>>>(mut self, enable: C) -> Self {
+        self.enable = Some(enable.into());
+
+        self
+    }
+}
+
+impl<F: Clone + Debug> LookupBuilder<F> for LookupTableBuilder<F> {
+    fn build(self, ctx: &StepTypeSetupContext<F>) -> Lookup<F> {
+        let table = ctx.tables.get(self.id);
+
+        table.build(self.src, self.enable)
+    }
 }
 
 pub mod cb;
+pub mod lb;
 pub mod sc;
 
 #[cfg(test)]
@@ -379,10 +452,13 @@ mod tests {
     #[test]
     fn test_disable_q_enable() {
         let circuit: Circuit<i32, i32> = Circuit::default();
-        let mut context = CircuitContext { sc: circuit };
+        let mut context = CircuitContext {
+            circuit,
+            tables: Default::default(),
+        };
 
         context.pragma_disable_q_enable();
 
-        assert!(!context.sc.q_enable);
+        assert!(!context.circuit.q_enable);
     }
 }

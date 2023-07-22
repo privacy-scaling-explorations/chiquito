@@ -35,7 +35,7 @@ fn fibo_circuit<F: Field + From<u64> + Hash>() -> (Circuit<F>, Option<AssigmentG
     // | 2 | 3 | 5 |
     // | 3 | 5 | 8 |
     // ...
-    let fibo = circuit::<F, (), (u64, u64), _>("fibonacci", |ctx| {
+    let fibo = circuit::<F, (), _>("fibonacci", |ctx| {
         // the following objects (forward signals, steptypes) are defined on the circuit-level
 
         // forward signals can have constraints across different steps

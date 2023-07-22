@@ -37,7 +37,6 @@ pub type Witness<F> = Vec<StepInstance<F>>;
 #[derive(Debug, Default)]
 pub struct TraceWitness<F> {
     pub step_instances: Witness<F>,
-    pub height: usize,
 }
 
 #[derive(Debug, Default)]
@@ -63,10 +62,6 @@ impl<F> TraceContext<F> {
 
         self.witness.step_instances.push(witness);
     }
-
-    pub fn set_height(&mut self, height: usize) {
-        self.witness.height = height;
-    }
 }
 
 pub type Trace<F, TraceArgs> = dyn Fn(&mut TraceContext<F>, TraceArgs) + 'static;
@@ -79,6 +74,14 @@ impl<F, TraceArgs> Clone for TraceGenerator<F, TraceArgs> {
     fn clone(&self) -> Self {
         Self {
             trace: self.trace.clone(),
+        }
+    }
+}
+
+impl<F, TraceArgs> Default for TraceGenerator<F, TraceArgs> {
+    fn default() -> Self {
+        Self {
+            trace: Rc::new(|_, _| {}),
         }
     }
 }

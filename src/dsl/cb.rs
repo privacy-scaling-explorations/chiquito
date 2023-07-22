@@ -2,9 +2,12 @@ use std::{fmt::Debug, vec};
 
 use halo2_proofs::arithmetic::Field;
 
-use crate::ast::{query::Queriable, Expr, Lookup, ToExpr};
+use crate::ast::{query::Queriable, Expr, ToExpr};
 
-use super::StepTypeHandler;
+use super::{
+    lb::{InPlaceLookupBuilder, LookupTable},
+    StepTypeHandler,
+};
 
 /// Represents a constraint with an associated annotation and expression.
 #[derive(Clone)]
@@ -382,50 +385,14 @@ pub fn rlc<F: From<u64>, E: Into<Expr<F>> + Clone, R: Into<Expr<F>> + Clone>(
     }
 }
 
-/// A helper struct for building lookup tables.
-pub struct LookupBuilder<F> {
-    pub lookup: Lookup<F>,
-}
-
-impl<F> Default for LookupBuilder<F> {
-    fn default() -> Self {
-        LookupBuilder {
-            lookup: Lookup::default(),
-        }
-    }
-}
-
-impl<F: Debug + Clone> LookupBuilder<F> {
-    /// Adds a source column-lookup column pair to the lookup table. Because the function returns a
-    /// mutable reference to the `LookupBuilder<F>`, it can an chain multiple `add` and `enable`
-    /// function calls to build the lookup table. Requires calling `lookup` to create an empty
-    /// `LookupBuilder` instance at the very front.
-    pub fn add<C: Into<Constraint<F>>, E: Into<Expr<F>>>(
-        &mut self,
-        constraint: C,
-        expression: E,
-    ) -> &mut Self {
-        let constraint = constraint.into();
-        self.lookup
-            .add(constraint.annotation, constraint.expr, expression.into());
-        self
-    }
-
-    /// Adds a selector column specific to the lookup table. Because the function returns a mutable
-    /// reference to the `LookupBuilder<F>`, it can an chain multiple `add` and `enable` function
-    /// calls to build the lookup table. Requires calling `lookup` to create an
-    /// empty `LookupBuilder` instance at the very front.
-    pub fn enable<C: Into<Constraint<F>>>(&mut self, enable: C) -> &mut Self {
-        let enable = enable.into();
-        self.lookup.enable(enable.annotation, enable.expr);
-        self
-    }
-}
-
 /// Creates a new empty `LookupBuilder` object and returns it. Can an chain multiple `add` and
 /// `enable` function calls after to build the lookup table.
-pub fn lookup<F: Debug + Clone>() -> LookupBuilder<F> {
-    LookupBuilder::default()
+pub fn lookup<F: Debug + Clone>() -> InPlaceLookupBuilder<F> {
+    InPlaceLookupBuilder::default()
+}
+
+pub fn table<F: Default>() -> LookupTable<F> {
+    LookupTable::default()
 }
 
 #[cfg(test)]
