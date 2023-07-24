@@ -18,11 +18,10 @@ use chiquito::{
     },
     ir::{assigments::AssigmentGenerator, Circuit}, // compiled circuit type
 };
-use halo2curves::ff::Field;
+use halo2curves::{ff::Field, bn256::Fr};
 
 // Generic types:
 // 1) (F, F) are the elements that are in the stack; the stack is made up of two signals with many steps so each basic operation consumes 1 step
-// 2) F for the operation; we will map 1 -> +, 2 -> -, 3 -> *, 4 -> / ; these will be constrained with a lookup table
 // 3) F for the result of the operation
 fn forth_circuit<F: Field + From<u64>>() -> (Circuit<F>, Option<AssigmentGenerator<F, ()>>) {
     // PLONKish table for the FORTH stack:
@@ -44,22 +43,91 @@ fn forth_circuit<F: Field + From<u64>>() -> (Circuit<F>, Option<AssigmentGenerat
         let mul_step = ctx.step_type("mul");
         let div_step = ctx.step_type("div");
 
-        // stack operation step
-        let stack_step = ctx.step_type_def("stack step", |ctx| {
+        // first step type: Since it's a general VM, do we need an ordering to the steps?
+        ctx.pragma_first_step(add_step);
+        // last step type
+        ctx.pragma_last_step(div_step);
+        // total number of steps: Should this be arbitrary?
+        ctx.pragma_num_steps(4);
+
+        // addition operation step
+        let add_step = ctx.step_type_def("add", |ctx| {
+            // We use a fixed signal to represent the result
+            let r = ctx.fixed("r");
             ctx.setup(move |ctx| {
+                ctx.constr(eq(s1 + s2, r));
             });
+
+            ctx.wg(move |ctx, (s1_value, s2_value, r_value): (F, F, F)| {
+                println!("add step: s1: {}, s2: {}, r: {}", s1_value, s2_value, r_value);
+                ctx.assign(s1, s1_value);
+                ctx.assign(s2, s2_value);
+                ctx.assign(r, r_value);
+            })
         });
 
-        // addition operation step type
-        let add_step = ctx.step_type_def("add", |ctx| {
+        // subtraction operation step
+        let sub_step = ctx.step_type_def("sub", |ctx| {
             ctx.setup(move |ctx| {
-                let s1 = ctx.query(s1);
-                let s2 = ctx.query(s2);
-                let r = ctx.query(r);
-                let add = ctx.query("add");
-                let add = ctx.lookup(add, vec![s1, s2], r);
-                ctx.assign(add, r);
+                ctx.constr(eq(s1 - s2, r));
             });
+
+            ctx.wg(move |ctx, (s1_value, s2_value, r_value): (F, F, F)| {
+                println!("sub step: s1: {}, s2: {}, r: {}", s1_value, s2_value, r_value);
+                ctx.assign(s1, s1_value);
+                ctx.assign(s2, s2_value);
+                ctx.assign(r, r_value);
+            })
+        });
+
+        // multiplication operation step
+        let mul_step = ctx.step_type_def("mul", |ctx| {
+            ctx.setup(move |ctx| {
+                ctx.constr(eq(s1 * s2, r));
+            });
+
+            ctx.wg(|ctx, (s1_result, s2_result, r_result): (F, F, F)| {
+                println!("mul step: s1: {}, s2: {}, r: {}", s1_result, s2_result, r_result);
+                ctx.assign(s1, s1_result);
+                ctx.assign(s2, s2_result);
+                ctx.assign(r, r_result);
+            })
+        });
+
+        // division operation step
+        let div_step = ctx.step_type_def("div", |ctx| {
+            ctx.setup(move |ctx| {
+                ctx.constr(eq(s1 / s2, r));
+            });
+
+            ctx.wg(|ctx, (s1_result, s2_result, r_result): (F, F, F)| {
+                println!("div step: s1: {}, s2: {}, r: {}", s1_result, s2_result, r_result);
+                ctx.assign(s1, s1_result);
+                ctx.assign(s2, s2_result);
+                ctx.assign(r, r_result);
+            })
+        });
+
+        ctx.trace(move |ctx: _, _| {
+            // Here we fill the circuit with the constraint 1 + 1 = 2
+            ctx.add(&add_step, (1, 1, 2));
+            // 5 - 4 = 1
+            ctx.add(&sub_step, (5, 4, 1));
+            // 2 * 3 = 6
+            ctx.add(&mul_step, (2, 3, 6));
+            // 4 / 2 = 2
+            ctx.add(&div_step, (4, 2, 2));
         });
     });
+
+    let compiler = Compiler::new(SingleRowCellManager {}, SimpleStepSelectorBuilder {});
+
+    compiler.compile(&forth)
+
+}
+
+fn main() {
+    let (chiquito, wit_gen) = forth_circuit::<Fr>();
+    let compiled = chiquito2Halo2(chiquito);
+    let circuit = ChiquitoHalo2Circuit::new(compiled, wit_gen.map(|g| g.generate()));
 }
