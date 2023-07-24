@@ -2,6 +2,7 @@ pub mod ast;
 pub mod backend;
 pub mod compiler;
 pub mod dsl;
+pub mod errors;
 pub mod frontend;
 pub mod ir;
 pub mod stdlib;

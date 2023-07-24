@@ -8,7 +8,7 @@ use halo2_proofs::{
 
 use crate::{
     ast::{
-        query::Queriable, Circuit as astCircuit, Expr, FixedSignal, ForwardSignal,
+        query::Queriable, Circuit as astCircuit, ExposeOffset, Expr, FixedSignal, ForwardSignal,
         ImportedHalo2Advice, ImportedHalo2Fixed, SharedSignal, StepType, StepTypeUUID,
     },
     ir::{
@@ -212,7 +212,6 @@ impl<CM: CellManager, SSB: StepSelectorBuilder> Compiler<CM, SSB> {
 
             self.add_q_enable(&mut unit, q_enable);
         }
-            
 
         if let Some(step_type) = ast.first_step {
             let q_first = Column {
@@ -328,9 +327,45 @@ impl<CM: CellManager, SSB: StepSelectorBuilder> Compiler<CM, SSB> {
         ast: &astCircuit<F, TraceArgs>,
         unit: &mut CompilationUnit<F>,
     ) {
-        for forward_signal in ast.exposed.clone() {
-            let forward_placement = unit.placement.get_forward_placement(&forward_signal);
-            let exposed = (forward_placement.column, forward_placement.rotation);
+        for (queriable, offset) in &ast.exposed {
+            let exposed = match queriable {
+                Queriable::Forward(forward_signal, _) => {
+                    let placement = unit.placement.get_forward_placement(forward_signal);
+                    match offset {
+                        ExposeOffset::First => (placement.column, placement.rotation),
+                        ExposeOffset::Last => {
+                            let rot = placement.rotation
+                                + ((unit.num_steps - 1) as i32)
+                                    * (unit.placement.first_step_height() as i32);
+                            (placement.column, rot)
+                        }
+                        ExposeOffset::Step(step) => {
+                            let rot = placement.rotation
+                                + (*step as i32) * (unit.placement.first_step_height() as i32);
+                            (placement.column, rot)
+                        }
+                    }
+                }
+                Queriable::Shared(shared_signal, _) => {
+                    let placement = unit.placement.get_shared_placement(shared_signal);
+                    match offset {
+                        ExposeOffset::First => (placement.column, placement.rotation),
+                        ExposeOffset::Last => {
+                            let rot = placement.rotation
+                                + ((unit.num_steps - 1) as i32)
+                                    * (unit.placement.first_step_height() as i32);
+                            (placement.column, rot)
+                        }
+                        ExposeOffset::Step(step) => {
+                            let rot = placement.rotation
+                                + (*step as i32) * (unit.placement.first_step_height() as i32);
+                            (placement.column, rot)
+                        }
+                    }
+                }
+                _ => panic!("Queriable was not Forward or Shared"),
+            };
+
             unit.exposed.push(exposed);
         }
     }

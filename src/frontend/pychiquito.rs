@@ -1,16 +1,17 @@
 use crate::{
     ast::{
         expr::{query::Queriable, Expr},
-        Circuit, Constraint, FixedSignal, ForwardSignal, InternalSignal, SharedSignal, StepType,
-        StepTypeUUID, TransitionConstraint,
+        Circuit, Constraint, ExposeOffset, FixedSignal, ForwardSignal, InternalSignal,
+        SharedSignal, StepType, StepTypeUUID, TransitionConstraint,
     },
     dsl::StepTypeHandler,
     util::UUID,
+    wit_gen::{StepInstance, TraceWitness},
 };
 
 use core::result::Result;
 use halo2_proofs::halo2curves::bn256::Fr;
-use serde::de::{self, Deserialize, Deserializer, MapAccess, Visitor};
+use serde::de::{self, Deserialize, Deserializer, IgnoredAny, MapAccess, Visitor};
 use std::{collections::HashMap, fmt, rc::Rc};
 
 struct CircuitVisitor;
@@ -35,6 +36,7 @@ impl<'de> Visitor<'de> for CircuitVisitor {
         let mut first_step = None;
         let mut last_step = None;
         let mut num_steps = None;
+        let mut q_enable = None;
         let mut id = None;
 
         while let Some(key) = map.next_key::<String>()? {
@@ -67,7 +69,7 @@ impl<'de> Visitor<'de> for CircuitVisitor {
                     if exposed.is_some() {
                         return Err(de::Error::duplicate_field("exposed"));
                     }
-                    exposed = Some(map.next_value::<Vec<ForwardSignal>>()?);
+                    exposed = Some(map.next_value::<Vec<(Queriable<Fr>, ExposeOffset)>>()?);
                 }
                 "annotations" => {
                     if annotations.is_some() {
@@ -93,6 +95,12 @@ impl<'de> Visitor<'de> for CircuitVisitor {
                     }
                     num_steps = Some(map.next_value::<usize>()?);
                 }
+                "q_enable" => {
+                    if q_enable.is_some() {
+                        return Err(de::Error::duplicate_field("q_enable"));
+                    }
+                    q_enable = Some(map.next_value::<bool>()?);
+                }
                 "id" => {
                     if id.is_some() {
                         return Err(de::Error::duplicate_field("id"));
@@ -112,6 +120,7 @@ impl<'de> Visitor<'de> for CircuitVisitor {
                             "first_step",
                             "last_step",
                             "num_steps",
+                            "q_enable",
                             "id",
                         ],
                     ))
@@ -134,6 +143,7 @@ impl<'de> Visitor<'de> for CircuitVisitor {
         let first_step = first_step.ok_or_else(|| de::Error::missing_field("first_step"))?;
         let last_step = last_step.ok_or_else(|| de::Error::missing_field("last_step"))?;
         let num_steps = num_steps.ok_or_else(|| de::Error::missing_field("num_steps"))?;
+        let q_enable = q_enable.ok_or_else(|| de::Error::missing_field("q_enable"))?;
         let id = id.ok_or_else(|| de::Error::missing_field("id"))?;
 
         Ok(Circuit {
@@ -150,6 +160,7 @@ impl<'de> Visitor<'de> for CircuitVisitor {
             fixed_gen: None,
             first_step,
             last_step,
+            q_enable,
             id,
         })
     }
@@ -353,6 +364,73 @@ impl<'de> Visitor<'de> for ExprVisitor {
     }
 }
 
+struct QueriableVisitor;
+
+impl<'de> Visitor<'de> for QueriableVisitor {
+    type Value = Queriable<Fr>;
+
+    fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+        formatter.write_str("enum Queriable")
+    }
+
+    fn visit_map<A>(self, mut map: A) -> Result<Queriable<Fr>, A::Error>
+    where
+        A: MapAccess<'de>,
+    {
+        let key: String = map
+            .next_key()?
+            .ok_or_else(|| de::Error::custom("map is empty"))?;
+        match key.as_str() {
+            "Internal" => map.next_value().map(Queriable::Internal),
+            "Forward" => map
+                .next_value()
+                .map(|(signal, rotation)| Queriable::Forward(signal, rotation)),
+            "Shared" => map
+                .next_value()
+                .map(|(signal, rotation)| Queriable::Shared(signal, rotation)),
+            "Fixed" => map
+                .next_value()
+                .map(|(signal, rotation)| Queriable::Fixed(signal, rotation)),
+            "StepTypeNext" => map.next_value().map(Queriable::StepTypeNext),
+            _ => Err(de::Error::unknown_variant(
+                &key,
+                &["Internal", "Forward", "Shared", "Fixed", "StepTypeNext"],
+            )),
+        }
+    }
+}
+
+struct ExposeOffsetVisitor;
+
+impl<'de> Visitor<'de> for ExposeOffsetVisitor {
+    type Value = ExposeOffset;
+
+    fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+        formatter.write_str("enum ExposeOffset")
+    }
+
+    fn visit_map<A>(self, mut map: A) -> Result<ExposeOffset, A::Error>
+    where
+        A: MapAccess<'de>,
+    {
+        let key: String = map
+            .next_key()?
+            .ok_or_else(|| de::Error::custom("map is empty"))?;
+        match key.as_str() {
+            "First" => {
+                let _ = map.next_value::<IgnoredAny>()?;
+                Ok(ExposeOffset::First)
+            }
+            "Last" => {
+                let _ = map.next_value::<IgnoredAny>()?;
+                Ok(ExposeOffset::Last)
+            }
+            "Step" => map.next_value().map(ExposeOffset::Step),
+            _ => Err(de::Error::unknown_variant(&key, &["First", "Last", "Step"])),
+        }
+    }
+}
+
 macro_rules! impl_visitor_internal_fixed_steptypehandler {
     ($name:ident, $type:ty, $display:expr) => {
         struct $name;
@@ -467,6 +545,107 @@ macro_rules! impl_visitor_forward_shared {
 impl_visitor_forward_shared!(ForwardSignalVisitor, ForwardSignal, "struct ForwardSignal");
 impl_visitor_forward_shared!(SharedSignalVisitor, SharedSignal, "struct SharedSignal");
 
+struct TraceWitnessVisitor;
+
+impl<'de> Visitor<'de> for TraceWitnessVisitor {
+    type Value = TraceWitness<Fr>;
+
+    fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+        formatter.write_str("struct TraceWitness")
+    }
+
+    fn visit_map<A>(self, mut map: A) -> Result<TraceWitness<Fr>, A::Error>
+    where
+        A: MapAccess<'de>,
+    {
+        let mut step_instances = None;
+        let mut height = None;
+
+        while let Some(key) = map.next_key::<String>()? {
+            match key.as_str() {
+                "step_instances" => {
+                    if step_instances.is_some() {
+                        return Err(de::Error::duplicate_field("step_instances"));
+                    }
+                    step_instances = Some(map.next_value()?);
+                }
+                "height" => {
+                    if height.is_some() {
+                        return Err(de::Error::duplicate_field("height"));
+                    }
+                    height = Some(map.next_value()?);
+                }
+                _ => {
+                    return Err(de::Error::unknown_field(
+                        &key,
+                        &["step_instances", "height"],
+                    ))
+                }
+            }
+        }
+        let step_instances =
+            step_instances.ok_or_else(|| de::Error::missing_field("step_instances"))?;
+        let height = height.ok_or_else(|| de::Error::missing_field("height"))?;
+        Ok(Self::Value {
+            step_instances,
+            height,
+        })
+    }
+}
+
+struct StepInstanceVisitor;
+
+impl<'de> Visitor<'de> for StepInstanceVisitor {
+    type Value = StepInstance<Fr>;
+
+    fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+        formatter.write_str("struct StepInstance")
+    }
+
+    fn visit_map<A>(self, mut map: A) -> Result<StepInstance<Fr>, A::Error>
+    where
+        A: MapAccess<'de>,
+    {
+        let mut step_type_uuid = None;
+        let mut assignments = None;
+
+        while let Some(key) = map.next_key::<String>()? {
+            match key.as_str() {
+                "step_type_uuid" => {
+                    if step_type_uuid.is_some() {
+                        return Err(de::Error::duplicate_field("step_type_uuid"));
+                    }
+                    step_type_uuid = Some(map.next_value()?);
+                }
+                "assignments" => {
+                    if assignments.is_some() {
+                        return Err(de::Error::duplicate_field("assignments"));
+                    }
+                    assignments = Some(map.next_value::<HashMap<UUID, (Queriable<Fr>, Fr)>>()?);
+                }
+                _ => {
+                    return Err(de::Error::unknown_field(
+                        &key,
+                        &["step_type_uuid", "assignments"],
+                    ))
+                }
+            }
+        }
+        let step_type_uuid =
+            step_type_uuid.ok_or_else(|| de::Error::missing_field("step_type_uuid"))?;
+
+        let assignments: HashMap<Queriable<Fr>, Fr> = assignments
+            .ok_or_else(|| de::Error::missing_field("assignments"))?
+            .into_values()
+            .collect();
+
+        Ok(Self::Value {
+            step_type_uuid,
+            assignments,
+        })
+    }
+}
+
 macro_rules! impl_deserialize {
     ($name:ident, $type:ty) => {
         impl<'de> Deserialize<'de> for $type {
@@ -481,6 +660,8 @@ macro_rules! impl_deserialize {
 }
 
 impl_deserialize!(ExprVisitor, Expr<Fr>);
+impl_deserialize!(QueriableVisitor, Queriable<Fr>);
+impl_deserialize!(ExposeOffsetVisitor, ExposeOffset);
 impl_deserialize!(InternalSignalVisitor, InternalSignal);
 impl_deserialize!(FixedSignalVisitor, FixedSignal);
 impl_deserialize!(ForwardSignalVisitor, ForwardSignal);
@@ -489,6 +670,8 @@ impl_deserialize!(StepTypeHandlerVisitor, StepTypeHandler);
 impl_deserialize!(ConstraintVisitor, Constraint<Fr>);
 impl_deserialize!(TransitionConstraintVisitor, TransitionConstraint<Fr>);
 impl_deserialize!(StepTypeVisitor, StepType<Fr>);
+impl_deserialize!(TraceWitnessVisitor, TraceWitness<Fr>);
+impl_deserialize!(StepInstanceVisitor, StepInstance<Fr>);
 
 impl<'de> Deserialize<'de> for Circuit<Fr, ()> {
     fn deserialize<D>(deserializer: D) -> Result<Circuit<Fr, ()>, D::Error>
@@ -503,16 +686,161 @@ impl<'de> Deserialize<'de> for Circuit<Fr, ()> {
 mod tests {
     use super::*;
     #[test]
+    fn test_trace_witness() {
+        let json = r#"
+        {
+            "step_instances": [
+                {
+                    "step_type_uuid": 270606747459021742275781620564109167114,
+                    "assignments": {
+                        "270606737951642240564318377467548666378": [
+                            {
+                                "Forward": [
+                                    {
+                                        "id": 270606737951642240564318377467548666378,
+                                        "phase": 0,
+                                        "annotation": "a"
+                                    },
+                                    false
+                                ]
+                            },
+                            [
+                                55,
+                                0,
+                                0,
+                                0
+                            ]
+                        ],
+                        "270606743497613616562965561253747624458": [
+                            {
+                                "Forward": [
+                                    {
+                                        "id": 270606743497613616562965561253747624458,
+                                        "phase": 0,
+                                        "annotation": "b"
+                                    },
+                                    false
+                                ]
+                            },
+                            [
+                                89,
+                                0,
+                                0,
+                                0
+                            ]
+                        ],
+                        "270606753004993118272949371872716917258": [
+                            {
+                                "Internal": {
+                                    "id": 270606753004993118272949371872716917258,
+                                    "annotation": "c"
+                                }
+                            },
+                            [
+                                144,
+                                0,
+                                0,
+                                0
+                            ]
+                        ]
+                    }
+                },
+                {
+                    "step_type_uuid": 270606783111694873693576112554652600842,
+                    "assignments": {
+                        "270606737951642240564318377467548666378": [
+                            {
+                                "Forward": [
+                                    {
+                                        "id": 270606737951642240564318377467548666378,
+                                        "phase": 0,
+                                        "annotation": "a"
+                                    },
+                                    false
+                                ]
+                            },
+                            [
+                                89,
+                                0,
+                                0,
+                                0
+                            ]
+                        ],
+                        "270606743497613616562965561253747624458": [
+                            {
+                                "Forward": [
+                                    {
+                                        "id": 270606743497613616562965561253747624458,
+                                        "phase": 0,
+                                        "annotation": "b"
+                                    },
+                                    false
+                                ]
+                            },
+                            [
+                                144,
+                                0,
+                                0,
+                                0
+                            ]
+                        ],
+                        "270606786280821374261518951164072823306": [
+                            {
+                                "Internal": {
+                                    "id": 270606786280821374261518951164072823306,
+                                    "annotation": "c"
+                                }
+                            },
+                            [
+                                233,
+                                0,
+                                0,
+                                0
+                            ]
+                        ]
+                    }
+                }
+            ],
+            "height": 0
+        }
+        "#;
+        let trace_witness: TraceWitness<Fr> = serde_json::from_str(json).unwrap();
+        println!("{:?}", trace_witness);
+    }
+
+    #[test]
+    fn test_expose_offset() {
+        let mut json = r#"
+        {
+            "Step": 1
+        }
+        "#;
+        let _: ExposeOffset = serde_json::from_str(json).unwrap();
+        json = r#"
+        {
+            "Last": -1
+        }
+        "#;
+        let _: ExposeOffset = serde_json::from_str(json).unwrap();
+        json = r#"
+        {
+            "First": 1
+        }
+        "#;
+        let _: ExposeOffset = serde_json::from_str(json).unwrap();
+    }
+
+    #[test]
     fn test_circuit() {
         let json = r#"
         {
             "step_types": {
-                "10": {
-                    "id": 10,
+                "205524326356431126935662643926474033674": {
+                    "id": 205524326356431126935662643926474033674,
                     "name": "fibo_step",
                     "signals": [
                         {
-                            "id": 11,
+                            "id": 205524332694684128074575021569884162570,
                             "annotation": "c"
                         }
                     ],
@@ -524,7 +852,7 @@ mod tests {
                                     {
                                         "Forward": [
                                             {
-                                                "id": 8,
+                                                "id": 205524314472206749795829327634996267530,
                                                 "phase": 0,
                                                 "annotation": "a"
                                             },
@@ -534,7 +862,7 @@ mod tests {
                                     {
                                         "Forward": [
                                             {
-                                                "id": 9,
+                                                "id": 205524322395023001221676493137926294026,
                                                 "phase": 0,
                                                 "annotation": "b"
                                             },
@@ -544,7 +872,7 @@ mod tests {
                                     {
                                         "Neg": {
                                             "Internal": {
-                                                "id": 11,
+                                                "id": 205524332694684128074575021569884162570,
                                                 "annotation": "c"
                                             }
                                         }
@@ -561,7 +889,7 @@ mod tests {
                                     {
                                         "Forward": [
                                             {
-                                                "id": 9,
+                                                "id": 205524322395023001221676493137926294026,
                                                 "phase": 0,
                                                 "annotation": "b"
                                             },
@@ -572,7 +900,7 @@ mod tests {
                                         "Neg": {
                                             "Forward": [
                                                 {
-                                                    "id": 8,
+                                                    "id": 205524314472206749795829327634996267530,
                                                     "phase": 0,
                                                     "annotation": "a"
                                                 },
@@ -589,7 +917,7 @@ mod tests {
                                 "Sum": [
                                     {
                                         "Internal": {
-                                            "id": 11,
+                                            "id": 205524332694684128074575021569884162570,
                                             "annotation": "c"
                                         }
                                     },
@@ -597,7 +925,7 @@ mod tests {
                                         "Neg": {
                                             "Forward": [
                                                 {
-                                                    "id": 9,
+                                                    "id": 205524322395023001221676493137926294026,
                                                     "phase": 0,
                                                     "annotation": "b"
                                                 },
@@ -610,15 +938,15 @@ mod tests {
                         }
                     ],
                     "annotations": {
-                        "11": "c"
+                        "205524332694684128074575021569884162570": "c"
                     }
                 },
-                "12": {
-                    "id": 12,
+                "205524373893328635494146417612672338442": {
+                    "id": 205524373893328635494146417612672338442,
                     "name": "fibo_last_step",
                     "signals": [
                         {
-                            "id": 13,
+                            "id": 205524377062455136063336753318874188298,
                             "annotation": "c"
                         }
                     ],
@@ -630,7 +958,7 @@ mod tests {
                                     {
                                         "Forward": [
                                             {
-                                                "id": 8,
+                                                "id": 205524314472206749795829327634996267530,
                                                 "phase": 0,
                                                 "annotation": "a"
                                             },
@@ -640,7 +968,7 @@ mod tests {
                                     {
                                         "Forward": [
                                             {
-                                                "id": 9,
+                                                "id": 205524322395023001221676493137926294026,
                                                 "phase": 0,
                                                 "annotation": "b"
                                             },
@@ -650,7 +978,7 @@ mod tests {
                                     {
                                         "Neg": {
                                             "Internal": {
-                                                "id": 13,
+                                                "id": 205524377062455136063336753318874188298,
                                                 "annotation": "c"
                                             }
                                         }
@@ -661,35 +989,82 @@ mod tests {
                     ],
                     "transition_constraints": [],
                     "annotations": {
-                        "13": "c"
+                        "205524377062455136063336753318874188298": "c"
                     }
                 }
             },
             "forward_signals": [
                 {
-                    "id": 8,
+                    "id": 205524314472206749795829327634996267530,
                     "phase": 0,
                     "annotation": "a"
                 },
                 {
-                    "id": 9,
+                    "id": 205524322395023001221676493137926294026,
                     "phase": 0,
                     "annotation": "b"
                 }
             ],
             "shared_signals": [],
             "fixed_signals": [],
-            "exposed": [],
+            "exposed": [
+                [
+                    {
+                        "Forward": [
+                            {
+                                "id": 205524322395023001221676493137926294026,
+                                "phase": 0,
+                                "annotation": "b"
+                            },
+                            false
+                        ]
+                    },
+                    {
+                        "First": 0
+                    }
+                ],
+                [
+                    {
+                        "Forward": [
+                            {
+                                "id": 205524314472206749795829327634996267530,
+                                "phase": 0,
+                                "annotation": "a"
+                            },
+                            false
+                        ]
+                    },
+                    {
+                        "Last": -1
+                    }
+                ],
+                [
+                    {
+                        "Forward": [
+                            {
+                                "id": 205524314472206749795829327634996267530,
+                                "phase": 0,
+                                "annotation": "a"
+                            },
+                            false
+                        ]
+                    },
+                    {
+                        "Step": 1
+                    }
+                ]
+            ],
             "annotations": {
-                "8": "a",
-                "9": "b",
-                "10": "fibo_step",
-                "12": "fibo_last_step"
+                "205524314472206749795829327634996267530": "a",
+                "205524322395023001221676493137926294026": "b",
+                "205524326356431126935662643926474033674": "fibo_step",
+                "205524373893328635494146417612672338442": "fibo_last_step"
             },
-            "first_step": 10,
-            "last_step": null,
+            "first_step": 205524326356431126935662643926474033674,
+            "last_step": 205524373893328635494146417612672338442,
             "num_steps": 0,
-            "id": 1
+            "q_enable": false,
+            "id": 205522563529815184552233780032226069002
         }
         "#;
         let circuit: Circuit<Fr, ()> = serde_json::from_str(json).unwrap();
