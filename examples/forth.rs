@@ -52,8 +52,6 @@ fn forth_circuit<F: Field + From<u64>>() -> (Circuit<F>, Option<AssigmentGenerat
 
         // addition operation step
         let add_step = ctx.step_type_def("add", |ctx| {
-            // We use a fixed signal to represent the result
-            let r = ctx.fixed("r");
             ctx.setup(move |ctx| {
                 ctx.constr(eq(s1 + s2, r));
             });
@@ -129,5 +127,21 @@ fn forth_circuit<F: Field + From<u64>>() -> (Circuit<F>, Option<AssigmentGenerat
 fn main() {
     let (chiquito, wit_gen) = forth_circuit::<Fr>();
     let compiled = chiquito2Halo2(chiquito);
-    let circuit = ChiquitoHalo2Circuit::new(compiled, wit_gen.map(|g| g.generate()));
+    // passing 0 as the TraceArgs argument for g.generate as somewhat of a placeholder since TraceArgs aren't used in this example
+    let circuit = ChiquitoHalo2Circuit::new(compiled, wit_gen.map(|g| g.generate(0)));
+    println!("Compiled circuit: {:?}", circuit);
+
+    let prover = MockProver::<Fr>::run(7, &circuit, Vec::new()).unwrap();
+
+    let result = prover.verify_par();
+
+    println!("{:#?}", result);
+
+    if let Err(failures) = &result {
+        for failure in failures.iter() {
+            println!("{}", failure);
+        }
+    }
+
+    // Is the plaf boilerplate required?
 }
