@@ -3,7 +3,7 @@ use std::{collections::HashMap, hash::Hash, rc::Rc};
 use halo2_proofs::arithmetic::Field;
 
 use crate::{
-    ast::{query::Queriable, StepTypeUUID, StepType},
+    ast::{query::Queriable, StepTypeUUID},
     dsl::{StepTypeWGHandler, StepTypeHandler},
 };
 
@@ -37,16 +37,15 @@ pub type Witness<F> = Vec<StepInstance<F>>;
 #[derive(Debug, Default)]
 pub struct TraceWitness<F> {
     pub step_instances: Witness<F>,
-    pub height: usize,
+    pub num_steps: usize,
 }
 
-// returning a Vec<F> makes it so that TraceArgs don't have to be passed to TraceContext's generics
-pub type PaddingLambda<F> = dyn Fn() -> Vec<F> + 'static;
+pub type PaddingLambda<F, Args> = dyn Fn() -> Vec<Args> + 'static;
 
 #[derive(Debug, Default)]
 pub struct TraceContext<F> {
     witness: TraceWitness<F>,
-    padding: Option<(StepTypeUUID, PaddingLambda<F>)>
+    padding: Option<(StepTypeUUID, Box<PaddingLambda<F, Args>>)>
 }
 
 impl<F> TraceContext<F> {
@@ -68,8 +67,8 @@ impl<F> TraceContext<F> {
         self.witness.step_instances.push(witness);
     }
 
-    pub fn set_height(&mut self, height: usize) {
-        self.witness.height = height;
+    pub fn set_num_steps(&mut self, num_steps: usize) {
+        self.witness.num_steps = num_steps;
     }
 
     // This is an external function users can use to create their own padding constraint vs. the default
@@ -77,18 +76,14 @@ impl<F> TraceContext<F> {
         self.padding = Some((step_handler.uuid(), lambda));
     }
 
-    // this function pads the rest of the circuit with the 
-    // StepInstance of the StepType in TraceContext::padding
+    // This function pads the rest of the circuit with the StepInstance of the StepType in TraceContext::padding
     fn pad(&mut self) {
-        // here we set the padding
-        while self.witness.step_instances.len() < self.witness.height {
+        while self.witness.step_instances.len() < self.witness.num_steps {
             if let Some((padding_uuid, padding_lambda)) = &self.padding {
                 let mut padded_witness = StepInstance::new(*padding_uuid);
-
-                // How should these TraceArgs be used? How do we add them to this scope without changing the type parameters for TraceContext?
                 let trace_args = padding_lambda();
 
-                self.witness.step_instances.push(padded_witness);
+                self.add(padded_witness, trace_args)
             } else {
                 panic!("Missing padding step!");
             }
