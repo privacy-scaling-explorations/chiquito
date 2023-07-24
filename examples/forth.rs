@@ -26,51 +26,39 @@ use halo2curves::ff::Field;
 // 3) F for the result of the operation
 fn forth_circuit<F: Field + From<u64>>() -> (Circuit<F>, Option<AssigmentGenerator<F, ()>>) {
     // PLONKish table for the FORTH stack:
-    // | s1 | s2 | o | r |
-    // |  1 |  1 | 1 | 2 |
-    // |  3 |  2 | 3 | 6 |
-    // |  4 |  2 | 4 | 2 |
+    // | s1 | s2  | r |
+    // |  1 |  1  | 2 |
+    // |  3 |  2  | 6 |
+    // |  4 |  2  | 2 |
 
     let forth = circuit::<(F, F), F>("FORTH", |ctx| {
 
+        // declare signals
         let s1 = ctx.forward("s1");
         let s2 = ctx.forward("s2");
-        let o = ctx.forward("o");
         let r = ctx.forward("r");
 
-        let operation_lookup: Queriable<(F, F)> = ctx.fixed("op lookup");
-
-        // populate lookup column; this can be increased as more operations are added (e.g. 5 -> %, 6 -> ^, etc.)
-        ctx.fixed_gen(move |ctx| {
-            for i in 1..=4 {
-                ctx.assign(i, operation_lookup, F::from(i as u64));
-            }
-        });
+        // initialize steps
+        let add_step = ctx.step_type("add");
+        let sub_step = ctx.step_type("sub");
+        let mul_step = ctx.step_type("mul");
+        let div_step = ctx.step_type("div");
 
         // stack operation step
         let stack_step = ctx.step_type_def("stack step", |ctx| {
             ctx.setup(move |ctx| {
-                // are matches allowed in circuit definitions?
-                match o {
-                    1 => {
-                        ctx.constr(eq(s1 + s2, c));
-                    }
-                    2 => {
-                        ctx.constr(eq(s1 - s2, c));
-                    }
-                    3 => {
-                        ctx.constr(eq(s1 * s2, c));
-                    }
-                    4 => {
-                        ctx.constr(eq(s1 / s2, c));
-                    }
-                    _ => {
-                        panic!("invalid operation")
-                    }
-                }
+            });
+        });
 
-                // initialize lookup
-                ctx.add_lookup(lookup().add(o, operation_lookup));
+        // addition operation step type
+        let add_step = ctx.step_type_def("add", |ctx| {
+            ctx.setup(move |ctx| {
+                let s1 = ctx.query(s1);
+                let s2 = ctx.query(s2);
+                let r = ctx.query(r);
+                let add = ctx.query("add");
+                let add = ctx.lookup(add, vec![s1, s2], r);
+                ctx.assign(add, r);
             });
         });
     });
