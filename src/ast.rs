@@ -161,7 +161,14 @@ impl<F, TraceArgs> Circuit<F, TraceArgs> {
     {
         match self.trace {
             None => {
-                self.trace = Some(Rc::new(def));
+                // Here, we fetch num_steps from the circuit and pass it to the new TraceWitness.
+                let num_steps = self.num_steps; 
+                let trace = Rc::new(move |ctx: &mut TraceContext<F>, args: TraceArgs| {
+                    ctx.set_num_steps(num_steps);
+                    def(ctx, args);
+                });
+                // Then, we set the trace
+                self.trace = Some(trace);
             }
             Some(_) => panic!("circuit cannot have more than one trace generator"),
         }
