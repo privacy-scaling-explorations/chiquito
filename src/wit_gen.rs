@@ -40,12 +40,11 @@ pub struct TraceWitness<F> {
     pub num_steps: usize,
 }
 
-pub type PaddingLambda<F, Args> = dyn Fn() -> Vec<Args> + 'static;
 
 #[derive(Debug, Default)]
 pub struct TraceContext<F> {
     witness: TraceWitness<F>,
-    padding: Option<(StepTypeUUID, Box<PaddingLambda<F, Args>>)>
+    padding: PhantomData<F>,
 }
 
 impl<F> TraceContext<F> {
@@ -72,12 +71,12 @@ impl<F> TraceContext<F> {
     }
 
     // This is an external function users can use to create their own padding constraint vs. the default
-    pub fn set_padding<Args, WG: Fn(&mut StepInstance<F>, Args) + 'static>(&mut self, step_handler: &StepTypeHandler, lambda: PaddingLambda<F>) {
+    pub fn set_padding<WG: Fn(&mut StepInstance<F>, Args) + 'static>(&mut self, step_handler: &StepTypeHandler, lambda: PaddingLambda<F, Args>) {
         self.padding = Some((step_handler.uuid(), lambda));
     }
 
     // This function pads the rest of the circuit with the StepInstance of the StepType in TraceContext::padding
-    fn pad(&mut self) {
+    pub fn pad(&mut self) {
         while self.witness.step_instances.len() < self.witness.num_steps {
             if let Some((padding_uuid, padding_lambda)) = &self.padding {
                 let mut padded_witness = StepInstance::new(*padding_uuid);
