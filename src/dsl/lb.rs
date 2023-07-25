@@ -184,6 +184,10 @@ impl<F> LookupTableBuilder<F> {
     /// calls to build the lookup table. Requires calling `lookup` to create an
     /// empty `LookupBuilder` instance at the very front.
     pub fn when<C: Into<Constraint<F>>>(mut self, enable: C) -> Self {
+        if self.enable.is_some() {
+            panic!("Cannot use when operator in lookup table more than once.")
+        }
+
         self.enable = Some(enable.into());
 
         self
