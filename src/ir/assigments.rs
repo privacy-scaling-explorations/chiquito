@@ -9,7 +9,7 @@ use crate::{
     ast::{query::Queriable, ForwardSignal, SharedSignal, StepTypeUUID},
     compiler::{cell_manager::Placement, step_selector::StepSelector},
     util::UUID,
-    wit_gen::{StepInstance, TraceGenerator},
+    wit_gen::{StepInstance, TraceGenerator, TraceWitness},
 };
 
 use super::{Column, PolyExpr};
@@ -40,6 +40,19 @@ impl<F: Clone, TraceArgs> Clone for AssigmentGenerator<F, TraceArgs> {
     }
 }
 
+impl<F: Clone, TraceArgs> Default for AssigmentGenerator<F, TraceArgs> {
+    fn default() -> Self {
+        Self {
+            columns: Default::default(),
+            placement: Default::default(),
+            selector: Default::default(),
+            trace_gen: Default::default(),
+            num_rows: Default::default(),
+            ir_id: Default::default(),
+        }
+    }
+}
+
 impl<F: Field, TraceArgs> AssigmentGenerator<F, TraceArgs> {
     pub fn new(
         columns: Vec<Column>,
@@ -59,9 +72,20 @@ impl<F: Field, TraceArgs> AssigmentGenerator<F, TraceArgs> {
         }
     }
 
+    pub fn empty(ir_id: UUID) -> Self {
+        Self {
+            ir_id,
+            ..Default::default()
+        }
+    }
+
     pub fn generate(&self, args: TraceArgs) -> Assignments<F> {
         let witness = self.trace_gen.generate(args);
 
+        self.generate_with_witness(witness)
+    }
+
+    pub fn generate_with_witness(&self, witness: TraceWitness<F>) -> Assignments<F> {
         let mut offset: usize = 0;
         let mut assigments: Assignments<F> = Default::default();
 
@@ -159,7 +183,10 @@ impl<F: Field, TraceArgs> AssigmentGenerator<F, TraceArgs> {
         forward: &ForwardSignal,
         next: bool,
     ) -> (Column, i32) {
-        let placement = self.placement.get_forward_placement(forward);
+        let placement = self
+            .placement
+            .get_forward_placement(forward)
+            .expect("forward signal placement not found");
 
         let super_rotation = placement.rotation
             + if next {
@@ -172,7 +199,10 @@ impl<F: Field, TraceArgs> AssigmentGenerator<F, TraceArgs> {
     }
 
     fn get_shared_placement(&self, shared: &SharedSignal, rotation: i32) -> (Column, i32) {
-        let placement = self.placement.get_shared_placement(shared);
+        let placement = self
+            .placement
+            .get_shared_placement(shared)
+            .expect("shared signal not found");
 
         let super_rotation =
             placement.rotation + rotation * (self.placement.first_step_height() as i32);

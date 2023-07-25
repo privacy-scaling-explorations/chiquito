@@ -105,6 +105,14 @@ impl<F, TraceArgs> Clone for TraceGenerator<F, TraceArgs> {
     }
 }
 
+impl<F, TraceArgs> Default for TraceGenerator<F, TraceArgs> {
+    fn default() -> Self {
+        Self {
+            trace: Rc::new(|_, _| {}),
+        }
+    }
+}
+
 impl<F: Default, TraceArgs> TraceGenerator<F, TraceArgs> {
     pub fn new(trace: Rc<Trace<F, TraceArgs>>) -> Self {
         Self { trace }

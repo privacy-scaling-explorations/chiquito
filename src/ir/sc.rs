@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, rc::Rc};
 
 use halo2_proofs::arithmetic::Field;
 
@@ -11,14 +11,14 @@ use super::{
 
 pub struct SuperCircuit<F, MappingArgs> {
     sub_circuits: Vec<Circuit<F>>,
-    mapping: Option<Box<Mapping<F, MappingArgs>>>,
+    mapping: MappingGenerator<F, MappingArgs>,
 }
 
 impl<F, MappingArgs> Default for SuperCircuit<F, MappingArgs> {
     fn default() -> Self {
         Self {
             sub_circuits: Default::default(),
-            mapping: None,
+            mapping: Default::default(),
         }
     }
 }
@@ -28,11 +28,23 @@ impl<F, MappingArgs> SuperCircuit<F, MappingArgs> {
         self.sub_circuits.push(sub_circuit);
     }
 
+    pub fn get_mapping(&self) -> MappingGenerator<F, MappingArgs> {
+        self.mapping.clone()
+    }
+}
+
+impl<F: Field, MappingArgs> SuperCircuit<F, MappingArgs> {
     pub fn set_mapping<M: Fn(&mut MappingContext<F>, MappingArgs) + 'static>(
         &mut self,
         mapping: M,
     ) {
-        self.mapping = Some(Box::new(mapping));
+        self.mapping = MappingGenerator::new(Rc::new(mapping));
+    }
+}
+
+impl<F: Clone, MappingArgs> SuperCircuit<F, MappingArgs> {
+    pub fn get_sub_circuits(&self) -> Vec<Circuit<F>> {
+        self.sub_circuits.clone()
     }
 }
 
@@ -51,7 +63,7 @@ impl<F> Default for MappingContext<F> {
 }
 
 impl<F: Field> MappingContext<F> {
-    pub fn map<TraceArgs>(&mut self, gen: AssigmentGenerator<F, TraceArgs>, args: TraceArgs) {
+    pub fn map<TraceArgs>(&mut self, gen: &AssigmentGenerator<F, TraceArgs>, args: TraceArgs) {
         self.assignments.insert(gen.uuid(), gen.generate(args));
     }
 
@@ -63,10 +75,30 @@ impl<F: Field> MappingContext<F> {
 pub type Mapping<F, MappingArgs> = dyn Fn(&mut MappingContext<F>, MappingArgs) + 'static;
 
 pub struct MappingGenerator<F, MappingArgs> {
-    mapping: Mapping<F, MappingArgs>,
+    mapping: Rc<Mapping<F, MappingArgs>>,
+}
+
+impl<F, MappingArgs> Clone for MappingGenerator<F, MappingArgs> {
+    fn clone(&self) -> Self {
+        Self {
+            mapping: self.mapping.clone(),
+        }
+    }
+}
+
+impl<F, MappingArgs> Default for MappingGenerator<F, MappingArgs> {
+    fn default() -> Self {
+        Self {
+            mapping: Rc::new(|_, _| {}),
+        }
+    }
 }
 
 impl<F: Field, MappingArgs> MappingGenerator<F, MappingArgs> {
+    pub fn new(mapping: Rc<Mapping<F, MappingArgs>>) -> Self {
+        Self { mapping }
+    }
+
     pub fn generate(&self, args: MappingArgs) -> SuperAssignments<F> {
         let mut ctx = MappingContext::default();
 

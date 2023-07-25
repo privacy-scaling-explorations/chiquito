@@ -14,7 +14,7 @@ use crate::{
     ast::ToField,
     ir::{
         assigments::Assignments,
-        sc::SuperAssignments,
+        sc::{SuperAssignments, SuperCircuit},
         Circuit, Column as cColumn,
         ColumnType::{Advice as cAdvice, Fixed as cFixed, Halo2Advice, Halo2Fixed},
         PolyExpr,
@@ -25,6 +25,17 @@ use crate::{
 #[allow(non_snake_case)]
 pub fn chiquito2Halo2<F: Field + From<u64> + Hash>(circuit: Circuit<F>) -> ChiquitoHalo2<F> {
     ChiquitoHalo2::new(circuit)
+}
+
+#[allow(non_snake_case)]
+pub fn chiquitoSuperCircuit2Halo2<F: Field + From<u64> + Hash, MappingArgs>(
+    super_circuit: &SuperCircuit<F, MappingArgs>,
+) -> Vec<ChiquitoHalo2<F>> {
+    super_circuit
+        .get_sub_circuits()
+        .iter()
+        .map(|c| chiquito2Halo2((*c).clone()))
+        .collect()
 }
 
 #[derive(Clone, Debug, Default)]
@@ -54,6 +65,12 @@ impl<F: Field + From<u64> + Hash> ChiquitoHalo2<F> {
     }
 
     pub fn configure(&mut self, meta: &mut ConstraintSystem<F>) {
+        self.configure_columns_sub_circuit(meta);
+
+        self.configure_sub_circuit(meta);
+    }
+
+    fn configure_columns_sub_circuit(&mut self, meta: &mut ConstraintSystem<F>) {
         let mut advice_columns = HashMap::<UUID, Column<Advice>>::new();
         let mut fixed_columns = HashMap::<UUID, Column<Fixed>>::new();
 
@@ -94,6 +111,9 @@ impl<F: Field + From<u64> + Hash> ChiquitoHalo2<F> {
 
         self.advice_columns = advice_columns;
         self.fixed_columns = fixed_columns;
+    }
+
+    pub fn configure_sub_circuit(&mut self, meta: &mut ConstraintSystem<F>) {
         if !self.circuit.exposed.is_empty() {
             self.instance_column = Some(meta.instance_column());
         }
@@ -396,7 +416,26 @@ impl<F: Field + From<u64> + Hash> h2Circuit<F> for ChiquitoHalo2SuperCircuit<F> 
         meta: &mut ConstraintSystem<F>,
         mut sub_circuits: Self::Params,
     ) -> Self::Config {
-        sub_circuits.iter_mut().for_each(|c| c.configure(meta));
+        sub_circuits
+            .iter_mut()
+            .for_each(|c| c.configure_columns_sub_circuit(meta));
+
+        let advice_columns: HashMap<UUID, Column<Advice>> =
+            sub_circuits.iter().fold(HashMap::default(), |mut acc, s| {
+                acc.extend(s.advice_columns.clone());
+                acc
+            });
+        let fixed_columns: HashMap<UUID, Column<Fixed>> =
+            sub_circuits.iter().fold(HashMap::default(), |mut acc, s| {
+                acc.extend(s.fixed_columns.clone());
+                acc
+            });
+
+        sub_circuits.iter_mut().for_each(|sub_circuit| {
+            sub_circuit.advice_columns = advice_columns.clone();
+            sub_circuit.fixed_columns = fixed_columns.clone();
+            sub_circuit.configure_sub_circuit(meta)
+        });
 
         sub_circuits
     }
