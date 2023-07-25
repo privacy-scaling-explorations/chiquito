@@ -80,14 +80,12 @@ impl<F: Field, TraceArgs> AssigmentGenerator<F, TraceArgs> {
     }
 
     pub fn generate(&self, args: TraceArgs) -> Assignments<F> {
-        // TODO: I doubt num_rows is appropriate for the number of steps
         let witness = self.trace_gen.generate(args);
 
         self.generate_with_witness(witness)
     }
 
-    pub fn generate_with_witness(&self, mut witness: TraceWitness<F>) -> Assignments<F> {
-        witness.num_steps = witness.step_instances.len();
+    pub fn generate_with_witness(&self, witness: TraceWitness<F>) -> Assignments<F> {
         let mut offset: usize = 0;
         let mut assigments: Assignments<F> = Default::default();
 

@@ -4,12 +4,12 @@ use halo2_proofs::arithmetic::Field;
 
 use crate::{
     ast::{query::Queriable, StepTypeUUID},
-    dsl::{StepTypeWGHandler, StepTypeHandler},
+    dsl::StepTypeWGHandler,
 };
 
 /// A struct that represents a witness generation context. It provides an interface for assigning
 /// values to witness columns in a circuit.
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone)]
 pub struct StepInstance<F> {
     pub step_type_uuid: StepTypeUUID,
     pub assignments: HashMap<Queriable<F>, F>,
@@ -37,9 +37,7 @@ pub type Witness<F> = Vec<StepInstance<F>>;
 #[derive(Debug, Default)]
 pub struct TraceWitness<F> {
     pub step_instances: Witness<F>,
-    pub num_steps: usize,
 }
-
 
 #[derive(Debug, Default)]
 pub struct TraceContext<F> {
@@ -47,22 +45,12 @@ pub struct TraceContext<F> {
 }
 
 impl<F> TraceContext<F> {
-    pub fn new(num_steps: usize) -> TraceContext<F> {
-        TraceContext {
-            witness: TraceWitness {
-                step_instances: Witness::new(),
-                num_steps,
-            },
-        }
-    }
-
     pub fn get_witness(self) -> TraceWitness<F> {
         self.witness
     }
 }
 
-
-impl<F> TraceContext<F> {
+impl<F: Clone> TraceContext<F> {
     pub fn add<Args, WG: Fn(&mut StepInstance<F>, Args) + 'static>(
         &mut self,
         step: &StepTypeWGHandler<F, Args, WG>,
@@ -75,24 +63,18 @@ impl<F> TraceContext<F> {
         self.witness.step_instances.push(witness);
     }
 
-    pub fn set_num_steps(&mut self, num_steps: usize) {
-        self.witness.num_steps = num_steps;
-    }
+    // This function pads the rest of the circuit with the given StepTypeWGHandler
+    pub fn padding<Args, WG: Fn(&mut StepInstance<F>, Args) + 'static>(
+        &mut self,
+        step: &StepTypeWGHandler<F, Args, WG>,
+        args: Args,
+    ) {
+        let mut witness = StepInstance::new(step.uuid());
 
-    // This is an external function users can use to create their own padding constraint vs. the default
-    pub fn set_padding<WG: Fn(&mut StepInstance<F>, Args) + 'static>(&mut self, step_handler: &StepTypeHandler, lambda: PaddingLambda<F, Args>) {
-        self.padding = Some((step_handler.uuid(), lambda));
-    }
-
-    // This function pads the rest of the circuit with the StepInstance of the StepType in TraceContext::padding
-    pub fn pad(&mut self) {
-        while self.witness.step_instances.len() < self.witness.num_steps {
-            if let Some((padding_uuid, padding_lambda)) = &self.padding {
-                let mut padded_witness = StepInstance::new(*padding_uuid);
-                let trace_args = padding_lambda();
-
-                self.add(padded_witness, trace_args)
-            }
+        (*step.wg)(&mut witness, args);
+        let len = self.witness.step_instances.len();
+        for _ in 0..len {
+            self.witness.step_instances.push(witness.clone());
         }
     }
 }
@@ -124,14 +106,11 @@ impl<F: Default, TraceArgs> TraceGenerator<F, TraceArgs> {
         Self { trace }
     }
 
-    pub fn generate(&self, args: TraceArgs, num_steps: usize) -> TraceWitness<F> {
+    pub fn generate(&self, args: TraceArgs) -> TraceWitness<F> {
         // include num steps here
-        let mut ctx = TraceContext::new(num_steps);
+        let mut ctx = TraceContext::default();
 
         (self.trace)(&mut ctx, args);
-
-        // pad the circuit before getting the witness
-        ctx.pad();
 
         ctx.get_witness()
     }
