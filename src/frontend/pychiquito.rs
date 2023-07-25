@@ -617,7 +617,6 @@ impl<'de> Visitor<'de> for TraceWitnessVisitor {
         A: MapAccess<'de>,
     {
         let mut step_instances = None;
-        let mut height = None;
 
         while let Some(key) = map.next_key::<String>()? {
             match key.as_str() {
@@ -628,10 +627,7 @@ impl<'de> Visitor<'de> for TraceWitnessVisitor {
                     step_instances = Some(map.next_value()?);
                 }
                 "height" => {
-                    if height.is_some() {
-                        return Err(de::Error::duplicate_field("height"));
-                    }
-                    height = Some(map.next_value()?);
+                    // ignore legacy field
                 }
                 _ => {
                     return Err(de::Error::unknown_field(
@@ -643,11 +639,7 @@ impl<'de> Visitor<'de> for TraceWitnessVisitor {
         }
         let step_instances =
             step_instances.ok_or_else(|| de::Error::missing_field("step_instances"))?;
-        let height = height.ok_or_else(|| de::Error::missing_field("height"))?;
-        Ok(Self::Value {
-            step_instances,
-            height,
-        })
+        Ok(Self::Value { step_instances })
     }
 }
 
@@ -858,8 +850,7 @@ mod tests {
                         ]
                     }
                 }
-            ],
-            "height": 0
+            ]
         }
         "#;
         let trace_witness: TraceWitness<Fr> = serde_json::from_str(json).unwrap();

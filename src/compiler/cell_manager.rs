@@ -41,28 +41,21 @@ pub struct Placement {
     pub fixed: HashMap<FixedSignal, SignalPlacement>,
     pub steps: HashMap<StepTypeUUID, StepPlacement>,
     pub columns: Vec<Column>,
+
+    pub base_height: u32,
 }
 
 impl Placement {
-    pub fn get_forward_placement(&self, forward: &ForwardSignal) -> SignalPlacement {
-        self.forward
-            .get(forward)
-            .expect("forward signal not found")
-            .clone()
+    pub fn get_forward_placement(&self, forward: &ForwardSignal) -> Option<SignalPlacement> {
+        self.forward.get(forward).cloned()
     }
 
-    pub fn get_shared_placement(&self, shared: &SharedSignal) -> SignalPlacement {
-        self.shared
-            .get(shared)
-            .expect("shared signal not found")
-            .clone()
+    pub fn get_shared_placement(&self, shared: &SharedSignal) -> Option<SignalPlacement> {
+        self.shared.get(shared).cloned()
     }
 
-    pub fn get_fixed_placement(&self, fixed: &FixedSignal) -> SignalPlacement {
-        self.fixed
-            .get(fixed)
-            .expect("fixed signal not found")
-            .clone()
+    pub fn get_fixed_placement(&self, fixed: &FixedSignal) -> Option<SignalPlacement> {
+        self.fixed.get(fixed).cloned()
     }
 
     pub fn find_internal_signal_placement(
@@ -84,7 +77,11 @@ impl Placement {
     }
 
     pub fn first_step_height(&self) -> u32 {
-        self.steps.values().next().unwrap().height
+        if let Some(step) = self.steps.values().next() {
+            step.height
+        } else {
+            self.base_height
+        }
     }
 
     // Returns true iff all steps have the same height.
@@ -99,11 +96,11 @@ impl Placement {
     }
 }
 
-pub trait CellManager {
+pub trait CellManager: Clone {
     fn place<F>(&self, unit: &mut CompilationUnit<F>);
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone)]
 pub struct SingleRowCellManager {}
 
 impl CellManager for SingleRowCellManager {
@@ -114,6 +111,7 @@ impl CellManager for SingleRowCellManager {
             fixed: HashMap::new(),
             steps: HashMap::new(),
             columns: Vec::new(),
+            base_height: 1,
         };
 
         let mut forward_signals: u32 = 0;
@@ -231,7 +229,7 @@ impl CellManager for SingleRowCellManager {
     }
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone)]
 pub struct MaxWidthCellManager {
     max_width: usize,
     same_height: bool,
@@ -250,6 +248,7 @@ impl CellManager for MaxWidthCellManager {
             fixed: HashMap::new(),
             steps: HashMap::new(),
             columns: Vec::new(),
+            base_height: 0,
         };
 
         let mut forward_signal_column: usize = 0;
@@ -284,6 +283,12 @@ impl CellManager for MaxWidthCellManager {
                 forward_signal_row += 1;
             }
         }
+
+        placement.base_height = if forward_signal_column != 0 {
+            forward_signal_row + 1
+        } else {
+            forward_signal_row
+        } as u32;
 
         for step in unit.step_types.values() {
             let mut step_placement = StepPlacement {

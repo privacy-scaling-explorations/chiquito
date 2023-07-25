@@ -60,11 +60,11 @@ impl<F: Clone> StepSelector<F> {
     }
 }
 
-pub trait StepSelectorBuilder {
+pub trait StepSelectorBuilder: Clone {
     fn build<F: Field>(&self, unit: &mut CompilationUnit<F>);
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone)]
 pub struct SimpleStepSelectorBuilder {}
 
 impl StepSelectorBuilder for SimpleStepSelectorBuilder {
@@ -115,7 +115,7 @@ impl StepSelectorBuilder for SimpleStepSelectorBuilder {
     }
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone)]
 pub struct TwoStepsSelectorBuilder {
     pub halo2_column: Option<Halo2Column<Advice>>,
     pub hint_one: Option<String>,
