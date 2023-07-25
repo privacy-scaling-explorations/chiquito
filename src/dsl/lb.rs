@@ -90,7 +90,7 @@ impl<F> LookupTableStore<F> {
 }
 
 impl<F: Debug + Clone> LookupTableStore<F> {
-    pub fn build(self, src: Vec<Constraint<F>>, enable: Option<Constraint<F>>) -> Lookup<F> {
+    fn build(self, src: Vec<Constraint<F>>, enable: Option<Constraint<F>>) -> Lookup<F> {
         assert_eq!(
             self.dest.len(),
             src.len(),
