@@ -9,7 +9,7 @@ use crate::{
     ast::{query::Queriable, ForwardSignal, SharedSignal, StepTypeUUID},
     compiler::{cell_manager::Placement, step_selector::StepSelector},
     util::UUID,
-    wit_gen::{StepInstance, TraceGenerator},
+    wit_gen::{StepInstance, TraceGenerator, TraceWitness},
 };
 
 use super::{Column, PolyExpr};
@@ -82,6 +82,10 @@ impl<F: Field, TraceArgs> AssigmentGenerator<F, TraceArgs> {
     pub fn generate(&self, args: TraceArgs) -> Assignments<F> {
         let witness = self.trace_gen.generate(args);
 
+        self.generate_with_witness(witness)
+    }
+
+    pub fn generate_with_witness(&self, witness: TraceWitness<F>) -> Assignments<F> {
         let mut offset: usize = 0;
         let mut assigments: Assignments<F> = Default::default();
 
