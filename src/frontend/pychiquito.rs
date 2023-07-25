@@ -4,15 +4,73 @@ use crate::{
         Circuit, Constraint, ExposeOffset, FixedSignal, ForwardSignal, InternalSignal,
         SharedSignal, StepType, StepTypeUUID, TransitionConstraint,
     },
+    backend::halo2::{chiquito2Halo2, ChiquitoHalo2, ChiquitoHalo2Circuit},
+    compiler::{
+        cell_manager::SingleRowCellManager, step_selector::SimpleStepSelectorBuilder, Compiler,
+    },
     dsl::StepTypeHandler,
-    util::UUID,
+    ir::assigments::AssigmentGenerator,
+    util::{uuid, UUID},
     wit_gen::{StepInstance, TraceWitness},
 };
 
 use core::result::Result;
-use halo2_proofs::halo2curves::bn256::Fr;
+use halo2_proofs::{dev::MockProver, halo2curves::bn256::Fr};
 use serde::de::{self, Deserialize, Deserializer, IgnoredAny, MapAccess, Visitor};
-use std::{collections::HashMap, fmt, rc::Rc};
+use std::{cell::RefCell, collections::HashMap, fmt, rc::Rc};
+
+type CircuitMap = RefCell<HashMap<UUID, (ChiquitoHalo2<Fr>, Option<AssigmentGenerator<Fr, ()>>)>>;
+
+thread_local! {
+    pub static CIRCUIT_MAP: CircuitMap = RefCell::new(HashMap::new());
+}
+
+pub fn chiquito_ast_to_halo2(ast_json: &str) -> UUID {
+    let circuit: Circuit<Fr, ()> =
+        serde_json::from_str(ast_json).expect("Json deserialization to Circuit failed.");
+    let compiler = Compiler::new(SingleRowCellManager {}, SimpleStepSelectorBuilder {});
+    let (chiquito, assignment_generator) = compiler.compile(&circuit);
+    let chiquito_halo2 = chiquito2Halo2(chiquito);
+    let uuid = uuid();
+    CIRCUIT_MAP.with(|circuit_map| {
+        circuit_map
+            .borrow_mut()
+            .insert(uuid, (chiquito_halo2, assignment_generator));
+    });
+
+    println!("{:?}", uuid);
+
+    uuid
+}
+
+pub fn uuid_to_halo2(uuid: UUID) -> (ChiquitoHalo2<Fr>, Option<AssigmentGenerator<Fr, ()>>) {
+    CIRCUIT_MAP.with(|circuit_map| {
+        let circuit_map = circuit_map.borrow();
+        circuit_map.get(&uuid).unwrap().clone()
+    })
+}
+
+pub fn chiquito_verify_proof(witness_json: &str, ast_id: UUID) {
+    let trace_witness: TraceWitness<Fr> =
+        serde_json::from_str(witness_json).expect("Json deserialization to TraceWitness failed.");
+    let (compiled, assignment_generator) = uuid_to_halo2(ast_id);
+    let circuit: ChiquitoHalo2Circuit<_> = ChiquitoHalo2Circuit::new(
+        compiled,
+        assignment_generator.map(|g| g.generate_with_witness(trace_witness)),
+    );
+
+    let prover = MockProver::<Fr>::run(7, &circuit, Vec::new()).unwrap();
+
+    let result = prover.verify_par();
+
+    println!("{:#?}", result);
+
+    if let Err(failures) = &result {
+        for failure in failures.iter() {
+            println!("{}", failure);
+        }
+    }
+}
 
 struct CircuitVisitor;
 
