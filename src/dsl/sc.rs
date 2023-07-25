@@ -68,7 +68,7 @@ impl<F: Field + Hash, MappingArgs> SuperCircuitContext<F, MappingArgs> {
     }
 
     fn compile(mut self) -> SuperCircuit<F, MappingArgs> {
-        // TODO: This is a hack, tbe compiler should be stateless
+        // TODO: This is a hack, the compiler should be stateless
         let compiler = Compiler::from(compiler::config(
             SingleRowCellManager {},
             SimpleStepSelectorBuilder {},
