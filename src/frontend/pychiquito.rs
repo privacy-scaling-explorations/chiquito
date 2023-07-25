@@ -639,7 +639,7 @@ impl<'de> Visitor<'de> for TraceWitnessVisitor {
         }
         let step_instances =
             step_instances.ok_or_else(|| de::Error::missing_field("step_instances"))?;
-        Ok(Self::Value { step_instances })
+        Ok(Self::Value { step_instances, num_steps: step_instances.len() })
     }
 }
 

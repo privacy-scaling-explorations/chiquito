@@ -44,14 +44,23 @@ pub struct TraceWitness<F> {
 #[derive(Debug, Default)]
 pub struct TraceContext<F> {
     witness: TraceWitness<F>,
-    padding: PhantomData<F>,
 }
 
 impl<F> TraceContext<F> {
+    pub fn new(num_steps: usize) -> TraceContext<F> {
+        TraceContext {
+            witness: TraceWitness {
+                step_instances: Witness::new(),
+                num_steps,
+            },
+        }
+    }
+
     pub fn get_witness(self) -> TraceWitness<F> {
         self.witness
     }
 }
+
 
 impl<F> TraceContext<F> {
     pub fn add<Args, WG: Fn(&mut StepInstance<F>, Args) + 'static>(
@@ -115,8 +124,9 @@ impl<F: Default, TraceArgs> TraceGenerator<F, TraceArgs> {
         Self { trace }
     }
 
-    pub fn generate(&self, args: TraceArgs) -> TraceWitness<F> {
-        let mut ctx = TraceContext::default();
+    pub fn generate(&self, args: TraceArgs, num_steps: usize) -> TraceWitness<F> {
+        // include num steps here
+        let mut ctx = TraceContext::new(num_steps);
 
         (self.trace)(&mut ctx, args);
 
