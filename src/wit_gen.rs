@@ -107,7 +107,6 @@ impl<F: Default, TraceArgs> TraceGenerator<F, TraceArgs> {
     }
 
     pub fn generate(&self, args: TraceArgs) -> TraceWitness<F> {
-        // include num steps here
         let mut ctx = TraceContext::default();
 
         (self.trace)(&mut ctx, args);
