@@ -84,8 +84,6 @@ impl<F> TraceContext<F> {
                 let trace_args = padding_lambda();
 
                 self.add(padded_witness, trace_args)
-            } else {
-                panic!("Missing padding step!");
             }
         }
     }
