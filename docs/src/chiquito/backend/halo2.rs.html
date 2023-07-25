@@ -417,6 +417,45 @@
 <span id="417">417</span>
 <span id="418">418</span>
 <span id="419">419</span>
+<span id="420">420</span>
+<span id="421">421</span>
+<span id="422">422</span>
+<span id="423">423</span>
+<span id="424">424</span>
+<span id="425">425</span>
+<span id="426">426</span>
+<span id="427">427</span>
+<span id="428">428</span>
+<span id="429">429</span>
+<span id="430">430</span>
+<span id="431">431</span>
+<span id="432">432</span>
+<span id="433">433</span>
+<span id="434">434</span>
+<span id="435">435</span>
+<span id="436">436</span>
+<span id="437">437</span>
+<span id="438">438</span>
+<span id="439">439</span>
+<span id="440">440</span>
+<span id="441">441</span>
+<span id="442">442</span>
+<span id="443">443</span>
+<span id="444">444</span>
+<span id="445">445</span>
+<span id="446">446</span>
+<span id="447">447</span>
+<span id="448">448</span>
+<span id="449">449</span>
+<span id="450">450</span>
+<span id="451">451</span>
+<span id="452">452</span>
+<span id="453">453</span>
+<span id="454">454</span>
+<span id="455">455</span>
+<span id="456">456</span>
+<span id="457">457</span>
+<span id="458">458</span>
 </pre><pre class="rust"><code><span class="kw">use </span>std::{collections::HashMap, hash::Hash};
 
 <span class="kw">use </span>halo2_proofs::{
@@ -433,7 +472,7 @@
     ast::ToField,
     ir::{
         assigments::Assignments,
-        sc::SuperAssignments,
+        sc::{SuperAssignments, SuperCircuit},
         Circuit, Column <span class="kw">as </span>cColumn,
         ColumnType::{Advice <span class="kw">as </span>cAdvice, Fixed <span class="kw">as </span>cFixed, Halo2Advice, Halo2Fixed},
         PolyExpr,
@@ -444,6 +483,17 @@
 <span class="attribute">#[allow(non_snake_case)]
 </span><span class="kw">pub fn </span>chiquito2Halo2&lt;F: Field + From&lt;u64&gt; + Hash&gt;(circuit: Circuit&lt;F&gt;) -&gt; ChiquitoHalo2&lt;F&gt; {
     ChiquitoHalo2::new(circuit)
+}
+
+<span class="attribute">#[allow(non_snake_case)]
+</span><span class="kw">pub fn </span>chiquitoSuperCircuit2Halo2&lt;F: Field + From&lt;u64&gt; + Hash, MappingArgs&gt;(
+    super_circuit: <span class="kw-2">&amp;</span>SuperCircuit&lt;F, MappingArgs&gt;,
+) -&gt; Vec&lt;ChiquitoHalo2&lt;F&gt;&gt; {
+    super_circuit
+        .get_sub_circuits()
+        .iter()
+        .map(|c| chiquito2Halo2((<span class="kw-2">*</span>c).clone()))
+        .collect()
 }
 
 <span class="attribute">#[derive(Clone, Debug, Default)]
@@ -473,6 +523,12 @@
     }
 
     <span class="kw">pub fn </span>configure(<span class="kw-2">&amp;mut </span><span class="self">self</span>, meta: <span class="kw-2">&amp;mut </span>ConstraintSystem&lt;F&gt;) {
+        <span class="self">self</span>.configure_columns_sub_circuit(meta);
+
+        <span class="self">self</span>.configure_sub_circuit(meta);
+    }
+
+    <span class="kw">fn </span>configure_columns_sub_circuit(<span class="kw-2">&amp;mut </span><span class="self">self</span>, meta: <span class="kw-2">&amp;mut </span>ConstraintSystem&lt;F&gt;) {
         <span class="kw">let </span><span class="kw-2">mut </span>advice_columns = HashMap::&lt;UUID, Column&lt;Advice&gt;&gt;::new();
         <span class="kw">let </span><span class="kw-2">mut </span>fixed_columns = HashMap::&lt;UUID, Column&lt;Fixed&gt;&gt;::new();
 
@@ -513,6 +569,9 @@
 
         <span class="self">self</span>.advice_columns = advice_columns;
         <span class="self">self</span>.fixed_columns = fixed_columns;
+    }
+
+    <span class="kw">pub fn </span>configure_sub_circuit(<span class="kw-2">&amp;mut </span><span class="self">self</span>, meta: <span class="kw-2">&amp;mut </span>ConstraintSystem&lt;F&gt;) {
         <span class="kw">if </span>!<span class="self">self</span>.circuit.exposed.is_empty() {
             <span class="self">self</span>.instance_column = <span class="prelude-val">Some</span>(meta.instance_column());
         }
@@ -815,7 +874,26 @@
         meta: <span class="kw-2">&amp;mut </span>ConstraintSystem&lt;F&gt;,
         <span class="kw-2">mut </span>sub_circuits: <span class="self">Self</span>::Params,
     ) -&gt; <span class="self">Self</span>::Config {
-        sub_circuits.iter_mut().for_each(|c| c.configure(meta));
+        sub_circuits
+            .iter_mut()
+            .for_each(|c| c.configure_columns_sub_circuit(meta));
+
+        <span class="kw">let </span>advice_columns: HashMap&lt;UUID, Column&lt;Advice&gt;&gt; =
+            sub_circuits.iter().fold(HashMap::default(), |<span class="kw-2">mut </span>acc, s| {
+                acc.extend(s.advice_columns.clone());
+                acc
+            });
+        <span class="kw">let </span>fixed_columns: HashMap&lt;UUID, Column&lt;Fixed&gt;&gt; =
+            sub_circuits.iter().fold(HashMap::default(), |<span class="kw-2">mut </span>acc, s| {
+                acc.extend(s.fixed_columns.clone());
+                acc
+            });
+
+        sub_circuits.iter_mut().for_each(|sub_circuit| {
+            sub_circuit.advice_columns = advice_columns.clone();
+            sub_circuit.fixed_columns = fixed_columns.clone();
+            sub_circuit.configure_sub_circuit(meta)
+        });
 
         sub_circuits
     }

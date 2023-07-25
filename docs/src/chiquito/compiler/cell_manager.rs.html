@@ -502,6 +502,11 @@
 <span id="502">502</span>
 <span id="503">503</span>
 <span id="504">504</span>
+<span id="505">505</span>
+<span id="506">506</span>
+<span id="507">507</span>
+<span id="508">508</span>
+<span id="509">509</span>
 </pre><pre class="rust"><code><span class="kw">use </span>std::{collections::HashMap, fmt::Debug};
 
 <span class="kw">use </span><span class="kw">crate</span>::ast::{FixedSignal, ForwardSignal, InternalSignal, SharedSignal, StepTypeUUID};
@@ -545,28 +550,21 @@
     <span class="kw">pub </span>fixed: HashMap&lt;FixedSignal, SignalPlacement&gt;,
     <span class="kw">pub </span>steps: HashMap&lt;StepTypeUUID, StepPlacement&gt;,
     <span class="kw">pub </span>columns: Vec&lt;Column&gt;,
+
+    <span class="kw">pub </span>base_height: u32,
 }
 
 <span class="kw">impl </span>Placement {
-    <span class="kw">pub fn </span>get_forward_placement(<span class="kw-2">&amp;</span><span class="self">self</span>, forward: <span class="kw-2">&amp;</span>ForwardSignal) -&gt; SignalPlacement {
-        <span class="self">self</span>.forward
-            .get(forward)
-            .expect(<span class="string">&quot;forward signal not found&quot;</span>)
-            .clone()
+    <span class="kw">pub fn </span>get_forward_placement(<span class="kw-2">&amp;</span><span class="self">self</span>, forward: <span class="kw-2">&amp;</span>ForwardSignal) -&gt; <span class="prelude-ty">Option</span>&lt;SignalPlacement&gt; {
+        <span class="self">self</span>.forward.get(forward).cloned()
     }
 
-    <span class="kw">pub fn </span>get_shared_placement(<span class="kw-2">&amp;</span><span class="self">self</span>, shared: <span class="kw-2">&amp;</span>SharedSignal) -&gt; SignalPlacement {
-        <span class="self">self</span>.shared
-            .get(shared)
-            .expect(<span class="string">&quot;shared signal not found&quot;</span>)
-            .clone()
+    <span class="kw">pub fn </span>get_shared_placement(<span class="kw-2">&amp;</span><span class="self">self</span>, shared: <span class="kw-2">&amp;</span>SharedSignal) -&gt; <span class="prelude-ty">Option</span>&lt;SignalPlacement&gt; {
+        <span class="self">self</span>.shared.get(shared).cloned()
     }
 
-    <span class="kw">pub fn </span>get_fixed_placement(<span class="kw-2">&amp;</span><span class="self">self</span>, fixed: <span class="kw-2">&amp;</span>FixedSignal) -&gt; SignalPlacement {
-        <span class="self">self</span>.fixed
-            .get(fixed)
-            .expect(<span class="string">&quot;fixed signal not found&quot;</span>)
-            .clone()
+    <span class="kw">pub fn </span>get_fixed_placement(<span class="kw-2">&amp;</span><span class="self">self</span>, fixed: <span class="kw-2">&amp;</span>FixedSignal) -&gt; <span class="prelude-ty">Option</span>&lt;SignalPlacement&gt; {
+        <span class="self">self</span>.fixed.get(fixed).cloned()
     }
 
     <span class="kw">pub fn </span>find_internal_signal_placement(
@@ -588,7 +586,11 @@
     }
 
     <span class="kw">pub fn </span>first_step_height(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; u32 {
-        <span class="self">self</span>.steps.values().next().unwrap().height
+        <span class="kw">if let </span><span class="prelude-val">Some</span>(step) = <span class="self">self</span>.steps.values().next() {
+            step.height
+        } <span class="kw">else </span>{
+            <span class="self">self</span>.base_height
+        }
     }
 
     <span class="comment">// Returns true iff all steps have the same height.
@@ -603,11 +605,11 @@
     }
 }
 
-<span class="kw">pub trait </span>CellManager {
+<span class="kw">pub trait </span>CellManager: Clone {
     <span class="kw">fn </span>place&lt;F&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>, unit: <span class="kw-2">&amp;mut </span>CompilationUnit&lt;F&gt;);
 }
 
-<span class="attribute">#[derive(Debug, Default)]
+<span class="attribute">#[derive(Debug, Default, Clone)]
 </span><span class="kw">pub struct </span>SingleRowCellManager {}
 
 <span class="kw">impl </span>CellManager <span class="kw">for </span>SingleRowCellManager {
@@ -618,6 +620,7 @@
             fixed: HashMap::new(),
             steps: HashMap::new(),
             columns: Vec::new(),
+            base_height: <span class="number">1</span>,
         };
 
         <span class="kw">let </span><span class="kw-2">mut </span>forward_signals: u32 = <span class="number">0</span>;
@@ -735,7 +738,7 @@
     }
 }
 
-<span class="attribute">#[derive(Debug, Default)]
+<span class="attribute">#[derive(Debug, Default, Clone)]
 </span><span class="kw">pub struct </span>MaxWidthCellManager {
     max_width: usize,
     same_height: bool,
@@ -754,6 +757,7 @@
             fixed: HashMap::new(),
             steps: HashMap::new(),
             columns: Vec::new(),
+            base_height: <span class="number">0</span>,
         };
 
         <span class="kw">let </span><span class="kw-2">mut </span>forward_signal_column: usize = <span class="number">0</span>;
@@ -788,6 +792,12 @@
                 forward_signal_row += <span class="number">1</span>;
             }
         }
+
+        placement.base_height = <span class="kw">if </span>forward_signal_column != <span class="number">0 </span>{
+            forward_signal_row + <span class="number">1
+        </span>} <span class="kw">else </span>{
+            forward_signal_row
+        } <span class="kw">as </span>u32;
 
         <span class="kw">for </span>step <span class="kw">in </span>unit.step_types.values() {
             <span class="kw">let </span><span class="kw-2">mut </span>step_placement = StepPlacement {

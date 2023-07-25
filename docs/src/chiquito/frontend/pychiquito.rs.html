@@ -1415,15 +1415,6 @@
 <span id="1415">1415</span>
 <span id="1416">1416</span>
 <span id="1417">1417</span>
-<span id="1418">1418</span>
-<span id="1419">1419</span>
-<span id="1420">1420</span>
-<span id="1421">1421</span>
-<span id="1422">1422</span>
-<span id="1423">1423</span>
-<span id="1424">1424</span>
-<span id="1425">1425</span>
-<span id="1426">1426</span>
 </pre><pre class="rust"><code><span class="kw">use crate</span>::{
     ast::{
         expr::{query::Queriable, Expr},
@@ -2043,7 +2034,6 @@
         </span>A: MapAccess&lt;<span class="lifetime">&#39;de</span>&gt;,
     {
         <span class="kw">let </span><span class="kw-2">mut </span>step_instances = <span class="prelude-val">None</span>;
-        <span class="kw">let </span><span class="kw-2">mut </span>height = <span class="prelude-val">None</span>;
 
         <span class="kw">while let </span><span class="prelude-val">Some</span>(key) = map.next_key::&lt;String&gt;()<span class="question-mark">? </span>{
             <span class="kw">match </span>key.as_str() {
@@ -2054,11 +2044,8 @@
                     step_instances = <span class="prelude-val">Some</span>(map.next_value()<span class="question-mark">?</span>);
                 }
                 <span class="string">&quot;height&quot; </span>=&gt; {
-                    <span class="kw">if </span>height.is_some() {
-                        <span class="kw">return </span><span class="prelude-val">Err</span>(de::Error::duplicate_field(<span class="string">&quot;height&quot;</span>));
-                    }
-                    height = <span class="prelude-val">Some</span>(map.next_value()<span class="question-mark">?</span>);
-                }
+                    <span class="comment">// ignore legacy field
+                </span>}
                 <span class="kw">_ </span>=&gt; {
                     <span class="kw">return </span><span class="prelude-val">Err</span>(de::Error::unknown_field(
                         <span class="kw-2">&amp;</span>key,
@@ -2069,11 +2056,7 @@
         }
         <span class="kw">let </span>step_instances =
             step_instances.ok_or_else(|| de::Error::missing_field(<span class="string">&quot;step_instances&quot;</span>))<span class="question-mark">?</span>;
-        <span class="kw">let </span>height = height.ok_or_else(|| de::Error::missing_field(<span class="string">&quot;height&quot;</span>))<span class="question-mark">?</span>;
-        <span class="prelude-val">Ok</span>(<span class="self">Self</span>::Value {
-            step_instances,
-            height,
-        })
+        <span class="prelude-val">Ok</span>(<span class="self">Self</span>::Value { step_instances })
     }
 }
 
@@ -2284,8 +2267,7 @@
                         ]
                     }
                 }
-            ],
-            &quot;height&quot;: 0
+            ]
         }
         &quot;#</span>;
         <span class="kw">let </span>trace_witness: TraceWitness&lt;Fr&gt; = serde_json::from_str(json).unwrap();

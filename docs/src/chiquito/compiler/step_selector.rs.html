@@ -291,11 +291,11 @@
     }
 }
 
-<span class="kw">pub trait </span>StepSelectorBuilder {
+<span class="kw">pub trait </span>StepSelectorBuilder: Clone {
     <span class="kw">fn </span>build&lt;F: Field&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>, unit: <span class="kw-2">&amp;mut </span>CompilationUnit&lt;F&gt;);
 }
 
-<span class="attribute">#[derive(Debug, Default)]
+<span class="attribute">#[derive(Debug, Default, Clone)]
 </span><span class="kw">pub struct </span>SimpleStepSelectorBuilder {}
 
 <span class="kw">impl </span>StepSelectorBuilder <span class="kw">for </span>SimpleStepSelectorBuilder {
@@ -346,7 +346,7 @@
     }
 }
 
-<span class="attribute">#[derive(Debug, Default)]
+<span class="attribute">#[derive(Debug, Default, Clone)]
 </span><span class="kw">pub struct </span>TwoStepsSelectorBuilder {
     <span class="kw">pub </span>halo2_column: <span class="prelude-ty">Option</span>&lt;Halo2Column&lt;Advice&gt;&gt;,
     <span class="kw">pub </span>hint_one: <span class="prelude-ty">Option</span>&lt;String&gt;,

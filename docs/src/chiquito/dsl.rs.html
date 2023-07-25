@@ -386,6 +386,22 @@
 <span id="386">386</span>
 <span id="387">387</span>
 <span id="388">388</span>
+<span id="389">389</span>
+<span id="390">390</span>
+<span id="391">391</span>
+<span id="392">392</span>
+<span id="393">393</span>
+<span id="394">394</span>
+<span id="395">395</span>
+<span id="396">396</span>
+<span id="397">397</span>
+<span id="398">398</span>
+<span id="399">399</span>
+<span id="400">400</span>
+<span id="401">401</span>
+<span id="402">402</span>
+<span id="403">403</span>
+<span id="404">404</span>
 </pre><pre class="rust"><code><span class="kw">use crate</span>::{
     ast::{query::Queriable, Circuit, ExposeOffset, StepType, StepTypeUUID},
     util::{uuid, UUID},
@@ -397,64 +413,69 @@
 <span class="kw">use </span>core::fmt::Debug;
 <span class="kw">use </span>std::marker::PhantomData;
 
-<span class="kw">use </span><span class="self">self</span>::cb::{Constraint, LookupBuilder, Typing};
+<span class="kw">use </span><span class="self">self</span>::{
+    cb::{Constraint, Typing},
+    lb::{LookupBuilder, LookupTable, LookupTableRegistry, LookupTableStore},
+};
 
 <span class="kw">pub use </span>sc::<span class="kw-2">*</span>;
 
-<span class="doccomment">/// A generic structure designed to handle the context of a circuit for generic types `F`,
+<span class="attribute">#[derive(Debug)]
+</span><span class="doccomment">/// A generic structure designed to handle the context of a circuit for generic types `F`,
 /// `TraceArgs` and `StepArgs`. The struct contains a `Circuit` instance and implements
 /// methods to build the circuit, add various components, and manipulate the circuit. `F` is a
 /// generic type representing the field of the circuit. `TraceArgs` is a generic type
 /// representing the arguments passed to the trace function. `StepArgs` is a generic type
 /// representing the arguments passed to the `step_type_def` function.
 </span><span class="kw">pub struct </span>CircuitContext&lt;F, TraceArgs&gt; {
-    sc: Circuit&lt;F, TraceArgs&gt;,
+    circuit: Circuit&lt;F, TraceArgs&gt;,
+    tables: LookupTableRegistry&lt;F&gt;,
 }
 
 <span class="kw">impl</span>&lt;F, TraceArgs&gt; CircuitContext&lt;F, TraceArgs&gt; {
     <span class="doccomment">/// Adds a forward signal to the circuit with a name string and zero rotation and returns a
     /// `Queriable` instance representing the added forward signal.
     </span><span class="kw">pub fn </span>forward(<span class="kw-2">&amp;mut </span><span class="self">self</span>, name: <span class="kw-2">&amp;</span>str) -&gt; Queriable&lt;F&gt; {
-        Queriable::Forward(<span class="self">self</span>.sc.add_forward(name, <span class="number">0</span>), <span class="bool-val">false</span>)
+        Queriable::Forward(<span class="self">self</span>.circuit.add_forward(name, <span class="number">0</span>), <span class="bool-val">false</span>)
     }
 
     <span class="doccomment">/// Adds a forward signal to the circuit with a name string and a specified phase and returns a
     /// `Queriable` instance representing the added forward signal.
     </span><span class="kw">pub fn </span>forward_with_phase(<span class="kw-2">&amp;mut </span><span class="self">self</span>, name: <span class="kw-2">&amp;</span>str, phase: usize) -&gt; Queriable&lt;F&gt; {
-        Queriable::Forward(<span class="self">self</span>.sc.add_forward(name, phase), <span class="bool-val">false</span>)
+        Queriable::Forward(<span class="self">self</span>.circuit.add_forward(name, phase), <span class="bool-val">false</span>)
     }
 
     <span class="doccomment">/// Adds a shared signal to the circuit with a name string and zero rotation and returns a
     /// `Queriable` instance representing the added shared signal.
     </span><span class="kw">pub fn </span>shared(<span class="kw-2">&amp;mut </span><span class="self">self</span>, name: <span class="kw-2">&amp;</span>str) -&gt; Queriable&lt;F&gt; {
-        Queriable::Shared(<span class="self">self</span>.sc.add_shared(name, <span class="number">0</span>), <span class="number">0</span>)
+        Queriable::Shared(<span class="self">self</span>.circuit.add_shared(name, <span class="number">0</span>), <span class="number">0</span>)
     }
 
     <span class="doccomment">/// Adds a shared signal to the circuit with a name string and a specified phase and returns a
     /// `Queriable` instance representing the added shared signal.
     </span><span class="kw">pub fn </span>shared_with_phase(<span class="kw-2">&amp;mut </span><span class="self">self</span>, name: <span class="kw-2">&amp;</span>str, phase: usize) -&gt; Queriable&lt;F&gt; {
-        Queriable::Shared(<span class="self">self</span>.sc.add_shared(name, phase), <span class="number">0</span>)
+        Queriable::Shared(<span class="self">self</span>.circuit.add_shared(name, phase), <span class="number">0</span>)
     }
 
     <span class="kw">pub fn </span>fixed(<span class="kw-2">&amp;mut </span><span class="self">self</span>, name: <span class="kw-2">&amp;</span>str) -&gt; Queriable&lt;F&gt; {
-        Queriable::Fixed(<span class="self">self</span>.sc.add_fixed(name), <span class="number">0</span>)
+        Queriable::Fixed(<span class="self">self</span>.circuit.add_fixed(name), <span class="number">0</span>)
     }
 
     <span class="doccomment">/// Exposes the first step instance value of a forward signal as public.
     </span><span class="kw">pub fn </span>expose(<span class="kw-2">&amp;mut </span><span class="self">self</span>, queriable: Queriable&lt;F&gt;, offset: ExposeOffset) {
-        <span class="self">self</span>.sc.expose(queriable, offset);
+        <span class="self">self</span>.circuit.expose(queriable, offset);
     }
 
     <span class="doccomment">/// Imports a halo2 advice column with a name string into the circuit and returns a
     /// `Queriable` instance representing the imported column.
     </span><span class="kw">pub fn </span>import_halo2_advice(<span class="kw-2">&amp;mut </span><span class="self">self</span>, name: <span class="kw-2">&amp;</span>str, column: Halo2Column&lt;Advice&gt;) -&gt; Queriable&lt;F&gt; {
-        Queriable::Halo2AdviceQuery(<span class="self">self</span>.sc.add_halo2_advice(name, column), <span class="number">0</span>)
+        Queriable::Halo2AdviceQuery(<span class="self">self</span>.circuit.add_halo2_advice(name, column), <span class="number">0</span>)
     }
 
     <span class="doccomment">/// Imports a halo2 fixed column with a name string into the circuit and returns a
     /// `Queriable` instance representing the imported column.
     </span><span class="kw">pub fn </span>import_halo2_fixed(<span class="kw-2">&amp;mut </span><span class="self">self</span>, name: <span class="kw-2">&amp;</span>str, column: Halo2Column&lt;Fixed&gt;) -&gt; Queriable&lt;F&gt; {
-        Queriable::Halo2FixedQuery(<span class="self">self</span>.sc.add_halo2_fixed(name, column), <span class="number">0</span>)
+        Queriable::Halo2FixedQuery(<span class="self">self</span>.circuit.add_halo2_fixed(name, column), <span class="number">0</span>)
     }
 
     <span class="doccomment">/// Adds a new step type with the specified name to the circuit and returns a
@@ -463,7 +484,7 @@
     </span><span class="kw">pub fn </span>step_type(<span class="kw-2">&amp;mut </span><span class="self">self</span>, name: <span class="kw-2">&amp;</span>str) -&gt; StepTypeHandler {
         <span class="kw">let </span>handler = StepTypeHandler::new(name.to_string());
 
-        <span class="self">self</span>.sc.add_step_type(handler, name);
+        <span class="self">self</span>.circuit.add_step_type(handler, name);
 
         handler
     }
@@ -485,17 +506,21 @@
             StepTypeDefInput::String(name) =&gt; {
                 <span class="kw">let </span>handler = StepTypeHandler::new(name.to_string());
 
-                <span class="self">self</span>.sc.add_step_type(handler, name);
+                <span class="self">self</span>.circuit.add_step_type(handler, name);
 
                 handler
             }
         };
 
-        <span class="kw">let </span><span class="kw-2">mut </span>context = StepTypeContext::&lt;F&gt;::new(handler.uuid(), handler.annotation.to_string());
+        <span class="kw">let </span><span class="kw-2">mut </span>context = StepTypeContext::&lt;F&gt;::new(
+            handler.uuid(),
+            handler.annotation.to_string(),
+            <span class="self">self</span>.tables.clone(),
+        );
 
         <span class="kw">let </span>result = def(<span class="kw-2">&amp;mut </span>context);
 
-        <span class="self">self</span>.sc.add_step_type_def(context.step_type);
+        <span class="self">self</span>.circuit.add_step_type_def(context.step_type);
 
         result
     }
@@ -509,7 +534,7 @@
     <span class="kw">where
         </span>D: Fn(<span class="kw-2">&amp;mut </span>TraceContext&lt;F&gt;, TraceArgs) + <span class="lifetime">&#39;static</span>,
     {
-        <span class="self">self</span>.sc.set_trace(def);
+        <span class="self">self</span>.circuit.set_trace(def);
     }
 
     <span class="doccomment">/// Sets the fixed generation function for the circuit. The fixed generation function is
@@ -520,27 +545,34 @@
     <span class="kw">where
         </span>D: Fn(<span class="kw-2">&amp;mut </span>FixedGenContext&lt;F&gt;) + <span class="lifetime">&#39;static</span>,
     {
-        <span class="self">self</span>.sc.set_fixed_gen(def);
+        <span class="self">self</span>.circuit.set_fixed_gen(def);
+    }
+
+    <span class="kw">pub fn </span>new_table(<span class="kw-2">&amp;</span><span class="self">self</span>, table: LookupTableStore&lt;F&gt;) -&gt; LookupTable {
+        <span class="kw">let </span>uuid = table.uuid();
+        <span class="self">self</span>.tables.add(table);
+
+        LookupTable { uuid }
     }
 
     <span class="doccomment">/// Enforce the type of the first step by adding a constraint to the circuit. Takes a
     /// `StepTypeHandler` parameter that represents the step type.
     </span><span class="kw">pub fn </span>pragma_first_step&lt;STH: Into&lt;StepTypeHandler&gt;&gt;(<span class="kw-2">&amp;mut </span><span class="self">self</span>, step_type: STH) {
-        <span class="self">self</span>.sc.first_step = <span class="prelude-val">Some</span>(step_type.into().uuid());
+        <span class="self">self</span>.circuit.first_step = <span class="prelude-val">Some</span>(step_type.into().uuid());
     }
 
     <span class="doccomment">/// Enforce the type of the last step by adding a constraint to the circuit. Takes a
     /// `StepTypeHandler` parameter that represents the step type.
     </span><span class="kw">pub fn </span>pragma_last_step&lt;STH: Into&lt;StepTypeHandler&gt;&gt;(<span class="kw-2">&amp;mut </span><span class="self">self</span>, step_type: STH) {
-        <span class="self">self</span>.sc.last_step = <span class="prelude-val">Some</span>(step_type.into().uuid());
+        <span class="self">self</span>.circuit.last_step = <span class="prelude-val">Some</span>(step_type.into().uuid());
     }
 
     <span class="kw">pub fn </span>pragma_num_steps(<span class="kw-2">&amp;mut </span><span class="self">self</span>, num_steps: usize) {
-        <span class="self">self</span>.sc.num_steps = num_steps;
+        <span class="self">self</span>.circuit.num_steps = num_steps;
     }
 
     <span class="kw">pub fn </span>pragma_disable_q_enable(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {
-        <span class="self">self</span>.sc.q_enable = <span class="bool-val">false</span>;
+        <span class="self">self</span>.circuit.q_enable = <span class="bool-val">false</span>;
     }
 }
 
@@ -567,12 +599,14 @@
 /// `Args` is the type of the step instance witness generation arguments.
 </span><span class="kw">pub struct </span>StepTypeContext&lt;F&gt; {
     step_type: StepType&lt;F&gt;,
+    tables: LookupTableRegistry&lt;F&gt;,
 }
 
 <span class="kw">impl</span>&lt;F&gt; StepTypeContext&lt;F&gt; {
-    <span class="kw">pub fn </span>new(uuid: UUID, name: String) -&gt; <span class="self">Self </span>{
+    <span class="kw">pub fn </span>new(uuid: UUID, name: String, tables: LookupTableRegistry&lt;F&gt;) -&gt; <span class="self">Self </span>{
         <span class="self">Self </span>{
             step_type: StepType::new(uuid, name),
+            tables,
         }
     }
 
@@ -609,6 +643,7 @@
     {
         <span class="kw">let </span><span class="kw-2">mut </span>ctx = StepTypeSetupContext {
             step_type: <span class="kw-2">&amp;mut </span><span class="self">self</span>.step_type,
+            tables: <span class="self">self</span>.tables.clone(),
         };
 
         def(<span class="kw-2">&amp;mut </span>ctx);
@@ -629,17 +664,9 @@
     }
 }
 
-<span class="kw">impl</span>&lt;F: Debug + Clone&gt; StepTypeContext&lt;F&gt; {
-    <span class="doccomment">/// DEPRECATED
-    </span><span class="kw">pub fn </span>add_lookup(<span class="kw-2">&amp;mut </span><span class="self">self</span>, lookup_builder: <span class="kw-2">&amp;mut </span>LookupBuilder&lt;F&gt;) {
-        <span class="macro">println!</span>(<span class="string">&quot;DEPRECATED add_lookup: use setup for constraints in step types&quot;</span>);
-
-        <span class="self">self</span>.step_type.lookups.push(lookup_builder.lookup.clone());
-    }
-}
-
 <span class="kw">pub struct </span>StepTypeSetupContext&lt;<span class="lifetime">&#39;a</span>, F&gt; {
     step_type: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="kw-2">mut </span>StepType&lt;F&gt;,
+    tables: LookupTableRegistry&lt;F&gt;,
 }
 
 <span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>, F&gt; StepTypeSetupContext&lt;<span class="lifetime">&#39;a</span>, F&gt; {
@@ -678,8 +705,8 @@
 
 <span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>, F: Debug + Clone&gt; StepTypeSetupContext&lt;<span class="lifetime">&#39;a</span>, F&gt; {
     <span class="doccomment">/// Adds a lookup to the step type.
-    </span><span class="kw">pub fn </span>add_lookup(<span class="kw-2">&amp;mut </span><span class="self">self</span>, lookup_builder: <span class="kw-2">&amp;mut </span>LookupBuilder&lt;F&gt;) {
-        <span class="self">self</span>.step_type.lookups.push(lookup_builder.lookup.clone());
+    </span><span class="kw">pub fn </span>add_lookup&lt;LB: LookupBuilder&lt;F&gt;&gt;(<span class="kw-2">&amp;mut </span><span class="self">self</span>, lookup_builder: LB) {
+        <span class="self">self</span>.step_type.lookups.push(lookup_builder.build(<span class="self">self</span>));
     }
 }
 
@@ -743,21 +770,23 @@
 /// functions. This is the main function that users call to define a Chiquito circuit. Currently,
 /// the name is not used for annotation within the function, but it may be used in future
 /// implementations.
-</span><span class="kw">pub fn </span>circuit&lt;F, TraceArgs, StepArgs, D&gt;(_name: <span class="kw-2">&amp;</span>str, def: D) -&gt; Circuit&lt;F, TraceArgs&gt;
+</span><span class="kw">pub fn </span>circuit&lt;F, TraceArgs, D&gt;(_name: <span class="kw-2">&amp;</span>str, def: D) -&gt; Circuit&lt;F, TraceArgs&gt;
 <span class="kw">where
     </span>D: Fn(<span class="kw-2">&amp;mut </span>CircuitContext&lt;F, TraceArgs&gt;),
 {
     <span class="comment">// TODO annotate circuit
     </span><span class="kw">let </span><span class="kw-2">mut </span>context = CircuitContext {
-        sc: Circuit::default(),
+        circuit: Circuit::default(),
+        tables: LookupTableRegistry::default(),
     };
 
     def(<span class="kw-2">&amp;mut </span>context);
 
-    context.sc
+    context.circuit
 }
 
 <span class="kw">pub mod </span>cb;
+<span class="kw">pub mod </span>lb;
 <span class="kw">pub mod </span>sc;
 
 <span class="attribute">#[cfg(test)]
@@ -767,11 +796,14 @@
     <span class="attribute">#[test]
     </span><span class="kw">fn </span>test_disable_q_enable() {
         <span class="kw">let </span>circuit: Circuit&lt;i32, i32&gt; = Circuit::default();
-        <span class="kw">let </span><span class="kw-2">mut </span>context = CircuitContext { sc: circuit };
+        <span class="kw">let </span><span class="kw-2">mut </span>context = CircuitContext {
+            circuit,
+            tables: Default::default(),
+        };
 
         context.pragma_disable_q_enable();
 
-        <span class="macro">assert!</span>(!context.sc.q_enable);
+        <span class="macro">assert!</span>(!context.circuit.q_enable);
     }
 }
 </code></pre></div>

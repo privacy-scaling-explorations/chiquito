@@ -1,3 +1,0 @@
-(function() {var implementors = {
-"chiquito":[["impl&lt;F, MappingArgs&gt; !<a class=\"trait\" href=\"https://doc.rust-lang.org/nightly/core/marker/trait.Sized.html\" title=\"trait core::marker::Sized\">Sized</a> for <a class=\"struct\" href=\"chiquito/ir/sc/struct.MappingGenerator.html\" title=\"struct chiquito::ir::sc::MappingGenerator\">MappingGenerator</a>&lt;F, MappingArgs&gt;",1,["chiquito::ir::sc::MappingGenerator"]]]
-};if (window.register_implementors) {window.register_implementors(implementors);} else {window.pending_implementors = implementors;}})()
