@@ -192,6 +192,10 @@
 <span id="192">192</span>
 <span id="193">193</span>
 <span id="194">194</span>
+<span id="195">195</span>
+<span id="196">196</span>
+<span id="197">197</span>
+<span id="198">198</span>
 </pre><pre class="rust"><code><span class="kw">use </span>std::collections::HashMap;
 
 <span class="kw">use </span>halo2_proofs::{
@@ -203,7 +207,7 @@
     ast::{query::Queriable, ForwardSignal, SharedSignal, StepTypeUUID},
     compiler::{cell_manager::Placement, step_selector::StepSelector},
     util::UUID,
-    wit_gen::{StepInstance, TraceGenerator},
+    wit_gen::{StepInstance, TraceGenerator, TraceWitness},
 };
 
 <span class="kw">use super</span>::{Column, PolyExpr};
@@ -256,6 +260,10 @@
     <span class="kw">pub fn </span>generate(<span class="kw-2">&amp;</span><span class="self">self</span>, args: TraceArgs) -&gt; Assignments&lt;F&gt; {
         <span class="kw">let </span>witness = <span class="self">self</span>.trace_gen.generate(args);
 
+        <span class="self">self</span>.generate_with_witness(witness)
+    }
+
+    <span class="kw">pub fn </span>generate_with_witness(<span class="kw-2">&amp;</span><span class="self">self</span>, witness: TraceWitness&lt;F&gt;) -&gt; Assignments&lt;F&gt; {
         <span class="kw">let </span><span class="kw-2">mut </span>offset: usize = <span class="number">0</span>;
         <span class="kw">let </span><span class="kw-2">mut </span>assigments: Assignments&lt;F&gt; = Default::default();
 

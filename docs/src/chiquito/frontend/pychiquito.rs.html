@@ -1366,21 +1366,137 @@
 <span id="1366">1366</span>
 <span id="1367">1367</span>
 <span id="1368">1368</span>
+<span id="1369">1369</span>
+<span id="1370">1370</span>
+<span id="1371">1371</span>
+<span id="1372">1372</span>
+<span id="1373">1373</span>
+<span id="1374">1374</span>
+<span id="1375">1375</span>
+<span id="1376">1376</span>
+<span id="1377">1377</span>
+<span id="1378">1378</span>
+<span id="1379">1379</span>
+<span id="1380">1380</span>
+<span id="1381">1381</span>
+<span id="1382">1382</span>
+<span id="1383">1383</span>
+<span id="1384">1384</span>
+<span id="1385">1385</span>
+<span id="1386">1386</span>
+<span id="1387">1387</span>
+<span id="1388">1388</span>
+<span id="1389">1389</span>
+<span id="1390">1390</span>
+<span id="1391">1391</span>
+<span id="1392">1392</span>
+<span id="1393">1393</span>
+<span id="1394">1394</span>
+<span id="1395">1395</span>
+<span id="1396">1396</span>
+<span id="1397">1397</span>
+<span id="1398">1398</span>
+<span id="1399">1399</span>
+<span id="1400">1400</span>
+<span id="1401">1401</span>
+<span id="1402">1402</span>
+<span id="1403">1403</span>
+<span id="1404">1404</span>
+<span id="1405">1405</span>
+<span id="1406">1406</span>
+<span id="1407">1407</span>
+<span id="1408">1408</span>
+<span id="1409">1409</span>
+<span id="1410">1410</span>
+<span id="1411">1411</span>
+<span id="1412">1412</span>
+<span id="1413">1413</span>
+<span id="1414">1414</span>
+<span id="1415">1415</span>
+<span id="1416">1416</span>
+<span id="1417">1417</span>
+<span id="1418">1418</span>
+<span id="1419">1419</span>
+<span id="1420">1420</span>
+<span id="1421">1421</span>
+<span id="1422">1422</span>
+<span id="1423">1423</span>
+<span id="1424">1424</span>
+<span id="1425">1425</span>
+<span id="1426">1426</span>
 </pre><pre class="rust"><code><span class="kw">use crate</span>::{
     ast::{
         expr::{query::Queriable, Expr},
         Circuit, Constraint, ExposeOffset, FixedSignal, ForwardSignal, InternalSignal,
         SharedSignal, StepType, StepTypeUUID, TransitionConstraint,
     },
+    backend::halo2::{chiquito2Halo2, ChiquitoHalo2, ChiquitoHalo2Circuit},
+    compiler::{
+        cell_manager::SingleRowCellManager, step_selector::SimpleStepSelectorBuilder, Compiler,
+    },
     dsl::StepTypeHandler,
-    util::UUID,
+    ir::assigments::AssigmentGenerator,
+    util::{uuid, UUID},
     wit_gen::{StepInstance, TraceWitness},
 };
 
 <span class="kw">use </span>core::result::Result;
-<span class="kw">use </span>halo2_proofs::halo2curves::bn256::Fr;
+<span class="kw">use </span>halo2_proofs::{dev::MockProver, halo2curves::bn256::Fr};
 <span class="kw">use </span>serde::de::{<span class="self">self</span>, Deserialize, Deserializer, IgnoredAny, MapAccess, Visitor};
-<span class="kw">use </span>std::{collections::HashMap, fmt, rc::Rc};
+<span class="kw">use </span>std::{cell::RefCell, collections::HashMap, fmt, rc::Rc};
+
+<span class="kw">type </span>CircuitMap = RefCell&lt;HashMap&lt;UUID, (ChiquitoHalo2&lt;Fr&gt;, <span class="prelude-ty">Option</span>&lt;AssigmentGenerator&lt;Fr, ()&gt;&gt;)&gt;&gt;;
+
+<span class="macro">thread_local! </span>{
+    <span class="kw">pub static </span>CIRCUIT_MAP: CircuitMap = RefCell::new(HashMap::new());
+}
+
+<span class="kw">pub fn </span>chiquito_ast_to_halo2(ast_json: <span class="kw-2">&amp;</span>str) -&gt; UUID {
+    <span class="kw">let </span>circuit: Circuit&lt;Fr, ()&gt; =
+        serde_json::from_str(ast_json).expect(<span class="string">&quot;Json deserialization to Circuit failed.&quot;</span>);
+    <span class="kw">let </span>compiler = Compiler::new(SingleRowCellManager {}, SimpleStepSelectorBuilder {});
+    <span class="kw">let </span>(chiquito, assignment_generator) = compiler.compile(<span class="kw-2">&amp;</span>circuit);
+    <span class="kw">let </span>chiquito_halo2 = chiquito2Halo2(chiquito);
+    <span class="kw">let </span>uuid = uuid();
+    CIRCUIT_MAP.with(|circuit_map| {
+        circuit_map
+            .borrow_mut()
+            .insert(uuid, (chiquito_halo2, assignment_generator));
+    });
+
+    <span class="macro">println!</span>(<span class="string">&quot;{:?}&quot;</span>, uuid);
+
+    uuid
+}
+
+<span class="kw">pub fn </span>uuid_to_halo2(uuid: UUID) -&gt; (ChiquitoHalo2&lt;Fr&gt;, <span class="prelude-ty">Option</span>&lt;AssigmentGenerator&lt;Fr, ()&gt;&gt;) {
+    CIRCUIT_MAP.with(|circuit_map| {
+        <span class="kw">let </span>circuit_map = circuit_map.borrow();
+        circuit_map.get(<span class="kw-2">&amp;</span>uuid).unwrap().clone()
+    })
+}
+
+<span class="kw">pub fn </span>chiquito_verify_proof(witness_json: <span class="kw-2">&amp;</span>str, ast_id: UUID) {
+    <span class="kw">let </span>trace_witness: TraceWitness&lt;Fr&gt; =
+        serde_json::from_str(witness_json).expect(<span class="string">&quot;Json deserialization to TraceWitness failed.&quot;</span>);
+    <span class="kw">let </span>(compiled, assignment_generator) = uuid_to_halo2(ast_id);
+    <span class="kw">let </span>circuit: ChiquitoHalo2Circuit&lt;<span class="kw">_</span>&gt; = ChiquitoHalo2Circuit::new(
+        compiled,
+        assignment_generator.map(|g| g.generate_with_witness(trace_witness)),
+    );
+
+    <span class="kw">let </span>prover = MockProver::&lt;Fr&gt;::run(<span class="number">7</span>, <span class="kw-2">&amp;</span>circuit, Vec::new()).unwrap();
+
+    <span class="kw">let </span>result = prover.verify_par();
+
+    <span class="macro">println!</span>(<span class="string">&quot;{:#?}&quot;</span>, result);
+
+    <span class="kw">if let </span><span class="prelude-val">Err</span>(failures) = <span class="kw-2">&amp;</span>result {
+        <span class="kw">for </span>failure <span class="kw">in </span>failures.iter() {
+            <span class="macro">println!</span>(<span class="string">&quot;{}&quot;</span>, failure);
+        }
+    }
+}
 
 <span class="kw">struct </span>CircuitVisitor;
 

@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {};
+window.SIDEBAR_ITEMS = {"constant":[["CIRCUIT_MAP",""]],"fn":[["chiquito_ast_to_halo2",""],["chiquito_verify_proof",""],["uuid_to_halo2",""]]};
