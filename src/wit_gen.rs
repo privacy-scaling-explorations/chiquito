@@ -51,7 +51,7 @@ impl<F> TraceContext<F> {
             witness: TraceWitness {
                 step_instances: Vec::new(),
             },
-            num_steps: num_steps,
+            num_steps,
         }
     }
 
@@ -77,13 +77,14 @@ impl<F: Clone> TraceContext<F> {
     pub fn padding<Args, WG: Fn(&mut StepInstance<F>, Args) + 'static>(
         &mut self,
         step: &StepTypeWGHandler<F, Args, WG>,
-        args: impl Fn() -> Args,
+        args_fn: impl Fn() -> Args,
     ) {
-        let mut witness = StepInstance::new(step.uuid());
+        // let mut witness = StepInstance::new(step.uuid());
     
-        (*step.wg)(&mut witness, (args)());
+        // (*step.wg)(&mut witness, (args_fn)());
         while self.witness.step_instances.len() < self.num_steps {
-            self.witness.step_instances.push(witness.clone());
+            // self.witness.step_instances.push(witness.clone());
+            self.add(step, (args_fn)());
         }
     }
 }
@@ -115,8 +116,8 @@ impl<F: Default, TraceArgs> TraceGenerator<F, TraceArgs> {
         Self { trace }
     }
 
-    pub fn generate(&self, args: TraceArgs) -> TraceWitness<F> {
-        let mut ctx = TraceContext::default();
+    pub fn generate(&self, args: TraceArgs, num_steps: usize) -> TraceWitness<F> {
+        let mut ctx = TraceContext::new(num_steps);
 
         (self.trace)(&mut ctx, args);
 

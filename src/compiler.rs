@@ -354,6 +354,7 @@ impl<CM: CellManager, SSB: StepSelectorBuilder> Compiler<CM, SSB> {
                 unit.selector.clone(),
                 TraceGenerator::new(Rc::clone(v)),
                 unit.num_rows,
+                ast.num_steps,
                 unit.uuid,
             )
         });
