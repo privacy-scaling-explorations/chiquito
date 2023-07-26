@@ -18,7 +18,7 @@ use chiquito::{
         cb::*,   // functions for constraint building
         circuit, // main function for constructing an AST circuit
     },
-    ir::{assigments::AssigmentGenerator, Circuit}, // compiled circuit type
+    ir::{assignments::AssignmentGenerator, Circuit}, // compiled circuit type
 };
 use halo2_proofs::{arithmetic::Field, dev::MockProver, halo2curves::bn256::Fr};
 
@@ -27,7 +27,7 @@ use halo2_proofs::{arithmetic::Field, dev::MockProver, halo2curves::bn256::Fr};
 // 1. type that implements a field trait
 // 2. empty trace arguments, i.e. (), because there are no external inputs to the Chiquito circuit
 // 3. two witness generation arguments both of u64 type, i.e. (u64, u64)
-fn fibo_circuit<F: Field + From<u64> + Hash>() -> (Circuit<F>, Option<AssigmentGenerator<F, ()>>) {
+fn fibo_circuit<F: Field + From<u64> + Hash>() -> (Circuit<F>, Option<AssignmentGenerator<F, ()>>) {
     // PLONKish table for the Fibonacci circuit:
     // | a | b | c |
     // | 1 | 1 | 2 |

@@ -11,7 +11,7 @@ use crate::{
         CompilationUnit, Compiler, CompilerConfig,
     },
     ir::{
-        assigments::AssigmentGenerator,
+        assignments::AssignmentGenerator,
         sc::{MappingContext, SuperCircuit},
     },
 };
@@ -40,7 +40,7 @@ impl<F: Field + Hash, MappingArgs> SuperCircuitContext<F, MappingArgs> {
         config: CompilerConfig<CM, SSB>,
         sub_circuit_def: D,
         imports: Imports,
-    ) -> (AssigmentGenerator<F, TraceArgs>, Exports)
+    ) -> (AssignmentGenerator<F, TraceArgs>, Exports)
     where
         D: Fn(&mut CircuitContext<F, TraceArgs>, Imports) -> Exports,
     {
@@ -56,7 +56,7 @@ impl<F: Field + Hash, MappingArgs> SuperCircuitContext<F, MappingArgs> {
         let compiler = Compiler::from(config);
 
         let (unit, assignment) = compiler.compile_phase1(&sub_circuit);
-        let assignment = assignment.unwrap_or_else(|| AssigmentGenerator::empty(unit.uuid));
+        let assignment = assignment.unwrap_or_else(|| AssignmentGenerator::empty(unit.uuid));
 
         self.sub_circuit_phase1.push(unit);
 

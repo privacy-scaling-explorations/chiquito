@@ -4,7 +4,7 @@ use halo2_proofs::halo2curves::ff::PrimeField;
 
 use crate::{
     ir::{
-        assigments::Assignments,
+        assignments::Assignments,
         Circuit as cCircuit, Column as cColumn,
         ColumnType::{Advice as cAdvice, Fixed as cFixed, Halo2Advice, Halo2Fixed},
         PolyExpr as cPolyExpr,

@@ -13,7 +13,7 @@ use halo2_proofs::{
 use crate::{
     ast::ToField,
     ir::{
-        assigments::Assignments,
+        assignments::Assignments,
         sc::{SuperAssignments, SuperCircuit},
         Circuit, Column as cColumn,
         ColumnType::{Advice as cAdvice, Fixed as cFixed, Halo2Advice, Halo2Fixed},

@@ -79,11 +79,7 @@ impl<F: Clone> TraceContext<F> {
         step: &StepTypeWGHandler<F, Args, WG>,
         args_fn: impl Fn() -> Args,
     ) {
-        // let mut witness = StepInstance::new(step.uuid());
-    
-        // (*step.wg)(&mut witness, (args_fn)());
         while self.witness.step_instances.len() < self.num_steps {
-            // self.witness.step_instances.push(witness.clone());
             self.add(step, (args_fn)());
         }
     }
@@ -130,14 +126,14 @@ pub type FixedAssignment<F> = HashMap<Queriable<F>, Vec<F>>;
 /// A struct that can be used a fixed column generation context. It provides an interface for
 /// assigning values to fixed columns in a circuit at the specified offset.
 pub struct FixedGenContext<F> {
-    assigments: FixedAssignment<F>,
+    assignments: FixedAssignment<F>,
     num_steps: usize,
 }
 
 impl<F: Field + Hash> FixedGenContext<F> {
     pub fn new(num_steps: usize) -> Self {
         Self {
-            assigments: Default::default(),
+            assignments: Default::default(),
             num_steps,
         }
     }
@@ -149,17 +145,17 @@ impl<F: Field + Hash> FixedGenContext<F> {
             panic!("trying to assign non-fixed signal");
         }
 
-        if let Some(assigments) = self.assigments.get_mut(&lhs) {
-            assigments[offset] = rhs;
+        if let Some(assignments) = self.assignments.get_mut(&lhs) {
+            assignments[offset] = rhs;
         } else {
-            let mut assigments = vec![F::ZERO; self.num_steps];
-            assigments[offset] = rhs;
-            self.assigments.insert(lhs, assigments);
+            let mut assignments = vec![F::ZERO; self.num_steps];
+            assignments[offset] = rhs;
+            self.assignments.insert(lhs, assignments);
         }
     }
 
-    pub fn get_assigments(self) -> FixedAssignment<F> {
-        self.assigments
+    pub fn get_assignments(self) -> FixedAssignment<F> {
+        self.assignments
     }
 
     fn is_fixed_queriable(q: Queriable<F>) -> bool {
