@@ -166,3 +166,57 @@ impl<F: Field + Hash> FixedGenContext<F> {
     }
 }
 
+#[cfg(test)]
+mod tests {
+    use std::{cell::RefCell, rc::Rc};
+
+    use crate::dsl::{cb::eq, circuit};
+    use halo2_proofs::halo2curves::bn256::Fr;
+
+    #[test]
+    fn test_padding_with_no_witness() {
+        let number_steps = Rc::new(RefCell::new(0));
+        let nowit = circuit("nowit", |ctx| {
+            // This circuit has no signals; only those added in padding()
+            let a_val = Fr::from(1); // Create a field element from integer
+            let b_val = Fr::from(2); // Create a field element from integer
+                                     // padding() should fill in all 10 steps
+            ctx.pragma_num_steps(10);
+
+            let nowit_step = ctx.step_type("nowit");
+
+            // define padding step type; a + b = c
+            let nowit_step = ctx.step_type_def(nowit_step, |ctx| {
+                let a = ctx.internal("a");
+                let b = ctx.internal("b");
+                let c = ctx.internal("c");
+
+                ctx.setup(move |ctx| {
+                    ctx.constr(eq(a + b, c));
+                });
+
+                ctx.wg(move |ctx, (a_value, b_value): (Fr, Fr)| {
+                    // Update the types here
+                    ctx.assign(a, a_value);
+                    ctx.assign(b, b_value);
+                    ctx.assign(c, a_value + b_value);
+                })
+            });
+
+            let number_steps_ref = Rc::clone(&number_steps);
+
+            // Padding should fill the entire circuit
+            ctx.trace(move |ctx: _, _args: (Fr, Fr)| {
+                // Update the types here
+                ctx.padding(&nowit_step, || (a_val, b_val));
+                let witness_len = ctx.witness.step_instances.len();
+                println!("Witness Length: {}", witness_len);
+                *number_steps_ref.borrow_mut() = witness_len;
+                assert_eq!(*number_steps_ref.borrow(), 10);
+            })            
+        });
+
+        print!("{:?}", nowit);
+        assert_eq!(*number_steps.borrow(), 10);
+    }
+}
