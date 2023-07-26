@@ -42,9 +42,19 @@ pub struct TraceWitness<F> {
 #[derive(Debug, Default)]
 pub struct TraceContext<F> {
     witness: TraceWitness<F>,
+    num_steps: usize,
 }
 
 impl<F> TraceContext<F> {
+    pub fn new(num_steps: usize) -> Self {
+        Self {
+            witness: TraceWitness {
+                step_instances: Vec::new(),
+            },
+            num_steps: num_steps,
+        }
+    }
+
     pub fn get_witness(self) -> TraceWitness<F> {
         self.witness
     }
@@ -67,13 +77,12 @@ impl<F: Clone> TraceContext<F> {
     pub fn padding<Args, WG: Fn(&mut StepInstance<F>, Args) + 'static>(
         &mut self,
         step: &StepTypeWGHandler<F, Args, WG>,
-        args: Args,
+        args: impl Fn() -> Args,
     ) {
         let mut witness = StepInstance::new(step.uuid());
-
-        (*step.wg)(&mut witness, args);
-        let len = self.witness.step_instances.len();
-        for _ in 0..len {
+    
+        (*step.wg)(&mut witness, (args)());
+        while self.witness.step_instances.len() < self.num_steps {
             self.witness.step_instances.push(witness.clone());
         }
     }
