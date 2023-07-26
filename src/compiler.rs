@@ -352,9 +352,8 @@ impl<CM: CellManager, SSB: StepSelectorBuilder> Compiler<CM, SSB> {
                 unit.columns.clone(),
                 unit.placement.clone(),
                 unit.selector.clone(),
-                TraceGenerator::new(Rc::clone(v)),
+                TraceGenerator::new(Rc::clone(v), ast.num_steps.clone()),
                 unit.num_rows,
-                ast.num_steps,
                 unit.uuid,
             )
         });

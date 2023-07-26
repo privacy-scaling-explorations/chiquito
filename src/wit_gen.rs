@@ -89,12 +89,14 @@ pub type Trace<F, TraceArgs> = dyn Fn(&mut TraceContext<F>, TraceArgs) + 'static
 
 pub struct TraceGenerator<F, TraceArgs> {
     trace: Rc<Trace<F, TraceArgs>>,
+    num_steps: usize,
 }
 
 impl<F, TraceArgs> Clone for TraceGenerator<F, TraceArgs> {
     fn clone(&self) -> Self {
         Self {
             trace: self.trace.clone(),
+            num_steps: self.num_steps.clone(),
         }
     }
 }
@@ -103,17 +105,18 @@ impl<F, TraceArgs> Default for TraceGenerator<F, TraceArgs> {
     fn default() -> Self {
         Self {
             trace: Rc::new(|_, _| {}),
+            num_steps: 0,
         }
     }
 }
 
 impl<F: Default, TraceArgs> TraceGenerator<F, TraceArgs> {
-    pub fn new(trace: Rc<Trace<F, TraceArgs>>) -> Self {
-        Self { trace }
+    pub fn new(trace: Rc<Trace<F, TraceArgs>>, num_steps: usize) -> Self {
+        Self { trace, num_steps }
     }
 
-    pub fn generate(&self, args: TraceArgs, num_steps: usize) -> TraceWitness<F> {
-        let mut ctx = TraceContext::new(num_steps);
+    pub fn generate(&self, args: TraceArgs) -> TraceWitness<F> {
+        let mut ctx = TraceContext::new(self.num_steps);
 
         (self.trace)(&mut ctx, args);
 
@@ -162,3 +165,4 @@ impl<F: Field + Hash> FixedGenContext<F> {
         matches!(q, Queriable::Halo2FixedQuery(_, _) | Queriable::Fixed(_, _))
     }
 }
+

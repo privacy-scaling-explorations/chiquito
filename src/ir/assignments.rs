@@ -23,7 +23,6 @@ pub struct AssignmentGenerator<F, TraceArgs> {
     trace_gen: TraceGenerator<F, TraceArgs>,
 
     num_rows: usize,
-    num_steps: usize, 
 
     ir_id: UUID,
 }
@@ -36,7 +35,6 @@ impl<F: Clone, TraceArgs> Clone for AssignmentGenerator<F, TraceArgs> {
             selector: self.selector.clone(),
             trace_gen: self.trace_gen.clone(),
             num_rows: self.num_rows,
-            num_steps: self.num_steps,
             ir_id: self.ir_id,
         }
     }
@@ -50,7 +48,6 @@ impl<F: Clone, TraceArgs> Default for AssignmentGenerator<F, TraceArgs> {
             selector: Default::default(),
             trace_gen: Default::default(),
             num_rows: Default::default(),
-            num_steps: Default::default(),
             ir_id: Default::default(),
         }
     }
@@ -63,7 +60,6 @@ impl<F: Field, TraceArgs> AssignmentGenerator<F, TraceArgs> {
         selector: StepSelector<F>,
         trace_gen: TraceGenerator<F, TraceArgs>,
         num_rows: usize,
-        num_steps: usize,
         ir_id: UUID,
     ) -> Self {
         Self {
@@ -72,7 +68,6 @@ impl<F: Field, TraceArgs> AssignmentGenerator<F, TraceArgs> {
             selector,
             trace_gen,
             num_rows,
-            num_steps,
             ir_id,
         }
     }
@@ -85,7 +80,7 @@ impl<F: Field, TraceArgs> AssignmentGenerator<F, TraceArgs> {
     }
 
     pub fn generate(&self, args: TraceArgs) -> Assignments<F> {
-        let witness = self.trace_gen.generate(args, self.num_steps);
+        let witness = self.trace_gen.generate(args);
 
         self.generate_with_witness(witness)
     }
