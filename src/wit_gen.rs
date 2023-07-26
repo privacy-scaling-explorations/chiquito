@@ -96,7 +96,7 @@ impl<F, TraceArgs> Clone for TraceGenerator<F, TraceArgs> {
     fn clone(&self) -> Self {
         Self {
             trace: self.trace.clone(),
-            num_steps: self.num_steps.clone(),
+            num_steps: self.num_steps,
         }
     }
 }
