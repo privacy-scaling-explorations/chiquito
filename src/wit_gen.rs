@@ -172,9 +172,7 @@ mod tests {
     use crate::dsl::StepTypeWGHandler;
     use crate::util::uuid;
 
-    fn dummy_args_fn() -> () {
-        ()
-    }
+    fn dummy_args_fn() {}
 
     #[test]
     fn test_padding_no_witness() {
@@ -182,7 +180,7 @@ mod tests {
         let step = StepTypeWGHandler::new(
             uuid(),
             "dummy",
-            |_: &mut StepInstance<i32>, _: ()| {} // replace i32 with your Field type
+            |_: &mut StepInstance<i32>, _: ()| {}
         );
 
         assert_eq!(ctx.witness.step_instances.len(), 0);
@@ -197,7 +195,7 @@ mod tests {
         let step = StepTypeWGHandler::new(
             uuid(),
             "dummy",
-            |_: &mut StepInstance<i32>, _: ()| {} // replace i32 with your Field type
+            |_: &mut StepInstance<i32>, _: ()| {}
         );
 
         ctx.add(&step, dummy_args_fn());
