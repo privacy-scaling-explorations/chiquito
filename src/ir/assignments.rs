@@ -166,7 +166,13 @@ impl<F: Field, TraceArgs> AssignmentGenerator<F, TraceArgs> {
         }
     }
 
-    fn set_value(&self, assignments: &mut Assignments<F>, column: Column, offset: usize, value: &F) {
+    fn set_value(
+        &self,
+        assignments: &mut Assignments<F>,
+        column: Column,
+        offset: usize,
+        value: &F,
+    ) {
         if let Some(column_assignments) = assignments.get_mut(&column) {
             column_assignments[offset] = *value;
         } else {

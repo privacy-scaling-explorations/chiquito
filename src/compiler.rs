@@ -321,7 +321,10 @@ impl<CM: CellManager, SSB: StepSelectorBuilder> Compiler<CM, SSB> {
     pub fn compile_phase1<F: Field + Hash + Clone, TraceArgs>(
         &self,
         ast: &astCircuit<F, TraceArgs>,
-    ) -> (CompilationUnit<F>, Option<AssignmentGenerator<F, TraceArgs>>) {
+    ) -> (
+        CompilationUnit<F>,
+        Option<AssignmentGenerator<F, TraceArgs>>,
+    ) {
         let mut unit = CompilationUnit::from(ast);
 
         self.add_halo2_columns(&mut unit, ast);
