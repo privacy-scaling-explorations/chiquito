@@ -169,8 +169,7 @@ impl<F: Field + Hash> FixedGenContext<F> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::dsl::StepTypeWGHandler;
-    use crate::util::uuid;
+    use crate::{dsl::StepTypeWGHandler, util::uuid};
 
     fn dummy_args_fn() {}
 
@@ -180,7 +179,7 @@ mod tests {
         let step = StepTypeWGHandler::new(
             uuid(),
             "dummy",
-            |_: &mut StepInstance<i32>, _: ()| {}
+            |_: &mut StepInstance<i32>, _: ()| {}, // replace i32 with your Field type
         );
 
         assert_eq!(ctx.witness.step_instances.len(), 0);
@@ -195,10 +194,11 @@ mod tests {
         let step = StepTypeWGHandler::new(
             uuid(),
             "dummy",
-            |_: &mut StepInstance<i32>, _: ()| {}
+            |_: &mut StepInstance<i32>, _: ()| {}, // replace i32 with your Field type
         );
 
-        ctx.add(&step, dummy_args_fn());
+        dummy_args_fn();
+        ctx.add(&step, ());
 
         assert_eq!(ctx.witness.step_instances.len(), 1);
         ctx.padding(&step, dummy_args_fn);
