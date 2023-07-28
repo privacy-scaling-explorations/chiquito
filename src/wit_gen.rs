@@ -45,12 +45,10 @@ pub struct TraceContext<F> {
     num_steps: usize,
 }
 
-impl<F> TraceContext<F> {
+impl<F: Default> TraceContext<F> {
     pub fn new(num_steps: usize) -> Self {
         Self {
-            witness: TraceWitness {
-                step_instances: Vec::new(),
-            },
+            witness: TraceWitness::default(),
             num_steps,
         }
     }
@@ -60,7 +58,7 @@ impl<F> TraceContext<F> {
     }
 }
 
-impl<F: Clone> TraceContext<F> {
+impl<F> TraceContext<F> {
     pub fn add<Args, WG: Fn(&mut StepInstance<F>, Args) + 'static>(
         &mut self,
         step: &StepTypeWGHandler<F, Args, WG>,
@@ -179,7 +177,7 @@ mod tests {
         let step = StepTypeWGHandler::new(
             uuid(),
             "dummy",
-            |_: &mut StepInstance<i32>, _: ()| {}, // replace i32 with your Field type
+            |_: &mut StepInstance<i32>, _: ()| {},
         );
 
         assert_eq!(ctx.witness.step_instances.len(), 0);
@@ -194,7 +192,7 @@ mod tests {
         let step = StepTypeWGHandler::new(
             uuid(),
             "dummy",
-            |_: &mut StepInstance<i32>, _: ()| {}, // replace i32 with your Field type
+            |_: &mut StepInstance<i32>, _: ()| {}, 
         );
 
         dummy_args_fn();
