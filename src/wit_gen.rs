@@ -174,11 +174,7 @@ mod tests {
     #[test]
     fn test_padding_no_witness() {
         let mut ctx = TraceContext::new(5);
-        let step = StepTypeWGHandler::new(
-            uuid(),
-            "dummy",
-            |_: &mut StepInstance<i32>, _: ()| {},
-        );
+        let step = StepTypeWGHandler::new(uuid(), "dummy", |_: &mut StepInstance<i32>, _: ()| {});
 
         assert_eq!(ctx.witness.step_instances.len(), 0);
         ctx.padding(&step, dummy_args_fn);
@@ -189,11 +185,7 @@ mod tests {
     #[test]
     fn test_padding_partial_witness() {
         let mut ctx = TraceContext::new(5);
-        let step = StepTypeWGHandler::new(
-            uuid(),
-            "dummy",
-            |_: &mut StepInstance<i32>, _: ()| {}, 
-        );
+        let step = StepTypeWGHandler::new(uuid(), "dummy", |_: &mut StepInstance<i32>, _: ()| {});
 
         dummy_args_fn();
         ctx.add(&step, ());
