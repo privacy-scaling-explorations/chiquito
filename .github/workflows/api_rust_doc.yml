@@ -22,6 +22,11 @@ jobs:
           mkdir -p ./target/doc
           echo '<meta http-equiv="refresh" content="0; url=chiquito">' > ./target/doc/index.html
 
+      - name: Add CNAME file to docs root
+        run: |
+          mkdir -p ./target/doc
+          echo 'apidocs.pecadorplonkish.xyz' > ./target/doc/CNAME
+
       - name: Deploy to GitHub Pages
         uses: peaceiris/actions-gh-pages@v3
         with:

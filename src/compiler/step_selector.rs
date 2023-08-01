@@ -5,21 +5,24 @@ use halo2_proofs::{
     plonk::{Advice, Column as Halo2Column},
 };
 
-use crate::ast::StepType;
+use crate::{
+    ast::{StepType, StepTypeUUID},
+    util::UUID,
+};
 
 use super::{Column, CompilationUnit, PolyExpr};
 
 pub type SelectorAssignment<F> = (PolyExpr<F>, F);
 
 #[derive(Debug, Clone)]
-pub struct StepSelector<F, Args> {
-    pub selector_expr: HashMap<Rc<StepType<F, Args>>, PolyExpr<F>>,
-    pub selector_expr_not: HashMap<Rc<StepType<F, Args>>, PolyExpr<F>>,
-    pub selector_assignment: HashMap<Rc<StepType<F, Args>>, Vec<SelectorAssignment<F>>>,
+pub struct StepSelector<F> {
+    pub selector_expr: HashMap<StepTypeUUID, PolyExpr<F>>,
+    pub selector_expr_not: HashMap<StepTypeUUID, PolyExpr<F>>,
+    pub selector_assignment: HashMap<StepTypeUUID, Vec<SelectorAssignment<F>>>,
     pub columns: Vec<Column>,
 }
 
-impl<F, Args> Default for StepSelector<F, Args> {
+impl<F> Default for StepSelector<F> {
     fn default() -> Self {
         Self {
             selector_expr: Default::default(),
@@ -30,35 +33,42 @@ impl<F, Args> Default for StepSelector<F, Args> {
     }
 }
 
-impl<F: Clone, Args> StepSelector<F, Args> {
-    pub fn select(&self, step: &StepType<F, Args>, constraint: &PolyExpr<F>) -> PolyExpr<F> {
-        let selector = self.selector_expr.get(step).expect("step not found");
+impl<F: Clone> StepSelector<F> {
+    pub fn select(&self, step_uuid: StepTypeUUID, constraint: &PolyExpr<F>) -> PolyExpr<F> {
+        let selector = self.selector_expr.get(&step_uuid).expect("step not found");
         PolyExpr::Mul(vec![selector.clone(), constraint.clone()])
     }
 
-    pub fn next_expr(&self, step: &StepType<F, Args>, step_height: u32) -> PolyExpr<F> {
-        let selector = self.selector_expr.get(step).expect("step not found");
+    pub fn next_expr(&self, step_uuid: StepTypeUUID, step_height: u32) -> PolyExpr<F> {
+        let selector = self.selector_expr.get(&step_uuid).expect("step not found");
 
         selector.rotate(step_height as i32)
     }
 
-    pub fn unselect(&self, step: &StepType<F, Args>) -> PolyExpr<F> {
+    pub fn unselect(&self, step_uuid: StepTypeUUID) -> PolyExpr<F> {
         self.selector_expr_not
-            .get(step)
+            .get(&step_uuid)
             .expect("step not found {}")
+            .clone()
+    }
+
+    pub fn get_selector_assignment(&self, step_uuid: StepTypeUUID) -> Vec<SelectorAssignment<F>> {
+        self.selector_assignment
+            .get(&step_uuid)
+            .expect("selector assignment for step not found")
             .clone()
     }
 }
 
-pub trait StepSelectorBuilder {
-    fn build<F: Field, TraceArgs, StepArgs>(&self, unit: &mut CompilationUnit<F, StepArgs>);
+pub trait StepSelectorBuilder: Clone {
+    fn build<F: Field>(&self, unit: &mut CompilationUnit<F>);
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone)]
 pub struct SimpleStepSelectorBuilder {}
 
 impl StepSelectorBuilder for SimpleStepSelectorBuilder {
-    fn build<F: Field, TraceArgs, StepArgs>(&self, unit: &mut CompilationUnit<F, StepArgs>) {
+    fn build<F: Field>(&self, unit: &mut CompilationUnit<F>) {
         let mut selector = StepSelector {
             selector_expr: HashMap::new(),
             selector_expr_not: HashMap::new(),
@@ -78,14 +88,14 @@ impl StepSelectorBuilder for SimpleStepSelectorBuilder {
             selector.columns.push(column.clone());
 
             selector.selector_expr.insert(
-                Rc::clone(step),
+                step.uuid(),
                 PolyExpr::Query(column.clone(), 0, annotation.clone()),
             );
 
             selector.selector_expr_not.insert(
-                Rc::clone(step),
+                step.uuid(),
                 PolyExpr::Sum(vec![
-                    PolyExpr::Const(F::one()),
+                    PolyExpr::Const(F::ONE),
                     PolyExpr::Neg(Box::new(PolyExpr::Query(
                         column.clone(),
                         0,
@@ -95,8 +105,8 @@ impl StepSelectorBuilder for SimpleStepSelectorBuilder {
             );
 
             selector.selector_assignment.insert(
-                Rc::clone(step),
-                vec![(PolyExpr::Query(column, 0, annotation), F::one())],
+                step.uuid(),
+                vec![(PolyExpr::Query(column, 0, annotation), F::ONE)],
             );
         }
 
@@ -105,14 +115,14 @@ impl StepSelectorBuilder for SimpleStepSelectorBuilder {
     }
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone)]
 pub struct TwoStepsSelectorBuilder {
     pub halo2_column: Option<Halo2Column<Advice>>,
     pub hint_one: Option<String>,
 }
 
 impl StepSelectorBuilder for TwoStepsSelectorBuilder {
-    fn build<F2: Field, TraceArgs, StepArgs>(&self, unit: &mut CompilationUnit<F2, StepArgs>) {
+    fn build<F: Field>(&self, unit: &mut CompilationUnit<F>) {
         if unit.step_types.len() != 2 {
             panic!("jarll: must have two step types");
         }
@@ -158,9 +168,9 @@ impl StepSelectorBuilder for TwoStepsSelectorBuilder {
 
         // Zero
         unit.selector.selector_expr.insert(
-            Rc::clone(&step_zero),
+            step_zero.uuid(),
             PolyExpr::Sum(vec![
-                PolyExpr::Const(F2::one()),
+                PolyExpr::Const(F::ONE),
                 PolyExpr::Neg(Box::new(PolyExpr::Query(
                     column.clone(),
                     0,
@@ -170,28 +180,28 @@ impl StepSelectorBuilder for TwoStepsSelectorBuilder {
         );
 
         unit.selector.selector_expr_not.insert(
-            Rc::clone(&step_zero),
+            step_zero.uuid(),
             PolyExpr::Query(column.clone(), 0, "selector NOT step zero".to_string()),
         );
 
         unit.selector.selector_assignment.insert(
-            Rc::clone(&step_zero),
+            step_zero.uuid(),
             vec![(
                 PolyExpr::Query(column.clone(), 0, "select step zero".to_string()),
-                F2::zero(),
+                F::ZERO,
             )],
         );
 
         // One
         unit.selector.selector_expr.insert(
-            Rc::clone(&step_one),
+            step_one.uuid(),
             PolyExpr::Query(column.clone(), 0, "selector step one".to_string()),
         );
 
         unit.selector.selector_expr_not.insert(
-            Rc::clone(&step_one),
+            step_one.uuid(),
             PolyExpr::Sum(vec![
-                PolyExpr::Const(F2::one()),
+                PolyExpr::Const(F::ONE),
                 PolyExpr::Neg(Box::new(PolyExpr::Query(
                     column.clone(),
                     0,
@@ -201,19 +211,16 @@ impl StepSelectorBuilder for TwoStepsSelectorBuilder {
         );
 
         unit.selector.selector_assignment.insert(
-            Rc::clone(&step_one),
+            step_one.uuid(),
             vec![(
                 PolyExpr::Query(column, 0, "select step one".to_string()),
-                F2::one(),
+                F::ONE,
             )],
         );
     }
 }
 
-fn other_step_type<F, StepArgs>(
-    unit: &CompilationUnit<F, StepArgs>,
-    uuid: u32,
-) -> Option<Rc<StepType<F, StepArgs>>> {
+fn other_step_type<F>(unit: &CompilationUnit<F>, uuid: UUID) -> Option<Rc<StepType<F>>> {
     for step_type in unit.step_types.values() {
         if step_type.uuid() != uuid {
             return Some(Rc::clone(step_type));

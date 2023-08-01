@@ -1,35 +1,34 @@
-use std::{collections::HashMap, fmt::Debug, rc::Rc};
+use std::{fmt::Debug, hash::Hash};
 
 use halo2_proofs::plonk::Expression;
 
 use crate::{
-    ast::{FixedGen, ImportedHalo2Advice, ImportedHalo2Fixed, StepType, Trace},
-    compiler::{cell_manager::Placement, step_selector::StepSelector},
-    util::uuid,
+    ast::{ImportedHalo2Advice, ImportedHalo2Fixed},
+    util::{uuid, UUID},
 };
 
-#[derive(Clone)]
-pub struct Circuit<F, TraceArgs, StepArgs> {
-    pub placement: Placement<F, StepArgs>,
-    pub selector: StepSelector<F, StepArgs>,
-    pub step_types: HashMap<u32, Rc<StepType<F, StepArgs>>>,
+use self::assigments::Assignments;
 
-    pub q_enable: Column,
-    pub q_first: Option<Column>,
-    pub q_last: Option<Column>,
+pub mod assigments;
+pub mod sc;
 
+#[derive(Clone, Default)]
+pub struct Circuit<F> {
     pub columns: Vec<Column>,
+    pub exposed: Vec<(Column, i32)>,
+
     pub polys: Vec<Poly<F>>,
     pub lookups: Vec<PolyLookup<F>>,
 
-    pub trace: Option<Rc<Trace<TraceArgs, StepArgs>>>,
-    pub fixed_gen: Option<Rc<FixedGen<F>>>,
+    pub fixed_assignments: Assignments<F>,
+
+    pub id: UUID,
+    pub ast_id: UUID,
 }
 
-impl<F: Debug, TraceArgs, StepArgs: Debug> Debug for Circuit<F, TraceArgs, StepArgs> {
+impl<F: Debug> Debug for Circuit<F> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("Circuit")
-            .field("placement", &self.placement)
             .field("columns", &self.columns)
             .field("polys", &self.polys)
             .field("lookups", &self.lookups)
@@ -37,7 +36,7 @@ impl<F: Debug, TraceArgs, StepArgs: Debug> Debug for Circuit<F, TraceArgs, StepA
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Hash)]
 pub enum ColumnType {
     Advice,
     Fixed,
@@ -55,7 +54,7 @@ pub struct Column {
 
     pub phase: usize,
 
-    pub(crate) id: u32,
+    pub(crate) id: UUID,
 }
 
 impl Column {
@@ -70,9 +69,9 @@ impl Column {
         }
     }
 
-    pub fn fixed(annotation: &str) -> Column {
+    pub fn fixed<A: Into<String>>(annotation: A) -> Column {
         Column {
-            annotation: annotation.to_string(),
+            annotation: annotation.into(),
             id: uuid(),
             ctype: ColumnType::Fixed,
             phase: 0,
@@ -109,7 +108,7 @@ impl Column {
         }
     }
 
-    pub fn uuid(&self) -> u32 {
+    pub fn uuid(&self) -> UUID {
         self.id
     }
 }
@@ -117,6 +116,12 @@ impl Column {
 impl PartialEq for Column {
     fn eq(&self, other: &Self) -> bool {
         self.id == other.id
+    }
+}
+
+impl Hash for Column {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.id.hash(state);
     }
 }
 

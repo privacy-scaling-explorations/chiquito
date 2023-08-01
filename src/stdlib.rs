@@ -1,9 +1,14 @@
-use halo2_proofs::{arithmetic::Field, halo2curves::FieldExt};
+use std::hash::Hash;
+
+use halo2_proofs::arithmetic::Field;
 
 use crate::{
     ast::{query::Queriable, ToExpr},
-    compiler::WitnessGenContext,
-    dsl::{cb::Constraint, StepTypeContext},
+    dsl::{
+        cb::{Constraint, Typing},
+        StepTypeContext,
+    },
+    wit_gen::StepInstance,
 };
 
 pub struct IsZero<F> {
@@ -11,9 +16,9 @@ pub struct IsZero<F> {
     is_zero_constraint: Constraint<F>,
 }
 
-impl<F: FieldExt> IsZero<F> {
-    pub fn setup<V: Into<Constraint<F>>, StepArgs>(
-        ctx: &mut StepTypeContext<F, StepArgs>,
+impl<F: Field + From<u64>> IsZero<F> {
+    pub fn setup<V: Into<Constraint<F>>>(
+        ctx: &mut StepTypeContext<F>,
         value: V,
         value_inv: Queriable<F>,
     ) -> IsZero<F> {
@@ -25,6 +30,7 @@ impl<F: FieldExt> IsZero<F> {
         let is_zero_constraint = Constraint {
             expr: is_zero_expression,
             annotation: format!("is_zero({:?})", value),
+            typing: Typing::Boolean,
         };
 
         IsZero {
@@ -38,8 +44,8 @@ impl<F: FieldExt> IsZero<F> {
     }
 }
 
-impl<F: Field> IsZero<F> {
-    pub fn wg(&self, ctx: &mut dyn WitnessGenContext<F>, value: F) {
-        ctx.assign(self.value_inv, value.invert().unwrap_or(F::zero()));
+impl<F: Field + Eq + Hash> IsZero<F> {
+    pub fn wg<WGC>(&self, ctx: &mut StepInstance<F>, value: F) {
+        ctx.assign(self.value_inv, value.invert().unwrap_or(F::ZERO));
     }
 }

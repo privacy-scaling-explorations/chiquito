@@ -1,60 +1,78 @@
-use std::{collections::HashMap, rc::Rc};
+use std::{collections::HashMap, hash::Hash};
 
 use halo2_proofs::{
     arithmetic::Field,
-    circuit::{Layouter, Region, Value},
-    halo2curves::FieldExt,
+    circuit::{Cell, Layouter, Region, RegionIndex, SimpleFloorPlanner, Value},
     plonk::{
-        Advice, Column, ConstraintSystem, Expression, FirstPhase, Fixed, SecondPhase, ThirdPhase,
-        VirtualCells,
+        Advice, Any, Circuit as h2Circuit, Column, ConstraintSystem, Error, Expression, FirstPhase,
+        Fixed, Instance, SecondPhase, ThirdPhase, VirtualCells,
     },
     poly::Rotation,
 };
 
 use crate::{
-    ast::{query::Queriable, ForwardSignal, InternalSignal, StepType, ToField},
-    compiler::{
-        cell_manager::Placement, step_selector::StepSelector, FixedGenContext, TraceContext,
-        WitnessGenContext,
-    },
-    dsl::StepTypeHandler,
+    ast::ToField,
     ir::{
+        assigments::Assignments,
+        sc::{SuperAssignments, SuperCircuit},
         Circuit, Column as cColumn,
         ColumnType::{Advice as cAdvice, Fixed as cFixed, Halo2Advice, Halo2Fixed},
         PolyExpr,
     },
+    util::UUID,
 };
 
 #[allow(non_snake_case)]
-pub fn chiquito2Halo2<F: FieldExt, TraceArgs, StepArgs: Clone>(
-    circuit: Circuit<F, TraceArgs, StepArgs>,
-) -> ChiquitoHalo2<F, TraceArgs, StepArgs> {
+pub fn chiquito2Halo2<F: Field + From<u64> + Hash>(circuit: Circuit<F>) -> ChiquitoHalo2<F> {
     ChiquitoHalo2::new(circuit)
 }
 
-#[derive(Clone, Debug)]
-pub struct ChiquitoHalo2<F: Field, TraceArgs, StepArgs: Clone> {
-    pub debug: bool,
-
-    circuit: Circuit<F, TraceArgs, StepArgs>,
-
-    advice_columns: HashMap<u32, Column<Advice>>,
-    fixed_columns: HashMap<u32, Column<Fixed>>,
+#[allow(non_snake_case)]
+pub fn chiquitoSuperCircuit2Halo2<F: Field + From<u64> + Hash, MappingArgs>(
+    super_circuit: &SuperCircuit<F, MappingArgs>,
+) -> Vec<ChiquitoHalo2<F>> {
+    super_circuit
+        .get_sub_circuits()
+        .iter()
+        .map(|c| chiquito2Halo2((*c).clone()))
+        .collect()
 }
 
-impl<F: FieldExt, TraceArgs, StepArgs: Clone> ChiquitoHalo2<F, TraceArgs, StepArgs> {
-    pub fn new(circuit: Circuit<F, TraceArgs, StepArgs>) -> ChiquitoHalo2<F, TraceArgs, StepArgs> {
+#[derive(Clone, Debug, Default)]
+pub struct ChiquitoHalo2<F: Field + From<u64>> {
+    pub debug: bool,
+
+    circuit: Circuit<F>,
+
+    advice_columns: HashMap<UUID, Column<Advice>>,
+    fixed_columns: HashMap<UUID, Column<Fixed>>,
+    instance_column: Option<Column<Instance>>,
+
+    ir_id: UUID,
+}
+
+impl<F: Field + From<u64> + Hash> ChiquitoHalo2<F> {
+    pub fn new(circuit: Circuit<F>) -> ChiquitoHalo2<F> {
+        let ir_id = circuit.id;
         ChiquitoHalo2 {
             debug: true,
             circuit,
             advice_columns: Default::default(),
             fixed_columns: Default::default(),
+            instance_column: Default::default(),
+            ir_id,
         }
     }
 
     pub fn configure(&mut self, meta: &mut ConstraintSystem<F>) {
-        let mut advice_columns = HashMap::<u32, Column<Advice>>::new();
-        let mut fixed_columns = HashMap::<u32, Column<Fixed>>::new();
+        self.configure_columns_sub_circuit(meta);
+
+        self.configure_sub_circuit(meta);
+    }
+
+    fn configure_columns_sub_circuit(&mut self, meta: &mut ConstraintSystem<F>) {
+        let mut advice_columns = HashMap::<UUID, Column<Advice>>::new();
+        let mut fixed_columns = HashMap::<UUID, Column<Fixed>>::new();
 
         for column in self.circuit.columns.iter() {
             match column.ctype {
@@ -93,6 +111,12 @@ impl<F: FieldExt, TraceArgs, StepArgs: Clone> ChiquitoHalo2<F, TraceArgs, StepAr
 
         self.advice_columns = advice_columns;
         self.fixed_columns = fixed_columns;
+    }
+
+    pub fn configure_sub_circuit(&mut self, meta: &mut ConstraintSystem<F>) {
+        if !self.circuit.exposed.is_empty() {
+            self.instance_column = Some(meta.instance_column());
+        }
 
         if !self.circuit.polys.is_empty() {
             meta.create_gate("main", |meta| {
@@ -123,78 +147,58 @@ impl<F: FieldExt, TraceArgs, StepArgs: Clone> ChiquitoHalo2<F, TraceArgs, StepAr
         }
     }
 
-    pub fn synthesize(&self, layouter: &mut impl Layouter<F>, args: TraceArgs) {
-        let (advice_assignments, height) = self.synthesize_advice(args);
-
+    pub fn synthesize(&self, layouter: &mut impl Layouter<F>, witness: Option<&Assignments<F>>) {
         let _ = layouter.assign_region(
             || "circuit",
             |mut region| {
                 self.annotate_circuit(&mut region);
 
-                let fixed_assignments = self.synthesize_fixed();
-                for (column, offset, value) in fixed_assignments.iter() {
-                    region.assign_fixed(|| "", *column, *offset, || *value)?;
-                }
+                self.assign_fixed(&mut region, &self.circuit.fixed_assignments)?;
 
-                for (column, offset, value) in advice_assignments.iter() {
-                    region.assign_advice(|| "", *column, *offset, || *value)?;
-                }
-
-                if height > 0 {
-                    self.default_fixed(&mut region, height);
+                if let Some(witness) = &witness {
+                    self.assign_advice(&mut region, witness)?;
                 }
 
                 Ok(())
             },
         );
-    }
 
-    fn synthesize_fixed(&self) -> Vec<Assignment<F, Fixed>> {
-        if let Some(fg) = &self.circuit.fixed_gen {
-            let mut ctx = FixedGenContextHalo2::<F> {
-                assigments: Default::default(),
-
-                max_offset: 0,
-            };
-
-            fg(&mut ctx);
-
-            ctx.assigments
-        } else {
-            vec![]
+        for (index, (column, rotation)) in self.circuit.exposed.iter().enumerate() {
+            let halo2_column =
+                Column::<Any>::from(*self.advice_columns.get(&column.uuid()).unwrap());
+            let cell = new_cell(
+                halo2_column,
+                // For single row cell manager, forward signal rotation is always zero.
+                // For max width cell manager, rotation can be non-zero.
+                // Offset is 0 + rotation for the first step instance.
+                *rotation as usize,
+            );
+            let _ = layouter.constrain_instance(cell, self.instance_column.unwrap(), index);
         }
     }
 
-    fn synthesize_advice(&self, args: TraceArgs) -> (Vec<Assignment<F, Advice>>, usize) {
-        if self.debug {
-            println!("starting advise generation");
+    fn assign_advice(&self, region: &mut Region<F>, witness: &Assignments<F>) -> Result<(), Error> {
+        for (column, assignments) in witness {
+            let column = self.convert_advice_column(column);
+
+            for (offset, value) in assignments.iter().enumerate() {
+                region.assign_advice(|| "", column, offset, || Value::known(*value))?;
+            }
         }
 
-        if let Some(trace) = &self.circuit.trace {
-            let mut ctx = TraceContextHalo2::<F, StepArgs> {
-                assigments: Default::default(),
-                advice_columns: self.advice_columns.clone(),
-                placement: self.circuit.placement.clone(),
-                selector: self.circuit.selector.clone(),
-                step_types: self.circuit.step_types.clone(),
-                offset: 0,
-                cur_step: None,
-                max_offset: 0,
-                height: 0,
-            };
+        Ok(())
+    }
 
-            trace(&mut ctx, args);
+    fn assign_fixed(&self, region: &mut Region<F>, fixed: &Assignments<F>) -> Result<(), Error> {
+        for (column, values) in fixed {
+            let column = self.convert_fixed_column(column);
 
-            let height = if ctx.height > 0 {
-                ctx.height
-            } else {
-                ctx.max_offset + 1
-            };
-
-            (ctx.assigments, height)
-        } else {
-            (vec![], 0)
+            for (offset, value) in values.iter().enumerate() {
+                region.assign_fixed(|| "", column, offset, || Value::known(*value))?;
+            }
         }
+
+        Ok(())
     }
 
     fn annotate_circuit(&self, region: &mut Region<F>) {
@@ -217,46 +221,6 @@ impl<F: FieldExt, TraceArgs, StepArgs: Clone> ChiquitoHalo2<F, TraceArgs, StepAr
                     region.name_column(|| column.annotation.clone(), *halo2_column);
                 }
             }
-        }
-    }
-
-    fn default_fixed(&self, region: &mut Region<F>, height: usize) {
-        let q_enable = self
-            .fixed_columns
-            .get(&self.circuit.q_enable.uuid())
-            .expect("q_enable column not found");
-
-        for i in 0..height {
-            region
-                .assign_fixed(|| "q_enable=1", *q_enable, i, || Value::known(F::one()))
-                .expect("assignment of q_enable fixed column failed");
-        }
-
-        if let Some(q_first) = self.circuit.q_first.clone() {
-            let q_first = self
-                .fixed_columns
-                .get(&q_first.uuid())
-                .expect("q_enable column not found");
-
-            region
-                .assign_fixed(|| "q_first=1", *q_first, 0, || Value::known(F::one()))
-                .expect("assignment of q_first fixed column failed");
-        }
-
-        if let Some(q_last) = self.circuit.q_last.clone() {
-            let q_last = self
-                .fixed_columns
-                .get(&q_last.uuid())
-                .expect("q_enable column not found");
-
-            region
-                .assign_fixed(
-                    || "q_first=1",
-                    *q_last,
-                    height - 1,
-                    || Value::known(F::one()),
-                )
-                .expect("assignment of q_last fixed column failed");
         }
     }
 
@@ -312,175 +276,47 @@ impl<F: FieldExt, TraceArgs, StepArgs: Clone> ChiquitoHalo2<F, TraceArgs, StepAr
             }
         }
     }
-}
 
-type Assignment<F, CT> = (Column<CT>, usize, Value<F>);
-
-struct TraceContextHalo2<F: Field, StepArgs> {
-    advice_columns: HashMap<u32, Column<Advice>>,
-    placement: Placement<F, StepArgs>,
-    selector: StepSelector<F, StepArgs>,
-    step_types: HashMap<u32, Rc<StepType<F, StepArgs>>>,
-
-    offset: usize,
-    cur_step: Option<Rc<StepType<F, StepArgs>>>,
-
-    assigments: Vec<Assignment<F, Advice>>,
-
-    max_offset: usize,
-    height: usize,
-}
-
-impl<F: Field, StepArgs: Clone> TraceContextHalo2<F, StepArgs> {
-    fn find_halo2_placement(
-        &self,
-        step: &StepType<F, StepArgs>,
-        query: Queriable<F>,
-    ) -> (Column<Advice>, i32) {
-        match query {
-            Queriable::Internal(signal) => self.find_halo2_placement_internal(step, signal),
-
-            Queriable::Forward(forward, next) => {
-                self.find_halo2_placement_forward(step, forward, next)
-            }
-
-            Queriable::Halo2AdviceQuery(signal, rotation) => (signal.column, rotation),
-
-            _ => panic!("invalid advice assignment on queriable {:?}", query),
+    fn convert_advice_column(&self, column: &cColumn) -> Column<Advice> {
+        match column.ctype {
+            cAdvice | Halo2Advice => *self
+                .advice_columns
+                .get(&column.uuid())
+                .unwrap_or_else(|| panic!("column not found {}", column.annotation)),
+            _ => panic!("worng column type"),
         }
     }
 
-    fn find_halo2_placement_internal(
-        &self,
-        step: &StepType<F, StepArgs>,
-        signal: InternalSignal,
-    ) -> (Column<Advice>, i32) {
-        let placement = self.placement.find_internal_signal_placement(step, &signal);
-
-        let column = self
-            .advice_columns
-            .get(&placement.column.uuid())
-            .unwrap_or_else(|| panic!("column not found for internal signal {:?}", signal));
-
-        (*column, placement.rotation)
-    }
-
-    fn find_halo2_placement_forward(
-        &self,
-        step: &StepType<F, StepArgs>,
-        forward: ForwardSignal,
-        next: bool,
-    ) -> (Column<Advice>, i32) {
-        let placement = self.placement.get_forward_placement(&forward);
-
-        let super_rotation = placement.rotation
-            + if next {
-                self.placement.step_height(step) as i32
-            } else {
-                0
-            };
-
-        let column = self
-            .advice_columns
-            .get(&placement.column.uuid())
-            .unwrap_or_else(|| panic!("column not found for forward signal {:?}", forward));
-
-        (*column, super_rotation)
-    }
-}
-
-impl<F: Field, StepArgs: Clone> TraceContext<StepArgs> for TraceContextHalo2<F, StepArgs> {
-    fn add(&mut self, step: &StepTypeHandler, args: StepArgs) {
-        if let Some(cur_step) = &self.cur_step {
-            self.offset += self.placement.step_height(cur_step) as usize;
-        } else {
-            self.offset = 0;
-        }
-
-        let cur_step = Rc::clone(
-            self.step_types
-                .get(&step.uuid())
-                .expect("step type not found"),
-        );
-
-        self.cur_step = Some(Rc::clone(&cur_step));
-
-        (*cur_step.wg)(self, args);
-
-        // activate selector
-
-        let selector_assignment = self
-            .selector
-            .selector_assignment
-            .get(&cur_step)
-            .expect("selector assignment for step not found");
-
-        for (expr, value) in selector_assignment.iter() {
-            match expr {
-                PolyExpr::Query(column, rot, _) => {
-                    let column = self
-                        .advice_columns
-                        .get(&column.uuid())
-                        .expect("selector expression column not found");
-
-                    self.assigments.push((
-                        *column,
-                        self.offset + *rot as usize,
-                        Value::known(*value),
-                    ))
-                }
-                _ => panic!("wrong type of expresion is selector assignment"),
-            }
-        }
-    }
-
-    fn set_height(&mut self, height: usize) {
-        self.height = height;
-    }
-}
-
-impl<F: Field, StepArgs: Clone> WitnessGenContext<F> for TraceContextHalo2<F, StepArgs> {
-    fn assign(&mut self, lhs: Queriable<F>, rhs: F) {
-        if let Some(cur_step) = &self.cur_step {
-            let (column, rotation) = self.find_halo2_placement(cur_step, lhs);
-
-            let offset = (self.offset as i32 + rotation) as usize;
-            self.assigments.push((column, offset, Value::known(rhs)));
-
-            self.max_offset = self.max_offset.max(offset);
-        } else {
-            panic!("jarrl assigning outside a step");
+    fn convert_fixed_column(&self, column: &cColumn) -> Column<Fixed> {
+        match column.ctype {
+            cFixed | Halo2Fixed => *self
+                .fixed_columns
+                .get(&column.uuid())
+                .unwrap_or_else(|| panic!("column not found {}", column.annotation)),
+            _ => panic!("worng column type"),
         }
     }
 }
 
-struct FixedGenContextHalo2<F: Field> {
-    assigments: Vec<Assignment<F, Fixed>>,
-
-    max_offset: usize,
+#[allow(dead_code)]
+// From Plaf Halo2 backend.
+// _Cell is a helper struct used for constructing Halo2 Cell.
+struct _Cell {
+    region_index: RegionIndex,
+    row_offset: usize,
+    column: Column<Any>,
 }
-
-impl<F: Field> FixedGenContextHalo2<F> {
-    fn find_halo2_placement(query: Queriable<F>) -> (Column<Fixed>, i32) {
-        match query {
-            Queriable::Halo2FixedQuery(signal, rotation) => (signal.column, rotation),
-            _ => panic!("invalid fixed assignment on queriable {:?}", query),
-        }
-    }
-}
-
-impl<F: Field> FixedGenContext<F> for FixedGenContextHalo2<F> {
-    fn assign(&mut self, offset: usize, lhs: Queriable<F>, rhs: F) {
-        let (column, rotation) = Self::find_halo2_placement(lhs);
-
-        if rotation != 0 {
-            panic!("cannot assign fixed value with rotation");
-        }
-
-        self.assigments.push((column, offset, Value::known(rhs)));
-
-        self.max_offset = self.max_offset.max(offset);
-    }
+// From Plaf Halo2 backend.
+fn new_cell(column: Column<Any>, offset: usize) -> Cell {
+    let cell = _Cell {
+        region_index: RegionIndex::from(0),
+        row_offset: offset,
+        column,
+    };
+    // NOTE: We use unsafe here to construct a Cell, which doesn't have a public constructor.  This
+    // helps us set the copy constraints easily (without having to store all assigned cells
+    // previously)
+    unsafe { std::mem::transmute::<_Cell, Cell>(cell) }
 }
 
 pub fn to_halo2_advice<F: Field>(
@@ -492,5 +328,131 @@ pub fn to_halo2_advice<F: Field>(
         1 => meta.advice_column_in(SecondPhase),
         2 => meta.advice_column_in(ThirdPhase),
         _ => panic!("jarll wrong phase"),
+    }
+}
+
+#[derive(Clone, Default)]
+pub struct ChiquitoHalo2Circuit<F: Field + From<u64>> {
+    compiled: ChiquitoHalo2<F>,
+    witness: Option<Assignments<F>>,
+}
+
+impl<F: Field + From<u64>> ChiquitoHalo2Circuit<F> {
+    pub fn new(compiled: ChiquitoHalo2<F>, witness: Option<Assignments<F>>) -> Self {
+        Self { compiled, witness }
+    }
+}
+
+impl<F: Field + From<u64> + Hash> h2Circuit<F> for ChiquitoHalo2Circuit<F> {
+    type Config = ChiquitoHalo2<F>;
+
+    type FloorPlanner = SimpleFloorPlanner;
+
+    type Params = ChiquitoHalo2<F>;
+
+    fn without_witnesses(&self) -> Self {
+        Self::default()
+    }
+
+    fn params(&self) -> Self::Params {
+        self.compiled.clone()
+    }
+
+    fn configure_with_params(
+        meta: &mut ConstraintSystem<F>,
+        mut compiled: Self::Params,
+    ) -> Self::Config {
+        compiled.configure(meta);
+
+        compiled
+    }
+
+    fn synthesize(
+        &self,
+        compiled: Self::Config,
+        mut layouter: impl Layouter<F>,
+    ) -> Result<(), Error> {
+        compiled.synthesize(&mut layouter, self.witness.as_ref());
+
+        Ok(())
+    }
+
+    fn configure(_: &mut ConstraintSystem<F>) -> Self::Config {
+        unreachable!()
+    }
+}
+
+#[derive(Debug, Default)]
+pub struct ChiquitoHalo2SuperCircuit<F: Field + From<u64>> {
+    sub_circuits: Vec<ChiquitoHalo2<F>>,
+    witness: SuperAssignments<F>,
+}
+
+impl<F: Field + From<u64>> ChiquitoHalo2SuperCircuit<F> {
+    pub fn new(sub_circuits: Vec<ChiquitoHalo2<F>>, witness: SuperAssignments<F>) -> Self {
+        Self {
+            sub_circuits,
+            witness,
+        }
+    }
+}
+
+impl<F: Field + From<u64> + Hash> h2Circuit<F> for ChiquitoHalo2SuperCircuit<F> {
+    type Config = Vec<ChiquitoHalo2<F>>;
+
+    type FloorPlanner = SimpleFloorPlanner;
+
+    type Params = Vec<ChiquitoHalo2<F>>;
+
+    fn without_witnesses(&self) -> Self {
+        Self::default()
+    }
+
+    fn params(&self) -> Self::Params {
+        self.sub_circuits.clone()
+    }
+
+    fn configure_with_params(
+        meta: &mut ConstraintSystem<F>,
+        mut sub_circuits: Self::Params,
+    ) -> Self::Config {
+        sub_circuits
+            .iter_mut()
+            .for_each(|c| c.configure_columns_sub_circuit(meta));
+
+        let advice_columns: HashMap<UUID, Column<Advice>> =
+            sub_circuits.iter().fold(HashMap::default(), |mut acc, s| {
+                acc.extend(s.advice_columns.clone());
+                acc
+            });
+        let fixed_columns: HashMap<UUID, Column<Fixed>> =
+            sub_circuits.iter().fold(HashMap::default(), |mut acc, s| {
+                acc.extend(s.fixed_columns.clone());
+                acc
+            });
+
+        sub_circuits.iter_mut().for_each(|sub_circuit| {
+            sub_circuit.advice_columns = advice_columns.clone();
+            sub_circuit.fixed_columns = fixed_columns.clone();
+            sub_circuit.configure_sub_circuit(meta)
+        });
+
+        sub_circuits
+    }
+
+    fn synthesize(
+        &self,
+        sub_circuits: Self::Config,
+        mut layouter: impl Layouter<F>,
+    ) -> Result<(), Error> {
+        for sub_circuit in sub_circuits {
+            sub_circuit.synthesize(&mut layouter, self.witness.get(&sub_circuit.ir_id))
+        }
+
+        Ok(())
+    }
+
+    fn configure(_: &mut ConstraintSystem<F>) -> Self::Config {
+        unreachable!()
     }
 }

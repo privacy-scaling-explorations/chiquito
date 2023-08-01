@@ -1,5 +1,5 @@
 use core::fmt::Debug;
-use std::{collections::HashMap, rc::Rc};
+use std::{collections::HashMap, hash::Hash, rc::Rc};
 
 use halo2_proofs::{
     arithmetic::Field,
@@ -8,75 +8,95 @@ use halo2_proofs::{
 
 use crate::{
     ast::{
-        query::Queriable, Circuit as astCircuit, Expr, ForwardSignal, ImportedHalo2Advice,
-        ImportedHalo2Fixed, StepType,
+        query::Queriable, Circuit as astCircuit, ExposeOffset, Expr, FixedSignal, ForwardSignal,
+        ImportedHalo2Advice, ImportedHalo2Fixed, SharedSignal, StepType, StepTypeUUID,
     },
-    dsl::StepTypeHandler,
-    ir::{Circuit, Column, ColumnType, Poly, PolyExpr, PolyLookup},
-    util::uuid,
+    ir::{
+        assigments::{AssigmentGenerator, Assignments},
+        Circuit, Column, ColumnType, Poly, PolyExpr, PolyLookup,
+    },
+    util::{uuid, UUID},
+    wit_gen::{FixedAssignment, FixedGenContext, TraceGenerator},
 };
 
 use self::{
-    cell_manager::{CellManager, Placement},
+    cell_manager::{CellManager, Placement, SignalPlacement},
     step_selector::{StepSelector, StepSelectorBuilder},
 };
 
 pub mod cell_manager;
 pub mod step_selector;
 
-pub trait TraceContext<StepArgs> {
-    fn add(&mut self, step: &StepTypeHandler, args: StepArgs);
-    fn set_height(&mut self, height: usize);
-}
-
-/// A trait that represents a witness generation context. It provides an interface for assigning
-/// values to witness columns in a circuit.
-pub trait WitnessGenContext<F> {
-    /// Takes a `Queriable` object representing the witness column (lhs) and the value (rhs) to be
-    /// assigned.
-    fn assign(&mut self, lhs: Queriable<F>, rhs: F);
-}
-
-/// A trait that represents a fixed column generation context. It provides an interface for
-/// assigning values to fixed columns in a circuit at the specified offset.
-pub trait FixedGenContext<F> {
-    /// Takes a `Queriable` object representing the fixed column (lhs) and the value (rhs) to be
-    /// assigned.
-    fn assign(&mut self, offset: usize, lhs: Queriable<F>, rhs: F);
-}
-
-#[derive(Debug)]
-pub struct CompilationUnit<F, StepArgs> {
-    pub placement: Placement<F, StepArgs>,
-    pub selector: StepSelector<F, StepArgs>,
-    pub step_types: HashMap<u32, Rc<StepType<F, StepArgs>>>,
+#[derive(Debug, Clone)]
+pub struct CompilationUnit<F> {
+    pub placement: Placement,
+    pub selector: StepSelector<F>,
+    pub step_types: HashMap<UUID, Rc<StepType<F>>>,
     pub forward_signals: Vec<ForwardSignal>,
+    pub shared_signals: Vec<SharedSignal>,
+    pub fixed_signals: Vec<FixedSignal>,
 
-    pub annotations: HashMap<u32, String>,
+    pub annotations: HashMap<UUID, String>,
 
     pub columns: Vec<Column>,
+    pub exposed: Vec<(Column, i32)>,
+
+    pub num_steps: usize,
+    pub q_enable: Option<Column>,
+    pub first_step: Option<(StepTypeUUID, Column)>,
+    pub last_step: Option<(StepTypeUUID, Column)>,
+
+    pub num_rows: usize,
+
     pub polys: Vec<Poly<F>>,
     pub lookups: Vec<PolyLookup<F>>,
+
+    pub fixed_assignments: Assignments<F>,
+
+    pub ast_id: UUID,
+    pub uuid: UUID,
+
+    pub other_sub_circuits: Rc<Vec<CompilationUnit<F>>>,
+    pub other_columns: Rc<Vec<Column>>,
 }
 
-impl<F, StepArgs> Default for CompilationUnit<F, StepArgs> {
+impl<F> Default for CompilationUnit<F> {
     fn default() -> Self {
         Self {
             placement: Default::default(),
             selector: Default::default(),
             step_types: Default::default(),
             forward_signals: Default::default(),
+            shared_signals: Default::default(),
+            fixed_signals: Default::default(),
 
             annotations: Default::default(),
 
             columns: Default::default(),
+            exposed: Default::default(),
+
+            num_steps: Default::default(),
+            q_enable: Default::default(),
+            first_step: Default::default(),
+            last_step: Default::default(),
+
+            num_rows: Default::default(),
+
             polys: Default::default(),
             lookups: Default::default(),
+
+            fixed_assignments: Default::default(),
+
+            ast_id: Default::default(),
+            uuid: uuid(),
+
+            other_sub_circuits: Default::default(),
+            other_columns: Default::default(),
         }
     }
 }
 
-impl<F, StepArgs> CompilationUnit<F, StepArgs> {
+impl<F> CompilationUnit<F> {
     fn find_halo2_advice(&self, to_find: ImportedHalo2Advice) -> Option<Column> {
         for column in self.columns.iter() {
             if let Some(advice) = column.halo2_advice {
@@ -86,15 +106,29 @@ impl<F, StepArgs> CompilationUnit<F, StepArgs> {
             }
         }
 
+        for sub_circuit in self.other_sub_circuits.iter() {
+            let found = sub_circuit.find_halo2_advice(to_find);
+            if found.is_some() {
+                return found;
+            }
+        }
+
         None
     }
 
-    fn find_halo2_advice_native(&self, halo2_advice: Halo2Column<Advice>) -> Option<Column> {
+    fn find_halo2_advice_native(&self, to_find: Halo2Column<Advice>) -> Option<Column> {
         for column in self.columns.iter() {
             if let Some(advice) = column.halo2_advice {
-                if advice.column == halo2_advice {
+                if advice.column == to_find {
                     return Some(column.clone());
                 }
+            }
+        }
+
+        for sub_circuit in self.other_sub_circuits.iter() {
+            let found = sub_circuit.find_halo2_advice_native(to_find);
+            if found.is_some() {
+                return found;
             }
         }
 
@@ -110,13 +144,159 @@ impl<F, StepArgs> CompilationUnit<F, StepArgs> {
             }
         }
 
+        for sub_circuit in self.other_sub_circuits.iter() {
+            let found = sub_circuit.find_halo2_fixed(to_find);
+            if found.is_some() {
+                return found;
+            }
+        }
+
         None
+    }
+
+    pub fn get_forward_placement(&self, forward: &ForwardSignal) -> SignalPlacement {
+        if let Some(placement) = self.placement.get_forward_placement(forward) {
+            return placement;
+        }
+
+        for sub_circuit in self.other_sub_circuits.iter() {
+            if let Some(placement) = sub_circuit.placement.get_forward_placement(forward) {
+                return placement;
+            }
+        }
+
+        panic!("forward signal placement not found");
+    }
+    pub fn get_shared_placement(&self, shared: &SharedSignal) -> SignalPlacement {
+        if let Some(placement) = self.placement.get_shared_placement(shared) {
+            return placement;
+        }
+
+        for sub_circuit in self.other_sub_circuits.iter() {
+            if let Some(placement) = sub_circuit.placement.get_shared_placement(shared) {
+                return placement;
+            }
+        }
+
+        panic!("shared signal placement not found");
+    }
+
+    pub fn get_fixed_placement(&self, fixed: &FixedSignal) -> SignalPlacement {
+        if let Some(placement) = self.placement.get_fixed_placement(fixed) {
+            return placement;
+        }
+
+        for sub_circuit in self.other_sub_circuits.iter() {
+            if let Some(signal) = sub_circuit.placement.get_fixed_placement(fixed) {
+                return signal;
+            }
+        }
+
+        panic!("fixed signal placement not found");
+    }
+}
+
+impl<F, TraceArgs> From<&astCircuit<F, TraceArgs>> for CompilationUnit<F> {
+    fn from(ast: &astCircuit<F, TraceArgs>) -> Self {
+        CompilationUnit::<F> {
+            annotations: {
+                let mut acc = ast.annotations.clone();
+                for step in ast.step_types.values() {
+                    acc.extend(step.annotations.clone());
+                }
+
+                acc
+            },
+            step_types: ast.step_types.clone(),
+            forward_signals: ast.forward_signals.clone(),
+            shared_signals: ast.shared_signals.clone(),
+            fixed_signals: ast.fixed_signals.clone(),
+            num_steps: ast.num_steps,
+            q_enable: if ast.q_enable {
+                Some(Column {
+                    annotation: "q_enable".to_owned(),
+                    ctype: ColumnType::Fixed,
+                    halo2_advice: None,
+                    halo2_fixed: None,
+                    phase: 0,
+                    id: uuid(),
+                })
+            } else {
+                None
+            },
+            first_step: ast.first_step.map(|step_type_uuid| {
+                (
+                    step_type_uuid,
+                    Column {
+                        annotation: "q_first".to_owned(),
+                        ctype: ColumnType::Fixed,
+                        halo2_advice: None,
+                        halo2_fixed: None,
+                        phase: 0,
+                        id: uuid(),
+                    },
+                )
+            }),
+            last_step: ast.last_step.map(|step_type_uuid| {
+                (
+                    step_type_uuid,
+                    Column {
+                        annotation: "q_last".to_owned(),
+                        ctype: ColumnType::Fixed,
+                        halo2_advice: None,
+                        halo2_fixed: None,
+                        phase: 0,
+                        id: uuid(),
+                    },
+                )
+            }),
+            ast_id: ast.id,
+            ..Default::default()
+        }
+    }
+}
+
+impl<F> From<CompilationUnit<F>> for Circuit<F> {
+    fn from(unit: CompilationUnit<F>) -> Self {
+        Circuit::<F> {
+            columns: unit.columns,
+            exposed: unit.exposed,
+            polys: unit.polys,
+            lookups: unit.lookups,
+            fixed_assignments: unit.fixed_assignments,
+            id: unit.uuid,
+            ast_id: unit.ast_id,
+        }
+    }
+}
+
+#[derive(Clone)]
+pub struct CompilerConfig<CM: CellManager, SSB: StepSelectorBuilder> {
+    cell_manager: CM,
+    step_selector_builder: SSB,
+}
+
+pub fn config<CM: CellManager, SSB: StepSelectorBuilder>(
+    cell_manager: CM,
+    step_selector_builder: SSB,
+) -> CompilerConfig<CM, SSB> {
+    CompilerConfig {
+        cell_manager,
+        step_selector_builder,
     }
 }
 
 pub struct Compiler<CM: CellManager, SSB: StepSelectorBuilder> {
     cell_manager: CM,
     step_selector_builder: SSB,
+}
+
+impl<CM: CellManager, SSB: StepSelectorBuilder> From<CompilerConfig<CM, SSB>>
+    for Compiler<CM, SSB>
+{
+    fn from(config: CompilerConfig<CM, SSB>) -> Self {
+        Compiler::new(config.cell_manager, config.step_selector_builder)
+    }
 }
 
 impl<CM: CellManager, SSB: StepSelectorBuilder> Compiler<CM, SSB> {
@@ -127,154 +307,79 @@ impl<CM: CellManager, SSB: StepSelectorBuilder> Compiler<CM, SSB> {
         }
     }
 
-    pub fn compile<F: Field + Clone, TraceArgs, StepArgs>(
+    pub fn compile<F: Field + Hash + Clone, TraceArgs>(
         &self,
-        sc: &astCircuit<F, TraceArgs, StepArgs>,
-    ) -> Circuit<F, TraceArgs, StepArgs> {
-        let mut unit = CompilationUnit::<F, StepArgs> {
-            annotations: {
-                let mut acc = sc.annotations.clone();
-                for step in sc.step_types.values() {
-                    acc.extend(step.annotations.clone());
-                }
+        ast: &astCircuit<F, TraceArgs>,
+    ) -> (Circuit<F>, Option<AssigmentGenerator<F, TraceArgs>>) {
+        let (mut unit, assignment) = self.compile_phase1(ast);
 
-                acc
-            },
-            ..Default::default()
-        };
+        self.compile_phase2(&mut unit);
 
-        let halo2_advice_columns: Vec<Column> = sc
-            .halo2_advice
-            .iter()
-            .map(|signal| {
-                if let Some(annotation) = unit.annotations.get(&signal.uuid()) {
-                    Column::new_halo2_advice(format!("halo2 advice {}", annotation), *signal)
-                } else {
-                    Column::new_halo2_advice("halo2 advice", *signal)
-                }
-            })
-            .collect();
+        (unit.into(), assignment)
+    }
 
-        let halo2_fixed_columns: Vec<Column> = sc
-            .halo2_fixed
-            .iter()
-            .map(|signal| {
-                if let Some(annotation) = unit.annotations.get(&signal.uuid()) {
-                    Column::new_halo2_fixed(format!("halo2 fixed {}", annotation), *signal)
-                } else {
-                    Column::new_halo2_fixed("halo2 fixed", *signal)
-                }
-            })
-            .collect();
+    pub fn compile_phase1<F: Field + Hash + Clone, TraceArgs>(
+        &self,
+        ast: &astCircuit<F, TraceArgs>,
+    ) -> (CompilationUnit<F>, Option<AssigmentGenerator<F, TraceArgs>>) {
+        let mut unit = CompilationUnit::from(ast);
 
-        unit.columns = vec![halo2_advice_columns, halo2_fixed_columns].concat();
-        unit.step_types = sc.step_types.clone();
-        unit.forward_signals = sc.forward_signals.clone();
+        self.add_halo2_columns(&mut unit, ast);
 
         self.cell_manager.place(&mut unit);
-        self.step_selector_builder
-            .build::<F, TraceArgs, StepArgs>(&mut unit);
 
-        for step in unit.step_types.clone().values() {
-            self.compile_step(&mut unit, step);
+        if (!unit.shared_signals.is_empty() || !unit.fixed_signals.is_empty())
+            && !unit.placement.same_height()
+        {
+            panic!("Shared signals and fixed signals are not supported for circuits with different step heights. Using a different cell manager might fix this problem.");
         }
 
-        let q_enable = Column {
-            annotation: "q_enable".to_owned(),
-            ctype: ColumnType::Fixed,
-            halo2_advice: None,
-            halo2_fixed: None,
-            phase: 0,
-            id: uuid(),
-        };
+        if !unit.placement.same_height() {
+            panic!("Cannot calculate the number of rows");
+        }
+        unit.num_rows = unit.num_steps * (unit.placement.first_step_height() as usize);
 
-        unit.columns.push(q_enable.clone());
+        self.compile_fixed(ast, &mut unit);
 
-        self.add_q_enable(&mut unit, q_enable.clone());
+        self.compile_exposed(ast, &mut unit);
 
-        let q_first = if let Some(step_type) = sc.first_step {
-            let q_first = Column {
-                annotation: "q_first".to_owned(),
-                ctype: ColumnType::Fixed,
-                halo2_advice: None,
-                halo2_fixed: None,
-                phase: 0,
-                id: uuid(),
-            };
-            unit.columns.push(q_first.clone());
+        self.add_default_columns(&mut unit);
 
-            let step = unit
-                .step_types
-                .get(&step_type.uuid())
-                .expect("step not found");
+        self.step_selector_builder.build::<F>(&mut unit);
 
-            let poly = PolyExpr::Mul(vec![
-                PolyExpr::<F>::Query(q_first.clone(), 0, "q_first".to_owned()),
-                unit.selector.unselect(step),
-            ]);
+        let assigment = ast.trace.as_ref().map(|v| {
+            AssigmentGenerator::new(
+                unit.columns.clone(),
+                unit.placement.clone(),
+                unit.selector.clone(),
+                TraceGenerator::new(Rc::clone(v)),
+                unit.num_rows,
+                unit.uuid,
+            )
+        });
 
-            unit.polys.push(Poly {
-                annotation: "q_first".to_string(),
-                expr: poly,
-            });
+        (unit, assigment)
+    }
 
-            Some(q_first)
-        } else {
-            None
-        };
+    pub fn compile_phase2<F: Field + Clone>(&self, unit: &mut CompilationUnit<F>) {
+        for step in unit.step_types.clone().values() {
+            self.compile_step(unit, step);
+        }
 
-        let q_last = if let Some(step_type) = sc.last_step {
-            let q_last = Column {
-                annotation: "q_last".to_owned(),
-                ctype: ColumnType::Fixed,
-                halo2_advice: None,
-                halo2_fixed: None,
-                phase: 0,
-                id: uuid(),
-            };
-            unit.columns.push(q_last.clone());
+        if let Some(q_enable) = &unit.q_enable {
+            self.add_q_enable(unit, q_enable.clone());
+        }
 
-            let step = unit
-                .step_types
-                .get(&step_type.uuid())
-                .expect("step not found");
+        if let Some((step_type, q_first)) = &unit.first_step {
+            self.add_q_first(unit, *step_type, q_first.clone());
+        }
 
-            let poly = PolyExpr::Mul(vec![
-                PolyExpr::<F>::Query(q_last.clone(), 0, "q_last".to_owned()),
-                unit.selector.unselect(step),
-            ]);
-
-            unit.polys.push(Poly {
-                annotation: "q_last".to_string(),
-                expr: poly,
-            });
-
-            Some(q_last)
-        } else {
-            None
-        };
-
-        Circuit::<F, TraceArgs, StepArgs> {
-            placement: unit.placement,
-            selector: unit.selector,
-            columns: unit.columns,
-            polys: unit.polys,
-            lookups: unit.lookups,
-            step_types: unit.step_types,
-            q_enable,
-            q_first,
-            q_last,
-
-            trace: sc.trace.as_ref().map(|v| Rc::clone(v)),
-            fixed_gen: sc.fixed_gen.as_ref().map(|v| Rc::clone(v)),
+        if let Some((step_type, q_last)) = &unit.last_step {
+            self.add_q_last(unit, *step_type, q_last.clone());
         }
     }
 
-    fn compile_step<F: Clone + Debug, StepArgs>(
-        &self,
-        unit: &mut CompilationUnit<F, StepArgs>,
-        step: &StepType<F, StepArgs>,
-    ) {
+    fn compile_step<F: Clone + Debug>(&self, unit: &mut CompilationUnit<F>, step: &StepType<F>) {
         let step_annotation = unit
             .annotations
             .get(&step.uuid())
@@ -283,7 +388,7 @@ impl<CM: CellManager, SSB: StepSelectorBuilder> Compiler<CM, SSB> {
 
         for constr in step.constraints.iter() {
             let constraint = self.transform_expr(unit, step, &constr.expr.clone());
-            let poly = unit.selector.select(step, &constraint);
+            let poly = unit.selector.select(step.uuid(), &constraint);
 
             unit.polys.push(Poly {
                 expr: poly,
@@ -299,7 +404,7 @@ impl<CM: CellManager, SSB: StepSelectorBuilder> Compiler<CM, SSB> {
         // TODO only transition_constraints should have rotations
         for constr in step.transition_constraints.iter() {
             let constraint = self.transform_expr(unit, step, &constr.expr.clone());
-            let poly = unit.selector.select(step, &constraint);
+            let poly = unit.selector.select(step.uuid(), &constraint);
 
             unit.polys.push(Poly {
                 expr: poly,
@@ -321,7 +426,7 @@ impl<CM: CellManager, SSB: StepSelectorBuilder> Compiler<CM, SSB> {
                     .map(|(src, dest)| {
                         let src_poly = self.transform_expr(unit, step, &src.expr);
                         let dest_poly = self.transform_expr(unit, step, dest);
-                        let src_selected = unit.selector.select(step, &src_poly);
+                        let src_selected = unit.selector.select(step.uuid(), &src_poly);
 
                         (src_selected, dest_poly)
                     })
@@ -332,15 +437,86 @@ impl<CM: CellManager, SSB: StepSelectorBuilder> Compiler<CM, SSB> {
         }
     }
 
-    fn place_queriable<F: Clone, StepArgs>(
+    fn compile_exposed<F, TraceArgs>(
         &self,
-        unit: &CompilationUnit<F, StepArgs>,
-        step: &StepType<F, StepArgs>,
+        ast: &astCircuit<F, TraceArgs>,
+        unit: &mut CompilationUnit<F>,
+    ) {
+        for (queriable, offset) in &ast.exposed {
+            let exposed = match queriable {
+                Queriable::Forward(forward_signal, _) => {
+                    let placement = unit
+                        .placement
+                        .get_forward_placement(forward_signal)
+                        .expect("forward placement not found");
+                    match offset {
+                        ExposeOffset::First => (placement.column, placement.rotation),
+                        ExposeOffset::Last => {
+                            let rot = placement.rotation
+                                + ((unit.num_steps - 1) as i32)
+                                    * (unit.placement.first_step_height() as i32);
+                            (placement.column, rot)
+                        }
+                        ExposeOffset::Step(step) => {
+                            let rot = placement.rotation
+                                + (*step as i32) * (unit.placement.first_step_height() as i32);
+                            (placement.column, rot)
+                        }
+                    }
+                }
+                Queriable::Shared(shared_signal, _) => {
+                    let placement = unit
+                        .placement
+                        .get_shared_placement(shared_signal)
+                        .expect("shared placement not found");
+                    match offset {
+                        ExposeOffset::First => (placement.column, placement.rotation),
+                        ExposeOffset::Last => {
+                            let rot = placement.rotation
+                                + ((unit.num_steps - 1) as i32)
+                                    * (unit.placement.first_step_height() as i32);
+                            (placement.column, rot)
+                        }
+                        ExposeOffset::Step(step) => {
+                            let rot = placement.rotation
+                                + (*step as i32) * (unit.placement.first_step_height() as i32);
+                            (placement.column, rot)
+                        }
+                    }
+                }
+                _ => panic!("Queriable was not Forward or Shared"),
+            };
+
+            unit.exposed.push(exposed);
+        }
+    }
+
+    fn compile_fixed<F: Field + Hash, TraceArgs>(
+        &self,
+        ast: &astCircuit<F, TraceArgs>,
+        unit: &mut CompilationUnit<F>,
+    ) {
+        if let Some(fixed_gen) = &ast.fixed_gen {
+            let mut ctx = FixedGenContext::new(unit.num_steps);
+            (*fixed_gen)(&mut ctx);
+
+            let assignments = ctx.get_assigments();
+
+            unit.fixed_assignments = self.place_fixed_assignments(unit, assignments);
+        }
+    }
+
+    fn place_queriable<F: Clone>(
+        &self,
+        unit: &CompilationUnit<F>,
+        step: &StepType<F>,
         q: Queriable<F>,
     ) -> PolyExpr<F> {
         match q {
             Queriable::Internal(signal) => {
-                let placement = unit.placement.find_internal_signal_placement(step, &signal);
+                let placement = unit
+                    .placement
+                    .find_internal_signal_placement(step.uuid(), &signal);
 
                 let annotation = if let Some(annotation) = unit.annotations.get(&signal.uuid()) {
                     format!(
@@ -354,11 +530,11 @@ impl<CM: CellManager, SSB: StepSelectorBuilder> Compiler<CM, SSB> {
                 PolyExpr::Query(placement.column, placement.rotation, annotation)
             }
             Queriable::Forward(forward, next) => {
-                let placement = unit.placement.get_forward_placement(&forward);
+                let placement = unit.get_forward_placement(&forward);
 
                 let super_rotation = placement.rotation
                     + if next {
-                        unit.placement.step_height(step) as i32
+                        unit.placement.step_height(step.uuid()) as i32
                     } else {
                         0
                     };
@@ -380,14 +556,60 @@ impl<CM: CellManager, SSB: StepSelectorBuilder> Compiler<CM, SSB> {
                 };
                 PolyExpr::Query(placement.column, super_rotation, annotation)
             }
+            Queriable::Shared(shared, rot) => {
+                let placement = unit.get_shared_placement(&shared);
+
+                let super_rotation =
+                    placement.rotation + rot * (unit.placement.step_height(step.uuid()) as i32);
+
+                let annotation = if let Some(annotation) = unit.annotations.get(&shared.uuid()) {
+                    if rot == 0 {
+                        format!(
+                            "{}[{}, {}]",
+                            annotation, placement.column.annotation, super_rotation
+                        )
+                    } else {
+                        format!(
+                            "shared_rot_{}({})[{}, {}]",
+                            rot, annotation, placement.column.annotation, super_rotation
+                        )
+                    }
+                } else {
+                    format!("[{}, {}]", placement.column.annotation, super_rotation)
+                };
+                PolyExpr::Query(placement.column, super_rotation, annotation)
+            }
+            Queriable::Fixed(fixed, rot) => {
+                let placement = unit.get_fixed_placement(&fixed);
+
+                let super_rotation =
+                    placement.rotation + rot * (unit.placement.step_height(step.uuid()) as i32);
+
+                let annotation = if let Some(annotation) = unit.annotations.get(&fixed.uuid()) {
+                    if rot == 0 {
+                        format!(
+                            "{}[{}, {}]",
+                            annotation, placement.column.annotation, super_rotation
+                        )
+                    } else {
+                        format!(
+                            "fixed_rot_{}({})[{}, {}]",
+                            rot, annotation, placement.column.annotation, super_rotation
+                        )
+                    }
+                } else {
+                    format!("[{}, {}]", placement.column.annotation, super_rotation)
+                };
+                PolyExpr::Query(placement.column, super_rotation, annotation)
+            }
             Queriable::StepTypeNext(step_type_handle) => {
-                let super_rotation = unit.placement.step_height(step);
+                let super_rotation = unit.placement.step_height(step.uuid());
                 let dest_step = unit
                     .step_types
                     .get(&step_type_handle.uuid())
                     .expect("step not found");
 
-                unit.selector.next_expr(dest_step, super_rotation)
+                unit.selector.next_expr(dest_step.uuid(), super_rotation)
             }
             Queriable::Halo2AdviceQuery(signal, rot) => {
                 let annotation = if let Some(annotation) = unit.annotations.get(&signal.uuid()) {
@@ -419,10 +641,10 @@ impl<CM: CellManager, SSB: StepSelectorBuilder> Compiler<CM, SSB> {
         }
     }
 
-    fn transform_expr<F: Clone, StepArgs>(
+    fn transform_expr<F: Clone>(
         &self,
-        unit: &CompilationUnit<F, StepArgs>,
-        step: &StepType<F, StepArgs>,
+        unit: &CompilationUnit<F>,
+        step: &StepType<F>,
         source: &Expr<F>,
     ) -> PolyExpr<F> {
         match source.clone() {
@@ -444,11 +666,51 @@ impl<CM: CellManager, SSB: StepSelectorBuilder> Compiler<CM, SSB> {
         }
     }
 
-    fn add_q_enable<F: Clone, StepArgs>(
+    fn place_fixed_assignments<F: Field>(
         &self,
-        unit: &mut CompilationUnit<F, StepArgs>,
-        q_enable: Column,
-    ) {
+        unit: &CompilationUnit<F>,
+        assignments: FixedAssignment<F>,
+    ) -> Assignments<F> {
+        let mut result = Assignments::default();
+        let step_height = unit.placement.first_step_height();
+        let empty = vec![F::ZERO; unit.num_rows];
+
+        for (queriable, assignments) in assignments {
+            let placement = match queriable {
+                Queriable::Fixed(fixed, rot) => {
+                    if rot != 0 {
+                        panic!("cannot do fixed assignation of rotated queriable");
+                    }
+                    unit.placement
+                        .get_fixed_placement(&fixed)
+                        .expect("fixed placement not found")
+                }
+                Queriable::Halo2FixedQuery(signal, rot) => SignalPlacement::new(
+                    unit.find_halo2_fixed(signal).expect("column not found"),
+                    rot,
+                ),
+                _ => panic!("only can do fixed assignment to fixed signal"),
+            };
+
+            let mut column_values = if let Some(column_values) = result.get(&placement.column) {
+                column_values.clone()
+            } else {
+                empty.clone()
+            };
+
+            let mut offset = placement.rotation as usize;
+            for value in assignments {
+                column_values[offset] = value;
+                offset += step_height as usize;
+            }
+
+            result.insert(placement.column, column_values);
+        }
+
+        result
+    }
+
+    fn add_q_enable<F: Field>(&self, unit: &mut CompilationUnit<F>, q_enable: Column) {
         unit.polys = unit
             .polys
             .iter()
@@ -481,5 +743,101 @@ impl<CM: CellManager, SSB: StepSelectorBuilder> Compiler<CM, SSB> {
                     .collect(),
             })
             .collect();
+
+        let assignments = vec![F::ONE; unit.num_rows];
+        unit.fixed_assignments.insert(q_enable, assignments);
+    }
+
+    fn add_q_first<F: Field>(
+        &self,
+        unit: &mut CompilationUnit<F>,
+        step_uuid: StepTypeUUID,
+        q_first: Column,
+    ) {
+        let step = unit.step_types.get(&step_uuid).expect("step not found");
+
+        let poly = PolyExpr::Mul(vec![
+            PolyExpr::<F>::Query(q_first.clone(), 0, "q_first".to_owned()),
+            unit.selector.unselect(step.uuid()),
+        ]);
+
+        unit.polys.push(Poly {
+            annotation: "q_first".to_string(),
+            expr: poly,
+        });
+
+        let mut assignments = vec![F::ZERO; unit.num_rows];
+        assignments[0] = F::ONE;
+        unit.fixed_assignments.insert(q_first, assignments);
+    }
+
+    fn add_q_last<F: Field>(
+        &self,
+        unit: &mut CompilationUnit<F>,
+        step_uuid: StepTypeUUID,
+        q_last: Column,
+    ) {
+        let step = unit.step_types.get(&step_uuid).expect("step not found");
+
+        let poly = PolyExpr::Mul(vec![
+            PolyExpr::<F>::Query(q_last.clone(), 0, "q_last".to_owned()),
+            unit.selector.unselect(step.uuid()),
+        ]);
+
+        unit.polys.push(Poly {
+            annotation: "q_last".to_string(),
+            expr: poly,
+        });
+
+        let mut assignments = vec![F::ZERO; unit.num_rows];
+        assignments[unit.num_rows - unit.placement.first_step_height() as usize] = F::ONE;
+        unit.fixed_assignments.insert(q_last, assignments);
+    }
+
+    fn add_default_columns<F>(&self, unit: &mut CompilationUnit<F>) {
+        if let Some(q_enable) = &unit.q_enable {
+            unit.columns.push(q_enable.clone())
+        }
+
+        if let Some((_, q_first)) = &unit.first_step {
+            unit.columns.push(q_first.clone());
+        }
+
+        if let Some((_, q_last)) = &unit.last_step {
+            unit.columns.push(q_last.clone());
+        }
+    }
+
+    fn add_halo2_columns<F, TraceArgs>(
+        &self,
+        unit: &mut CompilationUnit<F>,
+        ast: &astCircuit<F, TraceArgs>,
+    ) {
+        let halo2_advice_columns: Vec<Column> = ast
+            .halo2_advice
+            .iter()
+            .map(|signal| {
+                if let Some(annotation) = unit.annotations.get(&signal.uuid()) {
+                    Column::new_halo2_advice(format!("halo2 advice {}", annotation), *signal)
+                } else {
+                    Column::new_halo2_advice("halo2 advice", *signal)
+                }
+            })
+            .collect();
+
+        let halo2_fixed_columns: Vec<Column> = ast
+            .halo2_fixed
+            .iter()
+            .map(|signal| {
+                if let Some(annotation) = unit.annotations.get(&signal.uuid()) {
+                    Column::new_halo2_fixed(format!("halo2 fixed {}", annotation), *signal)
+                } else {
+                    Column::new_halo2_fixed("halo2 fixed", *signal)
+                }
+            })
+            .collect();
+
+        unit.columns.extend(halo2_advice_columns);
+        unit.columns.extend(halo2_fixed_columns);
     }
 }

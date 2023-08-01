@@ -2,7 +2,7 @@
 
 # Project Description
 
-Chiquito is a high-level DSL that provides syntax sugar and abstraction for constraint building and column placement when writing Halo2 circuits. It allows the user to manipulate an AST that’s compiled to a Chiquito Halo2 backend, which can be integrated into any Halo2 circuit.
+Chiquito is a step-based high-level rust DSL (pychiquito is a python DSL for chiquito) that provides better syntax and abstraction for constraint building and column placement when writing plonkish circuits and has a Halo2 backend, and other backends are in the works. It allows the user to manipulate an AST that’s compiled to a Chiquito Halo2 backend, which can be integrated into any Halo2 circuit.
 
 It's **HIGHLY RECOMMENDED** that you read the [design principles](https://github.com/privacy-scaling-explorations/chiquito/blob/main/Appendix.md/#design-principles),  [architecture, and specific terms](https://github.com/privacy-scaling-explorations/chiquito/blob/main/Appendix.md/#architecture) of a Chiquito circuit before getting started.
 

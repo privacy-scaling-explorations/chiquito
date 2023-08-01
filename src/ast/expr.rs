@@ -9,6 +9,8 @@ use crate::dsl::cb::Constraint;
 
 use self::query::Queriable;
 
+pub mod query;
+
 pub trait ToExpr<F> {
     fn expr(&self) -> Expr<F>;
 }
@@ -173,11 +175,7 @@ impl<F: Field + From<u64>> From<i32> for Expr<F> {
     fn from(value: i32) -> Self {
         Expr::Const(
             F::from(value.unsigned_abs() as u64)
-                * if value.is_negative() {
-                    -F::one()
-                } else {
-                    F::one()
-                },
+                * if value.is_negative() { -F::ONE } else { F::ONE },
         )
     }
 }
@@ -186,12 +184,7 @@ impl<F: Field + From<u64>> ToExpr<F> for i32 {
     #[inline]
     fn expr(&self) -> Expr<F> {
         Expr::Const(
-            F::from(self.unsigned_abs() as u64)
-                * if self.is_negative() {
-                    -F::one()
-                } else {
-                    F::one()
-                },
+            F::from(self.unsigned_abs() as u64) * if self.is_negative() { -F::ONE } else { F::ONE },
         )
     }
 }
@@ -199,12 +192,7 @@ impl<F: Field + From<u64>> ToExpr<F> for i32 {
 impl<F: Field + From<u64>> ToField<F> for i32 {
     #[inline]
     fn field(&self) -> F {
-        F::from(self.unsigned_abs() as u64)
-            * if self.is_negative() {
-                -F::one()
-            } else {
-                F::one()
-            }
+        F::from(self.unsigned_abs() as u64) * if self.is_negative() { -F::ONE } else { F::ONE }
     }
 }
 
@@ -214,139 +202,6 @@ impl<F> From<Expression<F>> for Expr<F> {
         Expr::Halo2Expr(value)
     }
 }
-
-pub mod query {
-    use std::{
-        fmt::Debug,
-        marker::PhantomData,
-        ops::{Add, Mul, Neg, Sub},
-    };
-
-    use crate::{
-        ast::{ForwardSignal, ImportedHalo2Advice, ImportedHalo2Fixed, InternalSignal},
-        dsl::StepTypeHandler,
-    };
-
-    use super::{Expr, ToExpr};
-
-    // Queriable
-    #[derive(Clone, Copy, PartialEq, Eq)]
-    pub enum Queriable<F> {
-        Internal(InternalSignal),
-        Forward(ForwardSignal, bool),
-        StepTypeNext(StepTypeHandler),
-        Halo2AdviceQuery(ImportedHalo2Advice, i32),
-        Halo2FixedQuery(ImportedHalo2Fixed, i32),
-        #[allow(non_camel_case_types)]
-        _unaccessible(PhantomData<F>),
-    }
-
-    impl<F> Debug for Queriable<F> {
-        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-            write!(f, "{}", self.annotation())
-        }
-    }
-
-    impl<F> Queriable<F> {
-        /// Call `next` function on a `Querible` forward signal to build constraints for forward
-        /// signal with rotation. Cannot be called on an internal signal and must be used within a
-        /// `transition` constraint. Returns a new `Queriable` forward signal with rotation.
-        pub fn next(&self) -> Queriable<F> {
-            use Queriable::*;
-            match self {
-                Forward(s, rot) => {
-                    if !*rot {
-                        Forward(*s, true)
-                    } else {
-                        panic!("jarrl: cannot rotate next(forward)")
-                    }
-                }
-                Halo2AdviceQuery(s, rot) => Halo2AdviceQuery(*s, rot + 1),
-                Halo2FixedQuery(s, r) => Halo2FixedQuery(*s, r + 1),
-                _ => panic!("can only next a forward or halo2 column"),
-            }
-        }
-
-        pub fn uuid(&self) -> u32 {
-            match self {
-                Queriable::Internal(s) => s.uuid(),
-                Queriable::Forward(s, _) => s.uuid(),
-                Queriable::StepTypeNext(s) => s.uuid(),
-                Queriable::Halo2AdviceQuery(s, _) => s.uuid(),
-                Queriable::Halo2FixedQuery(s, _) => s.uuid(),
-                Queriable::_unaccessible(_) => panic!("jarrl wrong queriable type"),
-            }
-        }
-
-        pub fn annotation(&self) -> String {
-            match self {
-                Queriable::Internal(s) => s.annotation.to_string(),
-                Queriable::Forward(s, rot) => {
-                    if !rot {
-                        s.annotation.to_string()
-                    } else {
-                        format!("next({})", s.annotation)
-                    }
-                }
-                Queriable::StepTypeNext(s) => s.annotation.to_string(),
-                Queriable::Halo2AdviceQuery(s, rot) => {
-                    if *rot != 0 {
-                        format!("{}(rot {})", s.annotation, rot)
-                    } else {
-                        s.annotation.to_string()
-                    }
-                }
-                Queriable::Halo2FixedQuery(s, rot) => {
-                    if *rot != 0 {
-                        format!("{}(rot {})", s.annotation, rot)
-                    } else {
-                        s.annotation.to_string()
-                    }
-                }
-                Queriable::_unaccessible(_) => todo!(),
-            }
-        }
-    }
-
-    impl<F: Clone> ToExpr<F> for Queriable<F> {
-        fn expr(&self) -> Expr<F> {
-            Expr::Query((*self).clone())
-        }
-    }
-
-    impl<F: Clone, RHS: Into<Expr<F>>> Add<RHS> for Queriable<F> {
-        type Output = Expr<F>;
-
-        fn add(self, rhs: RHS) -> Self::Output {
-            self.expr() + rhs
-        }
-    }
-
-    impl<F: Clone, RHS: Into<Expr<F>>> Sub<RHS> for Queriable<F> {
-        type Output = Expr<F>;
-
-        fn sub(self, rhs: RHS) -> Self::Output {
-            self.expr() - rhs
-        }
-    }
-
-    impl<F: Clone, RHS: Into<Expr<F>>> Mul<RHS> for Queriable<F> {
-        type Output = Expr<F>;
-
-        fn mul(self, rhs: RHS) -> Self::Output {
-            self.expr() * rhs
-        }
-    }
-
-    impl<F: Clone> Neg for Queriable<F> {
-        type Output = Expr<F>;
-
-        fn neg(self) -> Self::Output {
-            self.expr().neg()
-        }
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;

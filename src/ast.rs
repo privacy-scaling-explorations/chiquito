@@ -3,31 +3,43 @@ pub mod expr;
 use std::{collections::HashMap, fmt::Debug, rc::Rc};
 
 use crate::{
-    compiler::{FixedGenContext, TraceContext, WitnessGenContext},
     dsl::StepTypeHandler,
-    util::uuid,
+    util::{uuid, UUID},
+    wit_gen::{FixedGenContext, Trace, TraceContext},
 };
 
 pub use expr::*;
 
 use halo2_proofs::plonk::{Advice, Column as Halo2Column, ColumnType, Fixed};
 
-/// SuperCircuit
-pub struct Circuit<F, TraceArgs, StepArgs> {
+use self::query::Queriable;
+
+/// Circuit
+#[derive(Clone)]
+pub struct Circuit<F, TraceArgs> {
+    pub step_types: HashMap<UUID, Rc<StepType<F>>>,
+
     pub forward_signals: Vec<ForwardSignal>,
+    pub shared_signals: Vec<SharedSignal>,
+    pub fixed_signals: Vec<FixedSignal>,
     pub halo2_advice: Vec<ImportedHalo2Advice>,
     pub halo2_fixed: Vec<ImportedHalo2Fixed>,
-    pub step_types: HashMap<u32, Rc<StepType<F, StepArgs>>>,
-    pub trace: Option<Rc<Trace<TraceArgs, StepArgs>>>,
+    pub exposed: Vec<(Queriable<F>, ExposeOffset)>,
+
+    pub annotations: HashMap<UUID, String>,
+
+    pub trace: Option<Rc<Trace<F, TraceArgs>>>,
     pub fixed_gen: Option<Rc<FixedGen<F>>>,
 
-    pub annotations: HashMap<u32, String>,
+    pub first_step: Option<StepTypeUUID>,
+    pub last_step: Option<StepTypeUUID>,
+    pub num_steps: usize,
+    pub q_enable: bool,
 
-    pub first_step: Option<StepTypeHandler>,
-    pub last_step: Option<StepTypeHandler>,
+    pub id: UUID,
 }
 
-impl<F: Debug, TraceArgs: Debug, StepArgs: Debug> Debug for Circuit<F, TraceArgs, StepArgs> {
+impl<F: Debug, TraceArgs: Debug> Debug for Circuit<F, TraceArgs> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("Circuit")
             .field("forward_signals", &self.forward_signals)
@@ -38,23 +50,34 @@ impl<F: Debug, TraceArgs: Debug, StepArgs: Debug> Debug for Circuit<F, TraceArgs
     }
 }
 
-impl<F, TraceArgs, StepArgs> Default for Circuit<F, TraceArgs, StepArgs> {
+impl<F, TraceArgs> Default for Circuit<F, TraceArgs> {
     fn default() -> Self {
         Self {
+            step_types: Default::default(),
             forward_signals: Default::default(),
+            shared_signals: Default::default(),
+            fixed_signals: Default::default(),
             halo2_advice: Default::default(),
             halo2_fixed: Default::default(),
-            step_types: Default::default(),
+            exposed: Default::default(),
+
+            num_steps: Default::default(),
+
+            annotations: Default::default(),
+
             trace: None,
             fixed_gen: None,
-            annotations: Default::default(),
+
             first_step: None,
             last_step: None,
+
+            id: uuid(),
+            q_enable: true,
         }
     }
 }
 
-impl<F, TraceArgs, StepArgs> Circuit<F, TraceArgs, StepArgs> {
+impl<F, TraceArgs> Circuit<F, TraceArgs> {
     pub fn add_forward<N: Into<String>>(&mut self, name: N, phase: usize) -> ForwardSignal {
         let name = name.into();
         let signal = ForwardSignal::new_with_phase(phase, name.clone());
@@ -63,6 +86,35 @@ impl<F, TraceArgs, StepArgs> Circuit<F, TraceArgs, StepArgs> {
         self.annotations.insert(signal.uuid(), name);
 
         signal
+    }
+
+    pub fn add_shared<N: Into<String>>(&mut self, name: N, phase: usize) -> SharedSignal {
+        let name = name.into();
+        let signal = SharedSignal::new_with_phase(phase, name.clone());
+
+        self.shared_signals.push(signal);
+        self.annotations.insert(signal.uuid(), name);
+
+        signal
+    }
+
+    pub fn add_fixed<N: Into<String>>(&mut self, name: N) -> FixedSignal {
+        let name = name.into();
+        let signal = FixedSignal::new(name.clone());
+
+        self.fixed_signals.push(signal);
+        self.annotations.insert(signal.uuid(), name);
+
+        signal
+    }
+
+    pub fn expose(&mut self, signal: Queriable<F>, offset: ExposeOffset) {
+        match signal {
+            Queriable::Forward(..) | Queriable::Shared(..) => {
+                self.exposed.push((signal, offset));
+            }
+            _ => panic!("Can only expose forward and shared signals."),
+        }
     }
 
     pub fn add_halo2_advice(
@@ -95,7 +147,7 @@ impl<F, TraceArgs, StepArgs> Circuit<F, TraceArgs, StepArgs> {
         self.annotations.insert(handler.uuid(), name.into());
     }
 
-    pub fn add_step_type_def(&mut self, step: StepType<F, StepArgs>) -> StepTypeUUID {
+    pub fn add_step_type_def(&mut self, step: StepType<F>) -> StepTypeUUID {
         let uuid = step.uuid();
         let step_rc = Rc::new(step);
         self.step_types.insert(uuid, step_rc);
@@ -105,7 +157,7 @@ impl<F, TraceArgs, StepArgs> Circuit<F, TraceArgs, StepArgs> {
 
     pub fn set_trace<D>(&mut self, def: D)
     where
-        D: Fn(&mut dyn TraceContext<StepArgs>, TraceArgs) + 'static,
+        D: Fn(&mut TraceContext<F>, TraceArgs) + 'static,
     {
         match self.trace {
             None => {
@@ -117,7 +169,7 @@ impl<F, TraceArgs, StepArgs> Circuit<F, TraceArgs, StepArgs> {
 
     pub fn set_fixed_gen<D>(&mut self, def: D)
     where
-        D: Fn(&mut dyn FixedGenContext<F>) + 'static,
+        D: Fn(&mut FixedGenContext<F>) + 'static,
     {
         match self.fixed_gen {
             None => self.fixed_gen = Some(Rc::new(def)),
@@ -125,21 +177,19 @@ impl<F, TraceArgs, StepArgs> Circuit<F, TraceArgs, StepArgs> {
         }
     }
 
-    pub fn get_step_type(&self, uuid: u32) -> Rc<StepType<F, StepArgs>> {
+    pub fn get_step_type(&self, uuid: UUID) -> Rc<StepType<F>> {
         let step_rc = self.step_types.get(&uuid).expect("step type not found");
 
         Rc::clone(step_rc)
     }
 }
 
-pub type Trace<TraceArgs, StepArgs> = dyn Fn(&mut dyn TraceContext<StepArgs>, TraceArgs) + 'static;
-pub type FixedGen<F> = dyn Fn(&mut dyn FixedGenContext<F>) + 'static;
-pub type StepWitnessGen<F, Args> = dyn Fn(&mut dyn WitnessGenContext<F>, Args) + 'static;
+pub type FixedGen<F> = dyn Fn(&mut FixedGenContext<F>) + 'static;
 
-pub type StepTypeUUID = u32;
+pub type StepTypeUUID = UUID;
 
 /// Step
-pub struct StepType<F, Args> {
+pub struct StepType<F> {
     id: StepTypeUUID,
 
     pub name: String,
@@ -147,12 +197,10 @@ pub struct StepType<F, Args> {
     pub constraints: Vec<Constraint<F>>,
     pub transition_constraints: Vec<TransitionConstraint<F>>,
     pub lookups: Vec<Lookup<F>>,
-    pub annotations: HashMap<u32, String>,
-
-    pub wg: Box<StepWitnessGen<F, Args>>,
+    pub annotations: HashMap<UUID, String>,
 }
 
-impl<F: Debug, Args> Debug for StepType<F, Args> {
+impl<F: Debug> Debug for StepType<F> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("StepType")
             .field("id", &self.id)
@@ -163,8 +211,8 @@ impl<F: Debug, Args> Debug for StepType<F, Args> {
     }
 }
 
-impl<F, Args> StepType<F, Args> {
-    pub fn new(uuid: u32, name: String) -> Self {
+impl<F> StepType<F> {
+    pub fn new(uuid: UUID, name: String) -> Self {
         Self {
             id: uuid,
             name,
@@ -173,7 +221,6 @@ impl<F, Args> StepType<F, Args> {
             transition_constraints: Default::default(),
             lookups: Default::default(),
             annotations: Default::default(),
-            wg: Box::new(|_, _| {}),
         }
     }
     pub fn uuid(&self) -> StepTypeUUID {
@@ -201,25 +248,17 @@ impl<F, Args> StepType<F, Args> {
 
         self.transition_constraints.push(condition)
     }
-
-    pub fn set_wg<D>(&mut self, def: D)
-    where
-        D: Fn(&mut dyn WitnessGenContext<F>, Args) + 'static,
-    {
-        // TODO, only can be called once
-        self.wg = Box::new(def);
-    }
 }
 
-impl<F, Args> PartialEq for StepType<F, Args> {
+impl<F> PartialEq for StepType<F> {
     fn eq(&self, other: &Self) -> bool {
         self.id == other.id
     }
 }
 
-impl<F, Args> Eq for StepType<F, Args> {}
+impl<F> Eq for StepType<F> {}
 
-impl<F, Args> core::hash::Hash for StepType<F, Args> {
+impl<F> core::hash::Hash for StepType<F> {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         self.id.hash(state);
     }
@@ -321,7 +360,7 @@ impl<F: Debug + Clone> Lookup<F> {
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 /// ForwardSignal
 pub struct ForwardSignal {
-    id: u32,
+    id: UUID,
     phase: usize,
     annotation: &'static str,
 }
@@ -335,7 +374,15 @@ impl ForwardSignal {
         }
     }
 
-    pub fn uuid(&self) -> u32 {
+    pub fn new_with_id(id: UUID, phase: usize, annotation: String) -> Self {
+        Self {
+            id,
+            phase,
+            annotation: Box::leak(annotation.into_boxed_str()),
+        }
+    }
+
+    pub fn uuid(&self) -> UUID {
         self.id
     }
 
@@ -345,8 +392,73 @@ impl ForwardSignal {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct SharedSignal {
+    id: UUID,
+    phase: usize,
+    annotation: &'static str,
+}
+
+impl SharedSignal {
+    pub fn new_with_phase(phase: usize, annotation: String) -> SharedSignal {
+        SharedSignal {
+            id: uuid(),
+            phase,
+            annotation: Box::leak(annotation.into_boxed_str()),
+        }
+    }
+
+    pub fn new_with_id(id: UUID, phase: usize, annotation: String) -> Self {
+        Self {
+            id,
+            phase,
+            annotation: Box::leak(annotation.into_boxed_str()),
+        }
+    }
+
+    pub fn uuid(&self) -> UUID {
+        self.id
+    }
+
+    pub fn phase(&self) -> usize {
+        self.phase
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct FixedSignal {
+    id: UUID,
+    annotation: &'static str,
+}
+
+impl FixedSignal {
+    pub fn new(annotation: String) -> FixedSignal {
+        FixedSignal {
+            id: uuid(),
+            annotation: Box::leak(annotation.into_boxed_str()),
+        }
+    }
+
+    pub fn new_with_id(id: UUID, annotation: String) -> Self {
+        Self {
+            id,
+            annotation: Box::leak(annotation.into_boxed_str()),
+        }
+    }
+
+    pub fn uuid(&self) -> UUID {
+        self.id
+    }
+}
+
+#[derive(Clone, Copy)]
+pub enum ExposeOffset {
+    First,
+    Last,
+    Step(usize),
+}
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct InternalSignal {
-    id: u32,
+    id: UUID,
     annotation: &'static str,
 }
 
@@ -358,14 +470,21 @@ impl InternalSignal {
         }
     }
 
-    pub fn uuid(&self) -> u32 {
+    pub fn new_with_id(id: UUID, annotation: String) -> Self {
+        Self {
+            id,
+            annotation: Box::leak(annotation.into_boxed_str()),
+        }
+    }
+
+    pub fn uuid(&self) -> UUID {
         self.id
     }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct ImportedHalo2Column<CT: ColumnType> {
-    id: u32,
+    id: UUID,
     pub column: Halo2Column<CT>,
     annotation: &'static str,
 }
@@ -379,10 +498,21 @@ impl<CT: ColumnType> ImportedHalo2Column<CT> {
         }
     }
 
-    pub fn uuid(&self) -> u32 {
+    pub fn uuid(&self) -> UUID {
         self.id
     }
 }
 
 pub type ImportedHalo2Advice = ImportedHalo2Column<Advice>;
 pub type ImportedHalo2Fixed = ImportedHalo2Column<Fixed>;
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_q_enable() {
+        let circuit: Circuit<i32, i32> = Circuit::default();
+        assert!(circuit.q_enable);
+    }
+}
