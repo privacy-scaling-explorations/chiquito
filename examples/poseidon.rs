@@ -1,19 +1,17 @@
 use chiquito::{
     ast::query::Queriable,
-    backend::halo2::{chiquito2Halo2, ChiquitoHalo2},
+    backend::halo2::{chiquitoSuperCircuit2Halo2, ChiquitoHalo2SuperCircuit},
     compiler::{
-        cell_manager::SingleRowCellManager, step_selector::SimpleStepSelectorBuilder, Compiler,
+        cell_manager::SingleRowCellManager, config, step_selector::SimpleStepSelectorBuilder,
     },
-    dsl::circuit,
-    ir::Circuit as irCircuit,
+    dsl::{super_circuit, CircuitContext},
+    ir::sc::SuperCircuit,
 };
+use std::hash::Hash;
 
 use halo2_proofs::{
-    // arithmetic::Field,
-    circuit::{Layouter, SimpleFloorPlanner},
     dev::MockProver,
-    halo2curves::{bn256::Fr, FieldExt},
-    plonk::{Circuit, ConstraintSystem, Error},
+    halo2curves::{bn256::Fr, group::ff::PrimeField},
 };
 
 fn poseidon_constant(param_t: usize) -> Vec<&'static str> {
@@ -12763,7 +12761,7 @@ fn poseidon_matrix(param_t: usize) -> Vec<&'static str> {
 }
 
 #[derive(Clone)]
-struct RoundValues<F: FieldExt> {
+struct RoundValues<F: PrimeField> {
     pub input_values: Vec<F>,
     pub constant_values: Vec<F>,
     pub matrix_values: Vec<F>,
@@ -12772,302 +12770,409 @@ struct RoundValues<F: FieldExt> {
     pub out_values: Vec<F>,
 }
 
-fn poseidon_circuit<F: FieldExt>(
-    n_inputs: usize,
-    n_outputs: usize,
-) -> irCircuit<F, (), RoundValues<F>> {
+#[derive(Clone)]
+struct ValuesAndLens<F: PrimeField + Eq + Hash> {
+    pub inputs: Vec<F>,
+    pub n_outputs: usize,
+}
+
+#[derive(Clone, Copy)]
+struct Lens {
+    pub n_inputs: usize,
+    pub n_outputs: usize,
+}
+
+fn poseidon_circuit<F: PrimeField + Eq + Hash>(
+    ctx: &mut CircuitContext<F, ValuesAndLens<F>>,
+    lens: Lens,
+) {
+    use chiquito::dsl::cb::*;
+
     let n_rounds_p: Vec<usize> = vec![
         56, 57, 56, 60, 60, 63, 64, 63, 60, 66, 60, 65, 70, 60, 64, 68,
     ];
-    let param_t: usize = n_inputs + 1;
+    let param_t: usize = lens.n_inputs + 1;
     let param_f: usize = 8;
     let param_p: usize = n_rounds_p[param_t - 2];
     let param_c: usize = 1;
 
-    assert!(n_inputs < param_t);
-    assert!(n_outputs < param_t);
+    assert!(lens.n_inputs < param_t);
+    assert!(lens.n_outputs < param_t);
 
-    let poseidon = circuit::<F, (), RoundValues<F>, _>("poseidon", |ctx| {
-        use chiquito::dsl::cb::*;
+    let matrix: Vec<Queriable<F>> = (0..param_t * param_t)
+        .map(|i| ctx.forward(format! {"matrix_{:?}", i}.as_str()))
+        .collect();
+    let constants: Vec<Queriable<F>> = (0..param_t)
+        .map(|i| ctx.forward(format! {"constant_{:?}", i}.as_str()))
+        .collect();
+    let inputs: Vec<Queriable<F>> = (0..param_t)
+        .map(|i| ctx.forward(format! {"input_{:?}", i}.as_str()))
+        .collect();
+    let outs: Vec<Queriable<F>> = (0..param_t)
+        .map(|i| ctx.forward(format! {"output_{:?}", i}.as_str()))
+        .collect();
+    let sboxs: Vec<Queriable<F>> = (0..param_t)
+        .map(|i| ctx.forward(format! {"sbox_{:?}", i}.as_str()))
+        .collect();
+    let x_vec: Vec<Queriable<F>> = (0..param_t)
+        .map(|i| ctx.forward(format! {"x_{:?}", i}.as_str()))
+        .collect();
 
-        let matrix: Vec<Queriable<F>> = (0..param_t * param_t)
-            .map(|i| ctx.forward(format! {"matrix_{:?}", i}.as_str()))
-            .collect();
-        let constants: Vec<Queriable<F>> = (0..param_t)
-            .map(|i| ctx.forward(format! {"constant_{:?}", i}.as_str()))
-            .collect();
-        let inputs: Vec<Queriable<F>> = (0..param_t)
-            .map(|i| ctx.forward(format! {"input_{:?}", i}.as_str()))
-            .collect();
-        let outs: Vec<Queriable<F>> = (0..param_t)
-            .map(|i| ctx.forward(format! {"output_{:?}", i}.as_str()))
-            .collect();
-        let sboxs: Vec<Queriable<F>> = (0..param_t)
-            .map(|i| ctx.forward(format! {"sbox_{:?}", i}.as_str()))
-            .collect();
-        let x_vec: Vec<Queriable<F>> = (0..param_t)
-            .map(|i| ctx.forward(format! {"x_{:?}", i}.as_str()))
-            .collect();
+    let poseidon_step_first_round = ctx.step_type_def("poseidon_first_round", |ctx| {
+        let matrix = matrix.clone();
+        let setup_matrix = matrix.clone();
 
-        let poseidon_step_first_round = ctx.step_type("poseidon_first_round");
-        let poseidon_step_full_round = ctx.step_type("poseidon_full_round");
-        let poseidon_step_partial_round = ctx.step_type("poseidon_partial_round");
-        let poseidon_step_last_round = ctx.step_type("poseidon_last_round");
+        let constants = constants.clone();
+        let setup_constants = constants.clone();
 
-        ctx.step_type_def(poseidon_step_first_round, |ctx| {
-            let matrix = matrix.clone();
-            let constants = constants.clone();
-            let inputs = inputs.clone();
-            let outs = outs.clone();
-            let sboxs = sboxs.clone();
-            let x_vec = x_vec.clone();
+        let inputs = inputs.clone();
+        let setup_inputs = inputs.clone();
 
+        let outs = outs.clone();
+        let setup_outs = outs.clone();
+
+        let sboxs = sboxs.clone();
+        let setup_sboxs = sboxs.clone();
+
+        let x_vec = x_vec.clone();
+        let setup_x_vec = x_vec.clone();
+
+        ctx.setup(move |ctx| {
             for i in 0..param_t {
-                if i < n_inputs {
-                    ctx.constr(eq(inputs[i] + constants[i], x_vec[i]));
+                if i < lens.n_inputs {
+                    ctx.constr(eq(setup_inputs[i] + setup_constants[i], setup_x_vec[i]));
                 } else {
-                    ctx.constr(eq(constants[i], x_vec[i]));
+                    ctx.constr(eq(setup_constants[i], setup_x_vec[i]));
                 }
                 ctx.constr(eq(
-                    x_vec[i] * x_vec[i] * x_vec[i] * x_vec[i] * x_vec[i],
-                    sboxs[i],
+                    setup_x_vec[i]
+                        * setup_x_vec[i]
+                        * setup_x_vec[i]
+                        * setup_x_vec[i]
+                        * setup_x_vec[i],
+                    setup_sboxs[i],
                 ));
             }
 
             for i in 0..param_t {
                 let m_offset = i * param_t;
-                let mut lc = sboxs[0] * matrix[m_offset];
+                let mut lc = setup_sboxs[0] * setup_matrix[m_offset];
                 for s in 1..param_t {
-                    lc = lc + sboxs[s] * matrix[m_offset + s];
+                    lc = lc + setup_sboxs[s] * setup_matrix[m_offset + s];
                 }
-                for k in param_t..n_inputs {
-                    lc = lc + inputs[k] * matrix[m_offset + k];
+                for k in param_t..lens.n_inputs {
+                    lc = lc + setup_inputs[k] * setup_matrix[m_offset + k];
                 }
-                ctx.constr(eq(lc, outs[i]));
-                ctx.transition(eq(outs[i], inputs[i].next()));
+                ctx.constr(eq(lc, setup_outs[i]));
+                ctx.transition(eq(setup_outs[i], setup_inputs[i].next()));
             }
-            for mvalue in matrix.iter().take(param_t * param_t) {
+            for mvalue in setup_matrix.iter().take(param_t * param_t) {
                 ctx.transition(eq(*mvalue, mvalue.next()));
             }
-
-            ctx.wg(move |ctx, round_values| {
-                for (matrix, value) in matrix.iter().zip(round_values.matrix_values.iter()) {
-                    ctx.assign(*matrix, *value);
-                }
-                for i in 0..param_t {
-                    ctx.assign(constants[i], round_values.constant_values[i]);
-                    if i < n_inputs {
-                        ctx.assign(inputs[i], round_values.input_values[i]);
-                    } else {
-                        ctx.assign(inputs[i], F::zero());
-                    }
-                    ctx.assign(x_vec[i], round_values.x_values[i]);
-                    ctx.assign(sboxs[i], round_values.sbox_values[i]);
-                    ctx.assign(outs[i], round_values.out_values[i]);
-                }
-            });
         });
 
-        ctx.step_type_def(poseidon_step_full_round, |ctx| {
-            let matrix = matrix.clone();
-            let constants = constants.clone();
-            let inputs = inputs.clone();
-            let outs = outs.clone();
-            let sboxs = sboxs.clone();
-            let x_vec = x_vec.clone();
-
+        ctx.wg(move |ctx, round_values: RoundValues<F>| {
+            for (matrix, value) in matrix.iter().zip(round_values.matrix_values.iter()) {
+                ctx.assign(*matrix, *value);
+            }
             for i in 0..param_t {
-                ctx.constr(eq(inputs[i] + constants[i], x_vec[i]));
-                ctx.constr(eq(
-                    x_vec[i] * x_vec[i] * x_vec[i] * x_vec[i] * x_vec[i],
-                    sboxs[i],
-                ));
-            }
-
-            for i in 0..param_t {
-                let m_offset = i * param_t;
-                let mut lc = sboxs[0] * matrix[m_offset];
-                for s in 1..param_t {
-                    lc = lc + sboxs[s] * matrix[m_offset + s];
-                }
-                ctx.constr(eq(lc, outs[i]));
-                ctx.transition(eq(outs[i], inputs[i].next()));
-            }
-
-            for mvalue in matrix.iter().take(param_t * param_t) {
-                ctx.transition(eq(*mvalue, mvalue.next()));
-            }
-
-            ctx.wg(move |ctx, round_values| {
-                for (matrix, value) in matrix.iter().zip(round_values.matrix_values.iter()) {
-                    ctx.assign(*matrix, *value);
-                }
-                for i in 0..param_t {
-                    ctx.assign(constants[i], round_values.constant_values[i]);
+                ctx.assign(constants[i], round_values.constant_values[i]);
+                if i < round_values.input_values.len() {
                     ctx.assign(inputs[i], round_values.input_values[i]);
-                    ctx.assign(x_vec[i], round_values.x_values[i]);
-                    ctx.assign(sboxs[i], round_values.sbox_values[i]);
-                    ctx.assign(outs[i], round_values.out_values[i]);
+                } else {
+                    ctx.assign(inputs[i], F::ZERO);
                 }
-            });
+                ctx.assign(x_vec[i], round_values.x_values[i]);
+                ctx.assign(sboxs[i], round_values.sbox_values[i]);
+                ctx.assign(outs[i], round_values.out_values[i]);
+            }
+        })
+    });
+
+    let poseidon_step_full_round = ctx.step_type_def("poseidon_full_round", |ctx| {
+        let matrix = matrix.clone();
+        let setup_matrix = matrix.clone();
+
+        let constants = constants.clone();
+        let setup_constants = constants.clone();
+
+        let inputs = inputs.clone();
+        let setup_inputs = inputs.clone();
+
+        let outs = outs.clone();
+        let setup_outs = outs.clone();
+
+        let sboxs = sboxs.clone();
+        let setup_sboxs = sboxs.clone();
+
+        let x_vec = x_vec.clone();
+        let setup_x_vec = x_vec.clone();
+
+        ctx.setup(move |ctx| {
+            for i in 0..param_t {
+                ctx.constr(eq(setup_inputs[i] + setup_constants[i], setup_x_vec[i]));
+                ctx.constr(eq(
+                    setup_x_vec[i]
+                        * setup_x_vec[i]
+                        * setup_x_vec[i]
+                        * setup_x_vec[i]
+                        * setup_x_vec[i],
+                    setup_sboxs[i],
+                ));
+            }
+
+            for i in 0..param_t {
+                let m_offset = i * param_t;
+                let mut lc = setup_sboxs[0] * setup_matrix[m_offset];
+                for s in 1..param_t {
+                    lc = lc + setup_sboxs[s] * setup_matrix[m_offset + s];
+                }
+                ctx.constr(eq(lc, setup_outs[i]));
+                ctx.transition(eq(setup_outs[i], setup_inputs[i].next()));
+            }
+
+            for mvalue in setup_matrix.iter().take(param_t * param_t) {
+                ctx.transition(eq(*mvalue, mvalue.next()));
+            }
         });
 
-        ctx.step_type_def(poseidon_step_partial_round, |ctx| {
-            let matrix = matrix.clone();
-            let constants = constants.clone();
-            let inputs = inputs.clone();
-            let outs = outs.clone();
-            let sboxs = sboxs.clone();
-            let x_vec = x_vec.clone();
+        ctx.wg(move |ctx, round_values: RoundValues<F>| {
+            for (matrix, value) in matrix.iter().zip(round_values.matrix_values.iter()) {
+                ctx.assign(*matrix, *value);
+            }
+            for i in 0..param_t {
+                ctx.assign(constants[i], round_values.constant_values[i]);
+                ctx.assign(inputs[i], round_values.input_values[i]);
+                ctx.assign(x_vec[i], round_values.x_values[i]);
+                ctx.assign(sboxs[i], round_values.sbox_values[i]);
+                ctx.assign(outs[i], round_values.out_values[i]);
+            }
+        })
+    });
 
+    let poseidon_step_partial_round = ctx.step_type_def("poseidon_partial_round", |ctx| {
+        let matrix = matrix.clone();
+        let setup_matrix = matrix.clone();
+
+        let constants = constants.clone();
+        let setup_constants = constants.clone();
+
+        let inputs = inputs.clone();
+        let setup_inputs = inputs.clone();
+
+        let outs = outs.clone();
+        let setup_outs = outs.clone();
+
+        let sboxs = sboxs.clone();
+        let setup_sboxs = sboxs.clone();
+
+        let x_vec = x_vec.clone();
+        let setup_x_vec = x_vec.clone();
+
+        ctx.setup(move |ctx| {
             for i in 0..param_c {
                 if i < param_t {
-                    ctx.constr(eq(inputs[i] + constants[i], x_vec[i]));
+                    ctx.constr(eq(setup_inputs[i] + setup_constants[i], setup_x_vec[i]));
                 } else {
-                    ctx.constr(eq(constants[i], x_vec[i]));
+                    ctx.constr(eq(setup_constants[i], setup_x_vec[i]));
                 }
                 ctx.constr(eq(
-                    x_vec[i] * x_vec[i] * x_vec[i] * x_vec[i] * x_vec[i],
-                    sboxs[i],
+                    setup_x_vec[i]
+                        * setup_x_vec[i]
+                        * setup_x_vec[i]
+                        * setup_x_vec[i]
+                        * setup_x_vec[i],
+                    setup_sboxs[i],
                 ));
             }
 
             for i in 0..param_t {
                 let m_offset = i * param_t;
-                let mut lc = sboxs[0] * matrix[m_offset];
+                let mut lc = setup_sboxs[0] * setup_matrix[m_offset];
                 if param_c < param_t {
                     for j in param_c..param_t {
-                        lc = lc + constants[j] * matrix[m_offset + j];
+                        lc = lc + setup_constants[j] * setup_matrix[m_offset + j];
                     }
                 }
                 for s in 1..param_c {
-                    lc = lc + sboxs[s] * matrix[m_offset + s];
+                    lc = lc + setup_sboxs[s] * setup_matrix[m_offset + s];
                 }
                 for k in param_c..param_t {
-                    lc = lc + inputs[k] * matrix[m_offset + k];
+                    lc = lc + setup_inputs[k] * setup_matrix[m_offset + k];
                 }
-                ctx.constr(eq(lc, outs[i]));
-                ctx.transition(eq(outs[i], inputs[i].next()));
+                ctx.constr(eq(lc, setup_outs[i]));
+                ctx.transition(eq(setup_outs[i], setup_inputs[i].next()));
             }
 
-            for mvalue in matrix.iter().take(param_t * param_t) {
+            for mvalue in setup_matrix.iter().take(param_t * param_t) {
                 ctx.transition(eq(*mvalue, mvalue.next()));
             }
-
-            ctx.wg(move |ctx, round_values| {
-                for (matrix, value) in matrix.iter().zip(round_values.matrix_values.iter()) {
-                    ctx.assign(*matrix, *value);
-                }
-                for i in 0..param_t {
-                    ctx.assign(constants[i], round_values.constant_values[i]);
-                    ctx.assign(inputs[i], round_values.input_values[i]);
-                    ctx.assign(outs[i], round_values.out_values[i]);
-                }
-
-                for i in 0..param_c {
-                    ctx.assign(x_vec[i], round_values.x_values[i]);
-                    ctx.assign(sboxs[i], round_values.sbox_values[i]);
-                }
-            });
         });
 
-        ctx.step_type_def(poseidon_step_last_round, |ctx| {
-            let matrix = matrix.clone();
-            let constants = constants.clone();
-            let inputs = inputs.clone();
-            let outs = outs.clone();
-            let sboxs = sboxs.clone();
-            let x_vec = x_vec.clone();
-
+        ctx.wg(move |ctx, round_values: RoundValues<F>| {
+            for (matrix, value) in matrix.iter().zip(round_values.matrix_values.iter()) {
+                ctx.assign(*matrix, *value);
+            }
             for i in 0..param_t {
-                ctx.constr(eq(inputs[i] + constants[i], x_vec[i]));
+                ctx.assign(constants[i], round_values.constant_values[i]);
+                ctx.assign(inputs[i], round_values.input_values[i]);
+                ctx.assign(outs[i], round_values.out_values[i]);
+            }
+
+            for i in 0..param_c {
+                ctx.assign(x_vec[i], round_values.x_values[i]);
+                ctx.assign(sboxs[i], round_values.sbox_values[i]);
+            }
+        })
+    });
+
+    let poseidon_step_last_round = ctx.step_type_def("poseidon_last_round", |ctx| {
+        let matrix = matrix.clone();
+        let setup_matrix = matrix.clone();
+
+        let constants = constants.clone();
+        let setup_constants = constants.clone();
+
+        let inputs = inputs.clone();
+        let setup_inputs = inputs.clone();
+
+        let outs = outs.clone();
+        let setup_outs = outs.clone();
+
+        let sboxs = sboxs.clone();
+        let setup_sboxs = sboxs.clone();
+
+        let x_vec = x_vec.clone();
+        let setup_x_vec = x_vec.clone();
+
+        ctx.setup(move |ctx| {
+            for i in 0..param_t {
+                ctx.constr(eq(setup_inputs[i] + setup_constants[i], setup_x_vec[i]));
                 ctx.constr(eq(
-                    x_vec[i] * x_vec[i] * x_vec[i] * x_vec[i] * x_vec[i],
-                    sboxs[i],
+                    setup_x_vec[i]
+                        * setup_x_vec[i]
+                        * setup_x_vec[i]
+                        * setup_x_vec[i]
+                        * setup_x_vec[i],
+                    setup_sboxs[i],
                 ));
             }
 
-            for (i, out) in outs.iter().enumerate().take(n_outputs) {
+            for (i, out) in setup_outs.iter().enumerate().take(lens.n_outputs) {
                 let m_offset = i * param_t;
-                let mut lc = sboxs[0] * matrix[m_offset];
+                let mut lc = setup_sboxs[0] * setup_matrix[m_offset];
                 for s in 1..param_c {
-                    lc = lc + sboxs[s] * matrix[m_offset + s];
+                    lc = lc + setup_sboxs[s] * setup_matrix[m_offset + s];
                 }
                 for k in param_c..param_t {
-                    lc = lc + inputs[k] * matrix[m_offset + k];
+                    lc = lc + setup_inputs[k] * setup_matrix[m_offset + k];
                 }
                 ctx.constr(eq(lc, *out));
             }
-
-            ctx.wg(move |ctx, round_values| {
-                for (matrix, value) in matrix.iter().zip(round_values.matrix_values.iter()) {
-                    ctx.assign(*matrix, *value);
-                }
-                for i in 0..param_t {
-                    ctx.assign(constants[i], round_values.constant_values[i]);
-                    ctx.assign(inputs[i], round_values.input_values[i]);
-                    ctx.assign(x_vec[i], round_values.x_values[i]);
-                    ctx.assign(sboxs[i], round_values.sbox_values[i]);
-                }
-
-                for (out, value) in outs.iter().zip(round_values.out_values.iter()) {
-                    ctx.assign(*out, *value);
-                }
-            });
         });
 
-        ctx.pragma_first_step(poseidon_step_first_round);
-        ctx.pragma_last_step(poseidon_step_last_round);
+        ctx.wg(move |ctx, round_values: RoundValues<F>| {
+            for (matrix, value) in matrix.iter().zip(round_values.matrix_values.iter()) {
+                ctx.assign(*matrix, *value);
+            }
+            for i in 0..param_t {
+                ctx.assign(constants[i], round_values.constant_values[i]);
+                ctx.assign(inputs[i], round_values.input_values[i]);
+                ctx.assign(x_vec[i], round_values.x_values[i]);
+                ctx.assign(sboxs[i], round_values.sbox_values[i]);
+            }
 
-        ctx.trace(move |ctx, _| {
-            // let param_t: usize = 6;
-            // let param_c: usize = 1;
-            // let param_f: usize = 8;
-            // let param_p: usize = 7;
-            // let n_inputs: usize = 6;
-            // let n_outputs: usize = 1;
+            for (out, value) in outs.iter().zip(round_values.out_values.iter()) {
+                ctx.assign(*out, *value);
+            }
+        })
+    });
 
-            // calculate poseidonConstants
-            // Using recommended parameters from whitepaper https://eprint.iacr.org/2019/458.pdf (table 2, table 8)
-            // Generated by https://extgit.iaik.tugraz.at/krypto/hadeshash/-/blob/master/code/calc_round_numbers.py
-            // And rounded up to nearest integer that divides by t
-            let constant_str = poseidon_constant(param_t);
-            let constant_values: Vec<F> = constant_str
-                .iter()
-                .map(|str| F::from_str_vartime(str).unwrap())
+    ctx.pragma_first_step(&poseidon_step_first_round);
+    ctx.pragma_last_step(&poseidon_step_last_round);
+
+    ctx.pragma_num_steps(param_f + param_p);
+
+    ctx.trace(move |ctx, values| {
+        // let param_t: usize = 6;
+        // let param_c: usize = 1;
+        // let param_f: usize = 8;
+        // let param_p: usize = 7;
+        // let n_inputs: usize = 6;
+        // let n_outputs: usize = 1;
+
+        // calculate poseidonConstants
+        // Using recommended parameters from whitepaper https://eprint.iacr.org/2019/458.pdf (table 2, table 8)
+        // Generated by https://extgit.iaik.tugraz.at/krypto/hadeshash/-/blob/master/code/calc_round_numbers.py
+        // And rounded up to nearest integer that divides by t
+        let constant_str = poseidon_constant(param_t);
+        let constant_values: Vec<F> = constant_str
+            .iter()
+            .map(|str| F::from_str_vartime(str).unwrap())
+            .collect();
+
+        let matrix_str = poseidon_matrix(param_t);
+        let matrix_values: Vec<F> = matrix_str
+            .iter()
+            .map(|str| F::from_str_vartime(str).unwrap())
+            .collect();
+
+        let mut inputs = vec![F::ONE, F::ONE, F::ONE, F::ONE, F::ONE, F::ONE];
+
+        let mut x_values: Vec<F> = (0..param_t)
+            .map(|i| {
+                let mut x_value = constant_values[i];
+                if i < values.inputs.len() {
+                    x_value = inputs[i] + constant_values[i];
+                }
+                x_value
+            })
+            .collect();
+        let mut sbox_values: Vec<F> = x_values
+            .iter()
+            .map(|x_value| *x_value * x_value * x_value * x_value * x_value)
+            .collect();
+
+        let mut outputs: Vec<F> = (0..param_t)
+            .map(|i| {
+                let m_offset = i * param_t;
+                let mut out_value = sbox_values[0] * matrix_values[m_offset];
+                for s in 1..param_t {
+                    out_value += sbox_values[s] * matrix_values[m_offset + s];
+                }
+                for k in param_t..values.inputs.len() {
+                    out_value += matrix_values[k] * matrix_values[m_offset + k];
+                }
+                out_value
+            })
+            .collect();
+
+        let round_values = RoundValues::<F> {
+            input_values: inputs,
+            constant_values: constant_values[0..param_t].to_vec(),
+            matrix_values: matrix_values.clone(),
+            x_values,
+            sbox_values,
+            out_values: outputs.clone(),
+        };
+        ctx.add(&poseidon_step_first_round, round_values);
+        inputs = outputs;
+
+        for i in 1..param_f / 2 {
+            x_values = (0..param_t)
+                .map(|j| inputs[j] + constant_values[i * param_t + j])
                 .collect();
-
-            let matrix_str = poseidon_matrix(param_t);
-            let matrix_values: Vec<F> = matrix_str
-                .iter()
-                .map(|str| F::from_str_vartime(str).unwrap())
-                .collect();
-
-            let mut inputs = vec![F::zero(), F::one(), F::one(), F::zero(), F::one(), F::one()];
-
-            let mut x_values: Vec<F> = (0..param_t)
-                .map(|i| {
-                    let mut x_value = constant_values[i];
-                    if i < n_inputs {
-                        x_value = inputs[i] + constant_values[i];
-                    }
-                    x_value
-                })
-                .collect();
-            let mut sbox_values: Vec<F> = x_values
+            sbox_values = x_values
                 .iter()
                 .map(|x_value| *x_value * x_value * x_value * x_value * x_value)
                 .collect();
 
-            let mut outputs: Vec<F> = (0..param_t)
-                .map(|i| {
-                    let m_offset = i * param_t;
+            outputs = (0..param_t)
+                .map(|j| {
+                    let m_offset = j * param_t;
                     let mut out_value = sbox_values[0] * matrix_values[m_offset];
                     for s in 1..param_t {
                         out_value += sbox_values[s] * matrix_values[m_offset + s];
-                    }
-                    for k in param_t..n_inputs {
-                        out_value += matrix_values[k] * matrix_values[m_offset + k];
                     }
                     out_value
                 })
@@ -13075,142 +13180,41 @@ fn poseidon_circuit<F: FieldExt>(
 
             let round_values = RoundValues::<F> {
                 input_values: inputs,
-                constant_values: constant_values[0..param_t].to_vec(),
+                constant_values: constant_values[i * param_t..(i + 1) * param_t].to_vec(),
                 matrix_values: matrix_values.clone(),
                 x_values,
                 sbox_values,
                 out_values: outputs.clone(),
             };
-            ctx.add(&poseidon_step_first_round, round_values);
+            ctx.add(&poseidon_step_full_round, round_values);
             inputs = outputs;
+        }
 
-            for i in 1..param_f / 2 {
-                x_values = (0..param_t)
-                    .map(|j| inputs[j] + constant_values[i * param_t + j])
-                    .collect();
-                sbox_values = x_values
-                    .iter()
-                    .map(|x_value| *x_value * x_value * x_value * x_value * x_value)
-                    .collect();
-
-                outputs = (0..param_t)
-                    .map(|j| {
-                        let m_offset = j * param_t;
-                        let mut out_value = sbox_values[0] * matrix_values[m_offset];
-                        for s in 1..param_t {
-                            out_value += sbox_values[s] * matrix_values[m_offset + s];
-                        }
-                        out_value
-                    })
-                    .collect();
-
-                let round_values = RoundValues::<F> {
-                    input_values: inputs,
-                    constant_values: constant_values[i * param_t..(i + 1) * param_t].to_vec(),
-                    matrix_values: matrix_values.clone(),
-                    x_values,
-                    sbox_values,
-                    out_values: outputs.clone(),
-                };
-                ctx.add(&poseidon_step_full_round, round_values);
-                inputs = outputs;
-            }
-
-            for i in 0..param_p {
-                x_values = (0..param_c)
-                    .map(|j| {
-                        let mut x_value = constant_values[j + (i + param_f / 2) * param_t];
-                        if j < param_t {
-                            x_value = inputs[j] + constant_values[j + (i + param_f / 2) * param_t];
-                        }
-                        x_value
-                    })
-                    .collect();
-                sbox_values = x_values
-                    .iter()
-                    .map(|x_value| *x_value * x_value * x_value * x_value * x_value)
-                    .collect();
-
-                outputs = (0..param_t)
-                    .map(|t| {
-                        let m_offset = t * param_t;
-                        let mut out_value = sbox_values[0] * matrix_values[m_offset];
-                        if param_c < param_t {
-                            for j in param_c..param_t {
-                                out_value += constant_values[j + (i + param_f / 2) * param_t]
-                                    * matrix_values[m_offset + j];
-                            }
-                        }
-                        for s in 1..param_c {
-                            out_value += sbox_values[s] * matrix_values[m_offset + s];
-                        }
-                        for k in param_c..param_t {
-                            out_value += inputs[k] * matrix_values[m_offset + k];
-                        }
-                        out_value
-                    })
-                    .collect();
-
-                let round_values = RoundValues::<F> {
-                    input_values: inputs,
-                    constant_values: constant_values
-                        [(i + param_f / 2) * param_t..(i + param_f / 2 + 1) * param_t]
-                        .to_vec(),
-                    matrix_values: matrix_values.clone(),
-                    x_values,
-                    sbox_values,
-                    out_values: outputs.clone(),
-                };
-                ctx.add(&poseidon_step_partial_round, round_values);
-                inputs = outputs;
-            }
-
-            for i in 0..param_f / 2 - 1 {
-                x_values = (0..param_t)
-                    .map(|j| inputs[j] + constant_values[(i + param_f / 2 + param_p) * param_t + j])
-                    .collect();
-                sbox_values = x_values
-                    .iter()
-                    .map(|x_value| *x_value * x_value * x_value * x_value * x_value)
-                    .collect();
-
-                outputs = (0..param_t)
-                    .map(|j| {
-                        let m_offset = j * param_t;
-                        let mut out_value = sbox_values[0] * matrix_values[m_offset];
-                        for s in 1..param_t {
-                            out_value += sbox_values[s] * matrix_values[m_offset + s];
-                        }
-                        out_value
-                    })
-                    .collect();
-
-                let round_values = RoundValues::<F> {
-                    input_values: inputs,
-                    constant_values: constant_values[(i + param_f / 2 + param_p) * param_t
-                        ..(i + param_f / 2 + param_p + 1) * param_t]
-                        .to_vec(),
-                    matrix_values: matrix_values.clone(),
-                    x_values,
-                    sbox_values,
-                    out_values: outputs.clone(),
-                };
-                ctx.add(&poseidon_step_full_round, round_values);
-                inputs = outputs;
-            }
-
-            x_values = (0..param_t)
-                .map(|i| inputs[i] + constant_values[i + (param_p + param_f - 1) * param_t])
+        for i in 0..param_p {
+            x_values = (0..param_c)
+                .map(|j| {
+                    let mut x_value = constant_values[j + (i + param_f / 2) * param_t];
+                    if j < param_t {
+                        x_value = inputs[j] + constant_values[j + (i + param_f / 2) * param_t];
+                    }
+                    x_value
+                })
                 .collect();
             sbox_values = x_values
                 .iter()
                 .map(|x_value| *x_value * x_value * x_value * x_value * x_value)
                 .collect();
 
-            outputs = (0..n_outputs)
-                .map(|i| {
-                    let m_offset = i * param_t;
+            outputs = (0..param_t)
+                .map(|t| {
+                    let m_offset = t * param_t;
                     let mut out_value = sbox_values[0] * matrix_values[m_offset];
+                    if param_c < param_t {
+                        for j in param_c..param_t {
+                            out_value += constant_values[j + (i + param_f / 2) * param_t]
+                                * matrix_values[m_offset + j];
+                        }
+                    }
                     for s in 1..param_c {
                         out_value += sbox_values[s] * matrix_values[m_offset + s];
                     }
@@ -13224,63 +13228,123 @@ fn poseidon_circuit<F: FieldExt>(
             let round_values = RoundValues::<F> {
                 input_values: inputs,
                 constant_values: constant_values
-                    [(param_p + param_f - 1) * param_t..(param_p + param_f) * param_t]
+                    [(i + param_f / 2) * param_t..(i + param_f / 2 + 1) * param_t]
                     .to_vec(),
-                matrix_values,
+                matrix_values: matrix_values.clone(),
                 x_values,
                 sbox_values,
-                out_values: outputs,
+                out_values: outputs.clone(),
             };
-            ctx.add(&poseidon_step_last_round, round_values);
+            ctx.add(&poseidon_step_partial_round, round_values);
+            inputs = outputs;
+        }
+
+        for i in 0..param_f / 2 - 1 {
+            x_values = (0..param_t)
+                .map(|j| inputs[j] + constant_values[(i + param_f / 2 + param_p) * param_t + j])
+                .collect();
+            sbox_values = x_values
+                .iter()
+                .map(|x_value| *x_value * x_value * x_value * x_value * x_value)
+                .collect();
+
+            outputs = (0..param_t)
+                .map(|j| {
+                    let m_offset = j * param_t;
+                    let mut out_value = sbox_values[0] * matrix_values[m_offset];
+                    for s in 1..param_t {
+                        out_value += sbox_values[s] * matrix_values[m_offset + s];
+                    }
+                    out_value
+                })
+                .collect();
+
+            let round_values = RoundValues::<F> {
+                input_values: inputs,
+                constant_values: constant_values[(i + param_f / 2 + param_p) * param_t
+                    ..(i + param_f / 2 + param_p + 1) * param_t]
+                    .to_vec(),
+                matrix_values: matrix_values.clone(),
+                x_values,
+                sbox_values,
+                out_values: outputs.clone(),
+            };
+            ctx.add(&poseidon_step_full_round, round_values);
+            inputs = outputs;
+        }
+
+        x_values = (0..param_t)
+            .map(|i| inputs[i] + constant_values[i + (param_p + param_f - 1) * param_t])
+            .collect();
+        sbox_values = x_values
+            .iter()
+            .map(|x_value| *x_value * x_value * x_value * x_value * x_value)
+            .collect();
+
+        outputs = (0..values.n_outputs)
+            .map(|i| {
+                let m_offset = i * param_t;
+                let mut out_value = sbox_values[0] * matrix_values[m_offset];
+                for s in 1..param_c {
+                    out_value += sbox_values[s] * matrix_values[m_offset + s];
+                }
+                for k in param_c..param_t {
+                    out_value += inputs[k] * matrix_values[m_offset + k];
+                }
+                out_value
+            })
+            .collect();
+
+        let round_values = RoundValues::<F> {
+            input_values: inputs,
+            constant_values: constant_values
+                [(param_p + param_f - 1) * param_t..(param_p + param_f) * param_t]
+                .to_vec(),
+            matrix_values,
+            x_values,
+            sbox_values,
+            out_values: outputs,
+        };
+        ctx.add(&poseidon_step_last_round, round_values);
+    })
+}
+
+fn poseidon_super_circuit<F: PrimeField + Eq + Hash>(
+    lens: Lens,
+) -> SuperCircuit<F, ValuesAndLens<F>> {
+    super_circuit::<F, ValuesAndLens<F>, _>("poseidon", |ctx| {
+        let config = config(SingleRowCellManager {}, SimpleStepSelectorBuilder {});
+
+        let (poseidon, _) = ctx.sub_circuit(config, poseidon_circuit, lens);
+
+        ctx.mapping(move |ctx, values| {
+            ctx.map(&poseidon, values);
         })
-    });
-
-    let compiler = Compiler::new(SingleRowCellManager {}, SimpleStepSelectorBuilder {});
-    compiler.compile(&poseidon)
-}
-
-#[derive(Clone)]
-struct PoseidonConfig<F: FieldExt> {
-    compiled: ChiquitoHalo2<F, (), RoundValues<F>>,
-}
-
-impl<F: FieldExt> PoseidonConfig<F> {
-    fn new(meta: &mut ConstraintSystem<F>) -> Self {
-        let circuit = poseidon_circuit(6, 1);
-        let mut compiled = chiquito2Halo2(circuit);
-        compiled.configure(meta);
-        Self { compiled }
-    }
-}
-
-#[derive(Default)]
-struct PoseidonCircuit {}
-
-impl<F: FieldExt> Circuit<F> for PoseidonCircuit {
-    type Config = PoseidonConfig<F>;
-    type FloorPlanner = SimpleFloorPlanner;
-
-    fn without_witnesses(&self) -> Self {
-        Self::default()
-    }
-
-    fn configure(meta: &mut ConstraintSystem<F>) -> Self::Config {
-        PoseidonConfig::<F>::new(meta)
-    }
-
-    fn synthesize(
-        &self,
-        config: Self::Config,
-        mut layouter: impl Layouter<F>,
-    ) -> Result<(), Error> {
-        config.compiled.synthesize(&mut layouter, ());
-
-        Ok(())
-    }
+    })
 }
 
 fn main() {
-    let circuit = PoseidonCircuit {};
+    let values = ValuesAndLens {
+        inputs: vec![
+            Fr::one(),
+            Fr::one(),
+            Fr::one(),
+            Fr::one(),
+            Fr::one(),
+            Fr::one(),
+        ],
+        n_outputs: 1,
+    };
+
+    let lens = Lens {
+        n_inputs: 6,
+        n_outputs: 1,
+    };
+
+    let super_circuit = poseidon_super_circuit(lens);
+    let compiled = chiquitoSuperCircuit2Halo2(&super_circuit);
+    let circuit =
+        ChiquitoHalo2SuperCircuit::new(compiled, super_circuit.get_mapping().generate(values));
 
     let prover = MockProver::<Fr>::run(10, &circuit, Vec::new()).unwrap();
 
