@@ -39,7 +39,7 @@ pub struct TraceWitness<F> {
     pub step_instances: Witness<F>,
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug)]
 pub struct TraceContext<F> {
     witness: TraceWitness<F>,
     num_steps: usize,
