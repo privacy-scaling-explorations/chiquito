@@ -841,6 +841,35 @@
 <span id="841">841</span>
 <span id="842">842</span>
 <span id="843">843</span>
+<span id="844">844</span>
+<span id="845">845</span>
+<span id="846">846</span>
+<span id="847">847</span>
+<span id="848">848</span>
+<span id="849">849</span>
+<span id="850">850</span>
+<span id="851">851</span>
+<span id="852">852</span>
+<span id="853">853</span>
+<span id="854">854</span>
+<span id="855">855</span>
+<span id="856">856</span>
+<span id="857">857</span>
+<span id="858">858</span>
+<span id="859">859</span>
+<span id="860">860</span>
+<span id="861">861</span>
+<span id="862">862</span>
+<span id="863">863</span>
+<span id="864">864</span>
+<span id="865">865</span>
+<span id="866">866</span>
+<span id="867">867</span>
+<span id="868">868</span>
+<span id="869">869</span>
+<span id="870">870</span>
+<span id="871">871</span>
+<span id="872">872</span>
 </pre><pre class="rust"><code><span class="kw">use </span>core::fmt::Debug;
 <span class="kw">use </span>std::{collections::HashMap, hash::Hash, rc::Rc};
 
@@ -887,7 +916,7 @@
     <span class="kw">pub </span>num_steps: usize,
     <span class="kw">pub </span>q_enable: <span class="prelude-ty">Option</span>&lt;Column&gt;,
     <span class="kw">pub </span>first_step: <span class="prelude-ty">Option</span>&lt;(StepTypeUUID, Column)&gt;,
-    <span class="kw">pub </span>last_step: <span class="prelude-ty">Option</span>&lt;(StepTypeUUID, Column)&gt;,
+    <span class="kw">pub </span>last_step: <span class="prelude-ty">Option</span>&lt;(<span class="prelude-ty">Option</span>&lt;StepTypeUUID&gt;, Column)&gt;,
 
     <span class="kw">pub </span>num_rows: usize,
 
@@ -1037,6 +1066,16 @@
 
         <span class="macro">panic!</span>(<span class="string">&quot;fixed signal placement not found&quot;</span>);
     }
+
+    <span class="kw">fn </span>has_transition_constraints&lt;TraceArgs&gt;(ast: <span class="kw-2">&amp;</span>astCircuit&lt;F, TraceArgs&gt;) -&gt; bool {
+        <span class="kw">for </span>step <span class="kw">in </span>ast.step_types.values() {
+            <span class="kw">if </span>step.transition_constraints.len() &gt; <span class="number">0 </span>{
+                <span class="kw">return </span><span class="bool-val">true</span>;
+            }
+        }
+
+        <span class="bool-val">false
+    </span>}
 }
 
 <span class="kw">impl</span>&lt;F, TraceArgs&gt; From&lt;<span class="kw-2">&amp;</span>astCircuit&lt;F, TraceArgs&gt;&gt; <span class="kw">for </span>CompilationUnit&lt;F&gt; {
@@ -1080,9 +1119,9 @@
                     },
                 )
             }),
-            last_step: ast.last_step.map(|step_type_uuid| {
-                (
-                    step_type_uuid,
+            last_step: <span class="kw">if </span>ast.last_step.is_some() || <span class="self">Self</span>::has_transition_constraints(ast) {
+                <span class="prelude-val">Some</span>((
+                    ast.last_step,
                     Column {
                         annotation: <span class="string">&quot;q_last&quot;</span>.to_owned(),
                         ctype: ColumnType::Fixed,
@@ -1091,8 +1130,10 @@
                         phase: <span class="number">0</span>,
                         id: uuid(),
                     },
-                )
-            }),
+                ))
+            } <span class="kw">else </span>{
+                <span class="prelude-val">None
+            </span>},
             ast_id: ast.id,
             ..Default::default()
         }
@@ -1222,7 +1263,7 @@
         }
     }
 
-    <span class="kw">fn </span>compile_step&lt;F: Clone + Debug&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>, unit: <span class="kw-2">&amp;mut </span>CompilationUnit&lt;F&gt;, step: <span class="kw-2">&amp;</span>StepType&lt;F&gt;) {
+    <span class="kw">fn </span>compile_step&lt;F: Field&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>, unit: <span class="kw-2">&amp;mut </span>CompilationUnit&lt;F&gt;, step: <span class="kw-2">&amp;</span>StepType&lt;F&gt;) {
         <span class="kw">let </span>step_annotation = unit
             .annotations
             .get(<span class="kw-2">&amp;</span>step.uuid())
@@ -1248,6 +1289,7 @@
         </span><span class="kw">for </span>constr <span class="kw">in </span>step.transition_constraints.iter() {
             <span class="kw">let </span>constraint = <span class="self">self</span>.transform_expr(unit, step, <span class="kw-2">&amp;</span>constr.expr.clone());
             <span class="kw">let </span>poly = unit.selector.select(step.uuid(), <span class="kw-2">&amp;</span>constraint);
+            <span class="kw">let </span>poly = <span class="self">Self</span>::add_q_last_to_constraint(unit, poly);
 
             unit.polys.push(Poly {
                 expr: poly,
@@ -1617,24 +1659,40 @@
     <span class="kw">fn </span>add_q_last&lt;F: Field&gt;(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         unit: <span class="kw-2">&amp;mut </span>CompilationUnit&lt;F&gt;,
-        step_uuid: StepTypeUUID,
+        step_uuid: <span class="prelude-ty">Option</span>&lt;StepTypeUUID&gt;,
         q_last: Column,
     ) {
-        <span class="kw">let </span>step = unit.step_types.get(<span class="kw-2">&amp;</span>step_uuid).expect(<span class="string">&quot;step not found&quot;</span>);
+        <span class="kw">if let </span><span class="prelude-val">Some</span>(step_uuid) = step_uuid {
+            <span class="kw">let </span>step = unit.step_types.get(<span class="kw-2">&amp;</span>step_uuid).expect(<span class="string">&quot;step not found&quot;</span>);
 
-        <span class="kw">let </span>poly = PolyExpr::Mul(<span class="macro">vec!</span>[
-            PolyExpr::&lt;F&gt;::Query(q_last.clone(), <span class="number">0</span>, <span class="string">&quot;q_last&quot;</span>.to_owned()),
-            unit.selector.unselect(step.uuid()),
-        ]);
+            <span class="kw">let </span>poly = PolyExpr::Mul(<span class="macro">vec!</span>[
+                PolyExpr::&lt;F&gt;::Query(q_last.clone(), <span class="number">0</span>, <span class="string">&quot;q_last&quot;</span>.to_owned()),
+                unit.selector.unselect(step.uuid()),
+            ]);
 
-        unit.polys.push(Poly {
-            annotation: <span class="string">&quot;q_last&quot;</span>.to_string(),
-            expr: poly,
-        });
+            unit.polys.push(Poly {
+                annotation: <span class="string">&quot;q_last&quot;</span>.to_string(),
+                expr: poly,
+            });
+        }
 
         <span class="kw">let </span><span class="kw-2">mut </span>assignments = <span class="macro">vec!</span>[F::ZERO; unit.num_rows];
         assignments[unit.num_rows - unit.placement.first_step_height() <span class="kw">as </span>usize] = F::ONE;
         unit.fixed_assignments.insert(q_last, assignments);
+    }
+
+    <span class="kw">fn </span>add_q_last_to_constraint&lt;F: Field&gt;(
+        unit: <span class="kw-2">&amp;mut </span>CompilationUnit&lt;F&gt;,
+        constraint: PolyExpr&lt;F&gt;,
+    ) -&gt; PolyExpr&lt;F&gt; {
+        <span class="kw">let </span>q_last_column = unit.last_step.clone().expect(<span class="string">&quot;last column not found&quot;</span>).<span class="number">1</span>;
+        <span class="kw">let </span>q_last = PolyExpr::&lt;F&gt;::Query(q_last_column.clone(), <span class="number">0</span>, <span class="string">&quot;q_last&quot;</span>.to_owned());
+        <span class="kw">let </span>not_q_last_expr = PolyExpr::Sum(<span class="macro">vec!</span>[
+            PolyExpr::Const(F::ONE),
+            PolyExpr::Neg(Box::new(q_last)),
+        ]);
+
+        PolyExpr::Mul(<span class="macro">vec!</span>[not_q_last_expr, constraint])
     }
 
     <span class="kw">fn </span>add_default_columns&lt;F&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>, unit: <span class="kw-2">&amp;mut </span>CompilationUnit&lt;F&gt;) {
