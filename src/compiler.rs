@@ -44,7 +44,7 @@ pub struct CompilationUnit<F> {
     pub num_steps: usize,
     pub q_enable: Option<Column>,
     pub first_step: Option<(StepTypeUUID, Column)>,
-    pub last_step: Option<(StepTypeUUID, Column)>,
+    pub last_step: Option<(Option<StepTypeUUID>, Column)>,
 
     pub num_rows: usize,
 
@@ -194,6 +194,16 @@ impl<F> CompilationUnit<F> {
 
         panic!("fixed signal placement not found");
     }
+
+    fn has_transition_constraints<TraceArgs>(ast: &astCircuit<F, TraceArgs>) -> bool {
+        for step in ast.step_types.values() {
+            if !step.transition_constraints.is_empty() {
+                return true;
+            }
+        }
+
+        false
+    }
 }
 
 impl<F, TraceArgs> From<&astCircuit<F, TraceArgs>> for CompilationUnit<F> {
@@ -237,9 +247,9 @@ impl<F, TraceArgs> From<&astCircuit<F, TraceArgs>> for CompilationUnit<F> {
                     },
                 )
             }),
-            last_step: ast.last_step.map(|step_type_uuid| {
-                (
-                    step_type_uuid,
+            last_step: if ast.last_step.is_some() || Self::has_transition_constraints(ast) {
+                Some((
+                    ast.last_step,
                     Column {
                         annotation: "q_last".to_owned(),
                         ctype: ColumnType::Fixed,
@@ -248,8 +258,10 @@ impl<F, TraceArgs> From<&astCircuit<F, TraceArgs>> for CompilationUnit<F> {
                         phase: 0,
                         id: uuid(),
                     },
-                )
-            }),
+                ))
+            } else {
+                None
+            },
             ast_id: ast.id,
             ..Default::default()
         }
@@ -382,7 +394,7 @@ impl<CM: CellManager, SSB: StepSelectorBuilder> Compiler<CM, SSB> {
         }
     }
 
-    fn compile_step<F: Clone + Debug>(&self, unit: &mut CompilationUnit<F>, step: &StepType<F>) {
+    fn compile_step<F: Field>(&self, unit: &mut CompilationUnit<F>, step: &StepType<F>) {
         let step_annotation = unit
             .annotations
             .get(&step.uuid())
@@ -408,6 +420,7 @@ impl<CM: CellManager, SSB: StepSelectorBuilder> Compiler<CM, SSB> {
         for constr in step.transition_constraints.iter() {
             let constraint = self.transform_expr(unit, step, &constr.expr.clone());
             let poly = unit.selector.select(step.uuid(), &constraint);
+            let poly = Self::add_q_last_to_constraint(unit, poly);
 
             unit.polys.push(Poly {
                 expr: poly,
@@ -777,24 +790,40 @@ impl<CM: CellManager, SSB: StepSelectorBuilder> Compiler<CM, SSB> {
     fn add_q_last<F: Field>(
         &self,
         unit: &mut CompilationUnit<F>,
-        step_uuid: StepTypeUUID,
+        step_uuid: Option<StepTypeUUID>,
         q_last: Column,
     ) {
-        let step = unit.step_types.get(&step_uuid).expect("step not found");
+        if let Some(step_uuid) = step_uuid {
+            let step = unit.step_types.get(&step_uuid).expect("step not found");
 
-        let poly = PolyExpr::Mul(vec![
-            PolyExpr::<F>::Query(q_last.clone(), 0, "q_last".to_owned()),
-            unit.selector.unselect(step.uuid()),
-        ]);
+            let poly = PolyExpr::Mul(vec![
+                PolyExpr::<F>::Query(q_last.clone(), 0, "q_last".to_owned()),
+                unit.selector.unselect(step.uuid()),
+            ]);
 
-        unit.polys.push(Poly {
-            annotation: "q_last".to_string(),
-            expr: poly,
-        });
+            unit.polys.push(Poly {
+                annotation: "q_last".to_string(),
+                expr: poly,
+            });
+        }
 
         let mut assignments = vec![F::ZERO; unit.num_rows];
         assignments[unit.num_rows - unit.placement.first_step_height() as usize] = F::ONE;
         unit.fixed_assignments.insert(q_last, assignments);
+    }
+
+    fn add_q_last_to_constraint<F: Field>(
+        unit: &mut CompilationUnit<F>,
+        constraint: PolyExpr<F>,
+    ) -> PolyExpr<F> {
+        let q_last_column = unit.last_step.clone().expect("last column not found").1;
+        let q_last = PolyExpr::<F>::Query(q_last_column, 0, "q_last".to_owned());
+        let not_q_last_expr = PolyExpr::Sum(vec![
+            PolyExpr::Const(F::ONE),
+            PolyExpr::Neg(Box::new(q_last)),
+        ]);
+
+        PolyExpr::Mul(vec![not_q_last_expr, constraint])
     }
 
     fn add_default_columns<F>(&self, unit: &mut CompilationUnit<F>) {
