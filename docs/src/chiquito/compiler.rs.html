@@ -1069,7 +1069,7 @@
 
     <span class="kw">fn </span>has_transition_constraints&lt;TraceArgs&gt;(ast: <span class="kw-2">&amp;</span>astCircuit&lt;F, TraceArgs&gt;) -&gt; bool {
         <span class="kw">for </span>step <span class="kw">in </span>ast.step_types.values() {
-            <span class="kw">if </span>step.transition_constraints.len() &gt; <span class="number">0 </span>{
+            <span class="kw">if </span>!step.transition_constraints.is_empty() {
                 <span class="kw">return </span><span class="bool-val">true</span>;
             }
         }
@@ -1686,7 +1686,7 @@
         constraint: PolyExpr&lt;F&gt;,
     ) -&gt; PolyExpr&lt;F&gt; {
         <span class="kw">let </span>q_last_column = unit.last_step.clone().expect(<span class="string">&quot;last column not found&quot;</span>).<span class="number">1</span>;
-        <span class="kw">let </span>q_last = PolyExpr::&lt;F&gt;::Query(q_last_column.clone(), <span class="number">0</span>, <span class="string">&quot;q_last&quot;</span>.to_owned());
+        <span class="kw">let </span>q_last = PolyExpr::&lt;F&gt;::Query(q_last_column, <span class="number">0</span>, <span class="string">&quot;q_last&quot;</span>.to_owned());
         <span class="kw">let </span>not_q_last_expr = PolyExpr::Sum(<span class="macro">vec!</span>[
             PolyExpr::Const(F::ONE),
             PolyExpr::Neg(Box::new(q_last)),
