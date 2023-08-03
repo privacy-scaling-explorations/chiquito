@@ -197,7 +197,7 @@ impl<F> CompilationUnit<F> {
 
     fn has_transition_constraints<TraceArgs>(ast: &astCircuit<F, TraceArgs>) -> bool {
         for step in ast.step_types.values() {
-            if step.transition_constraints.len() > 0 {
+            if !step.transition_constraints.is_empty() {
                 return true;
             }
         }
@@ -814,7 +814,7 @@ impl<CM: CellManager, SSB: StepSelectorBuilder> Compiler<CM, SSB> {
         constraint: PolyExpr<F>,
     ) -> PolyExpr<F> {
         let q_last_column = unit.last_step.clone().expect("last column not found").1;
-        let q_last = PolyExpr::<F>::Query(q_last_column.clone(), 0, "q_last".to_owned());
+        let q_last = PolyExpr::<F>::Query(q_last_column, 0, "q_last".to_owned());
         let not_q_last_expr = PolyExpr::Sum(vec![
             PolyExpr::Const(F::ONE),
             PolyExpr::Neg(Box::new(q_last)),
