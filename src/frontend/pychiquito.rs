@@ -50,7 +50,7 @@ pub fn uuid_to_halo2(uuid: UUID) -> (ChiquitoHalo2<Fr>, Option<AssignmentGenerat
     })
 }
 
-pub fn chiquito_verify_proof(witness_json: &str, ast_id: UUID) {
+pub fn chiquito_halo2_mock_prover(witness_json: &str, ast_id: UUID) {
     let trace_witness: TraceWitness<Fr> =
         serde_json::from_str(witness_json).expect("Json deserialization to TraceWitness failed.");
     let (compiled, assignment_generator) = uuid_to_halo2(ast_id);
@@ -626,15 +626,7 @@ impl<'de> Visitor<'de> for TraceWitnessVisitor {
                     }
                     step_instances = Some(map.next_value()?);
                 }
-                "height" => {
-                    // ignore legacy field
-                }
-                _ => {
-                    return Err(de::Error::unknown_field(
-                        &key,
-                        &["step_instances", "height"],
-                    ))
-                }
+                _ => return Err(de::Error::unknown_field(&key, &["step_instances"])),
             }
         }
         let step_instances =
