@@ -626,13 +626,10 @@ impl<'de> Visitor<'de> for TraceWitnessVisitor {
                     }
                     step_instances = Some(map.next_value()?);
                 }
-                "height" => {
-                    // ignore legacy field
-                }
                 _ => {
                     return Err(de::Error::unknown_field(
                         &key,
-                        &["step_instances", "height"],
+                        &["step_instances"],
                     ))
                 }
             }
