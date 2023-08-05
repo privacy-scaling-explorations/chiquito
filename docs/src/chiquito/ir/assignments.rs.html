@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/ir/assigments.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>assigments.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" type="text/css" href="../../../normalize.css"><link rel="stylesheet" type="text/css" href="../../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../../ayu.css" disabled><link rel="stylesheet" type="text/css" href="../../../dark.css" disabled><link rel="stylesheet" type="text/css" href="../../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../../storage.js"></script><script defer src="../../../source-script.js"></script><script defer src="../../../source-files.js"></script><script defer src="../../../main.js"></script><noscript><link rel="stylesheet" href="../../../noscript.css"></noscript><link rel="alternate icon" type="image/png" href="../../../favicon-16x16.png"><link rel="alternate icon" type="image/png" href="../../../favicon-32x32.png"><link rel="icon" type="image/svg+xml" href="../../../favicon.svg"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../../chiquito/index.html"><div class="logo-container"><img class="rust-logo" src="../../../rust-logo.svg" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../../chiquito/index.html"><div class="logo-container"><img class="rust-logo" src="../../../rust-logo.svg" alt="logo"></div></a></nav><main><div class="width-limiter"><div class="sub-container"><a class="sub-logo-container" href="../../../chiquito/index.html"><img class="rust-logo" src="../../../rust-logo.svg" alt="logo"></a><nav class="sub"><form class="search-form"><div class="search-container"><span></span><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><button type="button">?</button></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../wheel.svg"></a></div></div></form></nav></div><section id="main-content" class="content"><div class="example-wrap"><pre class="line-numbers"><span id="1">1</span>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/ir/assignments.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>assignments.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" type="text/css" href="../../../normalize.css"><link rel="stylesheet" type="text/css" href="../../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../../ayu.css" disabled><link rel="stylesheet" type="text/css" href="../../../dark.css" disabled><link rel="stylesheet" type="text/css" href="../../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../../storage.js"></script><script defer src="../../../source-script.js"></script><script defer src="../../../source-files.js"></script><script defer src="../../../main.js"></script><noscript><link rel="stylesheet" href="../../../noscript.css"></noscript><link rel="alternate icon" type="image/png" href="../../../favicon-16x16.png"><link rel="alternate icon" type="image/png" href="../../../favicon-32x32.png"><link rel="icon" type="image/svg+xml" href="../../../favicon.svg"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../../chiquito/index.html"><div class="logo-container"><img class="rust-logo" src="../../../rust-logo.svg" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../../chiquito/index.html"><div class="logo-container"><img class="rust-logo" src="../../../rust-logo.svg" alt="logo"></div></a></nav><main><div class="width-limiter"><div class="sub-container"><a class="sub-logo-container" href="../../../chiquito/index.html"><img class="rust-logo" src="../../../rust-logo.svg" alt="logo"></a><nav class="sub"><form class="search-form"><div class="search-container"><span></span><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><button type="button">?</button></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../wheel.svg"></a></div></div></form></nav></div><section id="main-content" class="content"><div class="example-wrap"><pre class="line-numbers"><span id="1">1</span>
 <span id="2">2</span>
 <span id="3">3</span>
 <span id="4">4</span>
@@ -222,6 +222,12 @@
 <span id="222">222</span>
 <span id="223">223</span>
 <span id="224">224</span>
+<span id="225">225</span>
+<span id="226">226</span>
+<span id="227">227</span>
+<span id="228">228</span>
+<span id="229">229</span>
+<span id="230">230</span>
 </pre><pre class="rust"><code><span class="kw">use </span>std::collections::HashMap;
 
 <span class="kw">use </span>halo2_proofs::{
@@ -240,7 +246,7 @@
 
 <span class="kw">pub type </span>Assignments&lt;F&gt; = HashMap&lt;Column, Vec&lt;F&gt;&gt;;
 
-<span class="kw">pub struct </span>AssigmentGenerator&lt;F, TraceArgs&gt; {
+<span class="kw">pub struct </span>AssignmentGenerator&lt;F, TraceArgs&gt; {
     columns: Vec&lt;Column&gt;,
     placement: Placement,
     selector: StepSelector&lt;F&gt;,
@@ -251,7 +257,7 @@
     ir_id: UUID,
 }
 
-<span class="kw">impl</span>&lt;F: Clone, TraceArgs&gt; Clone <span class="kw">for </span>AssigmentGenerator&lt;F, TraceArgs&gt; {
+<span class="kw">impl</span>&lt;F: Clone, TraceArgs&gt; Clone <span class="kw">for </span>AssignmentGenerator&lt;F, TraceArgs&gt; {
     <span class="kw">fn </span>clone(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="self">Self </span>{
         <span class="self">Self </span>{
             columns: <span class="self">self</span>.columns.clone(),
@@ -264,7 +270,7 @@
     }
 }
 
-<span class="kw">impl</span>&lt;F: Clone, TraceArgs&gt; Default <span class="kw">for </span>AssigmentGenerator&lt;F, TraceArgs&gt; {
+<span class="kw">impl</span>&lt;F: Clone, TraceArgs&gt; Default <span class="kw">for </span>AssignmentGenerator&lt;F, TraceArgs&gt; {
     <span class="kw">fn </span>default() -&gt; <span class="self">Self </span>{
         <span class="self">Self </span>{
             columns: Default::default(),
@@ -277,7 +283,7 @@
     }
 }
 
-<span class="kw">impl</span>&lt;F: Field, TraceArgs&gt; AssigmentGenerator&lt;F, TraceArgs&gt; {
+<span class="kw">impl</span>&lt;F: Field, TraceArgs&gt; AssignmentGenerator&lt;F, TraceArgs&gt; {
     <span class="kw">pub fn </span>new(
         columns: Vec&lt;Column&gt;,
         placement: Placement,
@@ -311,13 +317,13 @@
 
     <span class="kw">pub fn </span>generate_with_witness(<span class="kw-2">&amp;</span><span class="self">self</span>, witness: TraceWitness&lt;F&gt;) -&gt; Assignments&lt;F&gt; {
         <span class="kw">let </span><span class="kw-2">mut </span>offset: usize = <span class="number">0</span>;
-        <span class="kw">let </span><span class="kw-2">mut </span>assigments: Assignments&lt;F&gt; = Default::default();
+        <span class="kw">let </span><span class="kw-2">mut </span>assignments: Assignments&lt;F&gt; = Default::default();
 
         <span class="kw">for </span>step_instance <span class="kw">in </span>witness.step_instances.into_iter() {
-            <span class="self">self</span>.assign_step(<span class="kw-2">&amp;mut </span>offset, <span class="kw-2">&amp;mut </span>assigments, <span class="kw-2">&amp;</span>step_instance);
+            <span class="self">self</span>.assign_step(<span class="kw-2">&amp;mut </span>offset, <span class="kw-2">&amp;mut </span>assignments, <span class="kw-2">&amp;</span>step_instance);
         }
 
-        assigments
+        assignments
     }
 
     <span class="kw">pub fn </span>uuid(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; UUID {
@@ -327,11 +333,11 @@
     <span class="kw">fn </span>assign_step(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         offset: <span class="kw-2">&amp;mut </span>usize,
-        assigments: <span class="kw-2">&amp;mut </span>Assignments&lt;F&gt;,
+        assignments: <span class="kw-2">&amp;mut </span>Assignments&lt;F&gt;,
         step_instance: <span class="kw-2">&amp;</span>StepInstance&lt;F&gt;,
     ) {
         <span class="kw">for </span>(lhs, rhs) <span class="kw">in </span>step_instance.assignments.iter() {
-            <span class="self">self</span>.assign(offset, assigments, step_instance.step_type_uuid, lhs, rhs);
+            <span class="self">self</span>.assign(offset, assignments, step_instance.step_type_uuid, lhs, rhs);
         }
 
         <span class="kw">let </span>selector_assignment = <span class="self">self
@@ -341,7 +347,7 @@
         <span class="kw">for </span>(expr, value) <span class="kw">in </span>selector_assignment.iter() {
             <span class="kw">match </span>expr {
                 PolyExpr::Query(column, rot, <span class="kw">_</span>) =&gt; {
-                    <span class="self">self</span>.set_value(assigments, column.clone(), <span class="kw-2">*</span>offset + <span class="kw-2">*</span>rot <span class="kw">as </span>usize, value)
+                    <span class="self">self</span>.set_value(assignments, column.clone(), <span class="kw-2">*</span>offset + <span class="kw-2">*</span>rot <span class="kw">as </span>usize, value)
                 }
                 <span class="kw">_ </span>=&gt; <span class="macro">panic!</span>(<span class="string">&quot;wrong type of expresion is selector assignment&quot;</span>),
             }
@@ -353,7 +359,7 @@
     <span class="kw">fn </span>assign(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         offset: <span class="kw-2">&amp;mut </span>usize,
-        assigments: <span class="kw-2">&amp;mut </span>Assignments&lt;F&gt;,
+        assignments: <span class="kw-2">&amp;mut </span>Assignments&lt;F&gt;,
         step_uuid: StepTypeUUID,
         lhs: <span class="kw-2">&amp;</span>Queriable&lt;F&gt;,
         value: <span class="kw-2">&amp;</span>F,
@@ -362,7 +368,7 @@
 
         <span class="kw">let </span>offset = (<span class="kw-2">*</span>offset <span class="kw">as </span>i32 + rotation) <span class="kw">as </span>usize;
 
-        <span class="self">self</span>.set_value(assigments, column, offset, value);
+        <span class="self">self</span>.set_value(assignments, column, offset, value);
     }
 
     <span class="kw">fn </span>find_placement(<span class="kw-2">&amp;</span><span class="self">self</span>, step_uuid: StepTypeUUID, query: <span class="kw-2">&amp;</span>Queriable&lt;F&gt;) -&gt; (Column, i32) {
@@ -390,14 +396,20 @@
         }
     }
 
-    <span class="kw">fn </span>set_value(<span class="kw-2">&amp;</span><span class="self">self</span>, assigments: <span class="kw-2">&amp;mut </span>Assignments&lt;F&gt;, column: Column, offset: usize, value: <span class="kw-2">&amp;</span>F) {
-        <span class="kw">if let </span><span class="prelude-val">Some</span>(column_assigments) = assigments.get_mut(<span class="kw-2">&amp;</span>column) {
-            column_assigments[offset] = <span class="kw-2">*</span>value;
+    <span class="kw">fn </span>set_value(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
+        assignments: <span class="kw-2">&amp;mut </span>Assignments&lt;F&gt;,
+        column: Column,
+        offset: usize,
+        value: <span class="kw-2">&amp;</span>F,
+    ) {
+        <span class="kw">if let </span><span class="prelude-val">Some</span>(column_assignments) = assignments.get_mut(<span class="kw-2">&amp;</span>column) {
+            column_assignments[offset] = <span class="kw-2">*</span>value;
         } <span class="kw">else </span>{
-            <span class="kw">let </span><span class="kw-2">mut </span>column_assigments = <span class="macro">vec!</span>[F::ZERO; <span class="self">self</span>.num_rows];
-            column_assigments[offset] = <span class="kw-2">*</span>value;
+            <span class="kw">let </span><span class="kw-2">mut </span>column_assignments = <span class="macro">vec!</span>[F::ZERO; <span class="self">self</span>.num_rows];
+            column_assignments[offset] = <span class="kw-2">*</span>value;
 
-            assigments.insert(column, column_assigments);
+            assignments.insert(column, column_assignments);
         }
     }
 

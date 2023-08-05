@@ -870,6 +870,9 @@
 <span id="870">870</span>
 <span id="871">871</span>
 <span id="872">872</span>
+<span id="873">873</span>
+<span id="874">874</span>
+<span id="875">875</span>
 </pre><pre class="rust"><code><span class="kw">use </span>core::fmt::Debug;
 <span class="kw">use </span>std::{collections::HashMap, hash::Hash, rc::Rc};
 
@@ -884,7 +887,7 @@
         ImportedHalo2Advice, ImportedHalo2Fixed, SharedSignal, StepType, StepTypeUUID,
     },
     ir::{
-        assigments::{AssigmentGenerator, Assignments},
+        assignments::{AssignmentGenerator, Assignments},
         Circuit, Column, ColumnType, Poly, PolyExpr, PolyLookup,
     },
     util::{uuid, UUID},
@@ -1194,7 +1197,7 @@
     <span class="kw">pub fn </span>compile&lt;F: Field + Hash + Clone, TraceArgs&gt;(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         ast: <span class="kw-2">&amp;</span>astCircuit&lt;F, TraceArgs&gt;,
-    ) -&gt; (Circuit&lt;F&gt;, <span class="prelude-ty">Option</span>&lt;AssigmentGenerator&lt;F, TraceArgs&gt;&gt;) {
+    ) -&gt; (Circuit&lt;F&gt;, <span class="prelude-ty">Option</span>&lt;AssignmentGenerator&lt;F, TraceArgs&gt;&gt;) {
         <span class="kw">let </span>(<span class="kw-2">mut </span>unit, assignment) = <span class="self">self</span>.compile_phase1(ast);
 
         <span class="self">self</span>.compile_phase2(<span class="kw-2">&amp;mut </span>unit);
@@ -1205,7 +1208,10 @@
     <span class="kw">pub fn </span>compile_phase1&lt;F: Field + Hash + Clone, TraceArgs&gt;(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         ast: <span class="kw-2">&amp;</span>astCircuit&lt;F, TraceArgs&gt;,
-    ) -&gt; (CompilationUnit&lt;F&gt;, <span class="prelude-ty">Option</span>&lt;AssigmentGenerator&lt;F, TraceArgs&gt;&gt;) {
+    ) -&gt; (
+        CompilationUnit&lt;F&gt;,
+        <span class="prelude-ty">Option</span>&lt;AssignmentGenerator&lt;F, TraceArgs&gt;&gt;,
+    ) {
         <span class="kw">let </span><span class="kw-2">mut </span>unit = CompilationUnit::from(ast);
 
         <span class="self">self</span>.add_halo2_columns(<span class="kw-2">&amp;mut </span>unit, ast);
@@ -1231,18 +1237,18 @@
 
         <span class="self">self</span>.step_selector_builder.build::&lt;F&gt;(<span class="kw-2">&amp;mut </span>unit);
 
-        <span class="kw">let </span>assigment = ast.trace.as_ref().map(|v| {
-            AssigmentGenerator::new(
+        <span class="kw">let </span>assignment = ast.trace.as_ref().map(|v| {
+            AssignmentGenerator::new(
                 unit.columns.clone(),
                 unit.placement.clone(),
                 unit.selector.clone(),
-                TraceGenerator::new(Rc::clone(v)),
+                TraceGenerator::new(Rc::clone(v), ast.num_steps),
                 unit.num_rows,
                 unit.uuid,
             )
         });
 
-        (unit, assigment)
+        (unit, assignment)
     }
 
     <span class="kw">pub fn </span>compile_phase2&lt;F: Field + Clone&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>, unit: <span class="kw-2">&amp;mut </span>CompilationUnit&lt;F&gt;) {
@@ -1385,7 +1391,7 @@
             <span class="kw">let </span><span class="kw-2">mut </span>ctx = FixedGenContext::new(unit.num_steps);
             (<span class="kw-2">*</span>fixed_gen)(<span class="kw-2">&amp;mut </span>ctx);
 
-            <span class="kw">let </span>assignments = ctx.get_assigments();
+            <span class="kw">let </span>assignments = ctx.get_assignments();
 
             unit.fixed_assignments = <span class="self">self</span>.place_fixed_assignments(unit, assignments);
         }

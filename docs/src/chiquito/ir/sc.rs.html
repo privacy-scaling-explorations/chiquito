@@ -114,7 +114,7 @@
 <span class="kw">use </span><span class="kw">crate</span>::util::UUID;
 
 <span class="kw">use super</span>::{
-    assigments::{AssigmentGenerator, Assignments},
+    assignments::{AssignmentGenerator, Assignments},
     Circuit,
 };
 
@@ -172,7 +172,7 @@
 }
 
 <span class="kw">impl</span>&lt;F: Field&gt; MappingContext&lt;F&gt; {
-    <span class="kw">pub fn </span>map&lt;TraceArgs&gt;(<span class="kw-2">&amp;mut </span><span class="self">self</span>, gen: <span class="kw-2">&amp;</span>AssigmentGenerator&lt;F, TraceArgs&gt;, args: TraceArgs) {
+    <span class="kw">pub fn </span>map&lt;TraceArgs&gt;(<span class="kw-2">&amp;mut </span><span class="self">self</span>, gen: <span class="kw-2">&amp;</span>AssignmentGenerator&lt;F, TraceArgs&gt;, args: TraceArgs) {
         <span class="self">self</span>.assignments.insert(gen.uuid(), gen.generate(args));
     }
 

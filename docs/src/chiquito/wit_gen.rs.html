@@ -141,6 +141,61 @@
 <span id="141">141</span>
 <span id="142">142</span>
 <span id="143">143</span>
+<span id="144">144</span>
+<span id="145">145</span>
+<span id="146">146</span>
+<span id="147">147</span>
+<span id="148">148</span>
+<span id="149">149</span>
+<span id="150">150</span>
+<span id="151">151</span>
+<span id="152">152</span>
+<span id="153">153</span>
+<span id="154">154</span>
+<span id="155">155</span>
+<span id="156">156</span>
+<span id="157">157</span>
+<span id="158">158</span>
+<span id="159">159</span>
+<span id="160">160</span>
+<span id="161">161</span>
+<span id="162">162</span>
+<span id="163">163</span>
+<span id="164">164</span>
+<span id="165">165</span>
+<span id="166">166</span>
+<span id="167">167</span>
+<span id="168">168</span>
+<span id="169">169</span>
+<span id="170">170</span>
+<span id="171">171</span>
+<span id="172">172</span>
+<span id="173">173</span>
+<span id="174">174</span>
+<span id="175">175</span>
+<span id="176">176</span>
+<span id="177">177</span>
+<span id="178">178</span>
+<span id="179">179</span>
+<span id="180">180</span>
+<span id="181">181</span>
+<span id="182">182</span>
+<span id="183">183</span>
+<span id="184">184</span>
+<span id="185">185</span>
+<span id="186">186</span>
+<span id="187">187</span>
+<span id="188">188</span>
+<span id="189">189</span>
+<span id="190">190</span>
+<span id="191">191</span>
+<span id="192">192</span>
+<span id="193">193</span>
+<span id="194">194</span>
+<span id="195">195</span>
+<span id="196">196</span>
+<span id="197">197</span>
+<span id="198">198</span>
 </pre><pre class="rust"><code><span class="kw">use </span>std::{collections::HashMap, hash::Hash, rc::Rc};
 
 <span class="kw">use </span>halo2_proofs::arithmetic::Field;
@@ -152,7 +207,7 @@
 
 <span class="doccomment">/// A struct that represents a witness generation context. It provides an interface for assigning
 /// values to witness columns in a circuit.
-</span><span class="attribute">#[derive(Debug, Default)]
+</span><span class="attribute">#[derive(Debug, Default, Clone)]
 </span><span class="kw">pub struct </span>StepInstance&lt;F&gt; {
     <span class="kw">pub </span>step_type_uuid: StepTypeUUID,
     <span class="kw">pub </span>assignments: HashMap&lt;Queriable&lt;F&gt;, F&gt;,
@@ -182,12 +237,20 @@
     <span class="kw">pub </span>step_instances: Witness&lt;F&gt;,
 }
 
-<span class="attribute">#[derive(Debug, Default)]
+<span class="attribute">#[derive(Debug)]
 </span><span class="kw">pub struct </span>TraceContext&lt;F&gt; {
     witness: TraceWitness&lt;F&gt;,
+    num_steps: usize,
 }
 
-<span class="kw">impl</span>&lt;F&gt; TraceContext&lt;F&gt; {
+<span class="kw">impl</span>&lt;F: Default&gt; TraceContext&lt;F&gt; {
+    <span class="kw">pub fn </span>new(num_steps: usize) -&gt; <span class="self">Self </span>{
+        <span class="self">Self </span>{
+            witness: TraceWitness::default(),
+            num_steps,
+        }
+    }
+
     <span class="kw">pub fn </span>get_witness(<span class="self">self</span>) -&gt; TraceWitness&lt;F&gt; {
         <span class="self">self</span>.witness
     }
@@ -205,18 +268,31 @@
 
         <span class="self">self</span>.witness.step_instances.push(witness);
     }
+
+    <span class="comment">// This function pads the rest of the circuit with the given StepTypeWGHandler
+    </span><span class="kw">pub fn </span>padding&lt;Args, WG: Fn(<span class="kw-2">&amp;mut </span>StepInstance&lt;F&gt;, Args) + <span class="lifetime">&#39;static</span>&gt;(
+        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
+        step: <span class="kw-2">&amp;</span>StepTypeWGHandler&lt;F, Args, WG&gt;,
+        args_fn: <span class="kw">impl </span>Fn() -&gt; Args,
+    ) {
+        <span class="kw">while </span><span class="self">self</span>.witness.step_instances.len() &lt; <span class="self">self</span>.num_steps {
+            <span class="self">self</span>.add(step, (args_fn)());
+        }
+    }
 }
 
 <span class="kw">pub type </span>Trace&lt;F, TraceArgs&gt; = <span class="kw">dyn </span>Fn(<span class="kw-2">&amp;mut </span>TraceContext&lt;F&gt;, TraceArgs) + <span class="lifetime">&#39;static</span>;
 
 <span class="kw">pub struct </span>TraceGenerator&lt;F, TraceArgs&gt; {
     trace: Rc&lt;Trace&lt;F, TraceArgs&gt;&gt;,
+    num_steps: usize,
 }
 
 <span class="kw">impl</span>&lt;F, TraceArgs&gt; Clone <span class="kw">for </span>TraceGenerator&lt;F, TraceArgs&gt; {
     <span class="kw">fn </span>clone(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="self">Self </span>{
         <span class="self">Self </span>{
             trace: <span class="self">self</span>.trace.clone(),
+            num_steps: <span class="self">self</span>.num_steps,
         }
     }
 }
@@ -225,17 +301,18 @@
     <span class="kw">fn </span>default() -&gt; <span class="self">Self </span>{
         <span class="self">Self </span>{
             trace: Rc::new(|<span class="kw">_</span>, <span class="kw">_</span>| {}),
+            num_steps: <span class="number">0</span>,
         }
     }
 }
 
 <span class="kw">impl</span>&lt;F: Default, TraceArgs&gt; TraceGenerator&lt;F, TraceArgs&gt; {
-    <span class="kw">pub fn </span>new(trace: Rc&lt;Trace&lt;F, TraceArgs&gt;&gt;) -&gt; <span class="self">Self </span>{
-        <span class="self">Self </span>{ trace }
+    <span class="kw">pub fn </span>new(trace: Rc&lt;Trace&lt;F, TraceArgs&gt;&gt;, num_steps: usize) -&gt; <span class="self">Self </span>{
+        <span class="self">Self </span>{ trace, num_steps }
     }
 
     <span class="kw">pub fn </span>generate(<span class="kw-2">&amp;</span><span class="self">self</span>, args: TraceArgs) -&gt; TraceWitness&lt;F&gt; {
-        <span class="kw">let </span><span class="kw-2">mut </span>ctx = TraceContext::default();
+        <span class="kw">let </span><span class="kw-2">mut </span>ctx = TraceContext::new(<span class="self">self</span>.num_steps);
 
         (<span class="self">self</span>.trace)(<span class="kw-2">&amp;mut </span>ctx, args);
 
@@ -248,14 +325,14 @@
 <span class="doccomment">/// A struct that can be used a fixed column generation context. It provides an interface for
 /// assigning values to fixed columns in a circuit at the specified offset.
 </span><span class="kw">pub struct </span>FixedGenContext&lt;F&gt; {
-    assigments: FixedAssignment&lt;F&gt;,
+    assignments: FixedAssignment&lt;F&gt;,
     num_steps: usize,
 }
 
 <span class="kw">impl</span>&lt;F: Field + Hash&gt; FixedGenContext&lt;F&gt; {
     <span class="kw">pub fn </span>new(num_steps: usize) -&gt; <span class="self">Self </span>{
         <span class="self">Self </span>{
-            assigments: Default::default(),
+            assignments: Default::default(),
             num_steps,
         }
     }
@@ -267,21 +344,54 @@
             <span class="macro">panic!</span>(<span class="string">&quot;trying to assign non-fixed signal&quot;</span>);
         }
 
-        <span class="kw">if let </span><span class="prelude-val">Some</span>(assigments) = <span class="self">self</span>.assigments.get_mut(<span class="kw-2">&amp;</span>lhs) {
-            assigments[offset] = rhs;
+        <span class="kw">if let </span><span class="prelude-val">Some</span>(assignments) = <span class="self">self</span>.assignments.get_mut(<span class="kw-2">&amp;</span>lhs) {
+            assignments[offset] = rhs;
         } <span class="kw">else </span>{
-            <span class="kw">let </span><span class="kw-2">mut </span>assigments = <span class="macro">vec!</span>[F::ZERO; <span class="self">self</span>.num_steps];
-            assigments[offset] = rhs;
-            <span class="self">self</span>.assigments.insert(lhs, assigments);
+            <span class="kw">let </span><span class="kw-2">mut </span>assignments = <span class="macro">vec!</span>[F::ZERO; <span class="self">self</span>.num_steps];
+            assignments[offset] = rhs;
+            <span class="self">self</span>.assignments.insert(lhs, assignments);
         }
     }
 
-    <span class="kw">pub fn </span>get_assigments(<span class="self">self</span>) -&gt; FixedAssignment&lt;F&gt; {
-        <span class="self">self</span>.assigments
+    <span class="kw">pub fn </span>get_assignments(<span class="self">self</span>) -&gt; FixedAssignment&lt;F&gt; {
+        <span class="self">self</span>.assignments
     }
 
     <span class="kw">fn </span>is_fixed_queriable(q: Queriable&lt;F&gt;) -&gt; bool {
         <span class="macro">matches!</span>(q, Queriable::Halo2FixedQuery(<span class="kw">_</span>, <span class="kw">_</span>) | Queriable::Fixed(<span class="kw">_</span>, <span class="kw">_</span>))
+    }
+}
+
+<span class="attribute">#[cfg(test)]
+</span><span class="kw">mod </span>tests {
+    <span class="kw">use super</span>::<span class="kw-2">*</span>;
+    <span class="kw">use crate</span>::{dsl::StepTypeWGHandler, util::uuid};
+
+    <span class="kw">fn </span>dummy_args_fn() {}
+
+    <span class="attribute">#[test]
+    </span><span class="kw">fn </span>test_padding_no_witness() {
+        <span class="kw">let </span><span class="kw-2">mut </span>ctx = TraceContext::new(<span class="number">5</span>);
+        <span class="kw">let </span>step = StepTypeWGHandler::new(uuid(), <span class="string">&quot;dummy&quot;</span>, |<span class="kw">_</span>: <span class="kw-2">&amp;mut </span>StepInstance&lt;i32&gt;, <span class="kw">_</span>: ()| {});
+
+        <span class="macro">assert_eq!</span>(ctx.witness.step_instances.len(), <span class="number">0</span>);
+        ctx.padding(<span class="kw-2">&amp;</span>step, dummy_args_fn);
+
+        <span class="macro">assert_eq!</span>(ctx.witness.step_instances.len(), <span class="number">5</span>);
+    }
+
+    <span class="attribute">#[test]
+    </span><span class="kw">fn </span>test_padding_partial_witness() {
+        <span class="kw">let </span><span class="kw-2">mut </span>ctx = TraceContext::new(<span class="number">5</span>);
+        <span class="kw">let </span>step = StepTypeWGHandler::new(uuid(), <span class="string">&quot;dummy&quot;</span>, |<span class="kw">_</span>: <span class="kw-2">&amp;mut </span>StepInstance&lt;i32&gt;, <span class="kw">_</span>: ()| {});
+
+        dummy_args_fn();
+        ctx.add(<span class="kw-2">&amp;</span>step, ());
+
+        <span class="macro">assert_eq!</span>(ctx.witness.step_instances.len(), <span class="number">1</span>);
+        ctx.padding(<span class="kw-2">&amp;</span>step, dummy_args_fn);
+
+        <span class="macro">assert_eq!</span>(ctx.witness.step_instances.len(), <span class="number">5</span>);
     }
 }
 </code></pre></div>

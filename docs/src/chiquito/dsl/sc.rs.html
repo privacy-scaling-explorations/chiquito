@@ -120,7 +120,7 @@
         CompilationUnit, Compiler, CompilerConfig,
     },
     ir::{
-        assigments::AssigmentGenerator,
+        assignments::AssignmentGenerator,
         sc::{MappingContext, SuperCircuit},
     },
 };
@@ -149,7 +149,7 @@
         config: CompilerConfig&lt;CM, SSB&gt;,
         sub_circuit_def: D,
         imports: Imports,
-    ) -&gt; (AssigmentGenerator&lt;F, TraceArgs&gt;, Exports)
+    ) -&gt; (AssignmentGenerator&lt;F, TraceArgs&gt;, Exports)
     <span class="kw">where
         </span>D: Fn(<span class="kw-2">&amp;mut </span>CircuitContext&lt;F, TraceArgs&gt;, Imports) -&gt; Exports,
     {
@@ -165,7 +165,7 @@
         <span class="kw">let </span>compiler = Compiler::from(config);
 
         <span class="kw">let </span>(unit, assignment) = compiler.compile_phase1(<span class="kw-2">&amp;</span>sub_circuit);
-        <span class="kw">let </span>assignment = assignment.unwrap_or_else(|| AssigmentGenerator::empty(unit.uuid));
+        <span class="kw">let </span>assignment = assignment.unwrap_or_else(|| AssignmentGenerator::empty(unit.uuid));
 
         <span class="self">self</span>.sub_circuit_phase1.push(unit);
 

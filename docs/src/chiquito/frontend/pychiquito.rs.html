@@ -1426,7 +1426,7 @@
         cell_manager::SingleRowCellManager, step_selector::SimpleStepSelectorBuilder, Compiler,
     },
     dsl::StepTypeHandler,
-    ir::assigments::AssigmentGenerator,
+    ir::assignments::AssignmentGenerator,
     util::{uuid, UUID},
     wit_gen::{StepInstance, TraceWitness},
 };
@@ -1436,7 +1436,7 @@
 <span class="kw">use </span>serde::de::{<span class="self">self</span>, Deserialize, Deserializer, IgnoredAny, MapAccess, Visitor};
 <span class="kw">use </span>std::{cell::RefCell, collections::HashMap, fmt, rc::Rc};
 
-<span class="kw">type </span>CircuitMap = RefCell&lt;HashMap&lt;UUID, (ChiquitoHalo2&lt;Fr&gt;, <span class="prelude-ty">Option</span>&lt;AssigmentGenerator&lt;Fr, ()&gt;&gt;)&gt;&gt;;
+<span class="kw">type </span>CircuitMap = RefCell&lt;HashMap&lt;UUID, (ChiquitoHalo2&lt;Fr&gt;, <span class="prelude-ty">Option</span>&lt;AssignmentGenerator&lt;Fr, ()&gt;&gt;)&gt;&gt;;
 
 <span class="macro">thread_local! </span>{
     <span class="kw">pub static </span>CIRCUIT_MAP: CircuitMap = RefCell::new(HashMap::new());
@@ -1460,7 +1460,7 @@
     uuid
 }
 
-<span class="kw">pub fn </span>uuid_to_halo2(uuid: UUID) -&gt; (ChiquitoHalo2&lt;Fr&gt;, <span class="prelude-ty">Option</span>&lt;AssigmentGenerator&lt;Fr, ()&gt;&gt;) {
+<span class="kw">pub fn </span>uuid_to_halo2(uuid: UUID) -&gt; (ChiquitoHalo2&lt;Fr&gt;, <span class="prelude-ty">Option</span>&lt;AssignmentGenerator&lt;Fr, ()&gt;&gt;) {
     CIRCUIT_MAP.with(|circuit_map| {
         <span class="kw">let </span>circuit_map = circuit_map.borrow();
         circuit_map.get(<span class="kw-2">&amp;</span>uuid).unwrap().clone()
