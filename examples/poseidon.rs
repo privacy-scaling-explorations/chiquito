@@ -4,7 +4,7 @@ use chiquito::{
     compiler::{
         cell_manager::SingleRowCellManager, config, step_selector::SimpleStepSelectorBuilder,
     },
-    dsl::{super_circuit, CircuitContext},
+    dsl::{lb::LookupTable, super_circuit, CircuitContext},
     ir::sc::SuperCircuit,
 };
 use std::hash::Hash;
@@ -12768,6 +12768,7 @@ struct RoundValues<F: PrimeField> {
     pub x_values: Vec<F>,
     pub sbox_values: Vec<F>,
     pub out_values: Vec<F>,
+    pub round: F,
 }
 
 #[derive(Clone)]
@@ -12782,22 +12783,76 @@ struct Lens {
     pub n_outputs: usize,
 }
 
+struct CircuitParams {
+    pub lens: Lens,
+    pub constants_table: LookupTable,
+    pub matrix_table: LookupTable,
+}
+
+fn poseidon_constants_table<F: PrimeField + Eq + Hash>(
+    ctx: &mut CircuitContext<F, ()>,
+    param_t: usize,
+) -> LookupTable {
+    use chiquito::dsl::cb::*;
+
+    let lookup_constants_row: Queriable<F> = ctx.fixed("constant row");
+    let lookup_constants_c: Queriable<F> = ctx.fixed("constant value");
+
+    let constants_value = poseidon_constant(param_t);
+    let lens = constants_value.len();
+    ctx.pragma_num_steps(lens);
+    ctx.fixed_gen(move |ctx| {
+        for (i, round_key) in constants_value.iter().enumerate().take(lens) {
+            ctx.assign(i, lookup_constants_row, F::from(i as u64));
+            ctx.assign(
+                i,
+                lookup_constants_c,
+                F::from_str_vartime(round_key).unwrap(),
+            );
+        }
+    });
+
+    ctx.new_table(table().add(lookup_constants_row).add(lookup_constants_c))
+}
+
+fn poseidon_matrix_table<F: PrimeField + Eq + Hash>(
+    ctx: &mut CircuitContext<F, ()>,
+    param_t: usize,
+) -> LookupTable {
+    use chiquito::dsl::cb::*;
+
+    let lookup_matrix_row: Queriable<F> = ctx.fixed("constant row");
+    let lookup_matrix_c: Queriable<F> = ctx.fixed("constant value");
+
+    let matrix_value = poseidon_matrix(param_t);
+    let lens = matrix_value.len();
+    ctx.pragma_num_steps(lens);
+    ctx.fixed_gen(move |ctx| {
+        for (i, round_key) in matrix_value.iter().enumerate().take(lens) {
+            ctx.assign(i, lookup_matrix_row, F::from(i as u64));
+            ctx.assign(i, lookup_matrix_c, F::from_str_vartime(round_key).unwrap());
+        }
+    });
+
+    ctx.new_table(table().add(lookup_matrix_row).add(lookup_matrix_c))
+}
+
 fn poseidon_circuit<F: PrimeField + Eq + Hash>(
     ctx: &mut CircuitContext<F, ValuesAndLens<F>>,
-    lens: Lens,
+    param: CircuitParams,
 ) {
     use chiquito::dsl::cb::*;
 
     let n_rounds_p: Vec<usize> = vec![
         56, 57, 56, 60, 60, 63, 64, 63, 60, 66, 60, 65, 70, 60, 64, 68,
     ];
-    let param_t: usize = lens.n_inputs + 1;
+    let param_t: usize = param.lens.n_inputs + 1;
     let param_f: usize = 8;
     let param_p: usize = n_rounds_p[param_t - 2];
     let param_c: usize = 1;
 
-    assert!(lens.n_inputs < param_t);
-    assert!(lens.n_outputs < param_t);
+    assert!(param.lens.n_inputs < param_t);
+    assert!(param.lens.n_outputs < param_t);
 
     let matrix: Vec<Queriable<F>> = (0..param_t * param_t)
         .map(|i| ctx.forward(format! {"matrix_{:?}", i}.as_str()))
@@ -12817,6 +12872,8 @@ fn poseidon_circuit<F: PrimeField + Eq + Hash>(
     let x_vec: Vec<Queriable<F>> = (0..param_t)
         .map(|i| ctx.forward(format! {"x_{:?}", i}.as_str()))
         .collect();
+
+    let round = ctx.forward("round");
 
     let poseidon_step_first_round = ctx.step_type_def("poseidon_first_round", |ctx| {
         let matrix = matrix.clone();
@@ -12839,11 +12896,13 @@ fn poseidon_circuit<F: PrimeField + Eq + Hash>(
 
         ctx.setup(move |ctx| {
             for i in 0..param_t {
-                if i < lens.n_inputs {
+                if i < param.lens.n_inputs {
                     ctx.constr(eq(setup_inputs[i] + setup_constants[i], setup_x_vec[i]));
                 } else {
                     ctx.constr(eq(setup_constants[i], setup_x_vec[i]));
                 }
+                ctx.add_lookup(param.constants_table.apply(i).apply(setup_constants[i]));
+
                 ctx.constr(eq(
                     setup_x_vec[i]
                         * setup_x_vec[i]
@@ -12856,19 +12915,28 @@ fn poseidon_circuit<F: PrimeField + Eq + Hash>(
 
             for i in 0..param_t {
                 let m_offset = i * param_t;
+                for j in 0..param_t {
+                    ctx.add_lookup(
+                        param
+                            .matrix_table
+                            .apply(m_offset + j)
+                            .apply(setup_matrix[m_offset + j]),
+                    );
+                }
+
                 let mut lc = setup_sboxs[0] * setup_matrix[m_offset];
+
                 for s in 1..param_t {
                     lc = lc + setup_sboxs[s] * setup_matrix[m_offset + s];
                 }
-                for k in param_t..lens.n_inputs {
+                for k in param_t..param.lens.n_inputs {
                     lc = lc + setup_inputs[k] * setup_matrix[m_offset + k];
                 }
                 ctx.constr(eq(lc, setup_outs[i]));
                 ctx.transition(eq(setup_outs[i], setup_inputs[i].next()));
             }
-            for mvalue in setup_matrix.iter().take(param_t * param_t) {
-                ctx.transition(eq(*mvalue, mvalue.next()));
-            }
+            ctx.constr(eq(round, 0));
+            ctx.transition(eq(round + 1, round.next()));
         });
 
         ctx.wg(move |ctx, round_values: RoundValues<F>| {
@@ -12885,6 +12953,7 @@ fn poseidon_circuit<F: PrimeField + Eq + Hash>(
                 ctx.assign(x_vec[i], round_values.x_values[i]);
                 ctx.assign(sboxs[i], round_values.sbox_values[i]);
                 ctx.assign(outs[i], round_values.out_values[i]);
+                ctx.assign(round, round_values.round);
             }
         })
     });
@@ -12919,10 +12988,24 @@ fn poseidon_circuit<F: PrimeField + Eq + Hash>(
                         * setup_x_vec[i],
                     setup_sboxs[i],
                 ));
+                ctx.add_lookup(
+                    param
+                        .constants_table
+                        .apply(round * param_t + i)
+                        .apply(setup_constants[i]),
+                );
             }
 
             for i in 0..param_t {
                 let m_offset = i * param_t;
+                for j in 0..param_t {
+                    ctx.add_lookup(
+                        param
+                            .matrix_table
+                            .apply(m_offset + j)
+                            .apply(setup_matrix[m_offset + j]),
+                    );
+                }
                 let mut lc = setup_sboxs[0] * setup_matrix[m_offset];
                 for s in 1..param_t {
                     lc = lc + setup_sboxs[s] * setup_matrix[m_offset + s];
@@ -12930,10 +13013,7 @@ fn poseidon_circuit<F: PrimeField + Eq + Hash>(
                 ctx.constr(eq(lc, setup_outs[i]));
                 ctx.transition(eq(setup_outs[i], setup_inputs[i].next()));
             }
-
-            for mvalue in setup_matrix.iter().take(param_t * param_t) {
-                ctx.transition(eq(*mvalue, mvalue.next()));
-            }
+            ctx.transition(eq(round + 1, round.next()));
         });
 
         ctx.wg(move |ctx, round_values: RoundValues<F>| {
@@ -12947,6 +13027,7 @@ fn poseidon_circuit<F: PrimeField + Eq + Hash>(
                 ctx.assign(sboxs[i], round_values.sbox_values[i]);
                 ctx.assign(outs[i], round_values.out_values[i]);
             }
+            ctx.assign(round, round_values.round);
         })
     });
 
@@ -12976,6 +13057,13 @@ fn poseidon_circuit<F: PrimeField + Eq + Hash>(
                 } else {
                     ctx.constr(eq(setup_constants[i], setup_x_vec[i]));
                 }
+                ctx.add_lookup(
+                    param
+                        .constants_table
+                        .apply(round * param_t + i)
+                        .apply(setup_constants[i]),
+                );
+
                 ctx.constr(eq(
                     setup_x_vec[i]
                         * setup_x_vec[i]
@@ -12988,6 +13076,14 @@ fn poseidon_circuit<F: PrimeField + Eq + Hash>(
 
             for i in 0..param_t {
                 let m_offset = i * param_t;
+                for j in 0..param_t {
+                    ctx.add_lookup(
+                        param
+                            .matrix_table
+                            .apply(m_offset + j)
+                            .apply(setup_matrix[m_offset + j]),
+                    );
+                }
                 let mut lc = setup_sboxs[0] * setup_matrix[m_offset];
                 if param_c < param_t {
                     for j in param_c..param_t {
@@ -13004,9 +13100,7 @@ fn poseidon_circuit<F: PrimeField + Eq + Hash>(
                 ctx.transition(eq(setup_outs[i], setup_inputs[i].next()));
             }
 
-            for mvalue in setup_matrix.iter().take(param_t * param_t) {
-                ctx.transition(eq(*mvalue, mvalue.next()));
-            }
+            ctx.transition(eq(round + 1, round.next()));
         });
 
         ctx.wg(move |ctx, round_values: RoundValues<F>| {
@@ -13023,6 +13117,7 @@ fn poseidon_circuit<F: PrimeField + Eq + Hash>(
                 ctx.assign(x_vec[i], round_values.x_values[i]);
                 ctx.assign(sboxs[i], round_values.sbox_values[i]);
             }
+            ctx.assign(round, round_values.round);
         })
     });
 
@@ -13056,9 +13151,26 @@ fn poseidon_circuit<F: PrimeField + Eq + Hash>(
                         * setup_x_vec[i],
                     setup_sboxs[i],
                 ));
+                ctx.add_lookup(
+                    param
+                        .constants_table
+                        .apply(round * param_t + i)
+                        .apply(setup_constants[i]),
+                );
             }
 
-            for (i, out) in setup_outs.iter().enumerate().take(lens.n_outputs) {
+            for i in 0..param_t {
+                let m_offset = i * param_t;
+                for j in 0..param_t {
+                    ctx.add_lookup(
+                        param
+                            .matrix_table
+                            .apply(m_offset + j)
+                            .apply(setup_matrix[m_offset + j]),
+                    );
+                }
+            }
+            for (i, out) in setup_outs.iter().enumerate().take(param.lens.n_outputs) {
                 let m_offset = i * param_t;
                 let mut lc = setup_sboxs[0] * setup_matrix[m_offset];
                 for s in 1..param_c {
@@ -13085,6 +13197,7 @@ fn poseidon_circuit<F: PrimeField + Eq + Hash>(
             for (out, value) in outs.iter().zip(round_values.out_values.iter()) {
                 ctx.assign(*out, *value);
             }
+            ctx.assign(round, round_values.round);
         })
     });
 
@@ -13094,13 +13207,6 @@ fn poseidon_circuit<F: PrimeField + Eq + Hash>(
     ctx.pragma_num_steps(param_f + param_p);
 
     ctx.trace(move |ctx, values| {
-        // let param_t: usize = 6;
-        // let param_c: usize = 1;
-        // let param_f: usize = 8;
-        // let param_p: usize = 7;
-        // let n_inputs: usize = 6;
-        // let n_outputs: usize = 1;
-
         // calculate poseidonConstants
         // Using recommended parameters from whitepaper https://eprint.iacr.org/2019/458.pdf (table 2, table 8)
         // Generated by https://extgit.iaik.tugraz.at/krypto/hadeshash/-/blob/master/code/calc_round_numbers.py
@@ -13154,6 +13260,7 @@ fn poseidon_circuit<F: PrimeField + Eq + Hash>(
             x_values,
             sbox_values,
             out_values: outputs.clone(),
+            round: F::ZERO,
         };
         ctx.add(&poseidon_step_first_round, round_values);
         inputs = outputs;
@@ -13185,6 +13292,7 @@ fn poseidon_circuit<F: PrimeField + Eq + Hash>(
                 x_values,
                 sbox_values,
                 out_values: outputs.clone(),
+                round: F::from(i as u64),
             };
             ctx.add(&poseidon_step_full_round, round_values);
             inputs = outputs;
@@ -13234,6 +13342,7 @@ fn poseidon_circuit<F: PrimeField + Eq + Hash>(
                 x_values,
                 sbox_values,
                 out_values: outputs.clone(),
+                round: F::from((i + param_f / 2) as u64),
             };
             ctx.add(&poseidon_step_partial_round, round_values);
             inputs = outputs;
@@ -13268,6 +13377,7 @@ fn poseidon_circuit<F: PrimeField + Eq + Hash>(
                 x_values,
                 sbox_values,
                 out_values: outputs.clone(),
+                round: F::from((i + param_f / 2 + param_p) as u64),
             };
             ctx.add(&poseidon_step_full_round, round_values);
             inputs = outputs;
@@ -13304,6 +13414,7 @@ fn poseidon_circuit<F: PrimeField + Eq + Hash>(
             x_values,
             sbox_values,
             out_values: outputs,
+            round: F::from((param_p + param_f - 1) as u64),
         };
         ctx.add(&poseidon_step_last_round, round_values);
     })
@@ -13315,7 +13426,16 @@ fn poseidon_super_circuit<F: PrimeField + Eq + Hash>(
     super_circuit::<F, ValuesAndLens<F>, _>("poseidon", |ctx| {
         let config = config(SingleRowCellManager {}, SimpleStepSelectorBuilder {});
 
-        let (poseidon, _) = ctx.sub_circuit(config, poseidon_circuit, lens);
+        let (_, constants_table) =
+            ctx.sub_circuit(config.clone(), poseidon_constants_table, lens.n_inputs + 1);
+        let (_, matrix_table) =
+            ctx.sub_circuit(config.clone(), poseidon_matrix_table, lens.n_inputs + 1);
+        let params = CircuitParams {
+            lens,
+            constants_table,
+            matrix_table,
+        };
+        let (poseidon, _) = ctx.sub_circuit(config, poseidon_circuit, params);
 
         ctx.mapping(move |ctx, values| {
             ctx.map(&poseidon, values);
