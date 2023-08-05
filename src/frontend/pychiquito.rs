@@ -626,12 +626,7 @@ impl<'de> Visitor<'de> for TraceWitnessVisitor {
                     }
                     step_instances = Some(map.next_value()?);
                 }
-                _ => {
-                    return Err(de::Error::unknown_field(
-                        &key,
-                        &["step_instances"],
-                    ))
-                }
+                _ => return Err(de::Error::unknown_field(&key, &["step_instances"])),
             }
         }
         let step_instances =
