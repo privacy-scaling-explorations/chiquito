@@ -1407,14 +1407,6 @@
 <span id="1407">1407</span>
 <span id="1408">1408</span>
 <span id="1409">1409</span>
-<span id="1410">1410</span>
-<span id="1411">1411</span>
-<span id="1412">1412</span>
-<span id="1413">1413</span>
-<span id="1414">1414</span>
-<span id="1415">1415</span>
-<span id="1416">1416</span>
-<span id="1417">1417</span>
 </pre><pre class="rust"><code><span class="kw">use crate</span>::{
     ast::{
         expr::{query::Queriable, Expr},
@@ -1467,7 +1459,7 @@
     })
 }
 
-<span class="kw">pub fn </span>chiquito_verify_proof(witness_json: <span class="kw-2">&amp;</span>str, ast_id: UUID) {
+<span class="kw">pub fn </span>chiquito_halo2_mock_prover(witness_json: <span class="kw-2">&amp;</span>str, ast_id: UUID) {
     <span class="kw">let </span>trace_witness: TraceWitness&lt;Fr&gt; =
         serde_json::from_str(witness_json).expect(<span class="string">&quot;Json deserialization to TraceWitness failed.&quot;</span>);
     <span class="kw">let </span>(compiled, assignment_generator) = uuid_to_halo2(ast_id);
@@ -2043,15 +2035,7 @@
                     }
                     step_instances = <span class="prelude-val">Some</span>(map.next_value()<span class="question-mark">?</span>);
                 }
-                <span class="string">&quot;height&quot; </span>=&gt; {
-                    <span class="comment">// ignore legacy field
-                </span>}
-                <span class="kw">_ </span>=&gt; {
-                    <span class="kw">return </span><span class="prelude-val">Err</span>(de::Error::unknown_field(
-                        <span class="kw-2">&amp;</span>key,
-                        <span class="kw-2">&amp;</span>[<span class="string">&quot;step_instances&quot;</span>, <span class="string">&quot;height&quot;</span>],
-                    ))
-                }
+                <span class="kw">_ </span>=&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(de::Error::unknown_field(<span class="kw-2">&amp;</span>key, <span class="kw-2">&amp;</span>[<span class="string">&quot;step_instances&quot;</span>])),
             }
         }
         <span class="kw">let </span>step_instances =
