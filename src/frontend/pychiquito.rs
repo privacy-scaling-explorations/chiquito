@@ -50,7 +50,7 @@ pub fn uuid_to_halo2(uuid: UUID) -> (ChiquitoHalo2<Fr>, Option<AssigmentGenerato
     })
 }
 
-pub fn chiquito_verify_proof(witness_json: &str, ast_id: UUID) {
+pub fn chiquito_halo2_mock_prover(witness_json: &str, ast_id: UUID) {
     let trace_witness: TraceWitness<Fr> =
         serde_json::from_str(witness_json).expect("Json deserialization to TraceWitness failed.");
     let (compiled, assignment_generator) = uuid_to_halo2(ast_id);
