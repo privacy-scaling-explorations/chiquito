@@ -9,7 +9,7 @@ use crate::{
 
 /// A struct that represents a witness generation context. It provides an interface for assigning
 /// values to witness columns in a circuit.
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone)]
 pub struct StepInstance<F> {
     pub step_type_uuid: StepTypeUUID,
     pub assignments: HashMap<Queriable<F>, F>,
@@ -39,12 +39,20 @@ pub struct TraceWitness<F> {
     pub step_instances: Witness<F>,
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug)]
 pub struct TraceContext<F> {
     witness: TraceWitness<F>,
+    num_steps: usize,
 }
 
-impl<F> TraceContext<F> {
+impl<F: Default> TraceContext<F> {
+    pub fn new(num_steps: usize) -> Self {
+        Self {
+            witness: TraceWitness::default(),
+            num_steps,
+        }
+    }
+
     pub fn get_witness(self) -> TraceWitness<F> {
         self.witness
     }
@@ -62,18 +70,31 @@ impl<F> TraceContext<F> {
 
         self.witness.step_instances.push(witness);
     }
+
+    // This function pads the rest of the circuit with the given StepTypeWGHandler
+    pub fn padding<Args, WG: Fn(&mut StepInstance<F>, Args) + 'static>(
+        &mut self,
+        step: &StepTypeWGHandler<F, Args, WG>,
+        args_fn: impl Fn() -> Args,
+    ) {
+        while self.witness.step_instances.len() < self.num_steps {
+            self.add(step, (args_fn)());
+        }
+    }
 }
 
 pub type Trace<F, TraceArgs> = dyn Fn(&mut TraceContext<F>, TraceArgs) + 'static;
 
 pub struct TraceGenerator<F, TraceArgs> {
     trace: Rc<Trace<F, TraceArgs>>,
+    num_steps: usize,
 }
 
 impl<F, TraceArgs> Clone for TraceGenerator<F, TraceArgs> {
     fn clone(&self) -> Self {
         Self {
             trace: self.trace.clone(),
+            num_steps: self.num_steps,
         }
     }
 }
@@ -82,17 +103,18 @@ impl<F, TraceArgs> Default for TraceGenerator<F, TraceArgs> {
     fn default() -> Self {
         Self {
             trace: Rc::new(|_, _| {}),
+            num_steps: 0,
         }
     }
 }
 
 impl<F: Default, TraceArgs> TraceGenerator<F, TraceArgs> {
-    pub fn new(trace: Rc<Trace<F, TraceArgs>>) -> Self {
-        Self { trace }
+    pub fn new(trace: Rc<Trace<F, TraceArgs>>, num_steps: usize) -> Self {
+        Self { trace, num_steps }
     }
 
     pub fn generate(&self, args: TraceArgs) -> TraceWitness<F> {
-        let mut ctx = TraceContext::default();
+        let mut ctx = TraceContext::new(self.num_steps);
 
         (self.trace)(&mut ctx, args);
 
@@ -105,14 +127,14 @@ pub type FixedAssignment<F> = HashMap<Queriable<F>, Vec<F>>;
 /// A struct that can be used a fixed column generation context. It provides an interface for
 /// assigning values to fixed columns in a circuit at the specified offset.
 pub struct FixedGenContext<F> {
-    assigments: FixedAssignment<F>,
+    assignments: FixedAssignment<F>,
     num_steps: usize,
 }
 
 impl<F: Field + Hash> FixedGenContext<F> {
     pub fn new(num_steps: usize) -> Self {
         Self {
-            assigments: Default::default(),
+            assignments: Default::default(),
             num_steps,
         }
     }
@@ -124,20 +146,53 @@ impl<F: Field + Hash> FixedGenContext<F> {
             panic!("trying to assign non-fixed signal");
         }
 
-        if let Some(assigments) = self.assigments.get_mut(&lhs) {
-            assigments[offset] = rhs;
+        if let Some(assignments) = self.assignments.get_mut(&lhs) {
+            assignments[offset] = rhs;
         } else {
-            let mut assigments = vec![F::ZERO; self.num_steps];
-            assigments[offset] = rhs;
-            self.assigments.insert(lhs, assigments);
+            let mut assignments = vec![F::ZERO; self.num_steps];
+            assignments[offset] = rhs;
+            self.assignments.insert(lhs, assignments);
         }
     }
 
-    pub fn get_assigments(self) -> FixedAssignment<F> {
-        self.assigments
+    pub fn get_assignments(self) -> FixedAssignment<F> {
+        self.assignments
     }
 
     fn is_fixed_queriable(q: Queriable<F>) -> bool {
         matches!(q, Queriable::Halo2FixedQuery(_, _) | Queriable::Fixed(_, _))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::{dsl::StepTypeWGHandler, util::uuid};
+
+    fn dummy_args_fn() {}
+
+    #[test]
+    fn test_padding_no_witness() {
+        let mut ctx = TraceContext::new(5);
+        let step = StepTypeWGHandler::new(uuid(), "dummy", |_: &mut StepInstance<i32>, _: ()| {});
+
+        assert_eq!(ctx.witness.step_instances.len(), 0);
+        ctx.padding(&step, dummy_args_fn);
+
+        assert_eq!(ctx.witness.step_instances.len(), 5);
+    }
+
+    #[test]
+    fn test_padding_partial_witness() {
+        let mut ctx = TraceContext::new(5);
+        let step = StepTypeWGHandler::new(uuid(), "dummy", |_: &mut StepInstance<i32>, _: ()| {});
+
+        dummy_args_fn();
+        ctx.add(&step, ());
+
+        assert_eq!(ctx.witness.step_instances.len(), 1);
+        ctx.padding(&step, dummy_args_fn);
+
+        assert_eq!(ctx.witness.step_instances.len(), 5);
     }
 }

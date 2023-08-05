@@ -12,7 +12,7 @@ use crate::{
         ImportedHalo2Advice, ImportedHalo2Fixed, SharedSignal, StepType, StepTypeUUID,
     },
     ir::{
-        assigments::{AssigmentGenerator, Assignments},
+        assignments::{AssignmentGenerator, Assignments},
         Circuit, Column, ColumnType, Poly, PolyExpr, PolyLookup,
     },
     util::{uuid, UUID},
@@ -322,7 +322,7 @@ impl<CM: CellManager, SSB: StepSelectorBuilder> Compiler<CM, SSB> {
     pub fn compile<F: Field + Hash + Clone, TraceArgs>(
         &self,
         ast: &astCircuit<F, TraceArgs>,
-    ) -> (Circuit<F>, Option<AssigmentGenerator<F, TraceArgs>>) {
+    ) -> (Circuit<F>, Option<AssignmentGenerator<F, TraceArgs>>) {
         let (mut unit, assignment) = self.compile_phase1(ast);
 
         self.compile_phase2(&mut unit);
@@ -333,7 +333,10 @@ impl<CM: CellManager, SSB: StepSelectorBuilder> Compiler<CM, SSB> {
     pub fn compile_phase1<F: Field + Hash + Clone, TraceArgs>(
         &self,
         ast: &astCircuit<F, TraceArgs>,
-    ) -> (CompilationUnit<F>, Option<AssigmentGenerator<F, TraceArgs>>) {
+    ) -> (
+        CompilationUnit<F>,
+        Option<AssignmentGenerator<F, TraceArgs>>,
+    ) {
         let mut unit = CompilationUnit::from(ast);
 
         self.add_halo2_columns(&mut unit, ast);
@@ -359,18 +362,18 @@ impl<CM: CellManager, SSB: StepSelectorBuilder> Compiler<CM, SSB> {
 
         self.step_selector_builder.build::<F>(&mut unit);
 
-        let assigment = ast.trace.as_ref().map(|v| {
-            AssigmentGenerator::new(
+        let assignment = ast.trace.as_ref().map(|v| {
+            AssignmentGenerator::new(
                 unit.columns.clone(),
                 unit.placement.clone(),
                 unit.selector.clone(),
-                TraceGenerator::new(Rc::clone(v)),
+                TraceGenerator::new(Rc::clone(v), ast.num_steps),
                 unit.num_rows,
                 unit.uuid,
             )
         });
 
-        (unit, assigment)
+        (unit, assignment)
     }
 
     pub fn compile_phase2<F: Field + Clone>(&self, unit: &mut CompilationUnit<F>) {
@@ -513,7 +516,7 @@ impl<CM: CellManager, SSB: StepSelectorBuilder> Compiler<CM, SSB> {
             let mut ctx = FixedGenContext::new(unit.num_steps);
             (*fixed_gen)(&mut ctx);
 
-            let assignments = ctx.get_assigments();
+            let assignments = ctx.get_assignments();
 
             unit.fixed_assignments = self.place_fixed_assignments(unit, assignments);
         }

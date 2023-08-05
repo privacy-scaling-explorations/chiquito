@@ -5,7 +5,7 @@ use halo2_proofs::arithmetic::Field;
 use crate::util::UUID;
 
 use super::{
-    assigments::{AssigmentGenerator, Assignments},
+    assignments::{AssignmentGenerator, Assignments},
     Circuit,
 };
 
@@ -63,7 +63,7 @@ impl<F> Default for MappingContext<F> {
 }
 
 impl<F: Field> MappingContext<F> {
-    pub fn map<TraceArgs>(&mut self, gen: &AssigmentGenerator<F, TraceArgs>, args: TraceArgs) {
+    pub fn map<TraceArgs>(&mut self, gen: &AssignmentGenerator<F, TraceArgs>, args: TraceArgs) {
         self.assignments.insert(gen.uuid(), gen.generate(args));
     }
 

@@ -9,7 +9,7 @@ use crate::{
         cell_manager::SingleRowCellManager, step_selector::SimpleStepSelectorBuilder, Compiler,
     },
     dsl::StepTypeHandler,
-    ir::assigments::AssigmentGenerator,
+    ir::assignments::AssignmentGenerator,
     util::{uuid, UUID},
     wit_gen::{StepInstance, TraceWitness},
 };
@@ -19,7 +19,7 @@ use halo2_proofs::{dev::MockProver, halo2curves::bn256::Fr};
 use serde::de::{self, Deserialize, Deserializer, IgnoredAny, MapAccess, Visitor};
 use std::{cell::RefCell, collections::HashMap, fmt, rc::Rc};
 
-type CircuitMap = RefCell<HashMap<UUID, (ChiquitoHalo2<Fr>, Option<AssigmentGenerator<Fr, ()>>)>>;
+type CircuitMap = RefCell<HashMap<UUID, (ChiquitoHalo2<Fr>, Option<AssignmentGenerator<Fr, ()>>)>>;
 
 thread_local! {
     pub static CIRCUIT_MAP: CircuitMap = RefCell::new(HashMap::new());
@@ -43,7 +43,7 @@ pub fn chiquito_ast_to_halo2(ast_json: &str) -> UUID {
     uuid
 }
 
-pub fn uuid_to_halo2(uuid: UUID) -> (ChiquitoHalo2<Fr>, Option<AssigmentGenerator<Fr, ()>>) {
+pub fn uuid_to_halo2(uuid: UUID) -> (ChiquitoHalo2<Fr>, Option<AssignmentGenerator<Fr, ()>>) {
     CIRCUIT_MAP.with(|circuit_map| {
         let circuit_map = circuit_map.borrow();
         circuit_map.get(&uuid).unwrap().clone()
