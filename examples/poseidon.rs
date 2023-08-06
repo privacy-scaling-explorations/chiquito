@@ -2,7 +2,7 @@ use chiquito::{
     ast::query::Queriable,
     backend::halo2::{chiquitoSuperCircuit2Halo2, ChiquitoHalo2SuperCircuit},
     compiler::{
-        cell_manager::SingleRowCellManager, config, step_selector::SimpleStepSelectorBuilder,
+        cell_manager::{MaxWidthCellManager, SingleRowCellManager}, config, step_selector::SimpleStepSelectorBuilder,
     },
     dsl::{lb::LookupTable, super_circuit, CircuitContext},
     ir::sc::SuperCircuit,
@@ -13424,18 +13424,20 @@ fn poseidon_super_circuit<F: PrimeField + Eq + Hash>(
     lens: Lens,
 ) -> SuperCircuit<F, ValuesAndLens<F>> {
     super_circuit::<F, ValuesAndLens<F>, _>("poseidon", |ctx| {
-        let config = config(SingleRowCellManager {}, SimpleStepSelectorBuilder {});
-
+        
+        let single_config = config(SingleRowCellManager {}, SimpleStepSelectorBuilder {});
         let (_, constants_table) =
-            ctx.sub_circuit(config.clone(), poseidon_constants_table, lens.n_inputs + 1);
+            ctx.sub_circuit(single_config.clone(), poseidon_constants_table, lens.n_inputs + 1);
         let (_, matrix_table) =
-            ctx.sub_circuit(config.clone(), poseidon_matrix_table, lens.n_inputs + 1);
+            ctx.sub_circuit(single_config, poseidon_matrix_table, lens.n_inputs + 1);
+        
         let params = CircuitParams {
             lens,
             constants_table,
             matrix_table,
         };
-        let (poseidon, _) = ctx.sub_circuit(config, poseidon_circuit, params);
+        let maxwidth_config = config(MaxWidthCellManager::new(2, true), SimpleStepSelectorBuilder {});
+        let (poseidon, _) = ctx.sub_circuit(maxwidth_config, poseidon_circuit, params);
 
         ctx.mapping(move |ctx, values| {
             ctx.map(&poseidon, values);
@@ -13466,7 +13468,7 @@ fn main() {
     let circuit =
         ChiquitoHalo2SuperCircuit::new(compiled, super_circuit.get_mapping().generate(values));
 
-    let prover = MockProver::<Fr>::run(10, &circuit, Vec::new()).unwrap();
+    let prover = MockProver::<Fr>::run(12, &circuit, Vec::new()).unwrap();
 
     let result = prover.verify_par();
 
