@@ -7,9 +7,9 @@ use crate::{
     util::{uuid, UUID},
 };
 
-use self::assigments::Assignments;
+use self::assignments::Assignments;
 
-pub mod assigments;
+pub mod assignments;
 pub mod sc;
 
 #[derive(Clone, Default)]

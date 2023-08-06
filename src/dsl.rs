@@ -356,6 +356,15 @@ pub struct StepTypeWGHandler<F, Args, D: Fn(&mut StepInstance<F>, Args) + 'stati
 }
 
 impl<F, Args, D: Fn(&mut StepInstance<F>, Args) + 'static> StepTypeWGHandler<F, Args, D> {
+    pub fn new(id: UUID, annotation: &'static str, wg: D) -> Self {
+        StepTypeWGHandler {
+            id,
+            annotation,
+            wg: Box::new(wg),
+            _p: PhantomData,
+        }
+    }
+
     pub fn uuid(&self) -> UUID {
         self.id
     }
