@@ -18,7 +18,7 @@ use chiquito::{
         cb::*,   // functions for constraint building
         circuit, // main function for constructing an AST circuit
     },
-    ir::{assigments::AssigmentGenerator, Circuit}, // compiled circuit type
+    ir::{assignments::AssignmentGenerator, Circuit}, // compiled circuit type
 };
 use halo2_proofs::{arithmetic::Field, dev::MockProver, halo2curves::bn256::Fr};
 
@@ -27,7 +27,7 @@ use halo2_proofs::{arithmetic::Field, dev::MockProver, halo2curves::bn256::Fr};
 // 1. type that implements a field trait
 // 2. empty trace arguments, i.e. (), because there are no external inputs to the Chiquito circuit
 // 3. two witness generation arguments both of u64 type, i.e. (u64, u64)
-fn fibo_circuit<F: Field + From<u64> + Hash>() -> (Circuit<F>, Option<AssigmentGenerator<F, ()>>) {
+fn fibo_circuit<F: Field + From<u64> + Hash>() -> (Circuit<F>, Option<AssignmentGenerator<F, ()>>) {
     // PLONKish table for the Fibonacci circuit:
     // | a | b | c |
     // | 1 | 1 | 2 |
@@ -42,17 +42,8 @@ fn fibo_circuit<F: Field + From<u64> + Hash>() -> (Circuit<F>, Option<AssigmentG
         let a = ctx.forward("a");
         let b = ctx.forward("b");
 
-        // initiate step type for future definition
-        let fibo_step = ctx.step_type("fibo step");
-        let fibo_last_step = ctx.step_type("last step");
-
-        // enforce step type of the first step
-        ctx.pragma_first_step(fibo_step);
-        // enforce step type of the last step
-        ctx.pragma_last_step(fibo_last_step);
-
         // define step type
-        let fibo_step = ctx.step_type_def(fibo_step, |ctx| {
+        let fibo_step = ctx.step_type_def("fibo step", |ctx| {
             // the following objects (constraints, transition constraints, witness generation
             // function) are defined on the step type-level
 
@@ -86,29 +77,6 @@ fn fibo_circuit<F: Field + From<u64> + Hash>() -> (Circuit<F>, Option<AssigmentG
             })
         });
 
-        let fibo_last_step = ctx.step_type_def(fibo_last_step, |ctx| {
-            let c = ctx.internal("c");
-
-            ctx.setup(move |ctx| {
-                // constrain that a + b == c by calling `eq` function from constraint builder
-                // no transition constraint needed for the next instances of a and b, because it's
-                // the last step
-                ctx.constr(eq(a + b, c));
-            });
-
-            ctx.wg(move |ctx, (a_value, b_value): (u32, u32)| {
-                println!(
-                    "fib last line wg: {} {} {}",
-                    a_value,
-                    b_value,
-                    a_value + b_value
-                );
-                ctx.assign(a, a_value.field());
-                ctx.assign(b, b_value.field());
-                ctx.assign(c, (a_value + b_value).field());
-            })
-        });
-
         ctx.pragma_num_steps(11);
 
         // trace function is responsible for adding step instantiations defined in step_type_def
@@ -122,15 +90,13 @@ fn fibo_circuit<F: Field + From<u64> + Hash>() -> (Circuit<F>, Option<AssigmentG
             let mut a = 1;
             let mut b = 2;
 
-            for _i in 1..10 {
+            for _i in 1..11 {
                 ctx.add(&fibo_step, (a, b));
 
                 let prev_a = a;
                 a = b;
                 b += prev_a;
             }
-
-            ctx.add(&fibo_last_step, (a, b));
         })
     });
 

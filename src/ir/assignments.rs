@@ -16,7 +16,7 @@ use super::{Column, PolyExpr};
 
 pub type Assignments<F> = HashMap<Column, Vec<F>>;
 
-pub struct AssigmentGenerator<F, TraceArgs> {
+pub struct AssignmentGenerator<F, TraceArgs> {
     columns: Vec<Column>,
     placement: Placement,
     selector: StepSelector<F>,
@@ -27,7 +27,7 @@ pub struct AssigmentGenerator<F, TraceArgs> {
     ir_id: UUID,
 }
 
-impl<F: Clone, TraceArgs> Clone for AssigmentGenerator<F, TraceArgs> {
+impl<F: Clone, TraceArgs> Clone for AssignmentGenerator<F, TraceArgs> {
     fn clone(&self) -> Self {
         Self {
             columns: self.columns.clone(),
@@ -40,7 +40,7 @@ impl<F: Clone, TraceArgs> Clone for AssigmentGenerator<F, TraceArgs> {
     }
 }
 
-impl<F: Clone, TraceArgs> Default for AssigmentGenerator<F, TraceArgs> {
+impl<F: Clone, TraceArgs> Default for AssignmentGenerator<F, TraceArgs> {
     fn default() -> Self {
         Self {
             columns: Default::default(),
@@ -53,7 +53,7 @@ impl<F: Clone, TraceArgs> Default for AssigmentGenerator<F, TraceArgs> {
     }
 }
 
-impl<F: Field, TraceArgs> AssigmentGenerator<F, TraceArgs> {
+impl<F: Field, TraceArgs> AssignmentGenerator<F, TraceArgs> {
     pub fn new(
         columns: Vec<Column>,
         placement: Placement,
@@ -87,13 +87,13 @@ impl<F: Field, TraceArgs> AssigmentGenerator<F, TraceArgs> {
 
     pub fn generate_with_witness(&self, witness: TraceWitness<F>) -> Assignments<F> {
         let mut offset: usize = 0;
-        let mut assigments: Assignments<F> = Default::default();
+        let mut assignments: Assignments<F> = Default::default();
 
         for step_instance in witness.step_instances.into_iter() {
-            self.assign_step(&mut offset, &mut assigments, &step_instance);
+            self.assign_step(&mut offset, &mut assignments, &step_instance);
         }
 
-        assigments
+        assignments
     }
 
     pub fn uuid(&self) -> UUID {
@@ -103,11 +103,11 @@ impl<F: Field, TraceArgs> AssigmentGenerator<F, TraceArgs> {
     fn assign_step(
         &self,
         offset: &mut usize,
-        assigments: &mut Assignments<F>,
+        assignments: &mut Assignments<F>,
         step_instance: &StepInstance<F>,
     ) {
         for (lhs, rhs) in step_instance.assignments.iter() {
-            self.assign(offset, assigments, step_instance.step_type_uuid, lhs, rhs);
+            self.assign(offset, assignments, step_instance.step_type_uuid, lhs, rhs);
         }
 
         let selector_assignment = self
@@ -117,7 +117,7 @@ impl<F: Field, TraceArgs> AssigmentGenerator<F, TraceArgs> {
         for (expr, value) in selector_assignment.iter() {
             match expr {
                 PolyExpr::Query(column, rot, _) => {
-                    self.set_value(assigments, column.clone(), *offset + *rot as usize, value)
+                    self.set_value(assignments, column.clone(), *offset + *rot as usize, value)
                 }
                 _ => panic!("wrong type of expresion is selector assignment"),
             }
@@ -129,7 +129,7 @@ impl<F: Field, TraceArgs> AssigmentGenerator<F, TraceArgs> {
     fn assign(
         &self,
         offset: &mut usize,
-        assigments: &mut Assignments<F>,
+        assignments: &mut Assignments<F>,
         step_uuid: StepTypeUUID,
         lhs: &Queriable<F>,
         value: &F,
@@ -138,7 +138,7 @@ impl<F: Field, TraceArgs> AssigmentGenerator<F, TraceArgs> {
 
         let offset = (*offset as i32 + rotation) as usize;
 
-        self.set_value(assigments, column, offset, value);
+        self.set_value(assignments, column, offset, value);
     }
 
     fn find_placement(&self, step_uuid: StepTypeUUID, query: &Queriable<F>) -> (Column, i32) {
@@ -166,14 +166,20 @@ impl<F: Field, TraceArgs> AssigmentGenerator<F, TraceArgs> {
         }
     }
 
-    fn set_value(&self, assigments: &mut Assignments<F>, column: Column, offset: usize, value: &F) {
-        if let Some(column_assigments) = assigments.get_mut(&column) {
-            column_assigments[offset] = *value;
+    fn set_value(
+        &self,
+        assignments: &mut Assignments<F>,
+        column: Column,
+        offset: usize,
+        value: &F,
+    ) {
+        if let Some(column_assignments) = assignments.get_mut(&column) {
+            column_assignments[offset] = *value;
         } else {
-            let mut column_assigments = vec![F::ZERO; self.num_rows];
-            column_assigments[offset] = *value;
+            let mut column_assignments = vec![F::ZERO; self.num_rows];
+            column_assignments[offset] = *value;
 
-            assigments.insert(column, column_assigments);
+            assignments.insert(column, column_assignments);
         }
     }
 
