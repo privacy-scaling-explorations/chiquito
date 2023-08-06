@@ -235,9 +235,12 @@ pub struct MaxWidthCellManager {
     same_height: bool,
 }
 
-impl MaxWidthCellManager{
-    pub fn new(max_width: usize, same_height:bool) -> Self {
-        Self { max_width, same_height }
+impl MaxWidthCellManager {
+    pub fn new(max_width: usize, same_height: bool) -> Self {
+        Self {
+            max_width,
+            same_height,
+        }
     }
 }
 
