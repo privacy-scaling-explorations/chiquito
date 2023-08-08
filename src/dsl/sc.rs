@@ -5,10 +5,8 @@ use halo2_proofs::arithmetic::Field;
 use crate::{
     ast::Circuit,
     compiler::{
-        self,
-        cell_manager::{CellManager, SingleRowCellManager},
-        step_selector::{SimpleStepSelectorBuilder, StepSelectorBuilder},
-        CompilationUnit, Compiler, CompilerConfig,
+        cell_manager::CellManager, compile_phase1, compile_phase2,
+        step_selector::StepSelectorBuilder, unit::CompilationUnit, CompilerConfig,
     },
     ir::{
         assignments::AssignmentGenerator,
@@ -53,9 +51,7 @@ impl<F: Field + Hash, MappingArgs> SuperCircuitContext<F, MappingArgs> {
 
         let sub_circuit = sub_circuit_context.circuit;
 
-        let compiler = Compiler::from(config);
-
-        let (unit, assignment) = compiler.compile_phase1(&sub_circuit);
+        let (unit, assignment) = compile_phase1(config, &sub_circuit);
         let assignment = assignment.unwrap_or_else(|| AssignmentGenerator::empty(unit.uuid));
 
         self.sub_circuit_phase1.push(unit);
@@ -68,12 +64,6 @@ impl<F: Field + Hash, MappingArgs> SuperCircuitContext<F, MappingArgs> {
     }
 
     fn compile(mut self) -> SuperCircuit<F, MappingArgs> {
-        // TODO: This is a hack, the compiler should be stateless
-        let compiler = Compiler::from(compiler::config(
-            SingleRowCellManager {},
-            SimpleStepSelectorBuilder {},
-        ));
-
         let other = Rc::new(self.sub_circuit_phase1.clone());
         // let columns = other
         // .iter()
@@ -85,7 +75,7 @@ impl<F: Field + Hash, MappingArgs> SuperCircuitContext<F, MappingArgs> {
             unit.other_sub_circuits = Rc::clone(&other);
             // unit.columns = columns.clone();
 
-            compiler.compile_phase2(&mut unit);
+            compile_phase2(&mut unit);
 
             self.super_circuit.add_sub_circuit(unit.into());
         }
