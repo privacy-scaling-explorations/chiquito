@@ -11,8 +11,9 @@ use chiquito::{
                                                              * circuit */
     compiler::{
         cell_manager::SingleRowCellManager, // input for constructing the compiler
-        step_selector::SimpleStepSelectorBuilder, // input for constructing the compiler
-        Compiler,
+        compile,                            // input for constructing the compiler
+        config,
+        step_selector::SimpleStepSelectorBuilder,
     },
     dsl::{
         cb::*,   // functions for constraint building
@@ -100,9 +101,10 @@ fn fibo_circuit<F: Field + From<u64> + Hash>() -> (Circuit<F>, Option<Assignment
         })
     });
 
-    let compiler = Compiler::new(SingleRowCellManager {}, SimpleStepSelectorBuilder {});
-
-    compiler.compile(&fibo)
+    compile(
+        config(SingleRowCellManager {}, SimpleStepSelectorBuilder {}),
+        &fibo,
+    )
 }
 
 // After compiling Chiquito AST to an IR, it is further parsed by a Chiquito Halo2 backend and

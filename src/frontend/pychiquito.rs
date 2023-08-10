@@ -6,7 +6,8 @@ use crate::{
     },
     backend::halo2::{chiquito2Halo2, ChiquitoHalo2, ChiquitoHalo2Circuit},
     compiler::{
-        cell_manager::SingleRowCellManager, step_selector::SimpleStepSelectorBuilder, Compiler,
+        cell_manager::SingleRowCellManager, compile, config,
+        step_selector::SimpleStepSelectorBuilder,
     },
     dsl::StepTypeHandler,
     ir::assignments::AssignmentGenerator,
@@ -28,10 +29,12 @@ thread_local! {
 pub fn chiquito_ast_to_halo2(ast_json: &str) -> UUID {
     let circuit: Circuit<Fr, ()> =
         serde_json::from_str(ast_json).expect("Json deserialization to Circuit failed.");
-    let compiler = Compiler::new(SingleRowCellManager {}, SimpleStepSelectorBuilder {});
-    let (chiquito, assignment_generator) = compiler.compile(&circuit);
+
+    let config = config(SingleRowCellManager {}, SimpleStepSelectorBuilder {});
+    let (chiquito, assignment_generator) = compile(config, &circuit);
     let chiquito_halo2 = chiquito2Halo2(chiquito);
     let uuid = uuid();
+
     CIRCUIT_MAP.with(|circuit_map| {
         circuit_map
             .borrow_mut()
