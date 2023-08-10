@@ -97,16 +97,6 @@
 <span id="97">97</span>
 <span id="98">98</span>
 <span id="99">99</span>
-<span id="100">100</span>
-<span id="101">101</span>
-<span id="102">102</span>
-<span id="103">103</span>
-<span id="104">104</span>
-<span id="105">105</span>
-<span id="106">106</span>
-<span id="107">107</span>
-<span id="108">108</span>
-<span id="109">109</span>
 </pre><pre class="rust"><code><span class="kw">use </span>std::{hash::Hash, rc::Rc};
 
 <span class="kw">use </span>halo2_proofs::arithmetic::Field;
@@ -114,10 +104,8 @@
 <span class="kw">use crate</span>::{
     ast::Circuit,
     compiler::{
-        <span class="self">self</span>,
-        cell_manager::{CellManager, SingleRowCellManager},
-        step_selector::{SimpleStepSelectorBuilder, StepSelectorBuilder},
-        CompilationUnit, Compiler, CompilerConfig,
+        cell_manager::CellManager, compile_phase1, compile_phase2,
+        step_selector::StepSelectorBuilder, unit::CompilationUnit, CompilerConfig,
     },
     ir::{
         assignments::AssignmentGenerator,
@@ -162,9 +150,7 @@
 
         <span class="kw">let </span>sub_circuit = sub_circuit_context.circuit;
 
-        <span class="kw">let </span>compiler = Compiler::from(config);
-
-        <span class="kw">let </span>(unit, assignment) = compiler.compile_phase1(<span class="kw-2">&amp;</span>sub_circuit);
+        <span class="kw">let </span>(unit, assignment) = compile_phase1(config, <span class="kw-2">&amp;</span>sub_circuit);
         <span class="kw">let </span>assignment = assignment.unwrap_or_else(|| AssignmentGenerator::empty(unit.uuid));
 
         <span class="self">self</span>.sub_circuit_phase1.push(unit);
@@ -177,12 +163,6 @@
     }
 
     <span class="kw">fn </span>compile(<span class="kw-2">mut </span><span class="self">self</span>) -&gt; SuperCircuit&lt;F, MappingArgs&gt; {
-        <span class="comment">// TODO: This is a hack, the compiler should be stateless
-        </span><span class="kw">let </span>compiler = Compiler::from(compiler::config(
-            SingleRowCellManager {},
-            SimpleStepSelectorBuilder {},
-        ));
-
         <span class="kw">let </span>other = Rc::new(<span class="self">self</span>.sub_circuit_phase1.clone());
         <span class="comment">// let columns = other
         // .iter()
@@ -194,7 +174,7 @@
             unit.other_sub_circuits = Rc::clone(<span class="kw-2">&amp;</span>other);
             <span class="comment">// unit.columns = columns.clone();
 
-            </span>compiler.compile_phase2(<span class="kw-2">&amp;mut </span>unit);
+            </span>compile_phase2(<span class="kw-2">&amp;mut </span>unit);
 
             <span class="self">self</span>.super_circuit.add_sub_circuit(unit.into());
         }

@@ -1407,6 +1407,9 @@
 <span id="1407">1407</span>
 <span id="1408">1408</span>
 <span id="1409">1409</span>
+<span id="1410">1410</span>
+<span id="1411">1411</span>
+<span id="1412">1412</span>
 </pre><pre class="rust"><code><span class="kw">use crate</span>::{
     ast::{
         expr::{query::Queriable, Expr},
@@ -1415,7 +1418,8 @@
     },
     backend::halo2::{chiquito2Halo2, ChiquitoHalo2, ChiquitoHalo2Circuit},
     compiler::{
-        cell_manager::SingleRowCellManager, step_selector::SimpleStepSelectorBuilder, Compiler,
+        cell_manager::SingleRowCellManager, compile, config,
+        step_selector::SimpleStepSelectorBuilder,
     },
     dsl::StepTypeHandler,
     ir::assignments::AssignmentGenerator,
@@ -1437,10 +1441,12 @@
 <span class="kw">pub fn </span>chiquito_ast_to_halo2(ast_json: <span class="kw-2">&amp;</span>str) -&gt; UUID {
     <span class="kw">let </span>circuit: Circuit&lt;Fr, ()&gt; =
         serde_json::from_str(ast_json).expect(<span class="string">&quot;Json deserialization to Circuit failed.&quot;</span>);
-    <span class="kw">let </span>compiler = Compiler::new(SingleRowCellManager {}, SimpleStepSelectorBuilder {});
-    <span class="kw">let </span>(chiquito, assignment_generator) = compiler.compile(<span class="kw-2">&amp;</span>circuit);
+
+    <span class="kw">let </span>config = config(SingleRowCellManager {}, SimpleStepSelectorBuilder {});
+    <span class="kw">let </span>(chiquito, assignment_generator) = compile(config, <span class="kw-2">&amp;</span>circuit);
     <span class="kw">let </span>chiquito_halo2 = chiquito2Halo2(chiquito);
     <span class="kw">let </span>uuid = uuid();
+
     CIRCUIT_MAP.with(|circuit_map| {
         circuit_map
             .borrow_mut()
