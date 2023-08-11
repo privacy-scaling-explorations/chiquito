@@ -12,7 +12,7 @@ use self::assignments::Assignments;
 pub mod assignments;
 pub mod sc;
 
-#[derive(Clone, Default)]
+#[derive(Debug, Clone, Default)]
 pub struct Circuit<F> {
     pub columns: Vec<Column>,
     pub exposed: Vec<(Column, i32)>,
@@ -24,16 +24,6 @@ pub struct Circuit<F> {
 
     pub id: UUID,
     pub ast_id: UUID,
-}
-
-impl<F: Debug> Debug for Circuit<F> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("Circuit")
-            .field("columns", &self.columns)
-            .field("polys", &self.polys)
-            .field("lookups", &self.lookups)
-            .finish()
-    }
 }
 
 #[derive(Clone, Debug, Hash)]

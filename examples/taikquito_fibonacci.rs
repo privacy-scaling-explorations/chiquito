@@ -3,10 +3,12 @@ use halo2curves::bn256::Fr;
 
 use chiquito::{
     ast::ToField,
-    backend::halo2::{chiquito2Halo2, ChiquitoHalo2Circuit},
     circuit,
-    compiler::{cell_manager::SingleRowCellManager, step_selector::SimpleStepSelectorBuilder},
-    ir::{assignments::AssignmentGenerator, Circuit},
+    plonkish::{
+        backend::halo2::{chiquito2Halo2, ChiquitoHalo2Circuit},
+        compiler::{cell_manager::SingleRowCellManager, step_selector::SimpleStepSelectorBuilder},
+        ir::{assignments::AssignmentGenerator, Circuit},
+    },
 };
 
 fn fibo_circuit() -> (Circuit<Fr>, Option<AssignmentGenerator<Fr, ()>>) {
@@ -51,8 +53,8 @@ fn fibo_circuit() -> (Circuit<Fr>, Option<AssignmentGenerator<Fr, ()>>) {
 
     println!("=== AST ===\n{:#?}", fibo);
 
-    chiquito::compiler::compile(
-        chiquito::compiler::config(SingleRowCellManager {}, SimpleStepSelectorBuilder {}),
+    chiquito::plonkish::compiler::compile(
+        chiquito::plonkish::compiler::config(SingleRowCellManager {}, SimpleStepSelectorBuilder {}),
         &fibo,
     )
 }

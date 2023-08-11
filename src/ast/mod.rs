@@ -31,9 +31,10 @@ pub struct Circuit<F, TraceArgs> {
     pub trace: Option<Rc<Trace<F, TraceArgs>>>,
     pub fixed_gen: Option<Rc<FixedGen<F>>>,
 
+    pub num_steps: usize,
+
     pub first_step: Option<StepTypeUUID>,
     pub last_step: Option<StepTypeUUID>,
-    pub num_steps: usize,
     pub q_enable: bool,
 
     pub id: UUID,
@@ -43,8 +44,16 @@ impl<F: Debug, TraceArgs: Debug> Debug for Circuit<F, TraceArgs> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("Circuit")
             .field("forward_signals", &self.forward_signals)
+            .field("shared_signals", &self.shared_signals)
+            .field("fixed_signals", &self.fixed_signals)
             .field("halo2_advice", &self.halo2_advice)
+            .field("halo2_fixed", &self.halo2_fixed)
+            .field("exposed", &self.exposed)
             .field("step_types", &self.step_types)
+            .field("num_steps", &self.num_steps)
+            .field("first_step", &self.first_step)
+            .field("last_step", &self.last_step)
+            .field("q_enable", &self.q_enable)
             .field("annotations", &self.annotations)
             .finish()
     }
@@ -450,7 +459,7 @@ impl FixedSignal {
     }
 }
 
-#[derive(Clone, Copy)]
+#[derive(Debug, Clone, Copy)]
 pub enum ExposeOffset {
     First,
     Last,

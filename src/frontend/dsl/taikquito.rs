@@ -3,7 +3,7 @@ macro_rules! circuit {
     ($id:ident, $content:block) => {{
         use halo2_proofs::halo2curves::bn256::Fr;
 
-        chiquito::dsl::circuit::<Fr, (), _>(stringify!($id), |ctx| {
+        chiquito::frontend::dsl::circuit::<Fr, (), _>(stringify!($id), |ctx| {
             use $crate::circuit_context;
             circuit_context!(ctx);
 
@@ -102,11 +102,11 @@ macro_rules! step_type_setup_context {
     ($ctx: expr) => {
         macro_rules! require {
             ($lhs:expr => $rhs:expr) => {{
-                $ctx.constr($crate::dsl::cb::eq($lhs, $rhs));
+                $ctx.constr($crate::frontend::dsl::cb::eq($lhs, $rhs));
             }};
 
             (transition $lhs:expr => $rhs:expr) => {{
-                $ctx.transition($crate::dsl::cb::eq($lhs, $rhs));
+                $ctx.transition($crate::frontend::dsl::cb::eq($lhs, $rhs));
             }};
         }
     };
