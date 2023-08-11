@@ -393,6 +393,8 @@ where
 pub mod cb;
 pub mod lb;
 pub mod sc;
+#[macro_use]
+pub mod taikquito;
 
 #[cfg(test)]
 mod tests {
