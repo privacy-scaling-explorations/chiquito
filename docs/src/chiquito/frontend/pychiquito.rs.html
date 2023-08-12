@@ -1410,19 +1410,23 @@
 <span id="1410">1410</span>
 <span id="1411">1411</span>
 <span id="1412">1412</span>
+<span id="1413">1413</span>
+<span id="1414">1414</span>
 </pre><pre class="rust"><code><span class="kw">use crate</span>::{
     ast::{
         expr::{query::Queriable, Expr},
         Circuit, Constraint, ExposeOffset, FixedSignal, ForwardSignal, InternalSignal,
         SharedSignal, StepType, StepTypeUUID, TransitionConstraint,
     },
-    backend::halo2::{chiquito2Halo2, ChiquitoHalo2, ChiquitoHalo2Circuit},
-    compiler::{
-        cell_manager::SingleRowCellManager, compile, config,
-        step_selector::SimpleStepSelectorBuilder,
+    frontend::dsl::StepTypeHandler,
+    plonkish::{
+        backend::halo2::{chiquito2Halo2, ChiquitoHalo2, ChiquitoHalo2Circuit},
+        compiler::{
+            cell_manager::SingleRowCellManager, compile, config,
+            step_selector::SimpleStepSelectorBuilder,
+        },
+        ir::assignments::AssignmentGenerator,
     },
-    dsl::StepTypeHandler,
-    ir::assignments::AssignmentGenerator,
     util::{uuid, UUID},
     wit_gen::{StepInstance, TraceWitness},
 };

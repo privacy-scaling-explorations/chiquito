@@ -202,7 +202,7 @@
 
 <span class="kw">use crate</span>::{
     ast::{query::Queriable, StepTypeUUID},
-    dsl::StepTypeWGHandler,
+    frontend::dsl::StepTypeWGHandler,
 };
 
 <span class="doccomment">/// A struct that represents a witness generation context. It provides an interface for assigning
@@ -365,7 +365,7 @@
 <span class="attribute">#[cfg(test)]
 </span><span class="kw">mod </span>tests {
     <span class="kw">use super</span>::<span class="kw-2">*</span>;
-    <span class="kw">use crate</span>::{dsl::StepTypeWGHandler, util::uuid};
+    <span class="kw">use crate</span>::{frontend::dsl::StepTypeWGHandler, util::uuid};
 
     <span class="kw">fn </span>dummy_args_fn() {}
 
