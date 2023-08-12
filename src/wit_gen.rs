@@ -4,7 +4,7 @@ use halo2_proofs::arithmetic::Field;
 
 use crate::{
     ast::{query::Queriable, StepTypeUUID},
-    dsl::StepTypeWGHandler,
+    frontend::dsl::StepTypeWGHandler,
 };
 
 /// A struct that represents a witness generation context. It provides an interface for assigning
@@ -167,7 +167,7 @@ impl<F: Field + Hash> FixedGenContext<F> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{dsl::StepTypeWGHandler, util::uuid};
+    use crate::{frontend::dsl::StepTypeWGHandler, util::uuid};
 
     fn dummy_args_fn() {}
 

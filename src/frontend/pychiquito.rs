@@ -4,13 +4,15 @@ use crate::{
         Circuit, Constraint, ExposeOffset, FixedSignal, ForwardSignal, InternalSignal,
         SharedSignal, StepType, StepTypeUUID, TransitionConstraint,
     },
-    backend::halo2::{chiquito2Halo2, ChiquitoHalo2, ChiquitoHalo2Circuit},
-    compiler::{
-        cell_manager::SingleRowCellManager, compile, config,
-        step_selector::SimpleStepSelectorBuilder,
+    frontend::dsl::StepTypeHandler,
+    plonkish::{
+        backend::halo2::{chiquito2Halo2, ChiquitoHalo2, ChiquitoHalo2Circuit},
+        compiler::{
+            cell_manager::SingleRowCellManager, compile, config,
+            step_selector::SimpleStepSelectorBuilder,
+        },
+        ir::assignments::AssignmentGenerator,
     },
-    dsl::StepTypeHandler,
-    ir::assignments::AssignmentGenerator,
     util::{uuid, UUID},
     wit_gen::{StepInstance, TraceWitness},
 };

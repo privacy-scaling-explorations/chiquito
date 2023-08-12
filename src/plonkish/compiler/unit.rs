@@ -8,7 +8,7 @@ use crate::{
         Circuit as astCircuit, FixedSignal, ForwardSignal, ImportedHalo2Advice, ImportedHalo2Fixed,
         SharedSignal, StepType, StepTypeUUID,
     },
-    ir::{assignments::Assignments, Circuit, Column, ColumnType, Poly, PolyLookup},
+    plonkish::ir::{assignments::Assignments, Circuit, Column, ColumnType, Poly, PolyLookup},
     util::{uuid, UUID},
 };
 

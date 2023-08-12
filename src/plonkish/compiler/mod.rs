@@ -4,7 +4,7 @@ use halo2_proofs::arithmetic::Field;
 
 use crate::{
     ast::{query::Queriable, Circuit as astCircuit, ExposeOffset, Expr, StepType, StepTypeUUID},
-    ir::{
+    plonkish::ir::{
         assignments::{AssignmentGenerator, Assignments},
         Circuit, Column, Poly, PolyExpr, PolyLookup,
     },

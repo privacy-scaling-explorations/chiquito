@@ -12,7 +12,7 @@ use halo2_proofs::{
 
 use crate::{
     ast::ToField,
-    ir::{
+    plonkish::ir::{
         assignments::Assignments,
         sc::{SuperAssignments, SuperCircuit},
         Circuit, Column as cColumn,

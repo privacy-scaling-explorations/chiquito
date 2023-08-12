@@ -9,7 +9,7 @@ use crate::{
         FixedSignal, ForwardSignal, ImportedHalo2Advice, ImportedHalo2Fixed, InternalSignal,
         SharedSignal,
     },
-    dsl::StepTypeHandler,
+    frontend::dsl::StepTypeHandler,
     util::UUID,
 };
 

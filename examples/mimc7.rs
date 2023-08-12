@@ -7,12 +7,14 @@ use halo2_proofs::{
 
 use chiquito::{
     ast::query::Queriable,
-    backend::halo2::{chiquitoSuperCircuit2Halo2, ChiquitoHalo2SuperCircuit},
-    compiler::{
-        cell_manager::SingleRowCellManager, config, step_selector::SimpleStepSelectorBuilder,
+    frontend::dsl::{lb::LookupTable, super_circuit, CircuitContext},
+    plonkish::{
+        backend::halo2::{chiquitoSuperCircuit2Halo2, ChiquitoHalo2SuperCircuit},
+        compiler::{
+            cell_manager::SingleRowCellManager, config, step_selector::SimpleStepSelectorBuilder,
+        },
+        ir::sc::SuperCircuit,
     },
-    dsl::{lb::LookupTable, super_circuit, CircuitContext},
-    ir::sc::SuperCircuit,
 };
 
 use mimc7_constants::ROUND_KEYS;
@@ -24,7 +26,7 @@ fn mimc7_constants<F: PrimeField + Eq + Hash>(
     ctx: &mut CircuitContext<F, ()>,
     _: (),
 ) -> LookupTable {
-    use chiquito::dsl::cb::*;
+    use chiquito::frontend::dsl::cb::*;
 
     ctx.pragma_num_steps(ROUNDS);
 
@@ -50,7 +52,7 @@ fn mimc7_circuit<F: PrimeField + Eq + Hash>(
     ctx: &mut CircuitContext<F, (F, F)>,
     constants: LookupTable,
 ) {
-    use chiquito::dsl::cb::*;
+    use chiquito::frontend::dsl::cb::*;
 
     // circuit takes two trace arguments (x_in: F, k: F), i.e. message x_in and secret key k, as
     // inputs circuit also takes four step arguments (x: F, k: F, c: F, row: F), i.e. iterator
