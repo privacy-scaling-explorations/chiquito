@@ -5,7 +5,7 @@ use std::{
 
 use halo2_proofs::{arithmetic::Field, plonk::Expression};
 
-use crate::dsl::cb::Constraint;
+use crate::frontend::dsl::cb::Constraint;
 
 use self::query::Queriable;
 

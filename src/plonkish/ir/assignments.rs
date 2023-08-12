@@ -7,7 +7,7 @@ use halo2_proofs::{
 
 use crate::{
     ast::{query::Queriable, ForwardSignal, SharedSignal, StepTypeUUID},
-    compiler::{cell_manager::Placement, step_selector::StepSelector},
+    plonkish::compiler::{cell_manager::Placement, step_selector::StepSelector},
     util::UUID,
     wit_gen::{StepInstance, TraceGenerator, TraceWitness},
 };

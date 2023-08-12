@@ -2,24 +2,24 @@ use std::hash::Hash;
 
 use chiquito::{
     ast::expr::*,
-    backend::halo2::{chiquito2Halo2, ChiquitoHalo2Circuit}, /* compiles to
-                                                             * Chiquito Halo2
-                                                             * backend,
-                                                             * which can be
-                                                             * integrated into
-                                                             * Halo2
-                                                             * circuit */
-    compiler::{
+    frontend::dsl::{
+        cb::*,   // functions for constraint building
+        circuit, // main function for constructing an AST circuit
+    },
+    plonkish::backend::halo2::{chiquito2Halo2, ChiquitoHalo2Circuit}, /* compiles to
+                                                                       * Chiquito Halo2
+                                                                       * backend,
+                                                                       * which can be
+                                                                       * integrated into
+                                                                       * Halo2
+                                                                       * circuit */
+    plonkish::compiler::{
         cell_manager::SingleRowCellManager, // input for constructing the compiler
         compile,                            // input for constructing the compiler
         config,
         step_selector::SimpleStepSelectorBuilder,
     },
-    dsl::{
-        cb::*,   // functions for constraint building
-        circuit, // main function for constructing an AST circuit
-    },
-    ir::{assignments::AssignmentGenerator, Circuit}, // compiled circuit type
+    plonkish::ir::{assignments::AssignmentGenerator, Circuit}, // compiled circuit type
 };
 use halo2_proofs::{arithmetic::Field, dev::MockProver, halo2curves::bn256::Fr};
 
@@ -129,7 +129,7 @@ fn main() {
     }
 
     // plaf boilerplate
-    use chiquito::backend::plaf::chiquito2Plaf;
+    use chiquito::plonkish::backend::plaf::chiquito2Plaf;
     use polyexen::plaf::{backends::halo2::PlafH2Circuit, WitnessDisplayCSV};
 
     // get Chiquito ir

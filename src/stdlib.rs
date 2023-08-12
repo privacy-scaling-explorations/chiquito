@@ -4,7 +4,7 @@ use halo2_proofs::arithmetic::Field;
 
 use crate::{
     ast::{query::Queriable, ToExpr},
-    dsl::{
+    frontend::dsl::{
         cb::{Constraint, Typing},
         StepTypeContext,
     },

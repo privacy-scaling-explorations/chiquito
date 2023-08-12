@@ -4,13 +4,15 @@ use halo2_proofs::arithmetic::Field;
 
 use crate::{
     ast::Circuit,
-    compiler::{
-        cell_manager::CellManager, compile_phase1, compile_phase2,
-        step_selector::StepSelectorBuilder, unit::CompilationUnit, CompilerConfig,
-    },
-    ir::{
-        assignments::AssignmentGenerator,
-        sc::{MappingContext, SuperCircuit},
+    plonkish::{
+        compiler::{
+            cell_manager::CellManager, compile_phase1, compile_phase2,
+            step_selector::StepSelectorBuilder, unit::CompilationUnit, CompilerConfig,
+        },
+        ir::{
+            assignments::AssignmentGenerator,
+            sc::{MappingContext, SuperCircuit},
+        },
     },
 };
 
