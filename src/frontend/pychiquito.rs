@@ -22,7 +22,12 @@ use halo2_proofs::{dev::MockProver, halo2curves::bn256::Fr};
 use serde::de::{self, Deserialize, Deserializer, IgnoredAny, MapAccess, Visitor};
 use std::{cell::RefCell, collections::HashMap, fmt, rc::Rc};
 
-type CircuitMap = RefCell<HashMap<UUID, (ChiquitoHalo2<Fr>, Option<AssignmentGenerator<Fr, ()>>, Circuit<Fr, ()>)>>;
+type CircuitMapStore = (
+    ChiquitoHalo2<Fr>,
+    Option<AssignmentGenerator<Fr, ()>>,
+    Circuit<Fr, ()>,
+);
+type CircuitMap = RefCell<HashMap<UUID, CircuitMapStore>>;
 
 thread_local! {
     pub static CIRCUIT_MAP: CircuitMap = RefCell::new(HashMap::new());
@@ -48,7 +53,7 @@ pub fn chiquito_ast_to_halo2(ast_json: &str) -> UUID {
     uuid
 }
 
-pub fn uuid_to_halo2(uuid: UUID) -> (ChiquitoHalo2<Fr>, Option<AssignmentGenerator<Fr, ()>>, Circuit<Fr, ()>) {
+pub fn uuid_to_halo2(uuid: UUID) -> CircuitMapStore {
     CIRCUIT_MAP.with(|circuit_map| {
         let circuit_map = circuit_map.borrow();
         circuit_map.get(&uuid).unwrap().clone()
@@ -58,17 +63,22 @@ pub fn uuid_to_halo2(uuid: UUID) -> (ChiquitoHalo2<Fr>, Option<AssignmentGenerat
 pub fn chiquito_halo2_mock_prover(witness_json: &str, ast_id: UUID) {
     let trace_witness: TraceWitness<Fr> =
         serde_json::from_str(witness_json).expect("Json deserialization to TraceWitness failed.");
-        let (compiled, assignment_generator, ast) = uuid_to_halo2(ast_id);
-        let circuit: ChiquitoHalo2Circuit<_> = ChiquitoHalo2Circuit::new(
+    let (compiled, assignment_generator, ast) = uuid_to_halo2(ast_id);
+    let circuit: ChiquitoHalo2Circuit<_> = ChiquitoHalo2Circuit::new(
         compiled,
         assignment_generator.map(|g| g.generate_with_witness(trace_witness)),
     );
 
     let prover = MockProver::<Fr>::run(
-        7, 
-        &circuit, 
-        if ast.exposed.is_empty() { Vec::new() } else { vec![Vec::new()] }
-    ).unwrap();
+        7,
+        &circuit,
+        if ast.exposed.is_empty() {
+            Vec::new()
+        } else {
+            vec![Vec::new()]
+        },
+    )
+    .unwrap();
 
     let result = prover.verify_par();
 
