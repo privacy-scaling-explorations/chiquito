@@ -1,13 +1,15 @@
 use chiquito::{
     ast::query::Queriable,
-    backend::halo2::{chiquitoSuperCircuit2Halo2, ChiquitoHalo2SuperCircuit},
-    compiler::{
-        cell_manager::{MaxWidthCellManager, SingleRowCellManager},
-        config,
-        step_selector::SimpleStepSelectorBuilder,
+    frontend::dsl::{lb::LookupTable, super_circuit, CircuitContext},
+    plonkish::{
+        backend::halo2::{chiquitoSuperCircuit2Halo2, ChiquitoHalo2SuperCircuit},
+        compiler::{
+            cell_manager::{MaxWidthCellManager, SingleRowCellManager},
+            config,
+            step_selector::SimpleStepSelectorBuilder,
+        },
+        ir::sc::SuperCircuit,
     },
-    dsl::{lb::LookupTable, super_circuit, CircuitContext},
-    ir::sc::SuperCircuit,
 };
 use std::hash::Hash;
 
@@ -49,7 +51,7 @@ fn poseidon_constants_table<F: PrimeField + Eq + Hash>(
     ctx: &mut CircuitContext<F, ()>,
     param_t: usize,
 ) -> LookupTable {
-    use chiquito::dsl::cb::*;
+    use chiquito::frontend::dsl::cb::*;
 
     let lookup_constants_row: Queriable<F> = ctx.fixed("constant row");
     let lookup_constants_c: Queriable<F> = ctx.fixed("constant value");
@@ -75,7 +77,7 @@ fn poseidon_matrix_table<F: PrimeField + Eq + Hash>(
     ctx: &mut CircuitContext<F, ()>,
     param_t: usize,
 ) -> LookupTable {
-    use chiquito::dsl::cb::*;
+    use chiquito::frontend::dsl::cb::*;
 
     let lookup_matrix_row: Queriable<F> = ctx.fixed("constant row");
     let lookup_matrix_c: Queriable<F> = ctx.fixed("constant value");
@@ -97,7 +99,7 @@ fn poseidon_circuit<F: PrimeField + Eq + Hash>(
     ctx: &mut CircuitContext<F, ValuesAndLens<F>>,
     param: CircuitParams,
 ) {
-    use chiquito::dsl::cb::*;
+    use chiquito::frontend::dsl::cb::*;
 
     let n_rounds_p: Vec<usize> = vec![
         56, 57, 56, 60, 60, 63, 64, 63, 60, 66, 60, 65, 70, 60, 64, 68,
@@ -741,7 +743,6 @@ fn main() {
         }
     }
 }
-
 
 fn poseidon_constant(param_t: usize) -> Vec<&'static str> {
     if param_t == 2 {
