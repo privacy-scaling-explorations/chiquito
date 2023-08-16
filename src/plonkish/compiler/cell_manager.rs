@@ -371,7 +371,7 @@ mod tests {
 
     use crate::{
         ast::{ForwardSignal, StepType},
-        compiler::CompilationUnit,
+        plonkish::compiler::CompilationUnit,
     };
 
     use super::{CellManager, MaxWidthCellManager};

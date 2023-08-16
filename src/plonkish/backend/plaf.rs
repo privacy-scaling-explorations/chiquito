@@ -3,7 +3,7 @@ use std::{collections::HashMap, hash::Hash};
 use halo2_proofs::halo2curves::ff::PrimeField;
 
 use crate::{
-    ir::{
+    plonkish::ir::{
         assignments::Assignments,
         Circuit as cCircuit, Column as cColumn,
         ColumnType::{Advice as cAdvice, Fixed as cFixed, Halo2Advice, Halo2Fixed},
