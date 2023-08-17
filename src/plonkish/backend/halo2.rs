@@ -424,25 +424,20 @@ impl<F: Field + From<u64> + Hash> ChiquitoHalo2SuperCircuit<F> {
     }
 
     pub fn instance(&self) -> Vec<Vec<F>> {
-        if !self.witness.is_empty() {
-            let mut result = Vec::new();
+        let mut result = Vec::new();
 
-            for (uuid, assignment) in &self.witness {
-                let sub_circuit = self
-                    .sub_circuits
-                    .iter()
-                    .find(|&sc| sc.ir_id == *uuid)
-                    .expect("No matching sub_circuit found for given UUID.");
-                if !sub_circuit.circuit.exposed.is_empty() {
-                    let instance_values = sub_circuit.instance(assignment);
-                    result.push(instance_values);
-                }
+        for sub_circuit in &self.sub_circuits {
+            if !sub_circuit.circuit.exposed.is_empty() {
+                let instance_values = sub_circuit.instance(
+                    self.witness
+                        .get(&sub_circuit.ir_id)
+                        .expect("No matching witness found for given UUID."),
+                );
+                result.push(instance_values);
             }
-
-            result
-        } else {
-            Vec::new()
         }
+
+        result
     }
 }
 
