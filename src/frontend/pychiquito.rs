@@ -6,7 +6,10 @@ use crate::{
     },
     frontend::dsl::StepTypeHandler,
     plonkish::{
-        backend::halo2::{chiquito2Halo2, ChiquitoHalo2, ChiquitoHalo2Circuit},
+        backend::{
+            halo2::{chiquito2Halo2, ChiquitoHalo2, ChiquitoHalo2Circuit},
+            plaf::chiquito2Plaf,
+        },
         compiler::{
             cell_manager::SingleRowCellManager, compile, config,
             step_selector::SimpleStepSelectorBuilder,
@@ -14,11 +17,12 @@ use crate::{
         ir::assignments::AssignmentGenerator,
     },
     util::{uuid, UUID},
-    wit_gen::{StepInstance, TraceWitness},
+    wit_gen::{StepInstance, TraceContext, TraceWitness},
 };
 
 use core::result::Result;
 use halo2_proofs::{dev::MockProver, halo2curves::bn256::Fr};
+use polyexen::plaf::WitnessDisplayCSV;
 use serde::de::{self, Deserialize, Deserializer, IgnoredAny, MapAccess, Visitor};
 use std::{cell::RefCell, collections::HashMap, fmt, rc::Rc};
 
@@ -58,6 +62,23 @@ pub fn uuid_to_halo2(uuid: UUID) -> CircuitMapStore {
         let circuit_map = circuit_map.borrow();
         circuit_map.get(&uuid).unwrap().clone()
     })
+}
+
+// Debug only
+pub fn chiquito_print_plaf_witness(witness_json: &str, ast_id: UUID) {
+    let trace_witness: TraceWitness<Fr> =
+        serde_json::from_str(witness_json).expect("Json deserialization to TraceWitness failed.");
+    let (_, _, ast) = uuid_to_halo2(ast_id);
+    println!("ast id: {:?}", ast_id);
+
+    let config = config(SingleRowCellManager {}, SimpleStepSelectorBuilder {});
+    let (chiquito, assignment_generator) = compile(config, &ast);
+
+    let (_, plaf_wit_gen) = chiquito2Plaf(chiquito, 5, false);
+    let wit =
+        plaf_wit_gen.generate(assignment_generator.map(|v| v.generate_with_witness(trace_witness)));
+
+    println!("{}", WitnessDisplayCSV(&wit));
 }
 
 pub fn chiquito_halo2_mock_prover(witness_json: &str, ast_id: UUID) {
@@ -233,7 +254,7 @@ impl<'de> Visitor<'de> for CircuitVisitor {
             exposed,
             num_steps,
             annotations,
-            trace: None,
+            trace: Some(Rc::new(|_: &mut TraceContext<_>, _: _| {})),
             fixed_gen: None,
             first_step,
             last_step,
