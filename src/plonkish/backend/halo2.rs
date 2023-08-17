@@ -170,7 +170,7 @@ impl<F: Field + From<u64> + Hash> ChiquitoHalo2<F> {
                 halo2_column,
                 // For single row cell manager, forward signal rotation is always zero.
                 // For max width cell manager, rotation can be non-zero.
-                // Offset is 0 + rotation for the first step instance.
+                // Offset is absolute row index calculated in `compile_exposed`.
                 *rotation as usize,
             );
             let _ = layouter.constrain_instance(cell, self.instance_column.unwrap(), index);
@@ -199,6 +199,25 @@ impl<F: Field + From<u64> + Hash> ChiquitoHalo2<F> {
         }
 
         Ok(())
+    }
+
+    fn instance(&self, witness: &Assignments<F>) -> Vec<F> {
+        let mut instance_values = Vec::new();
+        for (column, rotation) in &self.circuit.exposed {
+            let values = witness
+                .get(column)
+                .unwrap_or_else(|| panic!("exposed column not found: {}", column.annotation));
+
+            if let Some(value) = values.get(*rotation as usize) {
+                instance_values.push(*value);
+            } else {
+                panic!(
+                    "assignment index out of bounds for column: {}",
+                    column.annotation
+                );
+            }
+        }
+        instance_values
     }
 
     fn annotate_circuit(&self, region: &mut Region<F>) {
@@ -337,9 +356,17 @@ pub struct ChiquitoHalo2Circuit<F: Field + From<u64>> {
     witness: Option<Assignments<F>>,
 }
 
-impl<F: Field + From<u64>> ChiquitoHalo2Circuit<F> {
+impl<F: Field + From<u64> + Hash> ChiquitoHalo2Circuit<F> {
     pub fn new(compiled: ChiquitoHalo2<F>, witness: Option<Assignments<F>>) -> Self {
         Self { compiled, witness }
+    }
+
+    pub fn instance(&self) -> Vec<Vec<F>> {
+        if let Some(witness) = &self.witness {
+            vec![self.compiled.instance(witness)]
+        } else {
+            Vec::new()
+        }
     }
 }
 

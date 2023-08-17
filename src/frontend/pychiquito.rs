@@ -6,10 +6,7 @@ use crate::{
     },
     frontend::dsl::StepTypeHandler,
     plonkish::{
-        backend::{
-            halo2::{chiquito2Halo2, ChiquitoHalo2, ChiquitoHalo2Circuit},
-            plaf::chiquito2Plaf,
-        },
+        backend::halo2::{chiquito2Halo2, ChiquitoHalo2, ChiquitoHalo2Circuit},
         compiler::{
             cell_manager::SingleRowCellManager, compile, config,
             step_selector::SimpleStepSelectorBuilder,
@@ -22,15 +19,10 @@ use crate::{
 
 use core::result::Result;
 use halo2_proofs::{dev::MockProver, halo2curves::bn256::Fr};
-use polyexen::plaf::WitnessDisplayCSV;
 use serde::de::{self, Deserialize, Deserializer, IgnoredAny, MapAccess, Visitor};
 use std::{cell::RefCell, collections::HashMap, fmt, rc::Rc};
 
-type CircuitMapStore = (
-    ChiquitoHalo2<Fr>,
-    Option<AssignmentGenerator<Fr, ()>>,
-    Circuit<Fr, ()>,
-);
+type CircuitMapStore = (ChiquitoHalo2<Fr>, Option<AssignmentGenerator<Fr, ()>>);
 type CircuitMap = RefCell<HashMap<UUID, CircuitMapStore>>;
 
 thread_local! {
@@ -49,7 +41,7 @@ pub fn chiquito_ast_to_halo2(ast_json: &str) -> UUID {
     CIRCUIT_MAP.with(|circuit_map| {
         circuit_map
             .borrow_mut()
-            .insert(uuid, (chiquito_halo2, assignment_generator, circuit));
+            .insert(uuid, (chiquito_halo2, assignment_generator));
     });
 
     println!("{:?}", uuid);
@@ -64,42 +56,16 @@ fn uuid_to_halo2(uuid: UUID) -> CircuitMapStore {
     })
 }
 
-// Debug only
-pub fn chiquito_print_plaf_witness(witness_json: &str, ast_id: UUID) {
-    let trace_witness: TraceWitness<Fr> =
-        serde_json::from_str(witness_json).expect("Json deserialization to TraceWitness failed.");
-    let (_, _, ast) = uuid_to_halo2(ast_id);
-    println!("ast id: {:?}", ast_id);
-
-    let config = config(SingleRowCellManager {}, SimpleStepSelectorBuilder {});
-    let (chiquito, assignment_generator) = compile(config, &ast);
-
-    let (_, plaf_wit_gen) = chiquito2Plaf(chiquito, 5, false);
-    let wit =
-        plaf_wit_gen.generate(assignment_generator.map(|v| v.generate_with_witness(trace_witness)));
-
-    println!("{}", WitnessDisplayCSV(&wit));
-}
-
 pub fn chiquito_halo2_mock_prover(witness_json: &str, ast_id: UUID) {
     let trace_witness: TraceWitness<Fr> =
         serde_json::from_str(witness_json).expect("Json deserialization to TraceWitness failed.");
-    let (compiled, assignment_generator, ast) = uuid_to_halo2(ast_id);
+    let (compiled, assignment_generator) = uuid_to_halo2(ast_id);
     let circuit: ChiquitoHalo2Circuit<_> = ChiquitoHalo2Circuit::new(
         compiled,
         assignment_generator.map(|g| g.generate_with_witness(trace_witness)),
     );
 
-    let prover = MockProver::<Fr>::run(
-        7,
-        &circuit,
-        if ast.exposed.is_empty() {
-            Vec::new()
-        } else {
-            vec![Vec::new()]
-        },
-    )
-    .unwrap();
+    let prover = MockProver::<Fr>::run(7, &circuit, circuit.instance()).unwrap();
 
     let result = prover.verify_par();
 
