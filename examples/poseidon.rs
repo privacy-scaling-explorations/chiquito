@@ -158,7 +158,7 @@ fn poseidon_circuit<F: PrimeField + Eq + Hash>(
                 if i == 0 {
                     ctx.constr(eq(setup_constants[i], setup_x_vec[i]));
                 } else {
-                    ctx.constr(eq(setup_inputs[i-1] + setup_constants[i], setup_x_vec[i]));
+                    ctx.constr(eq(setup_inputs[i - 1] + setup_constants[i], setup_x_vec[i]));
                 }
                 ctx.add_lookup(param.constants_table.apply(i).apply(setup_constants[i]));
 
@@ -319,7 +319,7 @@ fn poseidon_circuit<F: PrimeField + Eq + Hash>(
                         .apply(setup_constants[i]),
                 );
             }
-            
+
             for i in 0..param_c {
                 ctx.constr(eq(
                     setup_x_vec[i]
@@ -366,8 +366,8 @@ fn poseidon_circuit<F: PrimeField + Eq + Hash>(
                 ctx.assign(x_vec[i], round_values.x_values[i]);
             }
 
-            for i in 0..param_c {
-                ctx.assign(sboxs[i], round_values.sbox_values[i]);
+            for (i, &sbox) in sboxs.iter().enumerate().take(param_c) {
+                ctx.assign(sbox, round_values.sbox_values[i]);
             }
             ctx.assign(round, round_values.round);
         })
@@ -471,15 +471,15 @@ fn poseidon_circuit<F: PrimeField + Eq + Hash>(
             .iter()
             .map(|str| F::from_str_vartime(str).unwrap())
             .collect();
-        
+
         let mut inputs = values.inputs.clone();
-        println!("[poseidon hash] inputs = {:?}", inputs.clone());
+        println!("[poseidon hash] inputs = {:?}", inputs);
 
         let mut x_values: Vec<F> = (0..param_t)
             .map(|i| {
                 let mut x_value = constant_values[i];
                 if i != 0 {
-                    x_value = inputs[i-1] + constant_values[i];
+                    x_value = inputs[i - 1] + constant_values[i];
                 }
                 x_value
             })
@@ -513,10 +513,9 @@ fn poseidon_circuit<F: PrimeField + Eq + Hash>(
             out_values: outputs.clone(),
             round: F::ZERO,
         };
-        
+
         ctx.add(&poseidon_step_first_round, round_values);
         inputs = outputs;
-        
 
         for i in 1..param_f / 2 {
             x_values = (0..param_t)
@@ -552,8 +551,8 @@ fn poseidon_circuit<F: PrimeField + Eq + Hash>(
 
         for i in 0..param_p {
             x_values = (0..param_t)
-            .map(|j| { inputs[j] + constant_values[j + (i + param_f / 2) * param_t]})
-            .collect();
+                .map(|j| inputs[j] + constant_values[j + (i + param_f / 2) * param_t])
+                .collect();
             sbox_values = x_values
                 .iter()
                 .map(|x_value| *x_value * x_value * x_value * x_value * x_value)
@@ -641,7 +640,7 @@ fn poseidon_circuit<F: PrimeField + Eq + Hash>(
                 out_value
             })
             .collect();
-        println!("[poseidon hash] outputs = {:?}", outputs.clone());
+        println!("[poseidon hash] outputs = {:?}", outputs);
 
         let round_values = RoundValues::<F> {
             input_values: inputs,
