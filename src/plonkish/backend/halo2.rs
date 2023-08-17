@@ -415,11 +415,33 @@ pub struct ChiquitoHalo2SuperCircuit<F: Field + From<u64>> {
     witness: SuperAssignments<F>,
 }
 
-impl<F: Field + From<u64>> ChiquitoHalo2SuperCircuit<F> {
+impl<F: Field + From<u64> + Hash> ChiquitoHalo2SuperCircuit<F> {
     pub fn new(sub_circuits: Vec<ChiquitoHalo2<F>>, witness: SuperAssignments<F>) -> Self {
         Self {
             sub_circuits,
             witness,
+        }
+    }
+
+    pub fn instance(&self) -> Vec<Vec<F>> {
+        if !self.witness.is_empty() {
+            let mut result = Vec::new();
+
+            for (uuid, assignment) in &self.witness {
+                let sub_circuit = self
+                    .sub_circuits
+                    .iter()
+                    .find(|&sc| sc.ir_id == *uuid)
+                    .expect("No matching sub_circuit found for given UUID.");
+                if !sub_circuit.circuit.exposed.is_empty() {
+                    let instance_values = sub_circuit.instance(assignment);
+                    result.push(instance_values);
+                }
+            }
+
+            result
+        } else {
+            Vec::new()
         }
     }
 }
