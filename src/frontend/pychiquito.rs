@@ -57,7 +57,7 @@ pub fn chiquito_ast_to_halo2(ast_json: &str) -> UUID {
     uuid
 }
 
-pub fn uuid_to_halo2(uuid: UUID) -> CircuitMapStore {
+fn uuid_to_halo2(uuid: UUID) -> CircuitMapStore {
     CIRCUIT_MAP.with(|circuit_map| {
         let circuit_map = circuit_map.borrow();
         circuit_map.get(&uuid).unwrap().clone()
