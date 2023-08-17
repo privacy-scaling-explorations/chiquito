@@ -116,7 +116,7 @@ fn main() {
     let compiled = chiquito2Halo2(chiquito);
     let circuit = ChiquitoHalo2Circuit::new(compiled, wit_gen.map(|g| g.generate(())));
 
-    let prover = MockProver::<Fr>::run(7, &circuit, Vec::new()).unwrap();
+    let prover = MockProver::<Fr>::run(7, &circuit, circuit.instance()).unwrap();
 
     let result = prover.verify_par();
 
