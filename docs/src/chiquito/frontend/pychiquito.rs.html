@@ -1412,6 +1412,7 @@
 <span id="1412">1412</span>
 <span id="1413">1413</span>
 <span id="1414">1414</span>
+<span id="1415">1415</span>
 </pre><pre class="rust"><code><span class="kw">use crate</span>::{
     ast::{
         expr::{query::Queriable, Expr},
@@ -1428,7 +1429,7 @@
         ir::assignments::AssignmentGenerator,
     },
     util::{uuid, UUID},
-    wit_gen::{StepInstance, TraceWitness},
+    wit_gen::{StepInstance, TraceContext, TraceWitness},
 };
 
 <span class="kw">use </span>core::result::Result;
@@ -1436,7 +1437,8 @@
 <span class="kw">use </span>serde::de::{<span class="self">self</span>, Deserialize, Deserializer, IgnoredAny, MapAccess, Visitor};
 <span class="kw">use </span>std::{cell::RefCell, collections::HashMap, fmt, rc::Rc};
 
-<span class="kw">type </span>CircuitMap = RefCell&lt;HashMap&lt;UUID, (ChiquitoHalo2&lt;Fr&gt;, <span class="prelude-ty">Option</span>&lt;AssignmentGenerator&lt;Fr, ()&gt;&gt;)&gt;&gt;;
+<span class="kw">type </span>CircuitMapStore = (ChiquitoHalo2&lt;Fr&gt;, <span class="prelude-ty">Option</span>&lt;AssignmentGenerator&lt;Fr, ()&gt;&gt;);
+<span class="kw">type </span>CircuitMap = RefCell&lt;HashMap&lt;UUID, CircuitMapStore&gt;&gt;;
 
 <span class="macro">thread_local! </span>{
     <span class="kw">pub static </span>CIRCUIT_MAP: CircuitMap = RefCell::new(HashMap::new());
@@ -1462,7 +1464,7 @@
     uuid
 }
 
-<span class="kw">pub fn </span>uuid_to_halo2(uuid: UUID) -&gt; (ChiquitoHalo2&lt;Fr&gt;, <span class="prelude-ty">Option</span>&lt;AssignmentGenerator&lt;Fr, ()&gt;&gt;) {
+<span class="kw">fn </span>uuid_to_halo2(uuid: UUID) -&gt; CircuitMapStore {
     CIRCUIT_MAP.with(|circuit_map| {
         <span class="kw">let </span>circuit_map = circuit_map.borrow();
         circuit_map.get(<span class="kw-2">&amp;</span>uuid).unwrap().clone()
@@ -1478,7 +1480,7 @@
         assignment_generator.map(|g| g.generate_with_witness(trace_witness)),
     );
 
-    <span class="kw">let </span>prover = MockProver::&lt;Fr&gt;::run(<span class="number">7</span>, <span class="kw-2">&amp;</span>circuit, Vec::new()).unwrap();
+    <span class="kw">let </span>prover = MockProver::&lt;Fr&gt;::run(<span class="number">7</span>, <span class="kw-2">&amp;</span>circuit, circuit.instance()).unwrap();
 
     <span class="kw">let </span>result = prover.verify_par();
 
@@ -1633,7 +1635,7 @@
             exposed,
             num_steps,
             annotations,
-            trace: <span class="prelude-val">None</span>,
+            trace: <span class="prelude-val">Some</span>(Rc::new(|<span class="kw">_</span>: <span class="kw-2">&amp;mut </span>TraceContext&lt;<span class="kw">_</span>&gt;, <span class="kw">_</span>: <span class="kw">_</span>| {})),
             fixed_gen: <span class="prelude-val">None</span>,
             first_step,
             last_step,

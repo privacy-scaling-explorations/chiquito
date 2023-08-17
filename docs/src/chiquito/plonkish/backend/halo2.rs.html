@@ -456,6 +456,51 @@
 <span id="456">456</span>
 <span id="457">457</span>
 <span id="458">458</span>
+<span id="459">459</span>
+<span id="460">460</span>
+<span id="461">461</span>
+<span id="462">462</span>
+<span id="463">463</span>
+<span id="464">464</span>
+<span id="465">465</span>
+<span id="466">466</span>
+<span id="467">467</span>
+<span id="468">468</span>
+<span id="469">469</span>
+<span id="470">470</span>
+<span id="471">471</span>
+<span id="472">472</span>
+<span id="473">473</span>
+<span id="474">474</span>
+<span id="475">475</span>
+<span id="476">476</span>
+<span id="477">477</span>
+<span id="478">478</span>
+<span id="479">479</span>
+<span id="480">480</span>
+<span id="481">481</span>
+<span id="482">482</span>
+<span id="483">483</span>
+<span id="484">484</span>
+<span id="485">485</span>
+<span id="486">486</span>
+<span id="487">487</span>
+<span id="488">488</span>
+<span id="489">489</span>
+<span id="490">490</span>
+<span id="491">491</span>
+<span id="492">492</span>
+<span id="493">493</span>
+<span id="494">494</span>
+<span id="495">495</span>
+<span id="496">496</span>
+<span id="497">497</span>
+<span id="498">498</span>
+<span id="499">499</span>
+<span id="500">500</span>
+<span id="501">501</span>
+<span id="502">502</span>
+<span id="503">503</span>
 </pre><pre class="rust"><code><span class="kw">use </span>std::{collections::HashMap, hash::Hash};
 
 <span class="kw">use </span>halo2_proofs::{
@@ -628,7 +673,7 @@
                 halo2_column,
                 <span class="comment">// For single row cell manager, forward signal rotation is always zero.
                 // For max width cell manager, rotation can be non-zero.
-                // Offset is 0 + rotation for the first step instance.
+                // Offset is absolute row index calculated in `compile_exposed`.
                 </span><span class="kw-2">*</span>rotation <span class="kw">as </span>usize,
             );
             <span class="kw">let _ </span>= layouter.constrain_instance(cell, <span class="self">self</span>.instance_column.unwrap(), index);
@@ -657,6 +702,25 @@
         }
 
         <span class="prelude-val">Ok</span>(())
+    }
+
+    <span class="kw">fn </span>instance(<span class="kw-2">&amp;</span><span class="self">self</span>, witness: <span class="kw-2">&amp;</span>Assignments&lt;F&gt;) -&gt; Vec&lt;F&gt; {
+        <span class="kw">let </span><span class="kw-2">mut </span>instance_values = Vec::new();
+        <span class="kw">for </span>(column, rotation) <span class="kw">in </span><span class="kw-2">&amp;</span><span class="self">self</span>.circuit.exposed {
+            <span class="kw">let </span>values = witness
+                .get(column)
+                .unwrap_or_else(|| <span class="macro">panic!</span>(<span class="string">&quot;exposed column not found: {}&quot;</span>, column.annotation));
+
+            <span class="kw">if let </span><span class="prelude-val">Some</span>(value) = values.get(<span class="kw-2">*</span>rotation <span class="kw">as </span>usize) {
+                instance_values.push(<span class="kw-2">*</span>value);
+            } <span class="kw">else </span>{
+                <span class="macro">panic!</span>(
+                    <span class="string">&quot;assignment index out of bounds for column: {}&quot;</span>,
+                    column.annotation
+                );
+            }
+        }
+        instance_values
     }
 
     <span class="kw">fn </span>annotate_circuit(<span class="kw-2">&amp;</span><span class="self">self</span>, region: <span class="kw-2">&amp;mut </span>Region&lt;F&gt;) {
@@ -795,9 +859,18 @@
     witness: <span class="prelude-ty">Option</span>&lt;Assignments&lt;F&gt;&gt;,
 }
 
-<span class="kw">impl</span>&lt;F: Field + From&lt;u64&gt;&gt; ChiquitoHalo2Circuit&lt;F&gt; {
+<span class="kw">impl</span>&lt;F: Field + From&lt;u64&gt; + Hash&gt; ChiquitoHalo2Circuit&lt;F&gt; {
     <span class="kw">pub fn </span>new(compiled: ChiquitoHalo2&lt;F&gt;, witness: <span class="prelude-ty">Option</span>&lt;Assignments&lt;F&gt;&gt;) -&gt; <span class="self">Self </span>{
         <span class="self">Self </span>{ compiled, witness }
+    }
+
+    <span class="kw">pub fn </span>instance(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Vec&lt;Vec&lt;F&gt;&gt; {
+        <span class="kw">if </span>!<span class="self">self</span>.compiled.circuit.exposed.is_empty() {
+            <span class="kw">if let </span><span class="prelude-val">Some</span>(witness) = <span class="kw-2">&amp;</span><span class="self">self</span>.witness {
+                <span class="kw">return </span><span class="macro">vec!</span>[<span class="self">self</span>.compiled.instance(witness)];
+            }
+        }
+        Vec::new()
     }
 }
 
@@ -846,12 +919,29 @@
     witness: SuperAssignments&lt;F&gt;,
 }
 
-<span class="kw">impl</span>&lt;F: Field + From&lt;u64&gt;&gt; ChiquitoHalo2SuperCircuit&lt;F&gt; {
+<span class="kw">impl</span>&lt;F: Field + From&lt;u64&gt; + Hash&gt; ChiquitoHalo2SuperCircuit&lt;F&gt; {
     <span class="kw">pub fn </span>new(sub_circuits: Vec&lt;ChiquitoHalo2&lt;F&gt;&gt;, witness: SuperAssignments&lt;F&gt;) -&gt; <span class="self">Self </span>{
         <span class="self">Self </span>{
             sub_circuits,
             witness,
         }
+    }
+
+    <span class="kw">pub fn </span>instance(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Vec&lt;Vec&lt;F&gt;&gt; {
+        <span class="kw">let </span><span class="kw-2">mut </span>result = Vec::new();
+
+        <span class="kw">for </span>sub_circuit <span class="kw">in </span><span class="kw-2">&amp;</span><span class="self">self</span>.sub_circuits {
+            <span class="kw">if </span>!sub_circuit.circuit.exposed.is_empty() {
+                <span class="kw">let </span>instance_values = sub_circuit.instance(
+                    <span class="self">self</span>.witness
+                        .get(<span class="kw-2">&amp;</span>sub_circuit.ir_id)
+                        .expect(<span class="string">&quot;No matching witness found for given UUID.&quot;</span>),
+                );
+                result.push(instance_values);
+            }
+        }
+
+        result
     }
 }
 
