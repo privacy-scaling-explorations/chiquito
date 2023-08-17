@@ -362,7 +362,7 @@ impl<F: Field + From<u64> + Hash> ChiquitoHalo2Circuit<F> {
     }
 
     pub fn instance(&self) -> Vec<Vec<F>> {
-        if let Some(witness) = &self.witness {
+        if let Some(witness) = &self.witness && !self.compiled.circuit.exposed.is_empty() {
             vec![self.compiled.instance(witness)]
         } else {
             Vec::new()
