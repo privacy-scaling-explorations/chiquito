@@ -208,7 +208,7 @@ fn main() {
         super_circuit.get_mapping().generate((x_in_value, k_value)),
     );
 
-    let prover = MockProver::<Fr>::run(10, &circuit, Vec::new()).unwrap();
+    let prover = MockProver::<Fr>::run(10, &circuit, circuit.instance()).unwrap();
 
     let result = prover.verify_par();
 
