@@ -1,0 +1,21 @@
+
+[build-system]
+requires = ["maturin>=1.1,<2.0"]
+build-backend = "maturin"
+
+[project]
+name = "chiquito"
+dependencies = ["py_ecc"]
+requires-python = ">=3.7"
+classifiers = [
+    "Programming Language :: Rust",
+    "Programming Language :: Python :: Implementation :: CPython",
+    "Programming Language :: Python :: Implementation :: PyPy",
+]
+
+
+[tool.maturin]
+bindings = 'pyo3'
+features = ["pyo3/extension-module"]
+python-source = "src/frontend/python"
+module-name = "chiquito.rust_chiquito"
