@@ -48,7 +48,11 @@ This example rewrites the zkEVM bytecode circuit using Chiquito and passes all o
 
 ## Python bindings
 
+There are 2 ways to install chiquito python bindings
+
 ### Install chiquito with pip
+
+To use chiquito in Python, just need to install it with pip
 
 ```bash
 pip install chiquito
@@ -56,7 +60,14 @@ pip install chiquito
 
 ### Build from source
 
-In the root of this repo run
+Chiquito is built in Rust. First [install Rust](https://www.rust-lang.org/tools/install), then clone this repo and enter the repo directory.
+
+```bash
+git clone https://github.com/privacy-scaling-explorations/chiquito
+cd chiquito
+```
+
+Then build the python bindings with maturin
 
 ```bash
 python -m venv .env

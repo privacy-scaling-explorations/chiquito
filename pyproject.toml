@@ -17,5 +17,5 @@ classifiers = [
 [tool.maturin]
 bindings = 'pyo3'
 features = ["pyo3/extension-module"]
-python-source = "frontend/python"
+python-source = "src/frontend/python"
 module-name = "chiquito.rust_chiquito"
