@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"mod":[["dsl",""],["pychiquito",""]]};
+window.SIDEBAR_ITEMS = {"mod":[["dsl",""],["python",""]]};
