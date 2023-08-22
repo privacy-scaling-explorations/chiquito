@@ -1,13 +1,15 @@
 use chiquito::{
     ast::{query::Queriable, Expr},
-    backend::halo2::{chiquitoSuperCircuit2Halo2, ChiquitoHalo2SuperCircuit},
-    compiler::{
-        cell_manager::{MaxWidthCellManager, SingleRowCellManager},
-        config,
-        step_selector::SimpleStepSelectorBuilder,
+    frontend::dsl::{lb::LookupTable, super_circuit, CircuitContext, StepTypeWGHandler},
+    plonkish::{
+        backend::halo2::{chiquitoSuperCircuit2Halo2, ChiquitoHalo2SuperCircuit},
+        compiler::{
+            cell_manager::{MaxWidthCellManager, SingleRowCellManager},
+            config,
+            step_selector::SimpleStepSelectorBuilder,
+        },
+        ir::sc::SuperCircuit,
     },
-    dsl::{lb::LookupTable, super_circuit, CircuitContext, StepTypeWGHandler},
-    ir::sc::SuperCircuit,
 };
 use std::hash::Hash;
 
@@ -362,7 +364,7 @@ fn keccak_xor_table<F: PrimeField + Eq + Hash>(
     ctx: &mut CircuitContext<F, ()>,
     lens: usize,
 ) -> LookupTable {
-    use chiquito::dsl::cb::*;
+    use chiquito::frontend::dsl::cb::*;
 
     let lookup_xor_row: Queriable<F> = ctx.fixed("xor row");
     let lookup_xor_c: Queriable<F> = ctx.fixed("xor value");
@@ -384,7 +386,7 @@ fn keccak_chi_table<F: PrimeField + Eq + Hash>(
     ctx: &mut CircuitContext<F, ()>,
     lens: usize,
 ) -> LookupTable {
-    use chiquito::dsl::cb::*;
+    use chiquito::frontend::dsl::cb::*;
 
     let lookup_chi_row: Queriable<F> = ctx.fixed("chi row");
     let lookup_chi_c: Queriable<F> = ctx.fixed("chi value");
@@ -406,7 +408,7 @@ fn keccak_round_constants_table<F: PrimeField + Eq + Hash>(
     ctx: &mut CircuitContext<F, ()>,
     lens: usize,
 ) -> LookupTable {
-    use chiquito::dsl::cb::*;
+    use chiquito::frontend::dsl::cb::*;
 
     let lookup_constant_row: Queriable<F> = ctx.fixed("constant row");
     let lookup_constant_c: Queriable<F> = ctx.fixed("constant value");
@@ -426,7 +428,7 @@ fn keccak_circuit<F: PrimeField<Repr = [u8; 32]> + Eq + Hash>(
     ctx: &mut CircuitContext<F, KeccakCircuit>,
     param: CircuitParams,
 ) {
-    use chiquito::dsl::cb::*;
+    use chiquito::frontend::dsl::cb::*;
 
     let s_vec: Vec<Vec<Queriable<F>>> = (0..PART_SIZE)
         .map(|i| {
