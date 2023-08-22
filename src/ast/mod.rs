@@ -3,7 +3,7 @@ pub mod expr;
 use std::{collections::HashMap, fmt::Debug, rc::Rc};
 
 use crate::{
-    dsl::StepTypeHandler,
+    frontend::dsl::StepTypeHandler,
     util::{uuid, UUID},
     wit_gen::{FixedGenContext, Trace, TraceContext},
 };
