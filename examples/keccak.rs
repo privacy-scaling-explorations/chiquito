@@ -397,7 +397,7 @@ fn keccak_chi_table<F: PrimeField + Eq + Hash>(
     ctx.fixed_gen(move |ctx| {
         for (i, &value) in constants_value.iter().enumerate().take(lens) {
             ctx.assign(i, lookup_chi_row, F::from(i as u64));
-            ctx.assign(i, lookup_chi_c, F::from(value as u64));
+            ctx.assign(i, lookup_chi_c, F::from(value));
         }
     });
 
