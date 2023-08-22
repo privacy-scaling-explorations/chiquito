@@ -1,7 +1,6 @@
 pub mod cb;
 
 #[derive(Clone)]
-
 pub enum AExpr<F, V> {
     Const(F),
     Sum(Vec<AExpr<F, V>>),
