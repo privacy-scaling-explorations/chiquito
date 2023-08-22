@@ -507,6 +507,15 @@
 <span id="507">507</span>
 <span id="508">508</span>
 <span id="509">509</span>
+<span id="510">510</span>
+<span id="511">511</span>
+<span id="512">512</span>
+<span id="513">513</span>
+<span id="514">514</span>
+<span id="515">515</span>
+<span id="516">516</span>
+<span id="517">517</span>
+<span id="518">518</span>
 </pre><pre class="rust"><code><span class="kw">use </span>std::{collections::HashMap, fmt::Debug};
 
 <span class="kw">use </span><span class="kw">crate</span>::ast::{FixedSignal, ForwardSignal, InternalSignal, SharedSignal, StepTypeUUID};
@@ -742,6 +751,15 @@
 </span><span class="kw">pub struct </span>MaxWidthCellManager {
     max_width: usize,
     same_height: bool,
+}
+
+<span class="kw">impl </span>MaxWidthCellManager {
+    <span class="kw">pub fn </span>new(max_width: usize, same_height: bool) -&gt; <span class="self">Self </span>{
+        <span class="self">Self </span>{
+            max_width,
+            same_height,
+        }
+    }
 }
 
 <span class="kw">impl </span>CellManager <span class="kw">for </span>MaxWidthCellManager {
