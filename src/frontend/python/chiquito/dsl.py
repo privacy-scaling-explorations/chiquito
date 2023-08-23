@@ -1,31 +1,40 @@
 from __future__ import annotations
 from enum import Enum
 from typing import Callable, Any
-# import rust_chiquito  # rust bindings
-from chiquito import rust_chiquito
+from chiquito import rust_chiquito  # rust bindings
 import json
-from chiquito import (chiquito_ast, wit_gen)
 
-from chiquito.chiquito_ast import ASTCircuit, ASTStepType, ExposeOffset
-from chiquito.query import Internal, Forward, Queriable, Shared, Fixed
-from chiquito.wit_gen import FixedGenContext, StepInstance, TraceWitness
-from chiquito.cb import Constraint, Typing, ToConstraint, to_constraint
-from chiquito.util import CustomEncoder, F
+from chiquito_ast import ASTCircuit, ASTStepType, ExposeOffset
+from query import Internal, Forward, Queriable, Shared, Fixed
+from wit_gen import FixedGenContext, StepInstance, TraceWitness
+from cb import Constraint, Typing, ToConstraint, to_constraint, LookupTableRegistry, LookupTable, LookupTableBuilder, InPlaceLookupBuilder
+from util import CustomEncoder, F
+# from lb import LookupTableRegistry, LookupTable, LookupTableBuilder, InPlaceLookupBuilder
 
 
 class CircuitMode(Enum):
     NoMode = 0
     SETUP = 1
     Trace = 2
+    FixedGen = 3
 
 
 class Circuit:
     def __init__(self: Circuit):
         self.ast = ASTCircuit()
+        self.tables = LookupTableRegistry()
         self.witness = TraceWitness()
         self.rust_ast_id = 0
         self.mode = CircuitMode.SETUP
         self.setup()
+        if hasattr(self, "fixed_gen") and callable(self.fixed_gen):
+            self.mode = CircuitMode.FixedGen
+            if self.ast.num_steps == 0:
+                raise ValueError("Must set num_steps by calling pragma_num_steps() in setup before calling fixed_gen().")
+            self.fixed_gen_context = FixedGenContext.new(self.ast.num_steps)
+            self.fixed_gen()
+            self.ast.fixed_assignments = self.fixed_gen_context.assignments
+        self.mode = CircuitMode.NoMode
 
     def forward(self: Circuit, name: str) -> Forward:
         assert self.mode == CircuitMode.SETUP
@@ -63,9 +72,6 @@ class Circuit:
         assert self.mode == CircuitMode.SETUP
         self.ast.add_step_type_def()
 
-    def fixed_gen(self: Circuit, fixed_gen_def: Callable[[FixedGenContext], None]):
-        self.ast.set_fixed_gen(fixed_gen_def)
-
     def pragma_first_step(self: Circuit, step_type: StepType) -> None:
         assert self.mode == CircuitMode.SETUP
         self.ast.first_step = step_type.step_type.id
@@ -82,10 +88,23 @@ class Circuit:
         assert self.mode == CircuitMode.SETUP
         self.ast.q_enable = False
 
+    def new_table(self: Circuit, table: LookupTable) -> LookupTable:
+        assert self.mode == CircuitMode.SETUP
+        self.tables.add(table)
+        return table
+
+    # called under trace()
     def add(self: Circuit, step_type: StepType, args: Any):
         assert self.mode == CircuitMode.Trace
         step_instance: StepInstance = step_type.gen_step_instance(args)
         self.witness.step_instances.append(step_instance)
+
+    # called under fixed_gen()
+    def assign(self: Circuit, offset: int, lhs: Queriable, rhs: F):
+        assert self.mode == CircuitMode.FixedGen
+        if self.fixed_gen_context is None:
+            raise ValueError("FixedGenContext: must have initiated fixed_gen_context before calling assign()")
+        self.fixed_gen_context.assign(offset, lhs, rhs)
 
     def gen_witness(self: Circuit, args: Any) -> TraceWitness:
         self.mode = CircuitMode.Trace
@@ -162,4 +181,7 @@ class StepType:
 
         self.step_instance.assign(lhs, rhs)
 
-    # TODO: Implement add_lookup after lookup abstraction PR is merged.
+    def add_lookup(self: StepType, lookup_builder: LookupBuilder):
+        self.step_type.lookups.append(lookup_builder.build(self))
+
+LookupBuilder = LookupTableBuilder | InPlaceLookupBuilder

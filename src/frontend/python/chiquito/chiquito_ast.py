@@ -1,12 +1,11 @@
 from __future__ import annotations
-from typing import Callable, List, Dict, Optional, Any, Tuple
+from typing import Callable, List, Dict, Optional, Tuple
 from dataclasses import dataclass, field, asdict
-# from chiquito import wit_gen, expr, query, util
 
-from chiquito.wit_gen import FixedGenContext, StepInstance
-from chiquito.expr import Expr
-from chiquito.util import uuid
-from chiquito.query import Queriable
+from wit_gen import FixedGenContext, FixedAssignment
+from expr import Expr
+from util import uuid, F
+from query import Queriable
 
 
 # pub struct Circuit<F, TraceArgs> {
@@ -38,7 +37,7 @@ class ASTCircuit:
     fixed_signals: List[FixedSignal] = field(default_factory=list)
     exposed: List[Tuple[Queriable, ExposeOffset]] = field(default_factory=list)
     annotations: Dict[int, str] = field(default_factory=dict)
-    fixed_gen: Optional[Callable] = None
+    fixed_assignments: Optional[FixedAssignment] = None
     first_step: Optional[int] = None
     last_step: Optional[int] = None
     num_steps: int = 0
@@ -91,7 +90,7 @@ class ASTCircuit:
             f"\tfixed_signals=[{fixed_signals_str}],\n"
             f"\texposed=[{exposed_str}],\n"
             f"\tannotations={{{annotations_str}}},\n"
-            f"\tfixed_gen={self.fixed_gen},\n"
+            f"\tfixed_assignments={self.fixed_assignments},\n"
             f"\tfirst_step={self.first_step},\n"
             f"\tlast_step={self.last_step},\n"
             f"\tnum_steps={self.num_steps}\n"
@@ -110,6 +109,9 @@ class ASTCircuit:
                 for (queriable, offset) in self.exposed
             ],
             "annotations": self.annotations,
+            "fixed_assignments": {
+                lhs.uuid(): [lhs, rhs] for (lhs, rhs) in self.fixed_assignments.items()
+            },
             "first_step": self.first_step,
             "last_step": self.last_step,
             "num_steps": self.num_steps,
@@ -174,6 +176,7 @@ class ASTStepType:
     signals: List[InternalSignal]
     constraints: List[ASTConstraint]
     transition_constraints: List[TransitionConstraint]
+    lookups: List[Lookup]
     annotations: Dict[int, str]
 
     def new(name: str) -> ASTStepType:
@@ -201,6 +204,13 @@ class ASTStepType:
             if self.transition_constraints
             else ""
         )
+        lookups_str = (
+            "\n\t\t\t\t"
+            + ",\n\t\t\t\t".join(str(lookup) for lookup in self.lookups)
+            + "\n\t\t\t"
+            if self.lookups
+            else ""
+        )
         annotations_str = (
             "\n\t\t\t\t"
             + ",\n\t\t\t\t".join(f"{k}: {v}" for k, v in self.annotations.items())
@@ -216,6 +226,7 @@ class ASTStepType:
             f"\t\t\tsignals=[{signals_str}],\n"
             f"\t\t\tconstraints=[{constraints_str}],\n"
             f"\t\t\ttransition_constraints=[{transition_constraints_str}],\n"
+            f"\t\t\tlookups=[{lookups_str}],\n"
             f"\t\t\tannotations={{{annotations_str}}}\n"
             f"\t\t)"
         )
@@ -229,6 +240,7 @@ class ASTStepType:
             "transition_constraints": [
                 x.__json__() for x in self.transition_constraints
             ],
+            "lookups": [x.__json__() for x in self.lookups],
             "annotations": self.annotations,
         }
 
@@ -384,3 +396,50 @@ class InternalSignal:
 
     def __json__(self: InternalSignal):
         return asdict(self)
+
+
+@dataclass
+class Lookup:
+    annotation: str = ""
+    exprs: List[Tuple[ASTConstraint, Expr]] = field(default_factory=list)
+    enable: Optional[ASTConstraint] = None
+
+    def add(
+        self: Lookup,
+        constraint_annotation: str,
+        constraint_expr: Expr,
+        expression: Expr,
+    ):
+        constraint = ASTConstraint(constraint_annotation, constraint_expr)
+        self.annotation += f"match({constraint.annotation} => {str(expression)}) "
+        if self.enable is None:
+            self.exprs.append((constraint, expression))
+        else:
+            self.exprs.append(
+                (self.multiply_constraints(self.enable, constraint), expression)
+            )
+
+    def enable(self: Lookup, enable_annotation: str, enable_expr: Expr):
+        enable = ASTConstraint(enable_annotation, enable_expr)
+        if self.enable is None:
+            for constraint, _ in self.exprs:
+                constraint = self.multiply_constraints(enable, constraint)
+            self.enable = enable
+            self.annotation = f"if {enable_annotation}, {self.annotation}"
+        else:
+            raise ValueError("Lookup: enable() can only be called once.")
+
+    def multiply_constraints(
+        enable: ASTConstraint, constraint: ASTConstraint
+    ) -> ASTConstraint:
+        return ASTConstraint(constraint.annotation, enable.expr * constraint.expr)
+
+    def __str__(self: Lookup):
+        return f"Lookup({self.annotation})"
+
+    def __json__(self: Lookup):
+        return {
+            "annotation": self.annotation,
+            "exprs": [[x.__json__(), y.__json__()] for (x, y) in self.exprs],
+            "enable": self.enable.__json__() if self.enable is not None else None,
+        }

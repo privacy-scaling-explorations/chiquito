@@ -102,6 +102,7 @@ impl<'de> Visitor<'de> for CircuitVisitor {
         let mut fixed_signals = None;
         let mut exposed = None;
         let mut annotations = None;
+        let mut fixed_assignments = None;
         let mut first_step = None;
         let mut last_step = None;
         let mut num_steps = None;
@@ -146,6 +147,13 @@ impl<'de> Visitor<'de> for CircuitVisitor {
                     }
                     annotations = Some(map.next_value::<HashMap<UUID, String>>()?);
                 }
+                "fixed_assignments" => {
+                    if fixed_assignments.is_some() {
+                        return Err(de::Error::duplicate_field("fixed_assignments"));
+                    }
+                    fixed_assignments =
+                        Some(map.next_value::<Option<HashMap<UUID, (Queriable<Fr>, Vec<Fr>)>>>()?);
+                }
                 "first_step" => {
                     if first_step.is_some() {
                         return Err(de::Error::duplicate_field("first_step"));
@@ -186,6 +194,7 @@ impl<'de> Visitor<'de> for CircuitVisitor {
                             "fixed_signals",
                             "exposed",
                             "annotations",
+                            "fixed_assignments",
                             "first_step",
                             "last_step",
                             "num_steps",
@@ -209,6 +218,9 @@ impl<'de> Visitor<'de> for CircuitVisitor {
             fixed_signals.ok_or_else(|| de::Error::missing_field("fixed_signals"))?;
         let exposed = exposed.ok_or_else(|| de::Error::missing_field("exposed"))?;
         let annotations = annotations.ok_or_else(|| de::Error::missing_field("annotations"))?;
+        let fixed_assignments = fixed_assignments
+            .ok_or_else(|| de::Error::missing_field("fixed_assignments"))?
+            .map(|inner| inner.into_iter().map(|(_, value)| value).collect());
         let first_step = first_step.ok_or_else(|| de::Error::missing_field("first_step"))?;
         let last_step = last_step.ok_or_else(|| de::Error::missing_field("last_step"))?;
         let num_steps = num_steps.ok_or_else(|| de::Error::missing_field("num_steps"))?;
@@ -226,7 +238,7 @@ impl<'de> Visitor<'de> for CircuitVisitor {
             num_steps,
             annotations,
             trace: Some(Rc::new(|_: &mut TraceContext<_>, _: _| {})),
-            fixed_gen: None,
+            fixed_assignments,
             first_step,
             last_step,
             q_enable,

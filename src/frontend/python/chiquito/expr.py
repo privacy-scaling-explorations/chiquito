@@ -2,7 +2,7 @@ from __future__ import annotations
 from typing import List
 from dataclasses import dataclass
 
-from chiquito.util import F
+from util import F
 
 
 # pub enum Expr<F> {
