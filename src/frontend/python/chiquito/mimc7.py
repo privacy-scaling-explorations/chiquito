@@ -102,6 +102,7 @@ ROUND_KEYS = [
     13602139229813231349386885113156901793661719180900395818909719758150455500533,
 ]
 
+
 class Mimc7Constants(Circuit):
     def setup(self):
         self.pragma_num_steps(ROUNDS)
@@ -114,10 +115,12 @@ class Mimc7Constants(Circuit):
             self.assign(i, self.lookup_row, F(i))
             self.assign(i, self.lookup_c, F(round_key))
 
+
 # mimc7 = Mimc7Constants()
 # mimc7_json = mimc7.get_ast_json()
 # print(mimc7_json)
 # convert_and_print_ast(mimc7_json)
+
 
 class Mimc7Circuit(Circuit):
     def setup(self):
@@ -146,16 +149,17 @@ class Mimc7Circuit(Circuit):
         for i in range(1, ROUND_KEYS):
             row_value += F(1)
             x_value += k_value + c_value
-            x_value = F(x_value ** 7)
+            x_value = F(x_value**7)
             c_value = F(ROUND_KEYS[i])
 
             self.add(self.mimc_step, (x_value, k_value, c_value, row_value))
 
         row_value += F(1)
         x_value += k_value + c_value
-        x_value = F(x_value ** 7)
-        
+        x_value = F(x_value**7)
+
         self.add(self.mimc7_last_step, (x_value, k_value, c_value, row_value))
+
 
 class Mimc7FirstStep(StepType):
     def setup(self):
@@ -192,7 +196,8 @@ class Mimc7FirstStep(StepType):
 
         xkc_value = x_value + k_value + c_value
         self.assign(self.xkc, F(xkc_value))
-        self.assign(self.y, F(xkc_value ** 7))
+        self.assign(self.y, F(xkc_value**7))
+
 
 class Mimc7Step(StepType):
     def setup(self):
@@ -228,7 +233,8 @@ class Mimc7Step(StepType):
 
         xkc_value = x_value + k_value + c_value
         self.assign(self.xkc, F(xkc_value))
-        self.assign(self.y, F(xkc_value ** 7))
+        self.assign(self.y, F(xkc_value**7))
+
 
 class Mimc7LastStep(StepType):
     def setup(self):
@@ -242,6 +248,7 @@ class Mimc7LastStep(StepType):
         self.assign(self.circuit.k, F(k_value))
         self.assign(self.circuit.row, F(row_value))
         self.assign(self.out, F(x_value + k_value))
+
 
 mimc7 = Mimc7Circuit()
 mimc7_witness = mimc7.gen_witness((1, 2))

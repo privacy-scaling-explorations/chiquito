@@ -7,8 +7,18 @@ import json
 from chiquito_ast import ASTCircuit, ASTStepType, ExposeOffset
 from query import Internal, Forward, Queriable, Shared, Fixed
 from wit_gen import FixedGenContext, StepInstance, TraceWitness
-from cb import Constraint, Typing, ToConstraint, to_constraint, LookupTableRegistry, LookupTable, LookupTableBuilder, InPlaceLookupBuilder
+from cb import (
+    Constraint,
+    Typing,
+    ToConstraint,
+    to_constraint,
+    LookupTableRegistry,
+    LookupTable,
+    LookupTableBuilder,
+    InPlaceLookupBuilder,
+)
 from util import CustomEncoder, F
+
 # from lb import LookupTableRegistry, LookupTable, LookupTableBuilder, InPlaceLookupBuilder
 
 
@@ -30,7 +40,9 @@ class Circuit:
         if hasattr(self, "fixed_gen") and callable(self.fixed_gen):
             self.mode = CircuitMode.FixedGen
             if self.ast.num_steps == 0:
-                raise ValueError("Must set num_steps by calling pragma_num_steps() in setup before calling fixed_gen().")
+                raise ValueError(
+                    "Must set num_steps by calling pragma_num_steps() in setup before calling fixed_gen()."
+                )
             self.fixed_gen_context = FixedGenContext.new(self.ast.num_steps)
             self.fixed_gen()
             self.ast.fixed_assignments = self.fixed_gen_context.assignments
@@ -103,7 +115,9 @@ class Circuit:
     def assign(self: Circuit, offset: int, lhs: Queriable, rhs: F):
         assert self.mode == CircuitMode.FixedGen
         if self.fixed_gen_context is None:
-            raise ValueError("FixedGenContext: must have initiated fixed_gen_context before calling assign()")
+            raise ValueError(
+                "FixedGenContext: must have initiated fixed_gen_context before calling assign()"
+            )
         self.fixed_gen_context.assign(offset, lhs, rhs)
 
     def gen_witness(self: Circuit, args: Any) -> TraceWitness:
@@ -183,5 +197,6 @@ class StepType:
 
     def add_lookup(self: StepType, lookup_builder: LookupBuilder):
         self.step_type.lookups.append(lookup_builder.build(self))
+
 
 LookupBuilder = LookupTableBuilder | InPlaceLookupBuilder

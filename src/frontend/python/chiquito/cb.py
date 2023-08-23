@@ -229,7 +229,6 @@ def to_constraint(v: ToConstraint) -> Constraint:
         )
 
 
-
 @dataclass
 class LookupTableRegistry:
     tables: Dict[int, LookupTable] = field(default_factory=dict)
