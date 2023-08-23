@@ -2,7 +2,6 @@ from __future__ import annotations
 from dsl import Circuit, StepType
 from cb import eq, table
 from util import F
-from chiquito_ast import Last
 
 from chiquito.rust_chiquito import convert_and_print_ast
 
