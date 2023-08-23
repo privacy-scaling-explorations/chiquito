@@ -1,0 +1,6 @@
+py-ecc==6.0.0
+maturin==1.2.0
+jupyter_client==8.3.0
+jupyter_core==5.3.1
+ipykernel==6.25.1
+chiquito
