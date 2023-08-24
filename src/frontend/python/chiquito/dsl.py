@@ -22,6 +22,9 @@ from util import CustomEncoder, F
 # from lb import LookupTableRegistry, LookupTable, LookupTableBuilder, InPlaceLookupBuilder
 
 
+class SuperCircuit:
+    
+
 class CircuitMode(Enum):
     NoMode = 0
     SETUP = 1
