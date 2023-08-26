@@ -3,8 +3,8 @@ from dataclasses import dataclass, field
 from typing import Dict, List, Callable, Any
 import json
 
-from chiquito.query import Queriable, Fixed
-from chiquito.util import F, CustomEncoder
+from chiquifork.query import Queriable, Fixed
+from chiquifork.util import F, CustomEncoder
 
 # Commented out to avoid circular reference
 # from dsl import Circuit, StepType

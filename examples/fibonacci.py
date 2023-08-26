@@ -1,10 +1,10 @@
 from __future__ import annotations
 from typing import Tuple
 
-from chiquito.dsl import Circuit, StepType
-from chiquito.cb import eq
-from chiquito.query import Queriable
-from chiquito.util import F
+from chiquifork.dsl import Circuit, StepType
+from chiquifork.cb import eq
+from chiquifork.query import Queriable
+from chiquifork.util import F
 
 
 class Fibonacci(Circuit):

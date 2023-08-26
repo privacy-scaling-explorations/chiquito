@@ -1,16 +1,16 @@
 from __future__ import annotations
 from enum import Enum
 from typing import Callable, Any
-# import rust_chiquito  # rust bindings
-from chiquito import rust_chiquito
+# import rust_chiquifork  # rust bindings
+from chiquifork import rust_chiquito
 import json
-from chiquito import (chiquito_ast, wit_gen)
+from chiquifork import (chiquito_ast, wit_gen)
 
-from chiquito.chiquito_ast import ASTCircuit, ASTStepType, ExposeOffset
-from chiquito.query import Internal, Forward, Queriable, Shared, Fixed
-from chiquito.wit_gen import FixedGenContext, StepInstance, TraceWitness
-from chiquito.cb import Constraint, Typing, ToConstraint, to_constraint
-from chiquito.util import CustomEncoder, F
+from chiquifork.chiquito_ast import ASTCircuit, ASTStepType, ExposeOffset
+from chiquifork.query import Internal, Forward, Queriable, Shared, Fixed
+from chiquifork.wit_gen import FixedGenContext, StepInstance, TraceWitness
+from chiquifork.cb import Constraint, Typing, ToConstraint, to_constraint
+from chiquifork.util import CustomEncoder, F
 
 
 class CircuitMode(Enum):

@@ -3,10 +3,10 @@ from dataclasses import dataclass
 from enum import Enum, auto
 from typing import List
 
-from chiquito.util import F
-from chiquito.expr import Expr, Const, Neg, to_expr, ToExpr
-from chiquito.query import StepTypeNext
-from chiquito.chiquito_ast import ASTStepType
+from chiquifork.util import F
+from chiquifork.expr import Expr, Const, Neg, to_expr, ToExpr
+from chiquifork.query import StepTypeNext
+from chiquifork.chiquito_ast import ASTStepType
 
 
 class Typing(Enum):

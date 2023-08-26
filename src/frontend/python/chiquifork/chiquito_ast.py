@@ -3,10 +3,10 @@ from typing import Callable, List, Dict, Optional, Any, Tuple
 from dataclasses import dataclass, field, asdict
 # from chiquito import wit_gen, expr, query, util
 
-from chiquito.wit_gen import FixedGenContext, StepInstance
-from chiquito.expr import Expr
-from chiquito.util import uuid
-from chiquito.query import Queriable
+from chiquifork.wit_gen import FixedGenContext, StepInstance
+from chiquifork.expr import Expr
+from chiquifork.util import uuid
+from chiquifork.query import Queriable
 
 
 # pub struct Circuit<F, TraceArgs> {

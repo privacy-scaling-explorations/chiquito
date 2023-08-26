@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from chiquito.expr import Expr
+from chiquifork.expr import Expr
 
 # Commented out to avoid circular reference
 # from chiquito_ast import InternalSignal, ForwardSignal, SharedSignal, FixedSignal, ASTStepType
