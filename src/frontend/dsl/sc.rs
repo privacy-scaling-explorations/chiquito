@@ -21,7 +21,7 @@ use super::{lb::LookupTableRegistry, CircuitContext};
 pub struct SuperCircuitContext<F, MappingArgs> {
     super_circuit: SuperCircuit<F, MappingArgs>,
     sub_circuit_phase1: Vec<CompilationUnit<F>>,
-    tables: LookupTableRegistry<F>,
+    pub tables: LookupTableRegistry<F>,
 }
 
 impl<F, MappingArgs> Default for SuperCircuitContext<F, MappingArgs> {
@@ -48,8 +48,9 @@ impl<F: Field + Hash, MappingArgs> SuperCircuitContext<F, MappingArgs> {
             circuit: Circuit::default(),
             tables: self.tables.clone(),
         };
-
+        println!("super circuit table registry 2: {:?}", self.tables);
         let exports = sub_circuit_def(&mut sub_circuit_context, imports);
+        println!("super circuit table registry 3: {:?}", self.tables);
 
         let sub_circuit = sub_circuit_context.circuit;
 

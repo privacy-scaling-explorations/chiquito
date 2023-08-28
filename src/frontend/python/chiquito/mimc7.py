@@ -1,5 +1,5 @@
 from __future__ import annotations
-from dsl import Circuit, StepType
+from dsl import SuperCircuit, Circuit, StepType
 from cb import eq, table
 from util import F
 
@@ -115,15 +115,13 @@ class Mimc7Constants(Circuit):
             self.assign(i, self.lookup_c, F(round_key))
 
 
-mimc7_constants = Mimc7Constants()
-mimc7_constants_json = mimc7_constants.get_ast_json()
-convert_and_print_ast(mimc7_constants_json)
+# mimc7_constants = Mimc7Constants()
+# mimc7_constants_json = mimc7_constants.get_ast_json()
+# convert_and_print_ast(mimc7_constants_json)
 
 
 class Mimc7Circuit(Circuit):
-    def setup(self, imports):
-        self.imports = imports
-
+    def setup(self):
         self.x = self.forward("x")
         self.k = self.forward("k")
         self.c = self.forward("c")
@@ -185,7 +183,9 @@ class Mimc7FirstStep(StepType):
         self.transition(eq(self.circuit.row, 0))
         self.transition(eq(self.circuit.row + 1, self.circuit.row.next()))
 
-        self.add_lookup(self.circuit.imports.apply(self.circuit.row).apply(self.circuit.c))
+        self.add_lookup(
+            self.circuit.imports.apply(self.circuit.row).apply(self.circuit.c)
+        )
 
     def wg(self, args):
         x_value, k_value, c_value, row_value = args
@@ -222,7 +222,9 @@ class Mimc7Step(StepType):
         self.transition(eq(self.circuit.k, self.circuit.k.next()))
         self.transition(eq(self.circuit.row + 1, self.circuit.row.next()))
 
-        self.add_lookup(self.circuit.imports.apply(self.circuit.row).apply(self.circuit.c))
+        self.add_lookup(
+            self.circuit.imports.apply(self.circuit.row).apply(self.circuit.c)
+        )
 
     def wg(self, args):
         x_value, k_value, c_value, row_value = args
@@ -250,16 +252,21 @@ class Mimc7LastStep(StepType):
         self.assign(self.out, F(x_value + k_value))
 
 
-mimc7_circuit = Mimc7Circuit()
-mimc7_witness = mimc7_circuit.gen_witness((1, 2))
-mimc7_circuit.halo2_mock_prover(mimc7_witness)
+# mimc7_circuit = Mimc7Circuit(imports=mimc7_constants.exports)
+# mimc7_witness = mimc7_circuit.gen_witness((1, 2))
+# mimc7_circuit.halo2_mock_prover(mimc7_witness)
+
 
 class Mimc7SuperCircuit(SuperCircuit):
     def setup(self):
-        self.mimc7_constants = self.sub_circuit(Mimc7Constants())
-        self.mimc7_circuit = self.sub_circuit(Mimc7Circuit(self.mimc7_constants.exports))
-    
-    def mapping(self, args):
-        x_in_value, k_value = args
-        self.map(self.mimc7_circuit, (x_in_value, k_value))
-    
+        self.mimc7_constants = self.sub_circuit(Mimc7Constants(self, imports=None))
+        self.mimc7_circuit = self.sub_circuit(
+            Mimc7Circuit(self, imports=self.mimc7_constants.exports)
+        )
+
+
+#     def mapping(self, args):
+#         x_in_value, k_value = args
+#         self.map(self.mimc7_circuit, (x_in_value, k_value))
+
+Mimc7SuperCircuit()

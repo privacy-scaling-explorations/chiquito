@@ -8,6 +8,8 @@ from expr import Expr, Const, Neg, to_expr, ToExpr
 from query import StepTypeNext
 from chiquito_ast import ASTStepType, Lookup
 
+# from dsl import StepType
+
 
 class Typing(Enum):
     Unknown = auto()
@@ -229,15 +231,15 @@ def to_constraint(v: ToConstraint) -> Constraint:
         )
 
 
-@dataclass
-class LookupTableRegistry:
-    tables: Dict[int, LookupTable] = field(default_factory=dict)
+# @dataclass
+# class LookupTableRegistry:
+#     tables: Dict[int, LookupTable] = field(default_factory=dict)
 
-    def add(self: LookupTableRegistry, table: LookupTable):
-        self.tables[table.uuid] = table
+#     def add(self: LookupTableRegistry, table: LookupTable):
+#         self.tables[table.uuid] = table
 
-    def get(self: LookupTableRegistry, uuid: int) -> LookupTable:
-        return self.tables[uuid]
+#     def get(self: LookupTableRegistry, uuid: int) -> LookupTable:
+#         return self.tables[uuid]
 
 
 @dataclass
@@ -259,6 +261,14 @@ class LookupTable:
     def when(self: LookupTable, enable: ToConstraint) -> LookupTableBuilder:
         return LookupTableBuilder(self.uuid).when(enable)
 
+    def __str__(self: LookupTable) -> str:
+        dest_str = (
+            ", ".join(str(tc) for tc in self.transition_constraints)
+            if self.dest
+            else ""
+        )
+        return f"LookupTable(id={self.uuid}, dest=[{dest_str}]))"
+
 
 @dataclass
 class LookupTableBuilder:
@@ -268,6 +278,8 @@ class LookupTableBuilder:
 
     def __init__(self: LookupTableBuilder, uuid: int):
         self.uuid: int = uuid
+        self.src = []
+        self.enable = None
 
     def apply(self: LookupTableBuilder, constraint: ToConstraint) -> LookupTableBuilder:
         self.src.append(to_constraint(constraint))
@@ -280,8 +292,16 @@ class LookupTableBuilder:
         return self
 
     def build(self: LookupTableBuilder, step_type: StepType) -> Lookup:
-        table = step_type.tables.get(self.id)
-        if self.src.len() != table.dest.len():
+        # print(step_type.circuit)
+        print(f"tables: {step_type.circuit.super_circuit.tables}")
+        if step_type.circuit.super_circuit is None:
+            raise ValueError("LookupTableBuilder: build() cannot find super_circuit.")
+        table = step_type.circuit.super_circuit.tables.get(self.uuid)
+        if table is None:
+            raise ValueError(
+                f"LookupTableBuilder: build() cannot find table with uuid {self.uuid}."
+            )
+        if len(self.src) != len(table.dest):
             raise ValueError(
                 "LookupTableBuilder: build() has different number of source columns and destination columns."
             )
@@ -291,7 +311,7 @@ class LookupTableBuilder:
         if self.enable is not None:
             lookup.enable(self.enable.annotation, self.enable.expr)
 
-        for i in range(self.src.len()):
+        for i in range(len(self.src)):
             lookup.add(self.src[i].annotation, self.src[i].expr, table.dest[i])
 
         return lookup

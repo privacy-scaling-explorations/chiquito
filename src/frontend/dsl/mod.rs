@@ -31,7 +31,7 @@ pub struct CircuitContext<F, TraceArgs> {
     tables: LookupTableRegistry<F>,
 }
 
-impl<F, TraceArgs> CircuitContext<F, TraceArgs> {
+impl<F: Debug, TraceArgs> CircuitContext<F, TraceArgs> {
     /// Adds a forward signal to the circuit with a name string and zero rotation and returns a
     /// `Queriable` instance representing the added forward signal.
     pub fn forward(&mut self, name: &str) -> Queriable<F> {
@@ -110,6 +110,8 @@ impl<F, TraceArgs> CircuitContext<F, TraceArgs> {
                 handler
             }
         };
+
+        println!("circuit context tables: {:?}", self.tables.clone());
 
         let mut context = StepTypeContext::<F>::new(
             handler.uuid(),

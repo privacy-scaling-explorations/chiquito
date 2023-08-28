@@ -2,7 +2,7 @@ from __future__ import annotations
 from typing import Callable, List, Dict, Optional, Tuple
 from dataclasses import dataclass, field, asdict
 
-from wit_gen import FixedGenContext, FixedAssignment
+from wit_gen import FixedGenContext, FixedAssignment, TraceWitness
 from expr import Expr
 from util import uuid, F
 from query import Queriable
@@ -28,9 +28,12 @@ from query import Queriable
 #     pub num_steps: usize,
 # }
 
+
 @dataclass
 class ASTSuperCircuit:
-    
+    sub_circuits: Dict[int, ASTCircuit] = field(default_factory=dict)
+    witnesses: Dict[int, TraceWitness] = field(default_factory=dict)
+
 
 @dataclass
 class ASTCircuit:
@@ -183,7 +186,7 @@ class ASTStepType:
     annotations: Dict[int, str]
 
     def new(name: str) -> ASTStepType:
-        return ASTStepType(uuid(), name, [], [], [], {})
+        return ASTStepType(uuid(), name, [], [], [], [], {})
 
     def __str__(self):
         signals_str = (
@@ -405,7 +408,9 @@ class InternalSignal:
 class Lookup:
     annotation: str = ""
     exprs: List[Tuple[ASTConstraint, Expr]] = field(default_factory=list)
-    enable: Optional[ASTConstraint] = None
+    enabler: Optional[
+        ASTConstraint
+    ] = None  # called enabler because cannot have field and method both called "enable"
 
     def add(
         self: Lookup,
@@ -415,27 +420,22 @@ class Lookup:
     ):
         constraint = ASTConstraint(constraint_annotation, constraint_expr)
         self.annotation += f"match({constraint.annotation} => {str(expression)}) "
-        if self.enable is None:
+        if self.enabler is None:
             self.exprs.append((constraint, expression))
         else:
             self.exprs.append(
-                (self.multiply_constraints(self.enable, constraint), expression)
+                (multiply_constraints(self.enabler, constraint), expression)
             )
 
     def enable(self: Lookup, enable_annotation: str, enable_expr: Expr):
-        enable = ASTConstraint(enable_annotation, enable_expr)
-        if self.enable is None:
+        enabler = ASTConstraint(enable_annotation, enable_expr)
+        if self.enabler is None:
             for constraint, _ in self.exprs:
-                constraint = self.multiply_constraints(enable, constraint)
-            self.enable = enable
+                constraint = self.multiply_constraints(enabler, constraint)
+            self.enabler = enabler
             self.annotation = f"if {enable_annotation}, {self.annotation}"
         else:
             raise ValueError("Lookup: enable() can only be called once.")
-
-    def multiply_constraints(
-        enable: ASTConstraint, constraint: ASTConstraint
-    ) -> ASTConstraint:
-        return ASTConstraint(constraint.annotation, enable.expr * constraint.expr)
 
     def __str__(self: Lookup):
         return f"Lookup({self.annotation})"
@@ -444,5 +444,11 @@ class Lookup:
         return {
             "annotation": self.annotation,
             "exprs": [[x.__json__(), y.__json__()] for (x, y) in self.exprs],
-            "enable": self.enable.__json__() if self.enable is not None else None,
+            "enable": self.enabler.__json__() if self.enabler is not None else None,
         }
+
+
+def multiply_constraints(
+    enabler: ASTConstraint, constraint: ASTConstraint
+) -> ASTConstraint:
+    return ASTConstraint(constraint.annotation, enabler.expr * constraint.expr)

@@ -1,10 +1,11 @@
 from __future__ import annotations
+from typing import List, Dict
 from enum import Enum
 from typing import Callable, Any
 from chiquito import rust_chiquito  # rust bindings
 import json
 
-from chiquito_ast import ASTCircuit, ASTStepType, ExposeOffset
+from chiquito_ast import ASTCircuit, ASTStepType, ExposeOffset, ASTSuperCircuit
 from query import Internal, Forward, Queriable, Shared, Fixed
 from wit_gen import FixedGenContext, StepInstance, TraceWitness
 from cb import (
@@ -12,7 +13,6 @@ from cb import (
     Typing,
     ToConstraint,
     to_constraint,
-    LookupTableRegistry,
     LookupTable,
     LookupTableBuilder,
     InPlaceLookupBuilder,
@@ -22,9 +22,24 @@ from util import CustomEncoder, F
 # from lb import LookupTableRegistry, LookupTable, LookupTableBuilder, InPlaceLookupBuilder
 
 
+class SuperCircuitMode(Enum):
+    NoMode = 0
+    SETUP = 1
+
+
 class SuperCircuit:
     def __init__(self: SuperCircuit):
-        self.
+        self.ast = ASTSuperCircuit()
+        self.tables: Dict[int, LookupTable] = {}
+        self.rust_ast_id: List[int] = []
+        self.mode = SuperCircuitMode.SETUP
+        self.setup()
+
+    def sub_circuit(self: SuperCircuit, sub_circuit: Circuit):
+        assert self.mode == SuperCircuitMode.SETUP
+        # self.ast.sub_circuits.append(sub_circuit.ast)
+        return sub_circuit
+
 
 class CircuitMode(Enum):
     NoMode = 0
@@ -34,11 +49,12 @@ class CircuitMode(Enum):
 
 
 class Circuit:
-    def __init__(self: Circuit):
+    def __init__(self: Circuit, super_circuit=None, imports=None):
         self.ast = ASTCircuit()
-        self.tables = LookupTableRegistry()
         self.witness = TraceWitness()
         self.rust_ast_id = 0
+        self.super_circuit = super_circuit
+        self.imports = imports
         self.mode = CircuitMode.SETUP
         self.setup()
         if hasattr(self, "fixed_gen") and callable(self.fixed_gen):
@@ -106,7 +122,11 @@ class Circuit:
 
     def new_table(self: Circuit, table: LookupTable) -> LookupTable:
         assert self.mode == CircuitMode.SETUP
-        self.tables.add(table)
+        if self.super_circuit is None:
+            raise SyntaxError(
+                "Circuit: new_table() is only available for Circuit with initiated super_circuit field."
+            )
+        self.super_circuit.tables[table.uuid] = table
         return table
 
     # called under trace()

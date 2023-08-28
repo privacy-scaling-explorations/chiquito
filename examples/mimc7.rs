@@ -187,8 +187,9 @@ fn mimc7_circuit<F: PrimeField + Eq + Hash>(
 fn mimc7_super_circuit<F: PrimeField + Eq + Hash>() -> SuperCircuit<F, (F, F)> {
     super_circuit::<F, (F, F), _>("mimc7", |ctx| {
         let config = config(SingleRowCellManager {}, SimpleStepSelectorBuilder {});
-
+        println!("super circuit table registry 1: {:?}", ctx.tables);
         let (_, constants) = ctx.sub_circuit(config.clone(), mimc7_constants, ());
+        println!("super circuit table registry 4: {:?}", ctx.tables);
         let (mimc7, _) = ctx.sub_circuit(config, mimc7_circuit, constants);
 
         ctx.mapping(move |ctx, (x_in_value, k_value)| {

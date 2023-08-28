@@ -196,6 +196,7 @@ impl<F> LookupTableBuilder<F> {
 
 impl<F: Clone + Debug> LookupBuilder<F> for LookupTableBuilder<F> {
     fn build(self, ctx: &StepTypeSetupContext<F>) -> Lookup<F> {
+        println!("step type tables: {:?}", ctx.tables);
         let table = ctx.tables.get(self.id);
 
         table.build(self.src, self.enable)
