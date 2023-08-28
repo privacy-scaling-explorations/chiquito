@@ -1,4 +1,4 @@
-use std::{collections::HashMap, hash::Hash, rc::Rc};
+use std::{collections::HashMap, fmt, hash::Hash, rc::Rc};
 
 use halo2_proofs::arithmetic::Field;
 
@@ -37,6 +37,13 @@ pub type Witness<F> = Vec<StepInstance<F>>;
 #[derive(Debug, Default)]
 pub struct TraceWitness<F> {
     pub step_instances: Witness<F>,
+}
+
+impl<F: fmt::Debug> fmt::Display for TraceWitness<F> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> std::fmt::Result {
+        // always pretty-print debug information when used with Display
+        f.write_fmt(format_args!("{:#?}", self))
+    }
 }
 
 #[derive(Debug)]
@@ -194,5 +201,30 @@ mod tests {
         ctx.padding(&step, dummy_args_fn);
 
         assert_eq!(ctx.witness.step_instances.len(), 5);
+    }
+
+    #[test]
+    fn test_trace_witness_display() {
+        let left = format!(
+            "{}", // pretty display
+            TraceWitness::<i32> {
+                step_instances: vec![StepInstance {
+                    step_type_uuid: 0,
+                    assignments: HashMap::default(),
+                }]
+            }
+        );
+        // ```
+        // TraceWitness {
+        //     step_instances: [
+        //         StepInstance {
+        //             step_type_uuid: 0,
+        //             assignments: {},
+        //         },
+        //     ],
+        // }
+        // ```
+        let right = "TraceWitness {\n    step_instances: [\n        StepInstance {\n            step_type_uuid: 0,\n            assignments: {},\n        },\n    ],\n}";
+        assert_eq!(left, right);
     }
 }
