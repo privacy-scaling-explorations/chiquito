@@ -3,10 +3,10 @@ from dataclasses import dataclass, field
 from enum import Enum, auto
 from typing import List, Dict, Optional
 
-from util import F, uuid
-from expr import Expr, Const, Neg, to_expr, ToExpr
-from query import StepTypeNext
-from chiquito_ast import ASTStepType, Lookup
+from chiquito.util import F, uuid
+from chiquito.expr import Expr, Const, Neg, to_expr, ToExpr
+from chiquito.query import StepTypeNext
+from chiquito.chiquito_ast import ASTStepType, Lookup
 
 
 class Typing(Enum):

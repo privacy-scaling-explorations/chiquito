@@ -2,10 +2,10 @@ from __future__ import annotations
 from typing import Callable, List, Dict, Optional, Tuple
 from dataclasses import dataclass, field, asdict
 
-from wit_gen import FixedGenContext, FixedAssignment
-from expr import Expr
-from util import uuid, F
-from query import Queriable
+from chiquito.wit_gen import FixedGenContext, FixedAssignment
+from chiquito.expr import Expr
+from chiquito.util import uuid, F
+from chiquito.query import Queriable
 
 
 # pub struct Circuit<F, TraceArgs> {

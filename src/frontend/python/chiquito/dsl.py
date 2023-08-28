@@ -4,10 +4,10 @@ from typing import Callable, Any
 from chiquito import rust_chiquito  # rust bindings
 import json
 
-from chiquito_ast import ASTCircuit, ASTStepType, ExposeOffset
-from query import Internal, Forward, Queriable, Shared, Fixed
-from wit_gen import FixedGenContext, StepInstance, TraceWitness
-from cb import (
+from chiquito.chiquito_ast import ASTCircuit, ASTStepType, ExposeOffset
+from chiquito.query import Internal, Forward, Queriable, Shared, Fixed
+from chiquito.wit_gen import FixedGenContext, StepInstance, TraceWitness
+from chiquito.cb import (
     Constraint,
     Typing,
     ToConstraint,
@@ -17,7 +17,7 @@ from cb import (
     LookupTableBuilder,
     InPlaceLookupBuilder,
 )
-from util import CustomEncoder, F
+from chiquito.util import CustomEncoder, F
 
 # from lb import LookupTableRegistry, LookupTable, LookupTableBuilder, InPlaceLookupBuilder
 
