@@ -23,7 +23,8 @@ from util import CustomEncoder, F
 
 
 class SuperCircuit:
-    
+    def __init__(self: SuperCircuit):
+        self.
 
 class CircuitMode(Enum):
     NoMode = 0

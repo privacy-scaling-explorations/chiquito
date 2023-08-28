@@ -28,6 +28,9 @@ from query import Queriable
 #     pub num_steps: usize,
 # }
 
+@dataclass
+class ASTSuperCircuit:
+    
 
 @dataclass
 class ASTCircuit:
