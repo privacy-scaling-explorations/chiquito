@@ -108,8 +108,17 @@ class Circuit:
     # called under trace()
     def add(self: Circuit, step_type: StepType, args: Any):
         assert self.mode == CircuitMode.Trace
+        if len(self.witness.step_instances) >= self.ast.num_steps:
+            raise ValueError(f"Number of step instances exceeds {self.ast.num_steps}")
         step_instance: StepInstance = step_type.gen_step_instance(args)
         self.witness.step_instances.append(step_instance)
+
+    def needs_padding(self: Circuit) -> bool:
+        return len(self.witness.step_instances) < self.ast.num_steps
+
+    def padding(self: Circuit, step_type: StepType, args: Any):
+        while self.needs_padding():
+            self.add(step_type, args)
 
     # called under fixed_gen()
     def assign(self: Circuit, offset: int, lhs: Queriable, rhs: F):

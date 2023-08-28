@@ -6,7 +6,7 @@ use pyo3::{
 use crate::{
     ast::{
         expr::{query::Queriable, Expr},
-        Circuit, Constraint, ExposeOffset, FixedSignal, ForwardSignal, InternalSignal,
+        Circuit, Constraint, ExposeOffset, FixedSignal, ForwardSignal, InternalSignal, Lookup,
         SharedSignal, StepType, StepTypeUUID, TransitionConstraint,
     },
     frontend::dsl::StepTypeHandler,
@@ -264,6 +264,7 @@ impl<'de> Visitor<'de> for StepTypeVisitor {
         let mut signals = None;
         let mut constraints = None;
         let mut transition_constraints = None;
+        let mut lookups = None;
         let mut annotations = None;
 
         while let Some(key) = map.next_key::<String>()? {
@@ -299,6 +300,12 @@ impl<'de> Visitor<'de> for StepTypeVisitor {
                     transition_constraints =
                         Some(map.next_value::<Vec<TransitionConstraint<Fr>>>()?);
                 }
+                "lookups" => {
+                    if lookups.is_some() {
+                        return Err(de::Error::duplicate_field("lookups"));
+                    }
+                    lookups = Some(map.next_value::<Vec<Lookup<Fr>>>()?);
+                }
                 "annotations" => {
                     if annotations.is_some() {
                         return Err(de::Error::duplicate_field("annotations"));
@@ -314,6 +321,7 @@ impl<'de> Visitor<'de> for StepTypeVisitor {
                             "signals",
                             "constraints",
                             "transition_constraints",
+                            "lookups",
                             "annotations",
                         ],
                     ))
@@ -388,6 +396,61 @@ impl_visitor_constraint_transition!(
     TransitionConstraint<Fr>,
     "struct TransitionConstraint"
 );
+
+struct LookupVisitor;
+
+impl<'de> Visitor<'de> for LookupVisitor {
+    type Value = Lookup<Fr>;
+
+    fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+        formatter.write_str("struct Lookup")
+    }
+
+    fn visit_map<A>(self, mut map: A) -> Result<Lookup<Fr>, A::Error>
+    where
+        A: MapAccess<'de>,
+    {
+        let mut annotation = None;
+        let mut exprs = None;
+        let mut enable = None;
+        while let Some(key) = map.next_key::<String>()? {
+            match key.as_str() {
+                "annotation" => {
+                    if annotation.is_some() {
+                        return Err(de::Error::duplicate_field("annotation"));
+                    }
+                    annotation = Some(map.next_value::<String>()?);
+                }
+                "exprs" => {
+                    if exprs.is_some() {
+                        return Err(de::Error::duplicate_field("exprs"));
+                    }
+                    exprs = Some(map.next_value::<Vec<(Constraint<Fr>, Expr<Fr>)>>()?);
+                }
+                "enable" => {
+                    if enable.is_some() {
+                        return Err(de::Error::duplicate_field("enable"));
+                    }
+                    enable = Some(map.next_value::<Option<Constraint<Fr>>>()?);
+                }
+                _ => {
+                    return Err(de::Error::unknown_field(
+                        &key,
+                        &["annotation", "exprs", "enable"],
+                    ))
+                }
+            }
+        }
+        let annotation = annotation.ok_or_else(|| de::Error::missing_field("annotation"))?;
+        let exprs = exprs.ok_or_else(|| de::Error::missing_field("exprs"))?;
+        let enable = enable.ok_or_else(|| de::Error::missing_field("enable"))?;
+        Ok(Self::Value {
+            annotation,
+            exprs,
+            enable,
+        })
+    }
+}
 
 struct ExprVisitor;
 
@@ -737,6 +800,7 @@ impl_deserialize!(TransitionConstraintVisitor, TransitionConstraint<Fr>);
 impl_deserialize!(StepTypeVisitor, StepType<Fr>);
 impl_deserialize!(TraceWitnessVisitor, TraceWitness<Fr>);
 impl_deserialize!(StepInstanceVisitor, StepInstance<Fr>);
+impl_deserialize!(LookupVisitor, Lookup<Fr>);
 
 impl<'de> Deserialize<'de> for Circuit<Fr, ()> {
     fn deserialize<D>(deserializer: D) -> Result<Circuit<Fr, ()>, D::Error>

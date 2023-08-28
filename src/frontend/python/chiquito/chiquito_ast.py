@@ -109,7 +109,9 @@ class ASTCircuit:
                 for (queriable, offset) in self.exposed
             ],
             "annotations": self.annotations,
-            "fixed_assignments": {
+            "fixed_assignments": None
+            if self.fixed_assignments is None
+            else {
                 lhs.uuid(): [lhs, rhs] for (lhs, rhs) in self.fixed_assignments.items()
             },
             "first_step": self.first_step,
@@ -180,7 +182,7 @@ class ASTStepType:
     annotations: Dict[int, str]
 
     def new(name: str) -> ASTStepType:
-        return ASTStepType(uuid(), name, [], [], [], {})
+        return ASTStepType(uuid(), name, [], [], [], [], {})
 
     def __str__(self):
         signals_str = (

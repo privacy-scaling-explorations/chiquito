@@ -1,7 +1,8 @@
 from __future__ import annotations
-from dsl import Circuit, StepType
-from cb import eq, table
-from util import F
+
+from chiquito.dsl import Circuit, StepType
+from chiquito.cb import eq, table
+from chiquito.util import F
 
 from chiquito.rust_chiquito import convert_and_print_ast
 

@@ -8,7 +8,7 @@ use crate::{
         assignments::{AssignmentGenerator, Assignments},
         Circuit, Column, Poly, PolyExpr, PolyLookup,
     },
-    wit_gen::{FixedAssignment, FixedGenContext, TraceGenerator},
+    wit_gen::{FixedAssignment, TraceGenerator},
 };
 
 use cell_manager::{CellManager, SignalPlacement};
