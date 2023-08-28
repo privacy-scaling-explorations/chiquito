@@ -19,8 +19,6 @@ from chiquito.cb import (
 )
 from chiquito.util import CustomEncoder, F
 
-# from lb import LookupTableRegistry, LookupTable, LookupTableBuilder, InPlaceLookupBuilder
-
 
 class CircuitMode(Enum):
     NoMode = 0

@@ -179,16 +179,6 @@ impl<F, TraceArgs> Circuit<F, TraceArgs> {
         }
     }
 
-    // pub fn set_fixed_gen<D>(&mut self, def: D)
-    // where
-    //     D: Fn(&mut FixedGenContext<F>) + 'static,
-    // {
-    //     match self.fixed_gen {
-    //         None => self.fixed_gen = Some(Rc::new(def)),
-    //         Some(_) => panic!("circuit cannot have more than one fixed generator"),
-    //     }
-    // }
-
     pub fn get_step_type(&self, uuid: UUID) -> Rc<StepType<F>> {
         let step_rc = self.step_types.get(&uuid).expect("step type not found");
 
@@ -217,16 +207,6 @@ impl<F: Field + Hash, TraceArgs> Circuit<F, TraceArgs> {
         }
     }
 }
-
-// pub fn set_fixed_gen<D>(&mut self, def: D)
-// where
-//     D: Fn(&mut FixedGenContext<F>) + 'static,
-// {
-//     match self.fixed_gen {
-//         None => self.fixed_gen = Some(Rc::new(def)),
-//         Some(_) => panic!("circuit cannot have more than one fixed generator"),
-//     }
-// }
 
 pub type FixedGen<F> = dyn Fn(&mut FixedGenContext<F>) + 'static;
 

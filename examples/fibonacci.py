@@ -2,6 +2,7 @@ from chiquito.dsl import Circuit, StepType
 from chiquito.cb import eq
 from chiquito.util import F
 from chiquito.chiquito_ast import Last
+from chiquito.rust_chiquito import convert_and_print_ast
 
 
 class FiboFirstStep(StepType):
@@ -85,3 +86,4 @@ fibo_witness = fibo.gen_witness(7)
 fibo.halo2_mock_prover(fibo_witness)
 another_fibo_witness = fibo.gen_witness(4)
 fibo.halo2_mock_prover(another_fibo_witness)
+print(fibo.get_ast_json())
