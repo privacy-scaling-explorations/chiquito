@@ -220,7 +220,7 @@ impl<'de> Visitor<'de> for CircuitVisitor {
         let annotations = annotations.ok_or_else(|| de::Error::missing_field("annotations"))?;
         let fixed_assignments = fixed_assignments
             .ok_or_else(|| de::Error::missing_field("fixed_assignments"))?
-            .map(|inner| inner.into_iter().map(|(_, value)| value).collect());
+            .map(|inner| inner.into_values().collect());
         let first_step = first_step.ok_or_else(|| de::Error::missing_field("first_step"))?;
         let last_step = last_step.ok_or_else(|| de::Error::missing_field("last_step"))?;
         let num_steps = num_steps.ok_or_else(|| de::Error::missing_field("num_steps"))?;
