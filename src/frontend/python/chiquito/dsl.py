@@ -99,15 +99,6 @@ class Circuit:
         while self.needs_padding():
             self.add(step_type, args)
 
-    # called under fixed_gen()
-    def assign(self: Circuit, offset: int, lhs: Queriable, rhs: F):
-        assert self.mode == CircuitMode.FixedGen
-        if self.fixed_gen_context is None:
-            raise ValueError(
-                "FixedGenContext: must have initiated fixed_gen_context before calling assign()"
-            )
-        self.fixed_gen_context.assign(offset, lhs, rhs)
-
     def gen_witness(self: Circuit, args: Any) -> TraceWitness:
         self.mode = CircuitMode.Trace
         self.witness = TraceWitness()
