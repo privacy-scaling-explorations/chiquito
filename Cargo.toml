@@ -1,6 +1,6 @@
 [package]
 name = "chiquito"
-version = "0.2.2"
+version = "0.2.20230828"
 edition = "2021"
 license = "MIT OR Apache-2.0"
 authors = ["Leo Lara <leo@leolara.me>"]
