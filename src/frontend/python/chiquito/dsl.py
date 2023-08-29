@@ -108,7 +108,6 @@ class Circuit:
             )
         self.fixed_gen_context.assign(offset, lhs, rhs)
 
-
     def gen_witness(self: Circuit, args: Any) -> TraceWitness:
         self.mode = CircuitMode.Trace
         self.witness = TraceWitness()
