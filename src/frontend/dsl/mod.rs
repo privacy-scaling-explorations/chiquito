@@ -4,10 +4,13 @@ use crate::{
     wit_gen::{FixedGenContext, StepInstance, TraceContext},
 };
 
-use halo2_proofs::plonk::{Advice, Column as Halo2Column, Fixed};
+use halo2_proofs::{
+    arithmetic::Field,
+    plonk::{Advice, Column as Halo2Column, Fixed},
+};
 
 use core::fmt::Debug;
-use std::marker::PhantomData;
+use std::{hash::Hash, marker::PhantomData};
 
 use self::{
     cb::{Constraint, Typing},
@@ -133,17 +136,6 @@ impl<F, TraceArgs> CircuitContext<F, TraceArgs> {
         self.circuit.set_trace(def);
     }
 
-    /// Sets the fixed generation function for the circuit. The fixed generation function is
-    /// responsible for assigning fixed values to fixed columns. It is entirely left
-    /// for the user to implement and is Turing complete. Users typically generate cell values and
-    /// call the `assign` function to fill the fixed columns.
-    pub fn fixed_gen<D>(&mut self, def: D)
-    where
-        D: Fn(&mut FixedGenContext<F>) + 'static,
-    {
-        self.circuit.set_fixed_gen(def);
-    }
-
     pub fn new_table(&self, table: LookupTableStore<F>) -> LookupTable {
         let uuid = table.uuid();
         self.tables.add(table);
@@ -169,6 +161,19 @@ impl<F, TraceArgs> CircuitContext<F, TraceArgs> {
 
     pub fn pragma_disable_q_enable(&mut self) {
         self.circuit.q_enable = false;
+    }
+}
+
+impl<F: Field + Hash, TraceArgs> CircuitContext<F, TraceArgs> {
+    /// Sets the fixed generation function for the circuit. The fixed generation function is
+    /// responsible for assigning fixed values to fixed columns. It is entirely left
+    /// for the user to implement and is Turing complete. Users typically generate cell values and
+    /// call the `assign` function to fill the fixed columns.
+    pub fn fixed_gen<D>(&mut self, def: D)
+    where
+        D: Fn(&mut FixedGenContext<F>) + 'static,
+    {
+        self.circuit.set_fixed_assignments(def);
     }
 }
 

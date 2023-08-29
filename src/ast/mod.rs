@@ -1,16 +1,19 @@
 pub mod expr;
 
-use std::{collections::HashMap, fmt::Debug, rc::Rc};
+use std::{collections::HashMap, fmt::Debug, hash::Hash, rc::Rc};
 
 use crate::{
     frontend::dsl::StepTypeHandler,
     util::{uuid, UUID},
-    wit_gen::{FixedGenContext, Trace, TraceContext},
+    wit_gen::{FixedAssignment, FixedGenContext, Trace, TraceContext},
 };
 
 pub use expr::*;
 
-use halo2_proofs::plonk::{Advice, Column as Halo2Column, ColumnType, Fixed};
+use halo2_proofs::{
+    arithmetic::Field,
+    plonk::{Advice, Column as Halo2Column, ColumnType, Fixed},
+};
 
 use self::query::Queriable;
 
@@ -29,7 +32,7 @@ pub struct Circuit<F, TraceArgs> {
     pub annotations: HashMap<UUID, String>,
 
     pub trace: Option<Rc<Trace<F, TraceArgs>>>,
-    pub fixed_gen: Option<Rc<FixedGen<F>>>,
+    pub fixed_assignments: Option<FixedAssignment<F>>,
 
     pub first_step: Option<StepTypeUUID>,
     pub last_step: Option<StepTypeUUID>,
@@ -42,10 +45,19 @@ pub struct Circuit<F, TraceArgs> {
 impl<F: Debug, TraceArgs: Debug> Debug for Circuit<F, TraceArgs> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("Circuit")
-            .field("forward_signals", &self.forward_signals)
-            .field("halo2_advice", &self.halo2_advice)
             .field("step_types", &self.step_types)
+            .field("forward_signals", &self.forward_signals)
+            .field("shared_signals", &self.shared_signals)
+            .field("fixed_signals", &self.fixed_signals)
+            .field("halo2_advice", &self.halo2_advice)
+            .field("halo2_fixed", &self.halo2_fixed)
+            .field("exposed", &self.exposed)
             .field("annotations", &self.annotations)
+            .field("fixed_assignments", &self.fixed_assignments)
+            .field("first_step", &self.first_step)
+            .field("last_step", &self.last_step)
+            .field("num_steps", &self.num_steps)
+            .field("q_enable", &self.q_enable)
             .finish()
     }
 }
@@ -66,7 +78,7 @@ impl<F, TraceArgs> Default for Circuit<F, TraceArgs> {
             annotations: Default::default(),
 
             trace: None,
-            fixed_gen: None,
+            fixed_assignments: None,
 
             first_step: None,
             last_step: None,
@@ -167,20 +179,32 @@ impl<F, TraceArgs> Circuit<F, TraceArgs> {
         }
     }
 
-    pub fn set_fixed_gen<D>(&mut self, def: D)
-    where
-        D: Fn(&mut FixedGenContext<F>) + 'static,
-    {
-        match self.fixed_gen {
-            None => self.fixed_gen = Some(Rc::new(def)),
-            Some(_) => panic!("circuit cannot have more than one fixed generator"),
-        }
-    }
-
     pub fn get_step_type(&self, uuid: UUID) -> Rc<StepType<F>> {
         let step_rc = self.step_types.get(&uuid).expect("step type not found");
 
         Rc::clone(step_rc)
+    }
+}
+
+impl<F: Field + Hash, TraceArgs> Circuit<F, TraceArgs> {
+    pub fn set_fixed_assignments<D>(&mut self, def: D)
+    where
+        D: Fn(&mut FixedGenContext<F>) + 'static,
+    {
+        match self.fixed_assignments {
+            None => {
+                self.fixed_assignments = {
+                    if self.num_steps == 0 {
+                        panic!("circuit must call pragma_num_steps before calling fixed_gen");
+                    }
+                    let mut ctx = FixedGenContext::new(self.num_steps);
+                    (def)(&mut ctx);
+
+                    Some(ctx.get_assignments())
+                }
+            }
+            Some(_) => panic!("circuit cannot have more than one fixed generator"),
+        }
     }
 }
 
@@ -450,7 +474,7 @@ impl FixedSignal {
     }
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 pub enum ExposeOffset {
     First,
     Last,

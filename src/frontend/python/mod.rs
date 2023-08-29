@@ -6,7 +6,7 @@ use pyo3::{
 use crate::{
     ast::{
         expr::{query::Queriable, Expr},
-        Circuit, Constraint, ExposeOffset, FixedSignal, ForwardSignal, InternalSignal,
+        Circuit, Constraint, ExposeOffset, FixedSignal, ForwardSignal, InternalSignal, Lookup,
         SharedSignal, StepType, StepTypeUUID, TransitionConstraint,
     },
     frontend::dsl::StepTypeHandler,
@@ -102,6 +102,7 @@ impl<'de> Visitor<'de> for CircuitVisitor {
         let mut fixed_signals = None;
         let mut exposed = None;
         let mut annotations = None;
+        let mut fixed_assignments = None;
         let mut first_step = None;
         let mut last_step = None;
         let mut num_steps = None;
@@ -146,6 +147,13 @@ impl<'de> Visitor<'de> for CircuitVisitor {
                     }
                     annotations = Some(map.next_value::<HashMap<UUID, String>>()?);
                 }
+                "fixed_assignments" => {
+                    if fixed_assignments.is_some() {
+                        return Err(de::Error::duplicate_field("fixed_assignments"));
+                    }
+                    fixed_assignments =
+                        Some(map.next_value::<Option<HashMap<UUID, (Queriable<Fr>, Vec<Fr>)>>>()?);
+                }
                 "first_step" => {
                     if first_step.is_some() {
                         return Err(de::Error::duplicate_field("first_step"));
@@ -186,6 +194,7 @@ impl<'de> Visitor<'de> for CircuitVisitor {
                             "fixed_signals",
                             "exposed",
                             "annotations",
+                            "fixed_assignments",
                             "first_step",
                             "last_step",
                             "num_steps",
@@ -209,6 +218,9 @@ impl<'de> Visitor<'de> for CircuitVisitor {
             fixed_signals.ok_or_else(|| de::Error::missing_field("fixed_signals"))?;
         let exposed = exposed.ok_or_else(|| de::Error::missing_field("exposed"))?;
         let annotations = annotations.ok_or_else(|| de::Error::missing_field("annotations"))?;
+        let fixed_assignments = fixed_assignments
+            .ok_or_else(|| de::Error::missing_field("fixed_assignments"))?
+            .map(|inner| inner.into_values().collect());
         let first_step = first_step.ok_or_else(|| de::Error::missing_field("first_step"))?;
         let last_step = last_step.ok_or_else(|| de::Error::missing_field("last_step"))?;
         let num_steps = num_steps.ok_or_else(|| de::Error::missing_field("num_steps"))?;
@@ -226,7 +238,7 @@ impl<'de> Visitor<'de> for CircuitVisitor {
             num_steps,
             annotations,
             trace: Some(Rc::new(|_: &mut TraceContext<_>, _: _| {})),
-            fixed_gen: None,
+            fixed_assignments,
             first_step,
             last_step,
             q_enable,
@@ -252,6 +264,7 @@ impl<'de> Visitor<'de> for StepTypeVisitor {
         let mut signals = None;
         let mut constraints = None;
         let mut transition_constraints = None;
+        let mut lookups = None;
         let mut annotations = None;
 
         while let Some(key) = map.next_key::<String>()? {
@@ -287,6 +300,12 @@ impl<'de> Visitor<'de> for StepTypeVisitor {
                     transition_constraints =
                         Some(map.next_value::<Vec<TransitionConstraint<Fr>>>()?);
                 }
+                "lookups" => {
+                    if lookups.is_some() {
+                        return Err(de::Error::duplicate_field("lookups"));
+                    }
+                    lookups = Some(map.next_value::<Vec<Lookup<Fr>>>()?);
+                }
                 "annotations" => {
                     if annotations.is_some() {
                         return Err(de::Error::duplicate_field("annotations"));
@@ -302,6 +321,7 @@ impl<'de> Visitor<'de> for StepTypeVisitor {
                             "signals",
                             "constraints",
                             "transition_constraints",
+                            "lookups",
                             "annotations",
                         ],
                     ))
@@ -376,6 +396,61 @@ impl_visitor_constraint_transition!(
     TransitionConstraint<Fr>,
     "struct TransitionConstraint"
 );
+
+struct LookupVisitor;
+
+impl<'de> Visitor<'de> for LookupVisitor {
+    type Value = Lookup<Fr>;
+
+    fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+        formatter.write_str("struct Lookup")
+    }
+
+    fn visit_map<A>(self, mut map: A) -> Result<Lookup<Fr>, A::Error>
+    where
+        A: MapAccess<'de>,
+    {
+        let mut annotation = None;
+        let mut exprs = None;
+        let mut enable = None;
+        while let Some(key) = map.next_key::<String>()? {
+            match key.as_str() {
+                "annotation" => {
+                    if annotation.is_some() {
+                        return Err(de::Error::duplicate_field("annotation"));
+                    }
+                    annotation = Some(map.next_value::<String>()?);
+                }
+                "exprs" => {
+                    if exprs.is_some() {
+                        return Err(de::Error::duplicate_field("exprs"));
+                    }
+                    exprs = Some(map.next_value::<Vec<(Constraint<Fr>, Expr<Fr>)>>()?);
+                }
+                "enable" => {
+                    if enable.is_some() {
+                        return Err(de::Error::duplicate_field("enable"));
+                    }
+                    enable = Some(map.next_value::<Option<Constraint<Fr>>>()?);
+                }
+                _ => {
+                    return Err(de::Error::unknown_field(
+                        &key,
+                        &["annotation", "exprs", "enable"],
+                    ))
+                }
+            }
+        }
+        let annotation = annotation.ok_or_else(|| de::Error::missing_field("annotation"))?;
+        let exprs = exprs.ok_or_else(|| de::Error::missing_field("exprs"))?;
+        let enable = enable.ok_or_else(|| de::Error::missing_field("enable"))?;
+        Ok(Self::Value {
+            annotation,
+            exprs,
+            enable,
+        })
+    }
+}
 
 struct ExprVisitor;
 
@@ -725,6 +800,7 @@ impl_deserialize!(TransitionConstraintVisitor, TransitionConstraint<Fr>);
 impl_deserialize!(StepTypeVisitor, StepType<Fr>);
 impl_deserialize!(TraceWitnessVisitor, TraceWitness<Fr>);
 impl_deserialize!(StepInstanceVisitor, StepInstance<Fr>);
+impl_deserialize!(LookupVisitor, Lookup<Fr>);
 
 impl<'de> Deserialize<'de> for Circuit<Fr, ()> {
     fn deserialize<D>(deserializer: D) -> Result<Circuit<Fr, ()>, D::Error>
@@ -887,16 +963,70 @@ mod tests {
         let json = r#"
         {
             "step_types": {
-                "205524326356431126935662643926474033674": {
-                    "id": 205524326356431126935662643926474033674,
-                    "name": "fibo_step",
+                "258869595755756204079859764249309612554": {
+                    "id": 258869595755756204079859764249309612554,
+                    "name": "fibo_first_step",
                     "signals": [
                         {
-                            "id": 205524332694684128074575021569884162570,
+                            "id": 258869599717164329791616633222308956682,
                             "annotation": "c"
                         }
                     ],
                     "constraints": [
+                        {
+                            "annotation": "(a == 1)",
+                            "expr": {
+                                "Sum": [
+                                    {
+                                        "Forward": [
+                                            {
+                                                "id": 258869580702405326369584955980151130634,
+                                                "phase": 0,
+                                                "annotation": "a"
+                                            },
+                                            false
+                                        ]
+                                    },
+                                    {
+                                        "Neg": {
+                                            "Const": [
+                                                1,
+                                                0,
+                                                0,
+                                                0
+                                            ]
+                                        }
+                                    }
+                                ]
+                            }
+                        },
+                        {
+                            "annotation": "(b == 1)",
+                            "expr": {
+                                "Sum": [
+                                    {
+                                        "Forward": [
+                                            {
+                                                "id": 258869587040658327507391136965088381450,
+                                                "phase": 0,
+                                                "annotation": "b"
+                                            },
+                                            false
+                                        ]
+                                    },
+                                    {
+                                        "Neg": {
+                                            "Const": [
+                                                1,
+                                                0,
+                                                0,
+                                                0
+                                            ]
+                                        }
+                                    }
+                                ]
+                            }
+                        },
                         {
                             "annotation": "((a + b) == c)",
                             "expr": {
@@ -904,7 +1034,7 @@ mod tests {
                                     {
                                         "Forward": [
                                             {
-                                                "id": 205524314472206749795829327634996267530,
+                                                "id": 258869580702405326369584955980151130634,
                                                 "phase": 0,
                                                 "annotation": "a"
                                             },
@@ -914,7 +1044,7 @@ mod tests {
                                     {
                                         "Forward": [
                                             {
-                                                "id": 205524322395023001221676493137926294026,
+                                                "id": 258869587040658327507391136965088381450,
                                                 "phase": 0,
                                                 "annotation": "b"
                                             },
@@ -924,7 +1054,7 @@ mod tests {
                                     {
                                         "Neg": {
                                             "Internal": {
-                                                "id": 205524332694684128074575021569884162570,
+                                                "id": 258869599717164329791616633222308956682,
                                                 "annotation": "c"
                                             }
                                         }
@@ -941,7 +1071,7 @@ mod tests {
                                     {
                                         "Forward": [
                                             {
-                                                "id": 205524322395023001221676493137926294026,
+                                                "id": 258869587040658327507391136965088381450,
                                                 "phase": 0,
                                                 "annotation": "b"
                                             },
@@ -952,7 +1082,7 @@ mod tests {
                                         "Neg": {
                                             "Forward": [
                                                 {
-                                                    "id": 205524314472206749795829327634996267530,
+                                                    "id": 258869580702405326369584955980151130634,
                                                     "phase": 0,
                                                     "annotation": "a"
                                                 },
@@ -969,7 +1099,7 @@ mod tests {
                                 "Sum": [
                                     {
                                         "Internal": {
-                                            "id": 205524332694684128074575021569884162570,
+                                            "id": 258869599717164329791616633222308956682,
                                             "annotation": "c"
                                         }
                                     },
@@ -977,7 +1107,7 @@ mod tests {
                                         "Neg": {
                                             "Forward": [
                                                 {
-                                                    "id": 205524322395023001221676493137926294026,
+                                                    "id": 258869587040658327507391136965088381450,
                                                     "phase": 0,
                                                     "annotation": "b"
                                                 },
@@ -987,18 +1117,48 @@ mod tests {
                                     }
                                 ]
                             }
+                        },
+                        {
+                            "annotation": "(n == next(n))",
+                            "expr": {
+                                "Sum": [
+                                    {
+                                        "Forward": [
+                                            {
+                                                "id": 258869589417503202934383108674030275082,
+                                                "phase": 0,
+                                                "annotation": "n"
+                                            },
+                                            false
+                                        ]
+                                    },
+                                    {
+                                        "Neg": {
+                                            "Forward": [
+                                                {
+                                                    "id": 258869589417503202934383108674030275082,
+                                                    "phase": 0,
+                                                    "annotation": "n"
+                                                },
+                                                true
+                                            ]
+                                        }
+                                    }
+                                ]
+                            }
                         }
                     ],
+                    "lookups": [],
                     "annotations": {
-                        "205524332694684128074575021569884162570": "c"
+                        "258869599717164329791616633222308956682": "c"
                     }
                 },
-                "205524373893328635494146417612672338442": {
-                    "id": 205524373893328635494146417612672338442,
-                    "name": "fibo_last_step",
+                "258869628239302834927102989021255174666": {
+                    "id": 258869628239302834927102989021255174666,
+                    "name": "fibo_step",
                     "signals": [
                         {
-                            "id": 205524377062455136063336753318874188298,
+                            "id": 258869632200710960639812650790420089354,
                             "annotation": "c"
                         }
                     ],
@@ -1010,7 +1170,7 @@ mod tests {
                                     {
                                         "Forward": [
                                             {
-                                                "id": 205524314472206749795829327634996267530,
+                                                "id": 258869580702405326369584955980151130634,
                                                 "phase": 0,
                                                 "annotation": "a"
                                             },
@@ -1020,7 +1180,7 @@ mod tests {
                                     {
                                         "Forward": [
                                             {
-                                                "id": 205524322395023001221676493137926294026,
+                                                "id": 258869587040658327507391136965088381450,
                                                 "phase": 0,
                                                 "annotation": "b"
                                             },
@@ -1030,7 +1190,7 @@ mod tests {
                                     {
                                         "Neg": {
                                             "Internal": {
-                                                "id": 205524377062455136063336753318874188298,
+                                                "id": 258869632200710960639812650790420089354,
                                                 "annotation": "c"
                                             }
                                         }
@@ -1039,22 +1199,180 @@ mod tests {
                             }
                         }
                     ],
-                    "transition_constraints": [],
+                    "transition_constraints": [
+                        {
+                            "annotation": "(b == next(a))",
+                            "expr": {
+                                "Sum": [
+                                    {
+                                        "Forward": [
+                                            {
+                                                "id": 258869587040658327507391136965088381450,
+                                                "phase": 0,
+                                                "annotation": "b"
+                                            },
+                                            false
+                                        ]
+                                    },
+                                    {
+                                        "Neg": {
+                                            "Forward": [
+                                                {
+                                                    "id": 258869580702405326369584955980151130634,
+                                                    "phase": 0,
+                                                    "annotation": "a"
+                                                },
+                                                true
+                                            ]
+                                        }
+                                    }
+                                ]
+                            }
+                        },
+                        {
+                            "annotation": "(c == next(b))",
+                            "expr": {
+                                "Sum": [
+                                    {
+                                        "Internal": {
+                                            "id": 258869632200710960639812650790420089354,
+                                            "annotation": "c"
+                                        }
+                                    },
+                                    {
+                                        "Neg": {
+                                            "Forward": [
+                                                {
+                                                    "id": 258869587040658327507391136965088381450,
+                                                    "phase": 0,
+                                                    "annotation": "b"
+                                                },
+                                                true
+                                            ]
+                                        }
+                                    }
+                                ]
+                            }
+                        },
+                        {
+                            "annotation": "(n == next(n))",
+                            "expr": {
+                                "Sum": [
+                                    {
+                                        "Forward": [
+                                            {
+                                                "id": 258869589417503202934383108674030275082,
+                                                "phase": 0,
+                                                "annotation": "n"
+                                            },
+                                            false
+                                        ]
+                                    },
+                                    {
+                                        "Neg": {
+                                            "Forward": [
+                                                {
+                                                    "id": 258869589417503202934383108674030275082,
+                                                    "phase": 0,
+                                                    "annotation": "n"
+                                                },
+                                                true
+                                            ]
+                                        }
+                                    }
+                                ]
+                            }
+                        }
+                    ],
+                    "lookups": [],
                     "annotations": {
-                        "205524377062455136063336753318874188298": "c"
+                        "258869632200710960639812650790420089354": "c"
                     }
+                },
+                "258869646461780213207493341245063432714": {
+                    "id": 258869646461780213207493341245063432714,
+                    "name": "padding",
+                    "signals": [],
+                    "constraints": [],
+                    "transition_constraints": [
+                        {
+                            "annotation": "(b == next(b))",
+                            "expr": {
+                                "Sum": [
+                                    {
+                                        "Forward": [
+                                            {
+                                                "id": 258869587040658327507391136965088381450,
+                                                "phase": 0,
+                                                "annotation": "b"
+                                            },
+                                            false
+                                        ]
+                                    },
+                                    {
+                                        "Neg": {
+                                            "Forward": [
+                                                {
+                                                    "id": 258869587040658327507391136965088381450,
+                                                    "phase": 0,
+                                                    "annotation": "b"
+                                                },
+                                                true
+                                            ]
+                                        }
+                                    }
+                                ]
+                            }
+                        },
+                        {
+                            "annotation": "(n == next(n))",
+                            "expr": {
+                                "Sum": [
+                                    {
+                                        "Forward": [
+                                            {
+                                                "id": 258869589417503202934383108674030275082,
+                                                "phase": 0,
+                                                "annotation": "n"
+                                            },
+                                            false
+                                        ]
+                                    },
+                                    {
+                                        "Neg": {
+                                            "Forward": [
+                                                {
+                                                    "id": 258869589417503202934383108674030275082,
+                                                    "phase": 0,
+                                                    "annotation": "n"
+                                                },
+                                                true
+                                            ]
+                                        }
+                                    }
+                                ]
+                            }
+                        }
+                    ],
+                    "lookups": [],
+                    "annotations": {}
                 }
             },
             "forward_signals": [
                 {
-                    "id": 205524314472206749795829327634996267530,
+                    "id": 258869580702405326369584955980151130634,
                     "phase": 0,
                     "annotation": "a"
                 },
                 {
-                    "id": 205524322395023001221676493137926294026,
+                    "id": 258869587040658327507391136965088381450,
                     "phase": 0,
                     "annotation": "b"
+                },
+                {
+                    "id": 258869589417503202934383108674030275082,
+                    "phase": 0,
+                    "annotation": "n"
                 }
             ],
             "shared_signals": [],
@@ -1064,24 +1382,9 @@ mod tests {
                     {
                         "Forward": [
                             {
-                                "id": 205524322395023001221676493137926294026,
+                                "id": 258869587040658327507391136965088381450,
                                 "phase": 0,
                                 "annotation": "b"
-                            },
-                            false
-                        ]
-                    },
-                    {
-                        "First": 0
-                    }
-                ],
-                [
-                    {
-                        "Forward": [
-                            {
-                                "id": 205524314472206749795829327634996267530,
-                                "phase": 0,
-                                "annotation": "a"
                             },
                             false
                         ]
@@ -1094,29 +1397,32 @@ mod tests {
                     {
                         "Forward": [
                             {
-                                "id": 205524314472206749795829327634996267530,
+                                "id": 258869589417503202934383108674030275082,
                                 "phase": 0,
-                                "annotation": "a"
+                                "annotation": "n"
                             },
                             false
                         ]
                     },
                     {
-                        "Step": 1
+                        "Last": -1
                     }
                 ]
             ],
             "annotations": {
-                "205524314472206749795829327634996267530": "a",
-                "205524322395023001221676493137926294026": "b",
-                "205524326356431126935662643926474033674": "fibo_step",
-                "205524373893328635494146417612672338442": "fibo_last_step"
+                "258869580702405326369584955980151130634": "a",
+                "258869587040658327507391136965088381450": "b",
+                "258869589417503202934383108674030275082": "n",
+                "258869595755756204079859764249309612554": "fibo_first_step",
+                "258869628239302834927102989021255174666": "fibo_step",
+                "258869646461780213207493341245063432714": "padding"
             },
-            "first_step": 205524326356431126935662643926474033674,
-            "last_step": 205524373893328635494146417612672338442,
-            "num_steps": 0,
-            "q_enable": false,
-            "id": 205522563529815184552233780032226069002
+            "fixed_assignments": null,
+            "first_step": 258869595755756204079859764249309612554,
+            "last_step": 258869646461780213207493341245063432714,
+            "num_steps": 10,
+            "q_enable": true,
+            "id": 258867373405797678961444396351437277706
         }
         "#;
         let circuit: Circuit<Fr, ()> = serde_json::from_str(json).unwrap();
