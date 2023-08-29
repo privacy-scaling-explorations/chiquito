@@ -1,6 +1,7 @@
 from __future__ import annotations
 from typing import Callable, List, Dict, Optional, Any, Tuple
 from dataclasses import dataclass, field, asdict
+
 # from chiquito import wit_gen, expr, query, util
 
 from chiquito.wit_gen import FixedGenContext, StepInstance
