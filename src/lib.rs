@@ -1,3 +1,4 @@
+#![feature(int_log)]
 pub mod ast;
 pub mod frontend;
 pub mod plonkish;
