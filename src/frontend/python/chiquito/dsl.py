@@ -1,10 +1,11 @@
 from __future__ import annotations
 from enum import Enum
 from typing import Callable, Any
+
 # import rust_chiquito  # rust bindings
 from chiquito import rust_chiquito
 import json
-from chiquito import (chiquito_ast, wit_gen)
+from chiquito import chiquito_ast, wit_gen
 
 from chiquito.chiquito_ast import ASTCircuit, ASTStepType, ExposeOffset
 from chiquito.query import Internal, Forward, Queriable, Shared, Fixed
@@ -84,8 +85,19 @@ class Circuit:
 
     def add(self: Circuit, step_type: StepType, args: Any):
         assert self.mode == CircuitMode.Trace
+        if len(self.witness.step_instances) >= self.ast.num_steps:
+            raise ValueError(f"Number of step instances exceeds {self.ast.num_steps}")
         step_instance: StepInstance = step_type.gen_step_instance(args)
         self.witness.step_instances.append(step_instance)
+
+    def needs_padding(self: Circuit) -> bool:
+        assert self.mode == CircuitMode.Trace
+        return len(self.witness.step_instances) < self.ast.num_steps
+
+    def padding(self: Circuit, step_type: StepType, args: Any):
+        assert self.mode == CircuitMode.Trace
+        while self.needs_padding():
+            self.add(step_type, args)
 
     def gen_witness(self: Circuit, args: Any) -> TraceWitness:
         self.mode = CircuitMode.Trace
