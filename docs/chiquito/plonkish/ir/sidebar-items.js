@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"enum":[["ColumnType",""],["PolyExpr",""]],"mod":[["assignments",""],["sc",""]],"struct":[["Circuit",""],["Column",""],["Poly",""],["PolyLookup",""]]};
+window.SIDEBAR_ITEMS = {"enum":["ColumnType","PolyExpr"],"mod":["assignments","sc"],"struct":["Circuit","Column","Poly","PolyLookup"]};

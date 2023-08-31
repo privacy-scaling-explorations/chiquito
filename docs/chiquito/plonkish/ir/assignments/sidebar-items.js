@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"struct":[["AssignmentGenerator",""]],"type":[["Assignments",""]]};
+window.SIDEBAR_ITEMS = {"struct":["AssignmentGenerator"],"type":["Assignments"]};

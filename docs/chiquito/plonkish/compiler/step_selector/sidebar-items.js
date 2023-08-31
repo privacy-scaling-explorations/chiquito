@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"struct":[["SimpleStepSelectorBuilder",""],["StepSelector",""],["TwoStepsSelectorBuilder",""]],"trait":[["StepSelectorBuilder",""]],"type":[["SelectorAssignment",""]]};
+window.SIDEBAR_ITEMS = {"struct":["SimpleStepSelectorBuilder","StepSelector","TwoStepsSelectorBuilder"],"trait":["StepSelectorBuilder"],"type":["SelectorAssignment"]};

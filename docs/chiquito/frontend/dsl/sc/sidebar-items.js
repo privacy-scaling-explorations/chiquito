@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":[["super_circuit",""]],"struct":[["SuperCircuitContext",""]]};
+window.SIDEBAR_ITEMS = {"fn":["super_circuit"],"struct":["SuperCircuitContext"]};
