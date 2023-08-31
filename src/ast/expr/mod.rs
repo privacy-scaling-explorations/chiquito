@@ -1,11 +1,12 @@
 use std::{
     fmt::Debug,
     ops::{Add, Mul, Neg, Sub},
+    hash::Hash,
 };
 
 use halo2_proofs::{arithmetic::Field, plonk::Expression};
 
-use crate::frontend::dsl::cb::Constraint;
+use crate::{frontend::dsl::cb::Constraint, wit_gen::StepInstanceAssignments};
 
 use self::query::Queriable;
 
@@ -28,6 +29,24 @@ pub enum Expr<F> {
     Pow(Box<Expr<F>>, u32),
     Query(Queriable<F>),
     Halo2Expr(Expression<F>),
+}
+
+impl<F: Field + Hash> Expr<F> {
+    pub fn eval(&self, assignments: &StepInstanceAssignments<F>) -> Option<F> {
+        match self {
+            Expr::Const(v) => Some(v.clone()),
+            Expr::Sum(ses) => ses.iter().fold(Some(F::ZERO), |acc, se| Some(acc? + se.eval(assignments)?)),
+            Expr::Mul(ses) => ses.iter().fold(Some(F::ONE), |acc, se| Some(acc? * se.eval(assignments)?)),
+            Expr::Neg(se) => Some(F::ZERO - se.eval(assignments)?),
+            Expr::Pow(se, exp) => {
+                Some(se.eval(assignments)?.pow([*exp as u64]))
+            },
+            Expr::Query(q) => assignments.get(q).map(|v| *v),
+
+            // Not implemented, and not necessary for aexpr
+            Expr::Halo2Expr(_) => None,
+        }
+    }
 }
 
 impl<F: Debug> Debug for Expr<F> {

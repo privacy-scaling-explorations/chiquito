@@ -1,64 +1,8 @@
 use std::{marker::PhantomData, vec};
 
-use crate::ast::aexpr::AExpr;
+use crate::aexpr::AExpr;
 
-#[derive(Clone)]
-pub enum AExprIR<F, V> {
-    Const(F),
-    Sum(Vec<AExprIR<F, V>>),
-    Mul(Vec<AExprIR<F, V>>),
-    Neg(Box<AExprIR<F, V>>),
-    Pow(Box<AExprIR<F, V>>, u32),
-
-    Query(V),
-
-    // Multiplicative inverse if != 0, any value if = 0
-    MI(Box<AExprIR<F, V>>),
-}
-
-impl<F: Clone + From<u64>, V: Clone> AExprIR<F, V> {
-    pub fn cost(&self, config: &CostConfig) -> u64 {
-        match self {
-            AExprIR::Const(_) => 0,
-            AExprIR::Sum(ses) => ses.iter().map(|se| se.cost(&config)).max().unwrap(),
-            AExprIR::Mul(ses) => ses.iter().map(|se| se.cost(&config)).fold(0, |a, c| a + c),
-            AExprIR::Neg(se) => se.cost(&config),
-            AExprIR::Pow(se, exp) => se.cost(&config) ^ (*exp as u64),
-            AExprIR::Query(_) => config.query,
-            AExprIR::MI(se) => se.cost(&config) + config.mult_inverse,
-        }
-    }
-
-    fn one_minus(&self) -> AExprIR<F, V> {
-        use AExprIR::*;
-
-        Sum(vec![Const(F::from(1u64)), Neg(Box::new((*self).clone()))])
-    }
-
-    fn cast_anti_booly(&self) -> AExprIR<F, V> {
-        self.one_minus()
-    }
-
-    fn cast_one_zero(&self) -> AExprIR<F, V> {
-        use AExprIR::*;
-
-        Mul(vec![self.clone(), MI(Box::new(self.clone()))]).one_minus()
-    }
-}
-
-pub struct CostConfig {
-    pub query: u64,
-    pub mult_inverse: u64,
-}
-
-impl Default for CostConfig {
-    fn default() -> Self {
-        Self {
-            query: 1,
-            mult_inverse: 1,
-        }
-    }
-}
+use super::ir::{AExprIR, CostConfig};
 
 pub fn compile<F: Clone + From<u64>, V: Clone>(
     input: &AExpr<F, V>,
@@ -80,10 +24,6 @@ impl<F: Clone, V: Clone> CompilationResult<F, V> {
             anti_booly,
             one_zero,
         }
-    }
-
-    fn get_logic(&self) -> Option<(AExprIR<F, V>, AExprIR<F, V>)> {
-        todo!()
     }
 
     fn get_anti_booly(&self) -> AExprIR<F, V> {
@@ -154,9 +94,9 @@ impl<F: Clone + From<u64>, V: Clone> CompilationUnit<F, V> {
             AExpr::Neg(e) => Neg(Box::new(self.compile_arith(e))),
             AExpr::Pow(e, exp) => Pow(Box::new(self.compile_arith(e)), *exp),
             AExpr::Query(q) => Query(q.clone()),
-            AExpr::Select(selecor, when_true, when_false) => todo!(),
+            AExpr::Select(selector, when_true, when_false) => self.compile_select(self.compile_logic(selector), self.compile_arith(when_true), self.compile_arith(when_false)),
 
-            _ => panic!("arithmetic expression cannot contain logical"),
+            _ => panic!("arithmetic expression expected"),
         }
     }
 

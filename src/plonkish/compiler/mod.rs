@@ -16,7 +16,6 @@ use step_selector::StepSelectorBuilder;
 
 use unit::CompilationUnit;
 
-pub(crate) mod aexpr;
 pub mod cell_manager;
 pub mod step_selector;
 pub(crate) mod unit;

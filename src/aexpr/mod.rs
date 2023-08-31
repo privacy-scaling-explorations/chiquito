@@ -1,6 +1,9 @@
 pub mod cb;
+pub mod compiler;
+pub mod ir;
+pub mod poly;
 
-#[derive(Clone)]
+#[derive(Debug,Clone)]
 pub enum AExpr<F, V> {
     Const(F),
     Sum(Vec<AExpr<F, V>>),

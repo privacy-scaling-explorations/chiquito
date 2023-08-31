@@ -7,12 +7,14 @@ use crate::{
     frontend::dsl::StepTypeWGHandler,
 };
 
+pub type StepInstanceAssignments<F> = HashMap<Queriable<F>, F>;
+
 /// A struct that represents a witness generation context. It provides an interface for assigning
 /// values to witness columns in a circuit.
 #[derive(Debug, Default, Clone)]
 pub struct StepInstance<F> {
     pub step_type_uuid: StepTypeUUID,
-    pub assignments: HashMap<Queriable<F>, F>,
+    pub assignments: StepInstanceAssignments<F>,
 }
 
 impl<F> StepInstance<F> {
