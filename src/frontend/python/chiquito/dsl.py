@@ -39,7 +39,10 @@ class SuperCircuit:
 
     def sub_circuit(self: SuperCircuit, sub_circuit: Circuit):
         assert self.mode == SuperCircuitMode.SETUP
-        # self.ast.sub_circuits.append(sub_circuit.ast)
+        if sub_circuit.rust_ast_id == 0:
+            ast_json: str = sub_circuit.get_ast_json()
+            sub_circuit.rust_ast_id: int = rust_chiquito.ast_to_halo2(ast_json)
+            self.ast.sub_circuits[sub_circuit.rust_ast_id] = sub_circuit.ast
         return sub_circuit
 
 
