@@ -41,9 +41,8 @@ class Circuit:
                 raise ValueError(
                     "Must set num_steps by calling pragma_num_steps() in setup before calling fixed_gen()."
                 )
-            self.fixed_gen_context = FixedGenContext.new(self.ast.num_steps)
+            self.ast.fixed_assignments = {}
             self.fixed_gen()
-            self.ast.fixed_assignments = self.fixed_gen_context.assignments
         self.mode = CircuitMode.NoMode
 
     def forward(self: Circuit, name: str) -> Forward:
@@ -123,11 +122,11 @@ class Circuit:
     # called under fixed_gen()
     def assign(self: Circuit, offset: int, lhs: Queriable, rhs: F):
         assert self.mode == CircuitMode.FixedGen
-        if self.fixed_gen_context is None:
+        if self.ast.fixed_assignments is None:
             raise ValueError(
-                "FixedGenContext: must have initiated fixed_gen_context before calling assign()"
+                "FixedAssignment: must have initiated fixed_assignments before calling assign()"
             )
-        self.fixed_gen_context.assign(offset, lhs, rhs)
+        self.ast.add_fixed_assignment(offset, lhs, rhs)
 
     def gen_witness(self: Circuit, args: Any) -> TraceWitness:
         self.mode = CircuitMode.Trace

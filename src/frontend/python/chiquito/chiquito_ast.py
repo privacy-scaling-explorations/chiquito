@@ -1,11 +1,10 @@
 from __future__ import annotations
-from typing import Callable, List, Dict, Optional, Tuple
+from typing import List, Dict, Optional, Tuple
 from dataclasses import dataclass, field, asdict
 
-from chiquito.wit_gen import FixedGenContext, FixedAssignment
 from chiquito.expr import Expr
 from chiquito.util import uuid, F
-from chiquito.query import Queriable
+from chiquito.query import Queriable, Fixed
 
 
 # pub struct Circuit<F, TraceArgs> {
@@ -28,6 +27,7 @@ from chiquito.query import Queriable
 #     pub num_steps: usize,
 # }
 
+FixedAssignment = Dict[Queriable, List[F]]
 
 @dataclass
 class ASTCircuit:
@@ -146,11 +146,14 @@ class ASTCircuit:
         self.annotations[step_type.id] = name
         self.step_types[step_type.id] = step_type
 
-    def set_fixed_gen(self, fixed_gen_def: Callable[[FixedGenContext], None]):
-        if self.fixed_gen is not None:
-            raise Exception("ASTCircuit cannot have more than one fixed generator.")
+    def add_fixed_assignment(self: ASTCircuit, offset: int, lhs: Queriable, rhs: F):
+        if not isinstance(lhs, Fixed):
+            raise ValueError(f"Cannot assign to non-fixed signal.")
+        if lhs in self.fixed_assignments.keys():
+            self.fixed_assignments[lhs][offset] = rhs
         else:
-            self.fixed_gen = fixed_gen_def
+            self.fixed_assignments[lhs] = [F.zero()] * self.num_steps
+            self.fixed_assignments[lhs][offset] = rhs
 
     def get_step_type(self, uuid: int) -> ASTStepType:
         if uuid in self.step_types.keys():
