@@ -27,23 +27,76 @@ from util import CustomEncoder, F
 class SuperCircuitMode(Enum):
     NoMode = 0
     SETUP = 1
+    Mapping = 2
 
 
 class SuperCircuit:
     def __init__(self: SuperCircuit):
         self.ast = ASTSuperCircuit()
         self.tables: Dict[int, LookupTable] = {}
-        self.rust_ast_id: List[int] = []
+        # self.rust_ast_id: List[int] = []
         self.mode = SuperCircuitMode.SETUP
         self.setup()
+        self.mode = SuperCircuitMode.NoMode
 
-    def sub_circuit(self: SuperCircuit, sub_circuit: Circuit):
+    # called under setup()
+    def sub_circuit(self: SuperCircuit, sub_circuit: Circuit) -> Circuit:
         assert self.mode == SuperCircuitMode.SETUP
-        if sub_circuit.rust_ast_id == 0:
-            ast_json: str = sub_circuit.get_ast_json()
-            sub_circuit.rust_ast_id: int = rust_chiquito.ast_to_halo2(ast_json)
-            self.ast.sub_circuits[sub_circuit.rust_ast_id] = sub_circuit.ast
+        if sub_circuit.rust_ast_id != 0:
+            raise ValueError("SuperCircuit: sub_circuit() cannot be called twice on the same circuit.")
+        ast_json: str = sub_circuit.get_ast_json()
+        sub_circuit.rust_ast_id: int = rust_chiquito.ast_to_halo2(ast_json)
+        self.ast.sub_circuits[sub_circuit.rust_ast_id] = sub_circuit.ast
         return sub_circuit
+    
+    # called under mapping()
+    # generates TraceWitness for sub_circuit
+    def map(self: SuperCircuit, sub_circuit: Circuit, args: Any) -> TraceWitness:
+        assert self.mode == SuperCircuitMode.Mapping
+        witness: TraceWitness = sub_circuit.gen_witness(args)
+        if sub_circuit.rust_ast_id == 0:
+            raise ValueError("SuperCircuit: must call sub_circuit() before calling map() on a Circuit.")
+        self.ast.witnesses[sub_circuit.rust_ast_id] = witness
+        return witness
+    
+    # called at the outermost level
+    # generates TraceWitness mapping
+    def gen_witness(self: SuperCircuit, args: Any) -> Dict[int, TraceWitness]:
+        self.mode = SuperCircuitMode.Mapping
+        self.mapping(args)
+        self.mode = SuperCircuitMode.NoMode
+        witnesses: Dict[int, TraceWitness] = self.ast.witnesses
+        del self.ast.witnesses # so that we can generate different witness mapping in the next gen_witness() call
+        return witnesses
+    
+    # def gen_witness(self: Circuit, args: Any) -> TraceWitness:
+    #     self.mode = CircuitMode.Trace
+    #     self.witness = TraceWitness()
+    #     self.trace(args)
+    #     self.mode = CircuitMode.NoMode
+    #     witness = self.witness
+    #     del self.witness
+    #     return witness
+
+    # def get_ast_json(self: Circuit) -> str:
+    #     return json.dumps(self.ast, cls=CustomEncoder, indent=4)
+
+    def halo2_mock_prover(self: SuperCircuit, witnesses: Dict[int, TraceWitness]):
+        for rust_ast_id, witness in witnesses.items():
+            witness_json: str = witness.get_witness_json()
+            if rust_ast_id not in self.ast.sub_circuits:
+                raise ValueError(f"SuperCircuit.halo2_mock_prover(): TraceWitness with rust_ast_id {rust_ast_id} not found in sub_circuits.")
+            rust_chiquito.add_witness_to_ast(witness_json, rust_ast_id)
+        for sub_circuit_id in self.ast.sub_circuits:
+            
+
+
+    # def halo2_mock_prover(self: Circuit, witness: TraceWitness):
+    #     if self.rust_ast_id == 0:
+    #         ast_json: str = self.get_ast_json()
+    #         self.rust_ast_id: int = rust_chiquito.ast_to_halo2(ast_json)
+    #     witness_json: str = witness.get_witness_json()
+    #     rust_chiquito.halo2_mock_prover(witness_json, self.rust_ast_id)
 
 
 class CircuitMode(Enum):

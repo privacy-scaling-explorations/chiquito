@@ -117,7 +117,9 @@ class ASTCircuit:
                 for (queriable, offset) in self.exposed
             ],
             "annotations": self.annotations,
-            "fixed_assignments": {
+            "fixed_assignments": None
+            if self.fixed_assignments is None
+            else {
                 lhs.uuid(): [lhs, rhs] for (lhs, rhs) in self.fixed_assignments.items()
             },
             "first_step": self.first_step,

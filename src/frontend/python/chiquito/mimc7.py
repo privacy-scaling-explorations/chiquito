@@ -264,9 +264,8 @@ class Mimc7SuperCircuit(SuperCircuit):
             Mimc7Circuit(self, imports=self.mimc7_constants.exports)
         )
 
-
-#     def mapping(self, args):
-#         x_in_value, k_value = args
-#         self.map(self.mimc7_circuit, (x_in_value, k_value))
+    def mapping(self, args):
+        x_in_value, k_value = args
+        self.map(self.mimc7_circuit, (x_in_value, k_value))
 
 Mimc7SuperCircuit()
