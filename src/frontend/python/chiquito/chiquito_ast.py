@@ -2,6 +2,8 @@ from __future__ import annotations
 from typing import Callable, List, Dict, Optional, Tuple
 from dataclasses import dataclass, field, asdict
 
+# from chiquito import wit_gen, expr, query, util
+
 from wit_gen import FixedGenContext, FixedAssignment, TraceWitness
 from expr import Expr
 from util import uuid, F
