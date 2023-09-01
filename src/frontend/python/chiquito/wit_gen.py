@@ -95,21 +95,3 @@ class TraceWitness:
 
 
 FixedAssignment = Dict[Queriable, List[F]]
-
-
-@dataclass
-class FixedGenContext:
-    assignments: FixedAssignment = field(default_factory=dict)
-    num_steps: int = 0
-
-    def new(num_steps: int) -> FixedGenContext:
-        return FixedGenContext({}, num_steps)
-
-    def assign(self: FixedGenContext, offset: int, lhs: Queriable, rhs: F):
-        if not isinstance(lhs, Fixed):
-            raise ValueError(f"Cannot assign to non-fixed signal.")
-        if lhs in self.assignments.keys():
-            self.assignments[lhs][offset] = rhs
-        else:
-            self.assignments[lhs] = [F.zero()] * self.num_steps
-            self.assignments[lhs][offset] = rhs

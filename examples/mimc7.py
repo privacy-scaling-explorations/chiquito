@@ -10,6 +10,7 @@ from mimc7_constants import ROUND_KEYS
 
 ROUNDS = 91
 
+
 class Mimc7Constants(Circuit):
     def setup(self):
         self.pragma_num_steps(ROUNDS)

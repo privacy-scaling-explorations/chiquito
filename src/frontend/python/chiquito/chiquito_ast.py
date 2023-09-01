@@ -29,6 +29,7 @@ from chiquito.query import Queriable, Fixed
 
 FixedAssignment = Dict[Queriable, List[F]]
 
+
 @dataclass
 class ASTCircuit:
     step_types: Dict[int, ASTStepType] = field(default_factory=dict)
