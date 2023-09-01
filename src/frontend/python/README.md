@@ -3,7 +3,7 @@
 Chiquito's Python frontend uses PyO3 and Maturin to expose Rust APIs to Python. Maturin requires the user to locally build a Python virtual environment. Run the following script to create a Python virtual environment, install required packages, and build the project.
 
 ```
-# Clone this repo and its submodules
+# Clone this repo
 git clone --recursive https://github.com/privacy-scaling-explorations/chiquito/
 # Navigate to the repository root directory 
 cd chiquito
