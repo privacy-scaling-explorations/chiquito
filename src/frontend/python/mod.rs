@@ -5,7 +5,7 @@ use pyo3::{
 
 use crate::{
     ast::{
-        expr::query::Queriable,
+        query::Queriable,
         Circuit, Constraint, ExposeOffset, FixedSignal, ForwardSignal, InternalSignal,
         SharedSignal, StepType, StepTypeUUID, TransitionConstraint,
     },

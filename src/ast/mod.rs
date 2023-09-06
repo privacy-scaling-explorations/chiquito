@@ -1,4 +1,4 @@
-pub mod expr;
+pub mod query;
 
 use std::{collections::HashMap, fmt::Debug, rc::Rc};
 
@@ -7,8 +7,6 @@ use crate::{
     util::{uuid, UUID},
     wit_gen::{FixedGenContext, Trace, TraceContext}, poly::Expr,
 };
-
-pub use expr::*;
 
 use halo2_proofs::plonk::{Advice, Column as Halo2Column, ColumnType, Fixed};
 
