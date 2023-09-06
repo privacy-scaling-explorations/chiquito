@@ -5,8 +5,7 @@ use std::{
 };
 
 use crate::{
-    ast::{Lookup, query::Queriable},
-    poly::Expr,
+    ast::{ASTExpr, Lookup},
     util::{uuid, UUID},
 };
 
@@ -40,7 +39,7 @@ impl<F: Debug + Clone> InPlaceLookupBuilder<F> {
     /// mutable reference to the `LookupBuilder<F>`, it can an chain multiple `add` and `enable`
     /// function calls to build the lookup table. Requires calling `lookup` to create an empty
     /// `LookupBuilder` instance at the very front.
-    pub fn add<C: Into<Constraint<F>>, E: Into<Expr<F, Queriable<F>>>>(
+    pub fn add<C: Into<Constraint<F>>, E: Into<ASTExpr<F>>>(
         mut self,
         constraint: C,
         expression: E,
@@ -65,7 +64,7 @@ impl<F: Debug + Clone> InPlaceLookupBuilder<F> {
 #[derive(Debug, Clone)]
 pub struct LookupTableStore<F> {
     id: UUID,
-    dest: Vec<Expr<F, Queriable<F>>>,
+    dest: Vec<ASTExpr<F>>,
 }
 
 impl<F> Default for LookupTableStore<F> {
@@ -79,7 +78,7 @@ impl<F> Default for LookupTableStore<F> {
 
 impl<F> LookupTableStore<F> {
     #[allow(clippy::should_implement_trait)]
-    pub fn add<E: Into<Expr<F, Queriable<F>>>>(mut self, expr: E) -> Self {
+    pub fn add<E: Into<ASTExpr<F>>>(mut self, expr: E) -> Self {
         self.dest.push(expr.into());
 
         self

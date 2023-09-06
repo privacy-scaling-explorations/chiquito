@@ -7,7 +7,6 @@ use halo2_proofs::plonk::Expression;
 
 use crate::field::Field;
 
-
 pub trait ToExpr<F, V> {
     fn expr(&self) -> Expr<F, V>;
 }

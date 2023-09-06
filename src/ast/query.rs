@@ -15,6 +15,8 @@ use crate::{
 
 use crate::poly::{Expr, ToExpr};
 
+use super::ASTExpr;
+
 // Queriable
 #[derive(Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Queriable<F> {
@@ -141,29 +143,29 @@ impl<F> Queriable<F> {
 }
 
 impl<F: Clone> ToExpr<F, Queriable<F>> for Queriable<F> {
-    fn expr(&self) -> Expr<F, Queriable<F>> {
+    fn expr(&self) -> ASTExpr<F> {
         Expr::Query((*self).clone())
     }
 }
 
-impl<F: Clone, RHS: Into<Expr<F, Queriable<F>>>> Add<RHS> for Queriable<F> {
-    type Output = Expr<F, Queriable<F>>;
+impl<F: Clone, RHS: Into<ASTExpr<F>>> Add<RHS> for Queriable<F> {
+    type Output = ASTExpr<F>;
 
     fn add(self, rhs: RHS) -> Self::Output {
         self.expr() + rhs
     }
 }
 
-impl<F: Clone, RHS: Into<Expr<F, Queriable<F>>>> Sub<RHS> for Queriable<F> {
-    type Output = Expr<F, Queriable<F>>;
+impl<F: Clone, RHS: Into<ASTExpr<F>>> Sub<RHS> for Queriable<F> {
+    type Output = ASTExpr<F>;
 
     fn sub(self, rhs: RHS) -> Self::Output {
         self.expr() - rhs
     }
 }
 
-impl<F: Clone, RHS: Into<Expr<F, Queriable<F>>>> Mul<RHS> for Queriable<F> {
-    type Output = Expr<F, Queriable<F>>;
+impl<F: Clone, RHS: Into<ASTExpr<F>>> Mul<RHS> for Queriable<F> {
+    type Output = ASTExpr<F>;
 
     fn mul(self, rhs: RHS) -> Self::Output {
         self.expr() * rhs
@@ -171,14 +173,14 @@ impl<F: Clone, RHS: Into<Expr<F, Queriable<F>>>> Mul<RHS> for Queriable<F> {
 }
 
 impl<F: Clone> Neg for Queriable<F> {
-    type Output = Expr<F, Queriable<F>>;
+    type Output = ASTExpr<F>;
 
     fn neg(self) -> Self::Output {
         self.expr().neg()
     }
 }
 
-impl<F> From<Queriable<F>> for Expr<F, Queriable<F>> {
+impl<F> From<Queriable<F>> for ASTExpr<F> {
     fn from(value: Queriable<F>) -> Self {
         Expr::Query(value)
     }

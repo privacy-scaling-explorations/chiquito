@@ -5,11 +5,9 @@ use pyo3::{
 
 use crate::{
     ast::{
-        query::Queriable,
-        Circuit, Constraint, ExposeOffset, FixedSignal, ForwardSignal, InternalSignal,
-        SharedSignal, StepType, StepTypeUUID, TransitionConstraint,
+        query::Queriable, Circuit, Constraint, ExposeOffset, FixedSignal, ForwardSignal,
+        InternalSignal, SharedSignal, StepType, StepTypeUUID, TransitionConstraint,
     },
-    poly::Expr,
     frontend::dsl::StepTypeHandler,
     plonkish::{
         backend::halo2::{chiquito2Halo2, ChiquitoHalo2, ChiquitoHalo2Circuit},
@@ -19,6 +17,7 @@ use crate::{
         },
         ir::assignments::AssignmentGenerator,
     },
+    poly::Expr,
     util::{uuid, UUID},
     wit_gen::{StepInstance, TraceContext, TraceWitness},
 };

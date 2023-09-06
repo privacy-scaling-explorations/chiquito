@@ -1,6 +1,6 @@
 use std::{collections::HashMap, rc::Rc};
 
-use crate::{util::UUID, field::Field};
+use crate::{field::Field, util::UUID};
 
 use super::{
     assignments::{AssignmentGenerator, Assignments},

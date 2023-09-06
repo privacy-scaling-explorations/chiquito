@@ -11,7 +11,7 @@ use halo2_proofs::{
 };
 
 use crate::{
-    poly::ToField,
+    field::Field as ChiquitoField,
     plonkish::ir::{
         assignments::Assignments,
         sc::{SuperAssignments, SuperCircuit},
@@ -19,8 +19,8 @@ use crate::{
         ColumnType::{Advice as cAdvice, Fixed as cFixed, Halo2Advice, Halo2Fixed},
         PolyExpr,
     },
+    poly::ToField,
     util::UUID,
-    field::Field as ChiquitoField,
 };
 
 impl<T: Field + From<u64>> ChiquitoField for T {

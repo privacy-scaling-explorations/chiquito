@@ -4,8 +4,9 @@ use std::{collections::HashMap, fmt::Debug, rc::Rc};
 
 use crate::{
     frontend::dsl::StepTypeHandler,
+    poly::Expr,
     util::{uuid, UUID},
-    wit_gen::{FixedGenContext, Trace, TraceContext}, poly::Expr,
+    wit_gen::{FixedGenContext, Trace, TraceContext},
 };
 
 use halo2_proofs::plonk::{Advice, Column as Halo2Column, ColumnType, Fixed};
@@ -235,13 +236,13 @@ impl<F> StepType<F> {
         signal
     }
 
-    pub fn add_constr(&mut self, annotation: String, expr: Expr<F, Queriable<F>>) {
+    pub fn add_constr(&mut self, annotation: String, expr: ASTExpr<F>) {
         let condition = Constraint { annotation, expr };
 
         self.constraints.push(condition)
     }
 
-    pub fn add_transition(&mut self, annotation: String, expr: Expr<F, Queriable<F>>) {
+    pub fn add_transition(&mut self, annotation: String, expr: ASTExpr<F>) {
         let condition = TransitionConstraint { annotation, expr };
 
         self.transition_constraints.push(condition)
@@ -262,24 +263,26 @@ impl<F> core::hash::Hash for StepType<F> {
     }
 }
 
+pub type ASTExpr<F> = Expr<F, Queriable<F>>;
+
 #[derive(Clone, Debug)]
 /// Condition
 pub struct Constraint<F> {
     pub annotation: String,
-    pub expr: Expr<F, Queriable<F>>,
+    pub expr: ASTExpr<F>,
 }
 
 #[derive(Clone, Debug)]
 /// TransitionCondition
 pub struct TransitionConstraint<F> {
     pub annotation: String,
-    pub expr: Expr<F, Queriable<F>>,
+    pub expr: ASTExpr<F>,
 }
 
 #[derive(Clone)]
 pub struct Lookup<F> {
     pub annotation: String,
-    pub exprs: Vec<(Constraint<F>, Expr<F, Queriable<F>>)>,
+    pub exprs: Vec<(Constraint<F>, ASTExpr<F>)>,
     pub enable: Option<Constraint<F>>,
 }
 
@@ -287,7 +290,7 @@ impl<F> Default for Lookup<F> {
     fn default() -> Self {
         Lookup {
             annotation: String::new(),
-            exprs: Vec::<(Constraint<F>, Expr<F, Queriable<F>>)>::new(),
+            exprs: Vec::<(Constraint<F>, ASTExpr<F>)>::new(),
             enable: None,
         }
     }
@@ -301,8 +304,8 @@ impl<F: Debug + Clone> Lookup<F> {
     pub fn add(
         &mut self,
         constraint_annotation: String,
-        constraint_expr: Expr<F, Queriable<F>>,
-        expression: Expr<F, Queriable<F>>,
+        constraint_expr: ASTExpr<F>,
+        expression: ASTExpr<F>,
     ) {
         let constraint = Constraint {
             annotation: constraint_annotation,
@@ -324,7 +327,7 @@ impl<F: Debug + Clone> Lookup<F> {
 
     // Function: setup the enabler field and multiply all LHS constraints by the enabler if there's
     // no enabler, OR panic if there's an enabler already
-    pub fn enable(&mut self, enable_annotation: String, enable_expr: Expr<F, Queriable<F>>) {
+    pub fn enable(&mut self, enable_annotation: String, enable_expr: ASTExpr<F>) {
         let enable = Constraint {
             annotation: enable_annotation.clone(),
             expr: enable_expr,

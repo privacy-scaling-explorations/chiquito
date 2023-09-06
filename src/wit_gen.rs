@@ -2,8 +2,8 @@ use std::{collections::HashMap, hash::Hash, rc::Rc};
 
 use crate::{
     ast::{query::Queriable, StepTypeUUID},
-    frontend::dsl::StepTypeWGHandler,
     field::Field,
+    frontend::dsl::StepTypeWGHandler,
 };
 
 /// A struct that represents a witness generation context. It provides an interface for assigning

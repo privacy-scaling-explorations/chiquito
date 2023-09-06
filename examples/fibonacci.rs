@@ -5,7 +5,6 @@ use chiquito::{
         cb::*,   // functions for constraint building
         circuit, // main function for constructing an AST circuit
     },
-    poly::ToField,
     plonkish::backend::halo2::{chiquito2Halo2, ChiquitoHalo2Circuit}, /* compiles to
                                                                        * Chiquito Halo2
                                                                        * backend,
@@ -20,6 +19,7 @@ use chiquito::{
         step_selector::SimpleStepSelectorBuilder,
     },
     plonkish::ir::{assignments::AssignmentGenerator, Circuit}, // compiled circuit type
+    poly::ToField,
 };
 use halo2_proofs::{arithmetic::Field, dev::MockProver, halo2curves::bn256::Fr};
 

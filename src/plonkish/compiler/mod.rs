@@ -1,14 +1,14 @@
-use std::{hash::Hash, rc::Rc};
 use crate::{
-    ast::{query::Queriable, Circuit as astCircuit, ExposeOffset, StepType, StepTypeUUID},
+    ast::{query::Queriable, ASTExpr, Circuit as astCircuit, ExposeOffset, StepType, StepTypeUUID},
+    field::Field,
     plonkish::ir::{
         assignments::{AssignmentGenerator, Assignments},
         Circuit, Column, Poly, PolyExpr, PolyLookup,
     },
-    field::Field,
     poly::Expr,
     wit_gen::{FixedAssignment, FixedGenContext, TraceGenerator},
 };
+use std::{hash::Hash, rc::Rc};
 
 use cell_manager::{CellManager, SignalPlacement};
 use step_selector::StepSelectorBuilder;
@@ -375,7 +375,7 @@ fn place_queriable<F: Clone>(
 fn transform_expr<F: Clone>(
     unit: &CompilationUnit<F>,
     step: &StepType<F>,
-    source: &Expr<F, Queriable<F>>,
+    source: &ASTExpr<F>,
 ) -> PolyExpr<F> {
     match source.clone() {
         Expr::Const(c) => PolyExpr::Const(c),
@@ -445,7 +445,7 @@ fn add_q_enable<F: Field>(unit: &mut CompilationUnit<F>, q_enable: Column) {
         .iter()
         .map(|poly| Poly {
             annotation: poly.annotation.clone(),
-            expr: q_enable.query( 0, "q_enable".to_owned()) * poly.expr.clone()
+            expr: q_enable.query(0, "q_enable".to_owned()) * poly.expr.clone(),
         })
         .collect();
 
@@ -459,7 +459,7 @@ fn add_q_enable<F: Field>(unit: &mut CompilationUnit<F>, q_enable: Column) {
                 .iter()
                 .map(|(src, dest)| {
                     (
-                        q_enable.query( 0, "q_enable".to_owned()) * src.clone(),
+                        q_enable.query(0, "q_enable".to_owned()) * src.clone(),
                         dest.clone(),
                     )
                 })
@@ -493,7 +493,7 @@ fn add_q_last<F: Field>(
 ) {
     if let Some(step_uuid) = step_uuid {
         let step = unit.step_types.get(&step_uuid).expect("step not found");
-        
+
         let poly = q_last.query(0, "q_last".to_owned()) * unit.selector.unselect(step.uuid());
 
         unit.polys.push(Poly {
@@ -513,7 +513,7 @@ fn add_q_last_to_constraint<F: Field>(
 ) -> PolyExpr<F> {
     let q_last_column = unit.last_step.clone().expect("last column not found").1;
     let q_last = q_last_column.query(0, "q_last".to_owned());
-    let not_q_last_expr = PolyExpr::Const(F::ONE) + (- q_last);
+    let not_q_last_expr = PolyExpr::Const(F::ONE) + (-q_last);
 
     not_q_last_expr * constraint
 }

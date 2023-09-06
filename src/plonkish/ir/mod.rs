@@ -2,15 +2,15 @@ use std::{fmt::Debug, hash::Hash};
 
 use crate::{
     ast::{ImportedHalo2Advice, ImportedHalo2Fixed},
-    util::{uuid, UUID},
     poly::Expr,
+    util::{uuid, UUID},
 };
 
 use self::{assignments::Assignments, query::Queriable};
 
 pub mod assignments;
-pub mod sc;
 pub mod query;
+pub mod sc;
 
 #[derive(Clone, Default)]
 pub struct Circuit<F> {

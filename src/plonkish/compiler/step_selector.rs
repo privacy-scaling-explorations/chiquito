@@ -3,8 +3,8 @@ use std::{collections::HashMap, rc::Rc};
 use halo2_proofs::plonk::{Advice, Column as Halo2Column};
 
 use crate::{
-    field::Field,
     ast::{StepType, StepTypeUUID},
+    field::Field,
     util::UUID,
 };
 
@@ -85,14 +85,13 @@ impl StepSelectorBuilder for SimpleStepSelectorBuilder {
 
             selector.columns.push(column.clone());
 
-            selector.selector_expr.insert(
-                step.uuid(),
-                column.query(0, annotation.clone()),
-            );
+            selector
+                .selector_expr
+                .insert(step.uuid(), column.query(0, annotation.clone()));
 
             selector.selector_expr_not.insert(
                 step.uuid(),
-                PolyExpr::Const(F::ONE) + (- column.query(0, annotation.clone())),
+                PolyExpr::Const(F::ONE) + (-column.query(0, annotation.clone())),
             );
 
             selector.selector_assignment.insert(
@@ -160,39 +159,31 @@ impl StepSelectorBuilder for TwoStepsSelectorBuilder {
         // Zero
         unit.selector.selector_expr.insert(
             step_zero.uuid(),
-            PolyExpr::Const(F::ONE) + (- column.query(0, "selector step zero")),
+            PolyExpr::Const(F::ONE) + (-column.query(0, "selector step zero")),
         );
 
-        unit.selector.selector_expr_not.insert(
-            step_zero.uuid(),
-            column.query(0, "selector NOT step zero"),
-        );
+        unit.selector
+            .selector_expr_not
+            .insert(step_zero.uuid(), column.query(0, "selector NOT step zero"));
 
         unit.selector.selector_assignment.insert(
             step_zero.uuid(),
-            vec![(
-                column.query(0, "selector step zero"),
-                F::ZERO,
-            )],
+            vec![(column.query(0, "selector step zero"), F::ZERO)],
         );
 
         // One
-        unit.selector.selector_expr.insert(
-            step_one.uuid(),
-            column.query(0, "selector step one"),
-        );
+        unit.selector
+            .selector_expr
+            .insert(step_one.uuid(), column.query(0, "selector step one"));
 
         unit.selector.selector_expr_not.insert(
             step_one.uuid(),
-            PolyExpr::Const(F::ONE) + (- column.query(0, "selector NOT step one")),
+            PolyExpr::Const(F::ONE) + (-column.query(0, "selector NOT step one")),
         );
 
         unit.selector.selector_assignment.insert(
             step_one.uuid(),
-            vec![(
-                column.query(0, "selector step one"),
-                F::ONE,
-            )],
+            vec![(column.query(0, "selector step one"), F::ONE)],
         );
     }
 }

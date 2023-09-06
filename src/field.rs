@@ -1,8 +1,11 @@
-use core::iter::{Product, Sum};
-use core::ops::{Add, AddAssign, Mul, MulAssign, Neg, Sub, SubAssign};
-use core::fmt::Debug;
+use core::{
+    fmt::Debug,
+    iter::{Product, Sum},
+    ops::{Add, AddAssign, Mul, MulAssign, Neg, Sub, SubAssign},
+};
 
-pub trait Field: Sized
+pub trait Field:
+    Sized
     + Eq
     + Copy
     + Clone
@@ -28,7 +31,8 @@ pub trait Field: Sized
     + Send
     + Sync
     + Debug
-    + 'static  {
+    + 'static
+{
     /// The zero element of the field, the additive identity.
     const ZERO: Self;
 
