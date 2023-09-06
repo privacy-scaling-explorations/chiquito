@@ -192,6 +192,6 @@ mod tests {
         assert_eq!(format!("{:?}", expr4), "(-0xa)");
 
         let expr5 = PolyExpr::Pow(Box::new(PolyExpr::Const(&a)), 2);
-        assert_eq!(format!("{:?}", expr5), "Pow(0xa, 2)");
+        assert_eq!(format!("{:?}", expr5), "(0xa)^2");
     }
 }

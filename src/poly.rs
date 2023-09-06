@@ -57,7 +57,7 @@ impl<F: Debug, V: Debug> Debug for Expr<F, V> {
                     .collect::<Vec<String>>()
                     .join(" * ")
             ),
-            Self::Neg(arg0) => write!(f, "-{:?}", arg0),
+            Self::Neg(arg0) => write!(f, "(-{:?})", arg0),
             Self::Pow(arg0, arg1) => write!(f, "({:?})^{}", arg0, arg1),
             Self::Query(arg0) => write!(f, "{:?}", arg0),
             Self::Halo2Expr(arg0) => write!(f, "halo2({:?})", arg0),
