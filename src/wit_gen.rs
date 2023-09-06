@@ -1,10 +1,9 @@
 use std::{collections::HashMap, hash::Hash, rc::Rc};
 
-use halo2_proofs::arithmetic::Field;
-
 use crate::{
     ast::{query::Queriable, StepTypeUUID},
     frontend::dsl::StepTypeWGHandler,
+    field::Field,
 };
 
 /// A struct that represents a witness generation context. It provides an interface for assigning

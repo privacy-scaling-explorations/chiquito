@@ -1,11 +1,9 @@
 use std::{collections::HashMap, rc::Rc};
 
-use halo2_proofs::{
-    arithmetic::Field,
-    plonk::{Advice, Column as Halo2Column},
-};
+use halo2_proofs::plonk::{Advice, Column as Halo2Column};
 
 use crate::{
+    field::Field,
     ast::{StepType, StepTypeUUID},
     util::UUID,
 };
@@ -89,24 +87,17 @@ impl StepSelectorBuilder for SimpleStepSelectorBuilder {
 
             selector.selector_expr.insert(
                 step.uuid(),
-                PolyExpr::Query(column.clone(), 0, annotation.clone()),
+                column.query(0, annotation.clone()),
             );
 
             selector.selector_expr_not.insert(
                 step.uuid(),
-                PolyExpr::Sum(vec![
-                    PolyExpr::Const(F::ONE),
-                    PolyExpr::Neg(Box::new(PolyExpr::Query(
-                        column.clone(),
-                        0,
-                        annotation.clone(),
-                    ))),
-                ]),
+                PolyExpr::Const(F::ONE) + (- column.query(0, annotation.clone())),
             );
 
             selector.selector_assignment.insert(
                 step.uuid(),
-                vec![(PolyExpr::Query(column, 0, annotation), F::ONE)],
+                vec![(column.query(0, annotation.clone()), F::ONE)],
             );
         }
 
@@ -169,25 +160,18 @@ impl StepSelectorBuilder for TwoStepsSelectorBuilder {
         // Zero
         unit.selector.selector_expr.insert(
             step_zero.uuid(),
-            PolyExpr::Sum(vec![
-                PolyExpr::Const(F::ONE),
-                PolyExpr::Neg(Box::new(PolyExpr::Query(
-                    column.clone(),
-                    0,
-                    "selector step zero".to_string(),
-                ))),
-            ]),
+            PolyExpr::Const(F::ONE) + (- column.query(0, "selector step zero")),
         );
 
         unit.selector.selector_expr_not.insert(
             step_zero.uuid(),
-            PolyExpr::Query(column.clone(), 0, "selector NOT step zero".to_string()),
+            column.query(0, "selector NOT step zero"),
         );
 
         unit.selector.selector_assignment.insert(
             step_zero.uuid(),
             vec![(
-                PolyExpr::Query(column.clone(), 0, "select step zero".to_string()),
+                column.query(0, "selector step zero"),
                 F::ZERO,
             )],
         );
@@ -195,25 +179,18 @@ impl StepSelectorBuilder for TwoStepsSelectorBuilder {
         // One
         unit.selector.selector_expr.insert(
             step_one.uuid(),
-            PolyExpr::Query(column.clone(), 0, "selector step one".to_string()),
+            column.query(0, "selector step one"),
         );
 
         unit.selector.selector_expr_not.insert(
             step_one.uuid(),
-            PolyExpr::Sum(vec![
-                PolyExpr::Const(F::ONE),
-                PolyExpr::Neg(Box::new(PolyExpr::Query(
-                    column.clone(),
-                    0,
-                    "selector NOT step one".to_string(),
-                ))),
-            ]),
+            PolyExpr::Const(F::ONE) + (- column.query(0, "selector NOT step one")),
         );
 
         unit.selector.selector_assignment.insert(
             step_one.uuid(),
             vec![(
-                PolyExpr::Query(column, 0, "select step one".to_string()),
+                column.query(0, "selector step one"),
                 F::ONE,
             )],
         );

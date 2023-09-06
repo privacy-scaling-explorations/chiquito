@@ -1,8 +1,6 @@
 use std::{fmt::Debug, vec};
 
-use halo2_proofs::arithmetic::Field;
-
-use crate::ast::{query::Queriable, Expr, ToExpr};
+use crate::{ast::query::Queriable, poly::{Expr, ToExpr}, field::Field};
 
 use super::{
     lb::{InPlaceLookupBuilder, LookupTableStore},
@@ -13,8 +11,14 @@ use super::{
 #[derive(Clone)]
 pub struct Constraint<F> {
     pub annotation: String,
-    pub expr: Expr<F>,
+    pub expr: Expr<F, Queriable<F>>,
     pub typing: Typing,
+}
+
+impl<F> From<Constraint<F>> for Expr<F, Queriable<F>> {
+    fn from(c: Constraint<F>) -> Self {
+        c.expr
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -24,8 +28,8 @@ pub enum Typing {
     AntiBooly,
 }
 
-impl<F: Debug> From<Expr<F>> for Constraint<F> {
-    fn from(expr: Expr<F>) -> Self {
+impl<F: Debug> From<Expr<F, Queriable<F>>> for Constraint<F> {
+    fn from(expr: Expr<F, Queriable<F>>) -> Self {
         let annotation = format!("{:?}", &expr);
         match expr {
             Expr::Query(Queriable::StepTypeNext(_)) => Self {
@@ -89,7 +93,7 @@ pub fn and<F: From<u64>, E: Into<Constraint<F>>, I: IntoIterator<Item = E>>(
     inputs: I,
 ) -> Constraint<F> {
     let mut annotations: Vec<String> = vec![];
-    let mut expr: Expr<F> = 1u64.expr();
+    let mut expr: Expr<F, Queriable<F>> = 1u64.expr();
 
     for constraint in inputs.into_iter() {
         let constraint = constraint.into();
@@ -123,7 +127,7 @@ pub fn or<
     inputs: I,
 ) -> Constraint<F> {
     let mut annotations: Vec<String> = vec![];
-    let mut exprs: Vec<Expr<F>> = vec![];
+    let mut exprs: Vec<Expr<F, Queriable<F>>> = vec![];
 
     for constraint in inputs.into_iter() {
         let constraint = constraint.into();
@@ -338,10 +342,12 @@ pub fn if_next_step<F: Clone, T: Into<Constraint<F>>, ST: Into<StepTypeHandler>>
 /// given step type.
 pub fn next_step_must_be<F: From<u64>, ST: Into<StepTypeHandler>>(step_type: ST) -> Constraint<F> {
     let step_type = step_type.into();
+    let next: Constraint<F> = step_type.next().into();
+    let not: Constraint<F> = not(next);
 
-    annotate(
+    annotate::<_, Constraint<F>>(
         format!("next_step_must_be({})", step_type.annotation),
-        not(step_type.next()),
+        not,
         Typing::AntiBooly,
     )
 }
@@ -362,7 +368,7 @@ pub fn next_step_must_not_be<F: From<u64>, ST: Into<StepTypeHandler>>(
 
 /// Takes a string annotation and an expression, and returns a new constraint with the given
 /// annotation and expression.
-pub fn annotate<F, E: Into<Expr<F>>>(annotation: String, expr: E, typing: Typing) -> Constraint<F> {
+pub fn annotate<F, E: Into<Expr<F, Queriable<F>>>>(annotation: String, expr: E, typing: Typing) -> Constraint<F> {
     Constraint {
         annotation,
         expr: expr.into(),
@@ -371,10 +377,10 @@ pub fn annotate<F, E: Into<Expr<F>>>(annotation: String, expr: E, typing: Typing
 }
 
 /// Computes the randomized linear combination of the given expressions and randomness.
-pub fn rlc<F: From<u64>, E: Into<Expr<F>> + Clone, R: Into<Expr<F>> + Clone>(
+pub fn rlc<F: From<u64>, E: Into<Expr<F, Queriable<F>>> + Clone, R: Into<Expr<F, Queriable<F>>> + Clone>(
     exprs: &[E],
     randomness: R,
-) -> Expr<F> {
+) -> Expr<F, Queriable<F>> {
     if !exprs.is_empty() {
         let mut exprs = exprs.iter().rev().map(|e| e.clone().into());
         let init = exprs.next().expect("should not be empty");
@@ -400,7 +406,7 @@ mod tests {
     use halo2_proofs::halo2curves::bn256::Fr;
 
     use super::*;
-    use crate::ast::{ToExpr, ToField};
+    use crate::poly::{ToExpr, ToField};
 
     #[test]
     fn test_and_empty() {
@@ -412,7 +418,7 @@ mod tests {
 
     #[test]
     fn test_and_single_input() {
-        let a = <u64 as ToExpr<Fr>>::expr(&10);
+        let a = <u64 as ToExpr<Fr, Queriable<Fr>>>::expr(&10);
         let result = and(vec![a]);
 
         assert!(matches!(result.expr, Expr::Mul(v) if v.len() == 2 &&
@@ -422,7 +428,7 @@ mod tests {
 
     #[test]
     fn test_and_multiple_inputs() {
-        let a = <u64 as ToExpr<Fr>>::expr(&10);
+        let a = <u64 as ToExpr<Fr, Queriable<Fr>>>::expr(&10);
         let b = 20.expr();
         let c = 30.expr();
         let result = and(vec![a, b, c]);
@@ -450,7 +456,7 @@ mod tests {
 
     #[test]
     fn test_or_single_input() {
-        let a = <u64 as ToExpr<Fr>>::expr(&10);
+        let a = <u64 as ToExpr<Fr, Queriable<Fr>>>::expr(&10);
         let result = or(vec![a]);
 
         // returns "1 - (1 * (1 - 10))"
@@ -467,9 +473,9 @@ mod tests {
 
     #[test]
     fn test_or_multiple_input() {
-        let a = <u64 as ToExpr<Fr>>::expr(&10);
-        let b = <u64 as ToExpr<Fr>>::expr(&20);
-        let c = <u64 as ToExpr<Fr>>::expr(&30);
+        let a = <u64 as ToExpr<Fr, Queriable<Fr>>>::expr(&10);
+        let b = <u64 as ToExpr<Fr, Queriable<Fr>>>::expr(&20);
+        let c = <u64 as ToExpr<Fr, Queriable<Fr>>>::expr(&30);
         let result = or(vec![a, b, c]);
 
         // returns "1 - (1 * (1 - 10) * (1 - 20) * (1 - 30))"
@@ -494,7 +500,7 @@ mod tests {
 
     #[test]
     fn test_not_one() {
-        let a = <u64 as ToExpr<Fr>>::expr(&1);
+        let a = <u64 as ToExpr<Fr, Queriable<Fr>>>::expr(&1);
         let result = not(a);
 
         assert!(matches!(result.expr, Expr::Sum(v) if v.len() == 2 &&
@@ -505,7 +511,7 @@ mod tests {
 
     #[test]
     fn test_not_zero() {
-        let a = <u64 as ToExpr<Fr>>::expr(&0);
+        let a = <u64 as ToExpr<Fr, Queriable<Fr>>>::expr(&0);
         let result = not(a);
 
         assert!(matches!(result.expr, Expr::Sum(v) if v.len() == 2 &&
@@ -516,8 +522,8 @@ mod tests {
 
     #[test]
     fn test_xor() {
-        let a = <u64 as ToExpr<Fr>>::expr(&10);
-        let b = <u64 as ToExpr<Fr>>::expr(&20);
+        let a = <u64 as ToExpr<Fr, Queriable<Fr>>>::expr(&10);
+        let b = <u64 as ToExpr<Fr, Queriable<Fr>>>::expr(&20);
         let result = xor(a, b);
 
         // returns "10 + 20 - 2 * 10 * 20"
@@ -533,8 +539,8 @@ mod tests {
 
     #[test]
     fn test_eq() {
-        let a = <u64 as ToExpr<Fr>>::expr(&10);
-        let b = <u64 as ToExpr<Fr>>::expr(&20);
+        let a = <u64 as ToExpr<Fr, Queriable<Fr>>>::expr(&10);
+        let b = <u64 as ToExpr<Fr, Queriable<Fr>>>::expr(&20);
         let result = eq(a, b);
 
         // returns "10 - 20"
@@ -546,9 +552,9 @@ mod tests {
 
     #[test]
     fn test_select() {
-        let selector = <u64 as ToExpr<Fr>>::expr(&1);
-        let when_true = <u64 as ToExpr<Fr>>::expr(&10);
-        let when_false = <u64 as ToExpr<Fr>>::expr(&20);
+        let selector = <u64 as ToExpr<Fr, Queriable<Fr>>>::expr(&1);
+        let when_true = <u64 as ToExpr<Fr, Queriable<Fr>>>::expr(&10);
+        let when_false = <u64 as ToExpr<Fr, Queriable<Fr>>>::expr(&20);
         let result = select(selector, when_true, when_false);
 
         // returns "1 * 10 + (1 - 1) * 20"
@@ -566,8 +572,8 @@ mod tests {
 
     #[test]
     fn test_when_true() {
-        let selector = <u64 as ToExpr<Fr>>::expr(&1);
-        let when_true = <u64 as ToExpr<Fr>>::expr(&10);
+        let selector = <u64 as ToExpr<Fr, Queriable<Fr>>>::expr(&1);
+        let when_true = <u64 as ToExpr<Fr, Queriable<Fr>>>::expr(&10);
         let result = when(selector, when_true);
 
         // returns "1 * 10"
@@ -578,8 +584,8 @@ mod tests {
 
     #[test]
     fn test_when_false() {
-        let selector = <u64 as ToExpr<Fr>>::expr(&0);
-        let when_true = <u64 as ToExpr<Fr>>::expr(&10);
+        let selector = <u64 as ToExpr<Fr, Queriable<Fr>>>::expr(&0);
+        let when_true = <u64 as ToExpr<Fr, Queriable<Fr>>>::expr(&10);
         let result = when(selector, when_true);
 
         // returns "0 * 10"
@@ -590,8 +596,8 @@ mod tests {
 
     #[test]
     fn test_unless() {
-        let selector = <u64 as ToExpr<Fr>>::expr(&1);
-        let when_false = <u64 as ToExpr<Fr>>::expr(&10);
+        let selector = <u64 as ToExpr<Fr, Queriable<Fr>>>::expr(&1);
+        let when_false = <u64 as ToExpr<Fr, Queriable<Fr>>>::expr(&10);
         let result = unless(selector, when_false);
 
         // returns "(1 - 1) * 10"
@@ -605,8 +611,8 @@ mod tests {
 
     #[test]
     fn test_isz() {
-        let zero = <u64 as ToExpr<Fr>>::expr(&0);
-        let non_zero = <u64 as ToExpr<Fr>>::expr(&10);
+        let zero = <u64 as ToExpr<Fr, Queriable<Fr>>>::expr(&0);
+        let non_zero = <u64 as ToExpr<Fr, Queriable<Fr>>>::expr(&10);
         let result_zero = isz(zero);
         let result_non_zero = isz(non_zero);
 
@@ -619,7 +625,7 @@ mod tests {
     #[test]
     fn test_if_next_step() {
         let step_type = StepTypeHandler::new("test_step".to_string());
-        let constraint = <u64 as ToExpr<Fr>>::expr(&10);
+        let constraint = <u64 as ToExpr<Fr, Queriable<Fr>>>::expr(&10);
         let result = if_next_step(step_type, constraint);
 
         // returns "Expr::Query(Queriable::StepTypeNext(StepTypeHandler{id: _id, annotation:
@@ -662,7 +668,7 @@ mod tests {
 
     #[test]
     fn test_annotate() {
-        let expr = <u64 as ToExpr<Fr>>::expr(&10);
+        let expr = <u64 as ToExpr<Fr, Queriable<Fr>>>::expr(&10);
         let result = annotate("my_constraint".to_string(), expr, Typing::Unknown);
 
         assert_eq!(result.annotation, "my_constraint");
@@ -672,8 +678,8 @@ mod tests {
 
     #[test]
     fn test_rlc_empty() {
-        let randomness = <u64 as ToExpr<Fr>>::expr(&40);
-        let result = rlc::<Fr, Expr<Fr>, Expr<Fr>>(&[], randomness);
+        let randomness = <u64 as ToExpr<Fr, Queriable<Fr>>>::expr(&40);
+        let result = rlc::<Fr, Expr<Fr, Queriable<Fr>>, Expr<Fr, Queriable<Fr>>>(&[], randomness);
 
         // returns "0"
         assert!(matches!(result, Expr::Const(c) if c == 0u64.field()));
@@ -681,7 +687,7 @@ mod tests {
 
     #[test]
     fn test_rlc_one_input() {
-        let a = <u64 as ToExpr<Fr>>::expr(&10);
+        let a = <u64 as ToExpr<Fr, Queriable<Fr>>>::expr(&10);
         let result = rlc(&[a], 40u64.expr());
 
         // returns "10"
@@ -690,7 +696,7 @@ mod tests {
 
     #[test]
     fn test_rlc_multiple_inputs() {
-        let a = <u64 as ToExpr<Fr>>::expr(&10);
+        let a = <u64 as ToExpr<Fr, Queriable<Fr>>>::expr(&10);
         let b = 20u64.expr();
         let c = 30u64.expr();
         let result = rlc(&[a, b, c], 40u64.expr());

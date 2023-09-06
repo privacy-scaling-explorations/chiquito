@@ -11,7 +11,7 @@ use halo2_proofs::{
 };
 
 use crate::{
-    ast::ToField,
+    poly::ToField,
     plonkish::ir::{
         assignments::Assignments,
         sc::{SuperAssignments, SuperCircuit},
@@ -20,7 +20,17 @@ use crate::{
         PolyExpr,
     },
     util::UUID,
+    field::Field as ChiquitoField,
 };
+
+impl<T: Field + From<u64>> ChiquitoField for T {
+    const ZERO: Self = <Self as Field>::ZERO;
+    const ONE: Self = <Self as Field>::ONE;
+
+    fn mi(&self) -> Self {
+        self.invert().unwrap_or(Self::ZERO)
+    }
+}
 
 #[allow(non_snake_case)]
 pub fn chiquito2Halo2<F: Field + From<u64> + Hash>(circuit: Circuit<F>) -> ChiquitoHalo2<F> {
@@ -266,7 +276,7 @@ impl<F: Field + From<u64> + Hash> ChiquitoHalo2<F> {
                 }
             }
             PolyExpr::Halo2Expr(e) => e.clone(),
-            PolyExpr::Query(column, rotation, _) => self.convert_query(meta, column, *rotation),
+            PolyExpr::Query((column, rotation, _)) => self.convert_query(meta, column, *rotation),
         }
     }
 

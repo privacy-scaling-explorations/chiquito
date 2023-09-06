@@ -13,7 +13,7 @@ use crate::{
     util::UUID,
 };
 
-use super::{Expr, ToExpr};
+use crate::poly::{Expr, ToExpr};
 
 // Queriable
 #[derive(Clone, Copy, PartialEq, Eq, Hash)]
@@ -140,30 +140,30 @@ impl<F> Queriable<F> {
     }
 }
 
-impl<F: Clone> ToExpr<F> for Queriable<F> {
-    fn expr(&self) -> Expr<F> {
+impl<F: Clone> ToExpr<F, Queriable<F>> for Queriable<F> {
+    fn expr(&self) -> Expr<F, Queriable<F>> {
         Expr::Query((*self).clone())
     }
 }
 
-impl<F: Clone, RHS: Into<Expr<F>>> Add<RHS> for Queriable<F> {
-    type Output = Expr<F>;
+impl<F: Clone, RHS: Into<Expr<F, Queriable<F>>>> Add<RHS> for Queriable<F> {
+    type Output = Expr<F, Queriable<F>>;
 
     fn add(self, rhs: RHS) -> Self::Output {
         self.expr() + rhs
     }
 }
 
-impl<F: Clone, RHS: Into<Expr<F>>> Sub<RHS> for Queriable<F> {
-    type Output = Expr<F>;
+impl<F: Clone, RHS: Into<Expr<F, Queriable<F>>>> Sub<RHS> for Queriable<F> {
+    type Output = Expr<F, Queriable<F>>;
 
     fn sub(self, rhs: RHS) -> Self::Output {
         self.expr() - rhs
     }
 }
 
-impl<F: Clone, RHS: Into<Expr<F>>> Mul<RHS> for Queriable<F> {
-    type Output = Expr<F>;
+impl<F: Clone, RHS: Into<Expr<F, Queriable<F>>>> Mul<RHS> for Queriable<F> {
+    type Output = Expr<F, Queriable<F>>;
 
     fn mul(self, rhs: RHS) -> Self::Output {
         self.expr() * rhs
@@ -171,9 +171,42 @@ impl<F: Clone, RHS: Into<Expr<F>>> Mul<RHS> for Queriable<F> {
 }
 
 impl<F: Clone> Neg for Queriable<F> {
-    type Output = Expr<F>;
+    type Output = Expr<F, Queriable<F>>;
 
     fn neg(self) -> Self::Output {
         self.expr().neg()
+    }
+}
+
+impl<F> From<Queriable<F>> for Expr<F, Queriable<F>> {
+    fn from(value: Queriable<F>) -> Self {
+        Expr::Query(value)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use halo2_proofs::halo2curves::bn256::Fr;
+
+    #[test]
+    fn test_expr_fmt() {
+        let a: Fr = 10.into();
+        let b: Fr = 20.into();
+
+        let expr1: Expr<Fr, Queriable<Fr>> = Expr::Const(a);
+        assert_eq!(format!("{:?}", expr1), "0xa");
+
+        let expr2: Expr<Fr, Queriable<Fr>> = Expr::Sum(vec![Expr::Const(a), Expr::Const(b)]);
+        assert_eq!(format!("{:?}", expr2), "(0xa + 0x14)");
+
+        let expr3: Expr<Fr, Queriable<Fr>> = Expr::Mul(vec![Expr::Const(a), Expr::Const(b)]);
+        assert_eq!(format!("{:?}", expr3), "(0xa * 0x14)");
+
+        let expr4: Expr<Fr, Queriable<Fr>> = Expr::Neg(Box::new(Expr::Const(a)));
+        assert_eq!(format!("{:?}", expr4), "-0xa");
+
+        let expr5: Expr<Fr, Queriable<Fr>> = Expr::Pow(Box::new(Expr::Const(a)), 2);
+        assert_eq!(format!("{:?}", expr5), "(0xa)^2");
     }
 }

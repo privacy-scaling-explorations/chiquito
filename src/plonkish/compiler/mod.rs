@@ -1,13 +1,12 @@
 use std::{hash::Hash, rc::Rc};
-
-use halo2_proofs::arithmetic::Field;
-
 use crate::{
-    ast::{query::Queriable, Circuit as astCircuit, ExposeOffset, Expr, StepType, StepTypeUUID},
+    ast::{query::Queriable, Circuit as astCircuit, ExposeOffset, StepType, StepTypeUUID},
     plonkish::ir::{
         assignments::{AssignmentGenerator, Assignments},
         Circuit, Column, Poly, PolyExpr, PolyLookup,
     },
+    field::Field,
+    poly::Expr,
     wit_gen::{FixedAssignment, FixedGenContext, TraceGenerator},
 };
 
@@ -259,7 +258,7 @@ fn place_queriable<F: Clone>(
                 format!("[{}, {}]", placement.column.annotation, placement.rotation)
             };
 
-            PolyExpr::Query(placement.column, placement.rotation, annotation)
+            PolyExpr::Query((placement.column, placement.rotation, annotation))
         }
         Queriable::Forward(forward, next) => {
             let placement = unit.get_forward_placement(&forward);
@@ -286,7 +285,7 @@ fn place_queriable<F: Clone>(
             } else {
                 format!("[{}, {}]", placement.column.annotation, super_rotation)
             };
-            PolyExpr::Query(placement.column, super_rotation, annotation)
+            PolyExpr::Query((placement.column, super_rotation, annotation))
         }
         Queriable::Shared(shared, rot) => {
             let placement = unit.get_shared_placement(&shared);
@@ -309,7 +308,7 @@ fn place_queriable<F: Clone>(
             } else {
                 format!("[{}, {}]", placement.column.annotation, super_rotation)
             };
-            PolyExpr::Query(placement.column, super_rotation, annotation)
+            PolyExpr::Query((placement.column, super_rotation, annotation))
         }
         Queriable::Fixed(fixed, rot) => {
             let placement = unit.get_fixed_placement(&fixed);
@@ -332,7 +331,7 @@ fn place_queriable<F: Clone>(
             } else {
                 format!("[{}, {}]", placement.column.annotation, super_rotation)
             };
-            PolyExpr::Query(placement.column, super_rotation, annotation)
+            PolyExpr::Query((placement.column, super_rotation, annotation))
         }
         Queriable::StepTypeNext(step_type_handle) => {
             let super_rotation = unit.placement.step_height(step.uuid());
@@ -349,12 +348,12 @@ fn place_queriable<F: Clone>(
             } else {
                 format!("[halo2_advice?, {}]", rot)
             };
-            PolyExpr::Query(
+            PolyExpr::Query((
                 unit.find_halo2_advice(signal)
                     .expect("halo2 advice column not found"),
                 rot,
                 annotation,
-            )
+            ))
         }
         Queriable::Halo2FixedQuery(signal, rot) => {
             let annotation = if let Some(annotation) = unit.annotations.get(&signal.uuid()) {
@@ -362,12 +361,12 @@ fn place_queriable<F: Clone>(
             } else {
                 format!("[halo2_fixed?, {}]", rot)
             };
-            PolyExpr::Query(
+            PolyExpr::Query((
                 unit.find_halo2_fixed(signal)
                     .expect("halo2 fixed column not found"),
                 rot,
                 annotation,
-            )
+            ))
         }
         Queriable::_unaccessible(_) => panic!("jarrl"),
     }
@@ -376,7 +375,7 @@ fn place_queriable<F: Clone>(
 fn transform_expr<F: Clone>(
     unit: &CompilationUnit<F>,
     step: &StepType<F>,
-    source: &Expr<F>,
+    source: &Expr<F, Queriable<F>>,
 ) -> PolyExpr<F> {
     match source.clone() {
         Expr::Const(c) => PolyExpr::Const(c),
@@ -446,10 +445,7 @@ fn add_q_enable<F: Field>(unit: &mut CompilationUnit<F>, q_enable: Column) {
         .iter()
         .map(|poly| Poly {
             annotation: poly.annotation.clone(),
-            expr: PolyExpr::Mul(vec![
-                PolyExpr::<F>::Query(q_enable.clone(), 0, "q_enable".to_owned()),
-                poly.expr.clone(),
-            ]),
+            expr: q_enable.query( 0, "q_enable".to_owned()) * poly.expr.clone()
         })
         .collect();
 
@@ -463,10 +459,7 @@ fn add_q_enable<F: Field>(unit: &mut CompilationUnit<F>, q_enable: Column) {
                 .iter()
                 .map(|(src, dest)| {
                     (
-                        PolyExpr::Mul(vec![
-                            PolyExpr::<F>::Query(q_enable.clone(), 0, "q_enable".to_owned()),
-                            src.clone(),
-                        ]),
+                        q_enable.query( 0, "q_enable".to_owned()) * src.clone(),
                         dest.clone(),
                     )
                 })
@@ -481,10 +474,7 @@ fn add_q_enable<F: Field>(unit: &mut CompilationUnit<F>, q_enable: Column) {
 fn add_q_first<F: Field>(unit: &mut CompilationUnit<F>, step_uuid: StepTypeUUID, q_first: Column) {
     let step = unit.step_types.get(&step_uuid).expect("step not found");
 
-    let poly = PolyExpr::Mul(vec![
-        PolyExpr::<F>::Query(q_first.clone(), 0, "q_first".to_owned()),
-        unit.selector.unselect(step.uuid()),
-    ]);
+    let poly = q_first.query(0, "q_first") * unit.selector.unselect(step.uuid());
 
     unit.polys.push(Poly {
         annotation: "q_first".to_string(),
@@ -503,11 +493,8 @@ fn add_q_last<F: Field>(
 ) {
     if let Some(step_uuid) = step_uuid {
         let step = unit.step_types.get(&step_uuid).expect("step not found");
-
-        let poly = PolyExpr::Mul(vec![
-            PolyExpr::<F>::Query(q_last.clone(), 0, "q_last".to_owned()),
-            unit.selector.unselect(step.uuid()),
-        ]);
+        
+        let poly = q_last.query(0, "q_last".to_owned()) * unit.selector.unselect(step.uuid());
 
         unit.polys.push(Poly {
             annotation: "q_last".to_string(),
@@ -525,13 +512,10 @@ fn add_q_last_to_constraint<F: Field>(
     constraint: PolyExpr<F>,
 ) -> PolyExpr<F> {
     let q_last_column = unit.last_step.clone().expect("last column not found").1;
-    let q_last = PolyExpr::<F>::Query(q_last_column, 0, "q_last".to_owned());
-    let not_q_last_expr = PolyExpr::Sum(vec![
-        PolyExpr::Const(F::ONE),
-        PolyExpr::Neg(Box::new(q_last)),
-    ]);
+    let q_last = q_last_column.query(0, "q_last".to_owned());
+    let not_q_last_expr = PolyExpr::Const(F::ONE) + (- q_last);
 
-    PolyExpr::Mul(vec![not_q_last_expr, constraint])
+    not_q_last_expr * constraint
 }
 
 fn add_default_columns<F>(unit: &mut CompilationUnit<F>) {

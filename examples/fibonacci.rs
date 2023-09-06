@@ -1,11 +1,11 @@
 use std::hash::Hash;
 
 use chiquito::{
-    ast::expr::*,
     frontend::dsl::{
         cb::*,   // functions for constraint building
         circuit, // main function for constructing an AST circuit
     },
+    poly::ToField,
     plonkish::backend::halo2::{chiquito2Halo2, ChiquitoHalo2Circuit}, /* compiles to
                                                                        * Chiquito Halo2
                                                                        * backend,
