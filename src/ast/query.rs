@@ -206,7 +206,7 @@ mod tests {
         assert_eq!(format!("{:?}", expr3), "(0xa * 0x14)");
 
         let expr4: Expr<Fr, Queriable<Fr>> = Expr::Neg(Box::new(Expr::Const(a)));
-        assert_eq!(format!("{:?}", expr4), "-0xa");
+        assert_eq!(format!("{:?}", expr4), "(-0xa)");
 
         let expr5: Expr<Fr, Queriable<Fr>> = Expr::Pow(Box::new(Expr::Const(a)), 2);
         assert_eq!(format!("{:?}", expr5), "(0xa)^2");
