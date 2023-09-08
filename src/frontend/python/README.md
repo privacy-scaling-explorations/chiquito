@@ -4,7 +4,7 @@ Chiquito's Python frontend uses PyO3 and Maturin to expose Rust APIs to Python. 
 
 ```
 # Clone this repo
-git clone --recursive https://github.com/privacy-scaling-explorations/chiquito/
+git clone https://github.com/privacy-scaling-explorations/chiquito/
 # Navigate to the repository root directory 
 cd chiquito
 # Create a virtual environment
