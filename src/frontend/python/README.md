@@ -2,7 +2,7 @@
 ## Setup
 Chiquito's Python frontend uses PyO3 and Maturin to expose Rust APIs to Python. Maturin requires the user to locally build a Python virtual environment. Run the following script to create a Python virtual environment, install required packages, and build the project.
 
-```
+```bash
 # Clone this repo
 git clone https://github.com/privacy-scaling-explorations/chiquito/
 # Navigate to the repository root directory 
@@ -22,13 +22,13 @@ If the above doesn't work, follow the guide here: https://pyo3.rs/main/getting_s
 ## Testing with examples
 Run fibonacci.py example file using the following script in the virtual environment:
 
-```
+```bash
 python3 example/fibonacci.py
 ```
 
 Run mimc7.py example:
 
-```
+```bash
 python example/mimc7.py
 ```
 

@@ -76,7 +76,7 @@ In research:
 
 But better see for yourself:
 
-```
+```python
 class FiboStep(StepType):
     def setup(self: FiboStep):
         self.c = self.internal("c")
