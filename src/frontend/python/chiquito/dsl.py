@@ -196,14 +196,6 @@ class Circuit:
         step_instance: StepInstance = step_type.gen_step_instance(args)
         self.witness.step_instances.append(step_instance)
 
-    # called under fixed_gen()
-    def assign(self: Circuit, offset: int, lhs: Queriable, rhs: F):
-        assert self.mode == CircuitMode.FixedGen
-        if self.fixed_gen_context is None:
-            raise ValueError(
-                "FixedGenContext: must have initiated fixed_gen_context before calling assign()"
-            )
-        self.fixed_gen_context.assign(offset, lhs, rhs)
     def needs_padding(self: Circuit) -> bool:
         assert self.mode == CircuitMode.Trace
         return len(self.witness.step_instances) < self.ast.num_steps
