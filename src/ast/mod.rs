@@ -187,13 +187,12 @@ impl<F, TraceArgs> Circuit<F, TraceArgs> {
 }
 
 impl<F: Field + Hash, TraceArgs> Circuit<F, TraceArgs> {
-    pub fn set_fixed_assignments(&mut self, assignments: Option<FixedAssignment<F>>)
-    {
+    pub fn set_fixed_assignments(&mut self, assignments: Option<FixedAssignment<F>>) {
         match self.fixed_assignments {
             None => {
                 self.fixed_assignments = assignments;
             }
-            Some(_) => panic!("circuit cannot have more than one fixed generator")
+            Some(_) => panic!("circuit cannot have more than one fixed generator"),
         }
     }
 }
