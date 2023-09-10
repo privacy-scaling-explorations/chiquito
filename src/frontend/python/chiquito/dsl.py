@@ -9,7 +9,7 @@ import json
 
 from chiquito.chiquito_ast import ASTCircuit, ASTStepType, ExposeOffset, ASTSuperCircuit
 from chiquito.query import Internal, Forward, Queriable, Shared, Fixed
-from chiquito.wit_gen import FixedGenContext, StepInstance, TraceWitness
+from chiquito.wit_gen import StepInstance, TraceWitness
 from chiquito.cb import (
     Constraint,
     Typing,
@@ -122,9 +122,8 @@ class Circuit:
                 raise ValueError(
                     "Must set num_steps by calling pragma_num_steps() in setup before calling fixed_gen()."
                 )
-            self.fixed_gen_context = FixedGenContext.new(self.ast.num_steps)
+            self.ast.fixed_assignments = {}
             self.fixed_gen()
-            self.ast.fixed_assignments = self.fixed_gen_context.assignments
         self.mode = CircuitMode.NoMode
 
     def forward(self: Circuit, name: str) -> Forward:
