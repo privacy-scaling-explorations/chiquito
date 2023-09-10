@@ -3,7 +3,6 @@ from typing import List, Dict
 from enum import Enum
 from typing import Callable, Any
 
-# import rust_chiquito  # rust bindings
 from chiquito import rust_chiquito
 import json
 
@@ -20,8 +19,6 @@ from chiquito.cb import (
     InPlaceLookupBuilder,
 )
 from chiquito.util import CustomEncoder, F
-
-# from lb import LookupTableRegistry, LookupTable, LookupTableBuilder, InPlaceLookupBuilder
 
 
 class SuperCircuitMode(Enum):
