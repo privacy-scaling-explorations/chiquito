@@ -4,7 +4,7 @@ from dataclasses import dataclass, field, asdict
 
 # from chiquito import wit_gen, expr, query, util
 
-from chiquito.wit_gen import FixedGenContext, FixedAssignment, TraceWitness
+from chiquito.wit_gen import FixedAssignment, TraceWitness
 from chiquito.expr import Expr
 from chiquito.util import uuid, F
 from chiquito.query import Queriable
@@ -153,12 +153,6 @@ class ASTCircuit:
     def add_step_type(self: ASTCircuit, step_type: ASTStepType, name: str):
         self.annotations[step_type.id] = name
         self.step_types[step_type.id] = step_type
-
-    def set_fixed_gen(self, fixed_gen_def: Callable[[FixedGenContext], None]):
-        if self.fixed_gen is not None:
-            raise Exception("ASTCircuit cannot have more than one fixed generator.")
-        else:
-            self.fixed_gen = fixed_gen_def
 
     def get_step_type(self, uuid: int) -> ASTStepType:
         if uuid in self.step_types.keys():

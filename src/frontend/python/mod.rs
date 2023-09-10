@@ -1832,7 +1832,9 @@ fn add_witness_to_ast(witness_json: &PyString, ast_uuid: &PyLong) {
 }
 
 #[pyfunction]
-fn super_circuit_halo2_mock_prover()
+fn super_circuit_halo2_mock_prover() {
+    
+}
 
 #[pymodule]
 fn rust_chiquito(_py: Python, m: &PyModule) -> PyResult<()> {
