@@ -279,8 +279,8 @@ class LookupTableBuilder:
         self.enable = to_constraint(enable)
         return self
 
-    def build(self: LookupTableBuilder, step_type: StepType) -> Lookup:
-        table = step_type.tables.get(self.id)
+    def build(self: LookupTableBuilder, super_circuit: StepType) -> Lookup:
+        table = step_type.circuit.tables.get(self.id)
         if self.src.len() != table.dest.len():
             raise ValueError(
                 "LookupTableBuilder: build() has different number of source columns and destination columns."
