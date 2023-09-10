@@ -1,10 +1,13 @@
 from __future__ import annotations
-from typing import List, Dict, Optional, Tuple
+from typing import Callable, List, Dict, Optional, Tuple
 from dataclasses import dataclass, field, asdict
 
+# from chiquito import wit_gen, expr, query, util
+
+from chiquito.wit_gen import FixedGenContext, FixedAssignment, TraceWitness
 from chiquito.expr import Expr
 from chiquito.util import uuid, F
-from chiquito.query import Queriable, Fixed
+from chiquito.query import Queriable
 
 
 # pub struct Circuit<F, TraceArgs> {
@@ -27,7 +30,11 @@ from chiquito.query import Queriable, Fixed
 #     pub num_steps: usize,
 # }
 
-FixedAssignment = Dict[Queriable, List[F]]
+
+@dataclass
+class ASTSuperCircuit:
+    sub_circuits: Dict[int, ASTCircuit] = field(default_factory=dict)
+    witnesses: Dict[int, TraceWitness] = field(default_factory=dict)
 
 
 @dataclass
@@ -147,14 +154,11 @@ class ASTCircuit:
         self.annotations[step_type.id] = name
         self.step_types[step_type.id] = step_type
 
-    def add_fixed_assignment(self: ASTCircuit, offset: int, lhs: Queriable, rhs: F):
-        if not isinstance(lhs, Fixed):
-            raise ValueError(f"Cannot assign to non-fixed signal.")
-        if lhs in self.fixed_assignments.keys():
-            self.fixed_assignments[lhs][offset] = rhs
+    def set_fixed_gen(self, fixed_gen_def: Callable[[FixedGenContext], None]):
+        if self.fixed_gen is not None:
+            raise Exception("ASTCircuit cannot have more than one fixed generator.")
         else:
-            self.fixed_assignments[lhs] = [F.zero()] * self.num_steps
-            self.fixed_assignments[lhs][offset] = rhs
+            self.fixed_gen = fixed_gen_def
 
     def get_step_type(self, uuid: int) -> ASTStepType:
         if uuid in self.step_types.keys():
@@ -408,7 +412,9 @@ class InternalSignal:
 class Lookup:
     annotation: str = ""
     exprs: List[Tuple[ASTConstraint, Expr]] = field(default_factory=list)
-    enable: Optional[ASTConstraint] = None
+    enabler: Optional[
+        ASTConstraint
+    ] = None  # called enabler because cannot have field and method both called "enable"
 
     def add(
         self: Lookup,
@@ -418,19 +424,19 @@ class Lookup:
     ):
         constraint = ASTConstraint(constraint_annotation, constraint_expr)
         self.annotation += f"match({constraint.annotation} => {str(expression)}) "
-        if self.enable is None:
+        if self.enabler is None:
             self.exprs.append((constraint, expression))
         else:
             self.exprs.append(
-                (self.multiply_constraints(self.enable, constraint), expression)
+                (multiply_constraints(self.enabler, constraint), expression)
             )
 
     def enable(self: Lookup, enable_annotation: str, enable_expr: Expr):
-        enable = ASTConstraint(enable_annotation, enable_expr)
-        if self.enable is None:
+        enabler = ASTConstraint(enable_annotation, enable_expr)
+        if self.enabler is None:
             for constraint, _ in self.exprs:
-                constraint = self.multiply_constraints(enable, constraint)
-            self.enable = enable
+                constraint = self.multiply_constraints(enabler, constraint)
+            self.enabler = enabler
             self.annotation = f"if {enable_annotation}, {self.annotation}"
         else:
             raise ValueError("Lookup: enable() can only be called once.")
@@ -447,5 +453,11 @@ class Lookup:
         return {
             "annotation": self.annotation,
             "exprs": [[x.__json__(), y.__json__()] for (x, y) in self.exprs],
-            "enable": self.enable.__json__() if self.enable is not None else None,
+            "enable": self.enabler.__json__() if self.enabler is not None else None,
         }
+
+
+def multiply_constraints(
+    enabler: ASTConstraint, constraint: ASTConstraint
+) -> ASTConstraint:
+    return ASTConstraint(constraint.annotation, enabler.expr * constraint.expr)

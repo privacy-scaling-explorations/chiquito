@@ -9,25 +9,25 @@ use crate::{
         Circuit, Constraint, ExposeOffset, FixedSignal, ForwardSignal, InternalSignal, Lookup,
         SharedSignal, StepType, StepTypeUUID, TransitionConstraint,
     },
-    frontend::dsl::StepTypeHandler,
+    frontend::dsl::{StepTypeHandler, SuperCircuitContext},
     plonkish::{
-        backend::halo2::{chiquito2Halo2, ChiquitoHalo2, ChiquitoHalo2Circuit},
+        backend::halo2::{chiquito2Halo2, ChiquitoHalo2, ChiquitoHalo2Circuit, chiquitoSuperCircuit2Halo2, ChiquitoHalo2SuperCircuit},
         compiler::{
             cell_manager::SingleRowCellManager, compile, config,
             step_selector::SimpleStepSelectorBuilder,
         },
-        ir::assignments::AssignmentGenerator,
+        ir::{assignments::AssignmentGenerator, sc::{SuperCircuit, MappingContext}},
     },
     util::{uuid, UUID},
     wit_gen::{StepInstance, TraceContext, TraceWitness},
 };
 
 use core::result::Result;
-use halo2_proofs::{dev::MockProver, halo2curves::bn256::Fr};
+use halo2_proofs::{dev::MockProver, halo2curves::bn256::Fr, plonk::Assignment};
 use serde::de::{self, Deserialize, Deserializer, IgnoredAny, MapAccess, Visitor};
 use std::{cell::RefCell, collections::HashMap, fmt, rc::Rc};
 
-type CircuitMapStore = (ChiquitoHalo2<Fr>, Option<AssignmentGenerator<Fr, ()>>);
+type CircuitMapStore = (Circuit<Fr, ()>, ChiquitoHalo2<Fr>, Option<AssignmentGenerator<Fr, ()>>, Option<TraceWitness<Fr>>);
 type CircuitMap = RefCell<HashMap<UUID, CircuitMapStore>>;
 
 thread_local! {
@@ -46,12 +46,79 @@ pub fn chiquito_ast_to_halo2(ast_json: &str) -> UUID {
     CIRCUIT_MAP.with(|circuit_map| {
         circuit_map
             .borrow_mut()
-            .insert(uuid, (chiquito_halo2, assignment_generator));
+            .insert(uuid, (circuit, chiquito_halo2, assignment_generator, None));
     });
 
     println!("{:?}", uuid);
 
     uuid
+}
+
+pub fn chiquito_add_witness_to_ast(witness_json: &str, ast_id: UUID) {
+    let witness: TraceWitness<Fr> =
+        serde_json::from_str(witness_json).expect("Json deserialization to TraceWitness failed.");
+
+    CIRCUIT_MAP.with(|circuit_map| {
+        let mut circuit_map = circuit_map.borrow_mut();
+        let circuit_map_store = circuit_map.get_mut(&ast_id).unwrap();
+        circuit_map_store.3 = Some(witness);
+    });
+
+    println!("Added TraceWitness to ast_id: {:?}", ast_id);
+}
+
+fn add_assignment_generator_to_ast(assignment_generator: AssignmentGenerator<Fr, ()>, ast_id: UUID) {
+    CIRCUIT_MAP.with(|circuit_map| {
+        let mut circuit_map = circuit_map.borrow_mut();
+        let circuit_map_store = circuit_map.get_mut(&ast_id).unwrap();
+        circuit_map_store.2 = Some(assignment_generator);
+    });
+
+    println!("Added AssignmentGenerator to ast_id: {:?}", ast_id);
+}
+
+pub fn chiquito_super_circuit_halo2_mock_prover(ast_ids: Vec<UUID>) {
+    let mut ctx = SuperCircuitContext::<Fr, ()>::default();
+    
+    // super_circuit def
+    let config = config(SingleRowCellManager {}, SimpleStepSelectorBuilder {});
+    for ast_id in ast_ids.clone() {
+        let circuit_map_store = uuid_to_halo2(ast_id);
+        let (circuit, chiquito_halo2, assignment_generator, witness) = circuit_map_store;
+        let assignment = ctx.sub_circuit_with_ast(config.clone(), circuit);
+        add_assignment_generator_to_ast(assignment, ast_id);
+    }
+
+    let super_circuit = ctx.compile();
+    let compiled = chiquitoSuperCircuit2Halo2(&super_circuit);
+
+    let mut mapping_ctx = MappingContext::default();
+    for ast_id in ast_ids {
+        let circuit_map_store = uuid_to_halo2(ast_id);
+        let (circuit, chiquito_halo2, assignment_generator, witness) = circuit_map_store;
+        if witness.is_some() {
+            mapping_ctx.map_with_witness(&assignment_generator.unwrap(), witness.unwrap());
+        }
+    }
+    
+    let super_assignments = mapping_ctx.get_super_assignments();
+
+    let circuit = ChiquitoHalo2SuperCircuit::new(
+        compiled,
+        super_assignments,
+    );
+
+    let prover = MockProver::<Fr>::run(10, &circuit, circuit.instance()).unwrap();
+
+    let result = prover.verify_par();
+
+    println!("result = {:#?}", result);
+
+    if let Err(failures) = &result {
+        for failure in failures.iter() {
+            println!("{}", failure);
+        }
+    }
 }
 
 fn uuid_to_halo2(uuid: UUID) -> CircuitMapStore {
@@ -64,7 +131,7 @@ fn uuid_to_halo2(uuid: UUID) -> CircuitMapStore {
 pub fn chiquito_halo2_mock_prover(witness_json: &str, ast_id: UUID) {
     let trace_witness: TraceWitness<Fr> =
         serde_json::from_str(witness_json).expect("Json deserialization to TraceWitness failed.");
-    let (compiled, assignment_generator) = uuid_to_halo2(ast_id);
+    let (_, compiled, assignment_generator, _) = uuid_to_halo2(ast_id);
     let circuit: ChiquitoHalo2Circuit<_> = ChiquitoHalo2Circuit::new(
         compiled,
         assignment_generator.map(|g| g.generate_with_witness(trace_witness)),
@@ -1756,11 +1823,23 @@ fn halo2_mock_prover(witness_json: &PyString, ast_uuid: &PyLong) {
     );
 }
 
+#[pyfunction]
+fn add_witness_to_ast(witness_json: &PyString, ast_uuid: &PyLong) {
+    chiquito_add_witness_to_ast(
+        witness_json.to_str().expect("PyString convertion failed."),
+        ast_uuid.extract().expect("PyLong convertion failed."),
+    );
+}
+
+#[pyfunction]
+fn super_circuit_halo2_mock_prover()
+
 #[pymodule]
 fn rust_chiquito(_py: Python, m: &PyModule) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(convert_and_print_ast, m)?)?;
     m.add_function(wrap_pyfunction!(convert_and_print_trace_witness, m)?)?;
     m.add_function(wrap_pyfunction!(ast_to_halo2, m)?)?;
     m.add_function(wrap_pyfunction!(halo2_mock_prover, m)?)?;
+    m.add_function(wrap_pyfunction!(add_witness_to_ast, m)?)?;
     Ok(())
 }
