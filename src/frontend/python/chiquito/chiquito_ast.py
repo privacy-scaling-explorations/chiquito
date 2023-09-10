@@ -7,7 +7,7 @@ from dataclasses import dataclass, field, asdict
 from chiquito.wit_gen import FixedAssignment, TraceWitness
 from chiquito.expr import Expr
 from chiquito.util import uuid, F
-from chiquito.query import Queriable
+from chiquito.query import Queriable, Fixed
 
 
 # pub struct Circuit<F, TraceArgs> {
@@ -153,6 +153,15 @@ class ASTCircuit:
     def add_step_type(self: ASTCircuit, step_type: ASTStepType, name: str):
         self.annotations[step_type.id] = name
         self.step_types[step_type.id] = step_type
+    
+    def add_fixed_assignment(self: ASTCircuit, offset: int, lhs: Queriable, rhs: F):
+        if not isinstance(lhs, Fixed):
+            raise ValueError(f"Cannot assign to non-fixed signal.")
+        if lhs in self.fixed_assignments.keys():
+            self.fixed_assignments[lhs][offset] = rhs
+        else:
+            self.fixed_assignments[lhs] = [F.zero()] * self.num_steps
+            self.fixed_assignments[lhs][offset] = rhs
 
     def get_step_type(self, uuid: int) -> ASTStepType:
         if uuid in self.step_types.keys():

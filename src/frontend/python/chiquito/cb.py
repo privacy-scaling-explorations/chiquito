@@ -268,6 +268,8 @@ class LookupTableBuilder:
 
     def __init__(self: LookupTableBuilder, uuid: int):
         self.uuid: int = uuid
+        self.src = []
+        self.enable = None
 
     def apply(self: LookupTableBuilder, constraint: ToConstraint) -> LookupTableBuilder:
         self.src.append(to_constraint(constraint))
@@ -279,9 +281,17 @@ class LookupTableBuilder:
         self.enable = to_constraint(enable)
         return self
 
-    def build(self: LookupTableBuilder, super_circuit: StepType) -> Lookup:
-        table = step_type.circuit.tables.get(self.id)
-        if self.src.len() != table.dest.len():
+    def build(self: LookupTableBuilder, step_type: StepType) -> Lookup:
+        # print(step_type.circuit)
+        print(f"tables: {step_type.circuit.super_circuit.tables}")
+        if step_type.circuit.super_circuit is None:
+            raise ValueError("LookupTableBuilder: build() cannot find super_circuit.")
+        table = step_type.circuit.super_circuit.tables.get(self.uuid)
+        if table is None:
+            raise ValueError(
+                f"LookupTableBuilder: build() cannot find table with uuid {self.uuid}."
+            )
+        if len(self.src) != len(table.dest):
             raise ValueError(
                 "LookupTableBuilder: build() has different number of source columns and destination columns."
             )
@@ -291,7 +301,7 @@ class LookupTableBuilder:
         if self.enable is not None:
             lookup.enable(self.enable.annotation, self.enable.expr)
 
-        for i in range(self.src.len()):
+        for i in range(len(self.src)):
             lookup.add(self.src[i].annotation, self.src[i].expr, table.dest[i])
 
         return lookup
