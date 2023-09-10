@@ -438,16 +438,11 @@ class Lookup:
         enabler = ASTConstraint(enable_annotation, enable_expr)
         if self.enabler is None:
             for constraint, _ in self.exprs:
-                constraint = self.multiply_constraints(enabler, constraint)
+                constraint = multiply_constraints(enabler, constraint)
             self.enabler = enabler
             self.annotation = f"if {enable_annotation}, {self.annotation}"
         else:
             raise ValueError("Lookup: enable() can only be called once.")
-
-    def multiply_constraints(
-        enable: ASTConstraint, constraint: ASTConstraint
-    ) -> ASTConstraint:
-        return ASTConstraint(constraint.annotation, enable.expr * constraint.expr)
 
     def __str__(self: Lookup):
         return f"Lookup({self.annotation})"
