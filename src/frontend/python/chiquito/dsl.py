@@ -94,9 +94,8 @@ class SuperCircuit:
                 raise ValueError(
                     f"SuperCircuit.halo2_mock_prover(): TraceWitness with rust_id {rust_id} not found in sub_circuits."
                 )
-            rust_chiquito.add_witness_to_ast(witness_json, rust_id)
-        for sub_circuit_id in self.ast.sub_circuits:
-            pass
+            rust_chiquito.add_witness_to_rust_id(witness_json, rust_id)
+        rust_chiquito.super_circuit_halo2_mock_prover(list(self.ast.sub_circuits.keys()))
 
     # def halo2_mock_prover(self: Circuit, witness: TraceWitness):
     #     if self.rust_id == 0:

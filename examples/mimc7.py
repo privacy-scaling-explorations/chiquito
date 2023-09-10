@@ -51,13 +51,13 @@ class Mimc7Circuit(Circuit):
 
         self.add(self.mimc7_first_step, (x_value, k_value, c_value, row_value))
 
-        for i in range(1, ROUND_KEYS):
+        for i in range(1, ROUNDS):
             row_value += F(1)
             x_value += k_value + c_value
             x_value = F(x_value**7)
             c_value = F(ROUND_KEYS[i])
 
-            self.add(self.mimc_step, (x_value, k_value, c_value, row_value))
+            self.add(self.mimc7_step, (x_value, k_value, c_value, row_value))
 
         row_value += F(1)
         x_value += k_value + c_value
@@ -176,4 +176,8 @@ class Mimc7SuperCircuit(SuperCircuit):
         self.map(self.mimc7_circuit, (x_in_value, k_value))
 
 
-Mimc7SuperCircuit()
+mimc7 = Mimc7SuperCircuit()
+mimc7_witnesses = mimc7.gen_witness((1, 2))
+# for key, value in mimc7_witnesses.items():
+#     print(f"{key}: {str(value)}")
+mimc7.halo2_mock_prover(mimc7_witnesses)
