@@ -6,7 +6,7 @@ import json
 
 from chiquito.chiquito_ast import ASTCircuit, ASTStepType, ExposeOffset
 from chiquito.query import Internal, Forward, Queriable, Shared, Fixed
-from chiquito.wit_gen import FixedGenContext, StepInstance, TraceWitness
+from chiquito.wit_gen import StepInstance, TraceWitness
 from chiquito.cb import (
     Constraint,
     Typing,
