@@ -34,7 +34,7 @@ class SuperCircuit:
     def __init__(self: SuperCircuit):
         self.ast = ASTSuperCircuit()
         self.tables: Dict[int, LookupTable] = {}
-        # self.rust_ast_id: List[int] = []
+        # self.rust_id: List[int] = []
         self.mode = SuperCircuitMode.SETUP
         self.setup()
         self.mode = SuperCircuitMode.NoMode
@@ -42,13 +42,13 @@ class SuperCircuit:
     # called under setup()
     def sub_circuit(self: SuperCircuit, sub_circuit: Circuit) -> Circuit:
         assert self.mode == SuperCircuitMode.SETUP
-        if sub_circuit.rust_ast_id != 0:
+        if sub_circuit.rust_id != 0:
             raise ValueError(
                 "SuperCircuit: sub_circuit() cannot be called twice on the same circuit."
             )
         ast_json: str = sub_circuit.get_ast_json()
-        sub_circuit.rust_ast_id: int = rust_chiquito.ast_to_halo2(ast_json)
-        self.ast.sub_circuits[sub_circuit.rust_ast_id] = sub_circuit.ast
+        sub_circuit.rust_id: int = rust_chiquito.ast_to_halo2(ast_json)
+        self.ast.sub_circuits[sub_circuit.rust_id] = sub_circuit.ast
         return sub_circuit
 
     # called under mapping()
@@ -56,11 +56,11 @@ class SuperCircuit:
     def map(self: SuperCircuit, sub_circuit: Circuit, args: Any) -> TraceWitness:
         assert self.mode == SuperCircuitMode.Mapping
         witness: TraceWitness = sub_circuit.gen_witness(args)
-        if sub_circuit.rust_ast_id == 0:
+        if sub_circuit.rust_id == 0:
             raise ValueError(
                 "SuperCircuit: must call sub_circuit() before calling map() on a Circuit."
             )
-        self.ast.witnesses[sub_circuit.rust_ast_id] = witness
+        self.ast.witnesses[sub_circuit.rust_id] = witness
         return witness
 
     # called at the outermost level
@@ -88,22 +88,22 @@ class SuperCircuit:
     #     return json.dumps(self.ast, cls=CustomEncoder, indent=4)
 
     def halo2_mock_prover(self: SuperCircuit, witnesses: Dict[int, TraceWitness]):
-        for rust_ast_id, witness in witnesses.items():
+        for rust_id, witness in witnesses.items():
             witness_json: str = witness.get_witness_json()
-            if rust_ast_id not in self.ast.sub_circuits:
+            if rust_id not in self.ast.sub_circuits:
                 raise ValueError(
-                    f"SuperCircuit.halo2_mock_prover(): TraceWitness with rust_ast_id {rust_ast_id} not found in sub_circuits."
+                    f"SuperCircuit.halo2_mock_prover(): TraceWitness with rust_id {rust_id} not found in sub_circuits."
                 )
-            rust_chiquito.add_witness_to_ast(witness_json, rust_ast_id)
+            rust_chiquito.add_witness_to_ast(witness_json, rust_id)
         for sub_circuit_id in self.ast.sub_circuits:
             pass
 
     # def halo2_mock_prover(self: Circuit, witness: TraceWitness):
-    #     if self.rust_ast_id == 0:
+    #     if self.rust_id == 0:
     #         ast_json: str = self.get_ast_json()
-    #         self.rust_ast_id: int = rust_chiquito.ast_to_halo2(ast_json)
+    #         self.rust_id: int = rust_chiquito.ast_to_halo2(ast_json)
     #     witness_json: str = witness.get_witness_json()
-    #     rust_chiquito.halo2_mock_prover(witness_json, self.rust_ast_id)
+    #     rust_chiquito.halo2_mock_prover(witness_json, self.rust_id)
 
 
 class CircuitMode(Enum):
@@ -117,7 +117,7 @@ class Circuit:
     def __init__(self: Circuit, super_circuit=None, imports=None):
         self.ast = ASTCircuit()
         self.witness = TraceWitness()
-        self.rust_ast_id = 0
+        self.rust_id = 0
         self.super_circuit = super_circuit
         self.imports = imports
         self.mode = CircuitMode.SETUP
@@ -232,11 +232,11 @@ class Circuit:
         return json.dumps(self.ast, cls=CustomEncoder, indent=4)
 
     def halo2_mock_prover(self: Circuit, witness: TraceWitness):
-        if self.rust_ast_id == 0:
+        if self.rust_id == 0:
             ast_json: str = self.get_ast_json()
-            self.rust_ast_id: int = rust_chiquito.ast_to_halo2(ast_json)
+            self.rust_id: int = rust_chiquito.ast_to_halo2(ast_json)
         witness_json: str = witness.get_witness_json()
-        rust_chiquito.halo2_mock_prover(witness_json, self.rust_ast_id)
+        rust_chiquito.halo2_mock_prover(witness_json, self.rust_id)
 
     def __str__(self: Circuit) -> str:
         return self.ast.__str__()

@@ -54,47 +54,47 @@ pub fn chiquito_ast_to_halo2(ast_json: &str) -> UUID {
     uuid
 }
 
-pub fn chiquito_add_witness_to_ast(witness_json: &str, ast_id: UUID) {
+pub fn chiquito_add_witness_to_ast(witness_json: &str, rust_id: UUID) {
     let witness: TraceWitness<Fr> =
         serde_json::from_str(witness_json).expect("Json deserialization to TraceWitness failed.");
 
     CIRCUIT_MAP.with(|circuit_map| {
         let mut circuit_map = circuit_map.borrow_mut();
-        let circuit_map_store = circuit_map.get_mut(&ast_id).unwrap();
+        let circuit_map_store = circuit_map.get_mut(&rust_id).unwrap();
         circuit_map_store.3 = Some(witness);
     });
 
-    println!("Added TraceWitness to ast_id: {:?}", ast_id);
+    println!("Added TraceWitness to rust_id: {:?}", rust_id);
 }
 
-fn add_assignment_generator_to_ast(assignment_generator: AssignmentGenerator<Fr, ()>, ast_id: UUID) {
+fn add_assignment_generator_to_ast(assignment_generator: AssignmentGenerator<Fr, ()>, rust_id: UUID) {
     CIRCUIT_MAP.with(|circuit_map| {
         let mut circuit_map = circuit_map.borrow_mut();
-        let circuit_map_store = circuit_map.get_mut(&ast_id).unwrap();
+        let circuit_map_store = circuit_map.get_mut(&rust_id).unwrap();
         circuit_map_store.2 = Some(assignment_generator);
     });
 
-    println!("Added AssignmentGenerator to ast_id: {:?}", ast_id);
+    println!("Added AssignmentGenerator to rust_id: {:?}", rust_id);
 }
 
-pub fn chiquito_super_circuit_halo2_mock_prover(ast_ids: Vec<UUID>) {
+pub fn chiquito_super_circuit_halo2_mock_prover(rust_ids: Vec<UUID>) {
     let mut ctx = SuperCircuitContext::<Fr, ()>::default();
     
     // super_circuit def
     let config = config(SingleRowCellManager {}, SimpleStepSelectorBuilder {});
-    for ast_id in ast_ids.clone() {
-        let circuit_map_store = uuid_to_halo2(ast_id);
+    for rust_id in rust_ids.clone() {
+        let circuit_map_store = uuid_to_halo2(rust_id);
         let (circuit, chiquito_halo2, assignment_generator, witness) = circuit_map_store;
         let assignment = ctx.sub_circuit_with_ast(config.clone(), circuit);
-        add_assignment_generator_to_ast(assignment, ast_id);
+        add_assignment_generator_to_ast(assignment, rust_id);
     }
 
     let super_circuit = ctx.compile();
     let compiled = chiquitoSuperCircuit2Halo2(&super_circuit);
 
     let mut mapping_ctx = MappingContext::default();
-    for ast_id in ast_ids {
-        let circuit_map_store = uuid_to_halo2(ast_id);
+    for rust_id in rust_ids {
+        let circuit_map_store = uuid_to_halo2(rust_id);
         let (circuit, chiquito_halo2, assignment_generator, witness) = circuit_map_store;
         if witness.is_some() {
             mapping_ctx.map_with_witness(&assignment_generator.unwrap(), witness.unwrap());
@@ -128,10 +128,10 @@ fn uuid_to_halo2(uuid: UUID) -> CircuitMapStore {
     })
 }
 
-pub fn chiquito_halo2_mock_prover(witness_json: &str, ast_id: UUID) {
+pub fn chiquito_halo2_mock_prover(witness_json: &str, rust_id: UUID) {
     let trace_witness: TraceWitness<Fr> =
         serde_json::from_str(witness_json).expect("Json deserialization to TraceWitness failed.");
-    let (_, compiled, assignment_generator, _) = uuid_to_halo2(ast_id);
+    let (_, compiled, assignment_generator, _) = uuid_to_halo2(rust_id);
     let circuit: ChiquitoHalo2Circuit<_> = ChiquitoHalo2Circuit::new(
         compiled,
         assignment_generator.map(|g| g.generate_with_witness(trace_witness)),
