@@ -1,6 +1,6 @@
 use pyo3::{
     prelude::*,
-    types::{PyLong, PyString, PyList},
+    types::{PyList, PyLong, PyString},
 };
 
 use crate::{
@@ -11,30 +11,44 @@ use crate::{
     },
     frontend::dsl::{StepTypeHandler, SuperCircuitContext},
     plonkish::{
-        backend::halo2::{chiquito2Halo2, ChiquitoHalo2, ChiquitoHalo2Circuit, chiquitoSuperCircuit2Halo2, ChiquitoHalo2SuperCircuit},
+        backend::halo2::{
+            chiquito2Halo2, chiquitoSuperCircuit2Halo2, ChiquitoHalo2, ChiquitoHalo2Circuit,
+            ChiquitoHalo2SuperCircuit,
+        },
         compiler::{
             cell_manager::SingleRowCellManager, compile, config,
             step_selector::SimpleStepSelectorBuilder,
         },
-        ir::{assignments::AssignmentGenerator, sc::{SuperCircuit, MappingContext}},
+        ir::{
+            assignments::AssignmentGenerator,
+            sc::MappingContext,
+        },
     },
     util::{uuid, UUID},
     wit_gen::{StepInstance, TraceContext, TraceWitness},
 };
 
 use core::result::Result;
-use halo2_proofs::{dev::MockProver, halo2curves::bn256::Fr, plonk::Assignment};
+use halo2_proofs::{dev::MockProver, halo2curves::bn256::Fr};
 use serde::de::{self, Deserialize, Deserializer, IgnoredAny, MapAccess, Visitor};
 use std::{cell::RefCell, collections::HashMap, fmt, rc::Rc};
 
-type CircuitMapStore = (Circuit<Fr, ()>, ChiquitoHalo2<Fr>, Option<AssignmentGenerator<Fr, ()>>, Option<TraceWitness<Fr>>);
+type CircuitMapStore = (
+    Circuit<Fr, ()>,
+    ChiquitoHalo2<Fr>,
+    Option<AssignmentGenerator<Fr, ()>>,
+    Option<TraceWitness<Fr>>,
+);
 type CircuitMap = RefCell<HashMap<UUID, CircuitMapStore>>;
 
 thread_local! {
     pub static CIRCUIT_MAP: CircuitMap = RefCell::new(HashMap::new());
 }
 
-/// Parses JSON into `ast::Circuit` and compile. Generates a Rust UUID. Inserts tuple of (`ast::Circuit`, `ChiquitoHalo2`, `AssignmentGenerator`, _) to `CIRCUIT_MAP` with the Rust UUID as the key. Return the Rust UUID to Python. The last field of the tuple, `TraceWitness`, is left as None, for `chiquito_add_witness_to_rust_id` to insert.
+/// Parses JSON into `ast::Circuit` and compile. Generates a Rust UUID. Inserts tuple of
+/// (`ast::Circuit`, `ChiquitoHalo2`, `AssignmentGenerator`, _) to `CIRCUIT_MAP` with the Rust UUID
+/// as the key. Return the Rust UUID to Python. The last field of the tuple, `TraceWitness`, is left
+/// as None, for `chiquito_add_witness_to_rust_id` to insert.
 pub fn chiquito_ast_to_halo2(ast_json: &str) -> UUID {
     let circuit: Circuit<Fr, ()> =
         serde_json::from_str(ast_json).expect("Json deserialization to Circuit failed.");
@@ -69,7 +83,10 @@ pub fn chiquito_add_witness_to_rust_id(witness_json: &str, rust_id: UUID) {
     println!("Added TraceWitness to rust_id: {:?}", rust_id);
 }
 
-fn add_assignment_generator_to_rust_id(assignment_generator: AssignmentGenerator<Fr, ()>, rust_id: UUID) {
+fn add_assignment_generator_to_rust_id(
+    assignment_generator: AssignmentGenerator<Fr, ()>,
+    rust_id: UUID,
+) {
     CIRCUIT_MAP.with(|circuit_map| {
         let mut circuit_map = circuit_map.borrow_mut();
         let circuit_map_store = circuit_map.get_mut(&rust_id).unwrap();
@@ -79,15 +96,18 @@ fn add_assignment_generator_to_rust_id(assignment_generator: AssignmentGenerator
     println!("Added AssignmentGenerator to rust_id: {:?}", rust_id);
 }
 
-/// Compile a `ChiquitoHalo2SuperCircuit` object from a list of `rust_ids`, each corresponding to a sub-circuit. The `ChiquitoHalo2SuperCircuit` object is then passed to `MockProver` for verification. `TraceWitness`, if any, should have been inserted to each rust_id prior to invoking this function. 
+/// Compile a `ChiquitoHalo2SuperCircuit` object from a list of `rust_ids`, each corresponding to a
+/// sub-circuit. The `ChiquitoHalo2SuperCircuit` object is then passed to `MockProver` for
+/// verification. `TraceWitness`, if any, should have been inserted to each rust_id prior to
+/// invoking this function.
 pub fn chiquito_super_circuit_halo2_mock_prover(rust_ids: Vec<UUID>) {
     let mut super_circuit_ctx = SuperCircuitContext::<Fr, ()>::default();
-    
+
     // super_circuit def
     let config = config(SingleRowCellManager {}, SimpleStepSelectorBuilder {});
     for rust_id in rust_ids.clone() {
         let circuit_map_store = rust_id_to_halo2(rust_id);
-        let (circuit, chiquito_halo2, assignment_generator, witness) = circuit_map_store;
+        let (circuit, _, _, _) = circuit_map_store;
         let assignment = super_circuit_ctx.sub_circuit_with_ast(config.clone(), circuit);
         add_assignment_generator_to_rust_id(assignment, rust_id);
     }
@@ -98,18 +118,15 @@ pub fn chiquito_super_circuit_halo2_mock_prover(rust_ids: Vec<UUID>) {
     let mut mapping_ctx = MappingContext::default();
     for rust_id in rust_ids {
         let circuit_map_store = rust_id_to_halo2(rust_id);
-        let (circuit, chiquito_halo2, assignment_generator, witness) = circuit_map_store;
-        if witness.is_some() {
-            mapping_ctx.map_with_witness(&assignment_generator.unwrap(), witness.unwrap());
+        let (_, _, assignment_generator, witness) = circuit_map_store;
+        if let Some(witness) = witness {
+            mapping_ctx.map_with_witness(&assignment_generator.unwrap(), witness);
         }
     }
-    
+
     let super_assignments = mapping_ctx.get_super_assignments();
 
-    let circuit = ChiquitoHalo2SuperCircuit::new(
-        compiled,
-        super_assignments,
-    );
+    let circuit = ChiquitoHalo2SuperCircuit::new(compiled, super_assignments);
 
     let prover = MockProver::<Fr>::run(10, &circuit, circuit.instance()).unwrap();
 
@@ -124,7 +141,8 @@ pub fn chiquito_super_circuit_halo2_mock_prover(rust_ids: Vec<UUID>) {
     }
 }
 
-/// Returns the (`ast::Circuit`, `ChiquitoHalo2`, `AssignmentGenerator`, `TraceWitness`) tuple corresponding to `rust_id`.
+/// Returns the (`ast::Circuit`, `ChiquitoHalo2`, `AssignmentGenerator`, `TraceWitness`) tuple
+/// corresponding to `rust_id`.
 fn rust_id_to_halo2(uuid: UUID) -> CircuitMapStore {
     CIRCUIT_MAP.with(|circuit_map| {
         let circuit_map = circuit_map.borrow();
@@ -132,7 +150,8 @@ fn rust_id_to_halo2(uuid: UUID) -> CircuitMapStore {
     })
 }
 
-/// Runs `MockProver` for a single circuit given JSON of `TraceWitness` and `rust_id` of the circuit.
+/// Runs `MockProver` for a single circuit given JSON of `TraceWitness` and `rust_id` of the
+/// circuit.
 pub fn chiquito_halo2_mock_prover(witness_json: &str, rust_id: UUID) {
     let trace_witness: TraceWitness<Fr> =
         serde_json::from_str(witness_json).expect("Json deserialization to TraceWitness failed.");
@@ -1838,13 +1857,16 @@ fn add_witness_to_rust_id(witness_json: &PyString, rust_id: &PyLong) {
 
 #[pyfunction]
 fn super_circuit_halo2_mock_prover(rust_ids: &PyList) {
-    let uuids = rust_ids.iter().map(|rust_id| {
-        rust_id
-            .downcast::<PyLong>()
-            .expect("PyAny downcast failed.")
-            .extract()
-            .expect("PyLong convertion failed.")
-    }).collect::<Vec<UUID>>();
+    let uuids = rust_ids
+        .iter()
+        .map(|rust_id| {
+            rust_id
+                .downcast::<PyLong>()
+                .expect("PyAny downcast failed.")
+                .extract()
+                .expect("PyLong convertion failed.")
+        })
+        .collect::<Vec<UUID>>();
 
     chiquito_super_circuit_halo2_mock_prover(uuids)
 }

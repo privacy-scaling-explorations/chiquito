@@ -67,8 +67,13 @@ impl<F: Field> MappingContext<F> {
         self.assignments.insert(gen.uuid(), gen.generate(args));
     }
 
-    pub fn map_with_witness<TraceArgs>(&mut self, gen: &AssignmentGenerator<F, TraceArgs>, witness: TraceWitness<F>) {
-        self.assignments.insert(gen.uuid(), gen.generate_with_witness(witness));
+    pub fn map_with_witness<TraceArgs>(
+        &mut self,
+        gen: &AssignmentGenerator<F, TraceArgs>,
+        witness: TraceWitness<F>,
+    ) {
+        self.assignments
+            .insert(gen.uuid(), gen.generate_with_witness(witness));
     }
 
     pub fn get_super_assignments(self) -> SuperAssignments<F> {

@@ -66,8 +66,7 @@ impl<F: Field + Hash, MappingArgs> SuperCircuitContext<F, MappingArgs> {
         &mut self,
         config: CompilerConfig<CM, SSB>,
         sub_circuit: Circuit<F, TraceArgs>, // directly input ast
-    ) -> AssignmentGenerator<F, TraceArgs>
-    {
+    ) -> AssignmentGenerator<F, TraceArgs> {
         let (unit, assignment) = compile_phase1(config, &sub_circuit);
         let assignment = assignment.unwrap_or_else(|| AssignmentGenerator::empty(unit.uuid));
 
