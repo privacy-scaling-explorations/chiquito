@@ -153,7 +153,7 @@ class ASTCircuit:
     def add_step_type(self: ASTCircuit, step_type: ASTStepType, name: str):
         self.annotations[step_type.id] = name
         self.step_types[step_type.id] = step_type
-    
+
     def add_fixed_assignment(self: ASTCircuit, offset: int, lhs: Queriable, rhs: F):
         if not isinstance(lhs, Fixed):
             raise ValueError(f"Cannot assign to non-fixed signal.")

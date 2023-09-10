@@ -175,4 +175,5 @@ class Mimc7SuperCircuit(SuperCircuit):
         x_in_value, k_value = args
         self.map(self.mimc7_circuit, (x_in_value, k_value))
 
+
 Mimc7SuperCircuit()
