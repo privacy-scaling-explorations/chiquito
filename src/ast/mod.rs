@@ -187,23 +187,13 @@ impl<F, TraceArgs> Circuit<F, TraceArgs> {
 }
 
 impl<F: Field + Hash, TraceArgs> Circuit<F, TraceArgs> {
-    pub fn set_fixed_assignments<D>(&mut self, def: D)
-    where
-        D: Fn(&mut FixedGenContext<F>) + 'static,
+    pub fn set_fixed_assignments(&mut self, assignments: Option<FixedAssignment<F>>)
     {
         match self.fixed_assignments {
             None => {
-                self.fixed_assignments = {
-                    if self.num_steps == 0 {
-                        panic!("circuit must call pragma_num_steps before calling fixed_gen");
-                    }
-                    let mut ctx = FixedGenContext::new(self.num_steps);
-                    (def)(&mut ctx);
-
-                    Some(ctx.get_assignments())
-                }
+                self.fixed_assignments = assignments;
             }
-            Some(_) => panic!("circuit cannot have more than one fixed generator"),
+            Some(_) => panic!("circuit cannot have more than one fixed generator")
         }
     }
 }

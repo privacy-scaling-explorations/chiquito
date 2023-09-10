@@ -173,7 +173,15 @@ impl<F: Field + Hash, TraceArgs> CircuitContext<F, TraceArgs> {
     where
         D: Fn(&mut FixedGenContext<F>) + 'static,
     {
-        self.circuit.set_fixed_assignments(def);
+        if self.circuit.num_steps == 0 {
+            panic!("circuit must call pragma_num_steps before calling fixed_gen");
+        }
+        let mut ctx = FixedGenContext::new(self.circuit.num_steps);
+        (def)(&mut ctx);
+
+        let assignments = Some(ctx.get_assignments());
+
+        self.circuit.set_fixed_assignments(assignments);
     }
 }
 
