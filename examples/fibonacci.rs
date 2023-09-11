@@ -151,7 +151,7 @@ fn main() {
 
     let result_plaf = prover_plaf.verify_par();
 
-    println!("result = {:#?}", result);
+    println!("result = {:#?}", result_plaf);
 
     if let Err(failures) = &result_plaf {
         for failure in failures.iter() {
