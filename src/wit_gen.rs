@@ -168,6 +168,8 @@ impl<F: Field + Hash> FixedGenContext<F> {
 mod tests {
     use super::*;
     use crate::{frontend::dsl::StepTypeWGHandler, util::uuid};
+    use crate::{ast::FixedSignal, ast::query::Queriable};
+    use halo2_proofs::halo2curves::bn256::Fr;
 
     fn dummy_args_fn() {}
 
@@ -194,5 +196,28 @@ mod tests {
         ctx.padding(&step, dummy_args_fn);
 
         assert_eq!(ctx.witness.step_instances.len(), 5);
+    }
+
+    #[test]
+    fn test_fixed_gen_context() {
+        let mut ctx = FixedGenContext::new(5);
+        let fixed_signal = FixedSignal::new("dummy".to_owned());
+        let queriable = Queriable::Fixed(fixed_signal, 5);
+
+        ctx.assign(3, queriable, Fr::from(1));
+        assert_eq!(ctx.get_assignments().len(), 1);
+    }
+
+    #[test]
+    fn test_fixed_gen_context_multiple() {
+        let mut ctx = FixedGenContext::new(5);
+        let fixed_signal = FixedSignal::new("dummy".to_owned());
+        let fixed_signal2 = FixedSignal::new("dummy2".to_owned());
+        let queriable = Queriable::Fixed(fixed_signal, 5);
+        let queriable2 = Queriable::Fixed(fixed_signal2, 5);
+
+        ctx.assign(3, queriable, Fr::from(1));
+        ctx.assign(1, queriable2, Fr::from(1));
+        assert_eq!(ctx.get_assignments().len(), 2);
     }
 }
