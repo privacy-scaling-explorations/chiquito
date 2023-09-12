@@ -246,13 +246,10 @@ fn eval_keccak_f_rho_step<F: PrimeField<Repr = [u8; 32]>>(
     (absorb_rows, xor_rows)
 }
 
-fn eval_keccak_f_pi_step<F: PrimeField<Repr = [u8; 32]>>(
-    s_new: &mut [[F; PART_SIZE]; PART_SIZE],
-) -> Vec<(F, F)> {
+fn eval_keccak_f_pi_step<F: PrimeField<Repr = [u8; 32]>>(s_new: &mut [[F; PART_SIZE]; PART_SIZE]) {
     // pi
     // a[y][2x + 3y] = a[x][y]
     let s: Vec<Vec<F>> = s_new.iter().map(|s_new| s_new.to_vec()).collect();
-    let mut absorb_rows = Vec::new();
     let mut i = 1;
     let mut j = 0;
     for _ in 0..PART_SIZE * PART_SIZE {
@@ -262,12 +259,6 @@ fn eval_keccak_f_pi_step<F: PrimeField<Repr = [u8; 32]>>(
         i = x;
         j = y;
     }
-    for i in 0..PART_SIZE {
-        for j in 0..PART_SIZE {
-            absorb_rows.push((s[i][j], s_new[i][j]));
-        }
-    }
-    absorb_rows
 }
 
 fn eval_keccak_f_chi_step<F: PrimeField<Repr = [u8; 32]>>(
@@ -303,46 +294,33 @@ fn eval_keccak_f_chi_step<F: PrimeField<Repr = [u8; 32]>>(
     absorb_rows
 }
 
-struct KeccakFIotaValue<F: PrimeField<Repr = [u8; 32]>> {
-    absorb_rows: Vec<(F, F, F, F)>,
-    xor_rows: Vec<(F, F)>,
-}
-
 fn eval_keccak_f_iota_step<F: PrimeField<Repr = [u8; 32]>>(
-    s_new: &mut [[F; PART_SIZE]; PART_SIZE],
+    s: F,
     round_cst: u64,
-) -> KeccakFIotaValue<F> {
+) -> (Vec<(F, F)>, F) {
     // iota
-    let s: Vec<Vec<F>> = s_new.iter().map(|s_new| s_new.to_vec()).collect();
-    let mut absorb_rows = Vec::new();
-    let mut split_vec = Vec::new();
-    let mut split_xor_vec = Vec::new();
 
-    let s_vec = convert_field_to_vec_bits(s[0][0]);
+    let s_vec = convert_field_to_vec_bits(s);
     let cst_vec = convert_field_to_vec_bits(pack_u64::<F>(round_cst));
 
-    for (v1, v2) in s_vec.iter().zip(cst_vec.iter()) {
-        split_vec.push(v1 + v2);
-        split_xor_vec.push(v1 ^ v2);
-    }
-
-    s_new[0][0] = convert_bits_to_f(&split_xor_vec);
-
-    for i in 0..PART_SIZE {
-        for j in 0..PART_SIZE {
-            absorb_rows.push((s[i][j], s_new[i][j], F::ZERO, F::ZERO));
-        }
-    }
-    let xor_rows = split_vec
+    let split_xor_vec: Vec<u8> = s_vec
         .iter()
-        .zip(split_xor_vec.iter())
-        .map(|(&v1, &v2)| (F::from_u128(v1 as u128), F::from_u128(v2 as u128)))
+        .zip(cst_vec.iter())
+        .map(|(v1, v2)| v1 ^ v2)
         .collect();
+    let xor_rows: Vec<(F, F)> = s_vec
+        .iter()
+        .zip(cst_vec.iter())
+        .map(|(v1, v2)| {
+            (
+                F::from_u128((v1 + v2) as u128),
+                F::from_u128((v1 ^ v2) as u128),
+            )
+        })
+        .collect();
+    let s_new = convert_bits_to_f(&split_xor_vec);
 
-    KeccakFIotaValue {
-        absorb_rows,
-        xor_rows,
-    }
+    (xor_rows, s_new)
 }
 
 fn eval_keccak_f_to_bit_vec<F: PrimeField<Repr = [u8; 32]>>(value1: F, value2: F) -> Vec<(F, F)> {
@@ -468,9 +446,6 @@ fn keccak_circuit<F: PrimeField<Repr = [u8; 32]> + Eq + Hash>(
         let s_vec = s_vec.clone();
         let setup_s_vec = s_vec.clone();
 
-        let s_new_vec = s_new_vec.clone();
-        let setup_s_new_vec = s_new_vec.clone();
-
         let absorb_vec: Vec<Queriable<F>> = (0..PART_SIZE * PART_SIZE)
             .map(|_| ctx.internal("absorb"))
             .collect();
@@ -483,31 +458,28 @@ fn keccak_circuit<F: PrimeField<Repr = [u8; 32]> + Eq + Hash>(
                     if j * PART_SIZE + i < NUM_WORDS_TO_ABSORB {
                         // xor
                         // 000 xor 000/001 -> 000 + 000/001
-                        ctx.constr(eq(
+                        ctx.transition(eq(
                             setup_s_vec[i][j] + setup_absorb_vec[i * PART_SIZE + j],
-                            setup_s_new_vec[i][j],
+                            setup_s_vec[i][j].next(),
                         ));
                     } else {
-                        ctx.constr(eq(setup_s_vec[i][j], setup_s_new_vec[i][j]));
+                        ctx.transition(eq(setup_s_vec[i][j], setup_s_vec[i][j].next()));
                         ctx.constr(eq(setup_absorb_vec[i * PART_SIZE + j], 0));
                     }
-                    ctx.transition(eq(setup_s_new_vec[i][j], setup_s_vec[i][j].next()));
                 }
             }
             ctx.constr(eq(round, 0));
             ctx.transition(eq(round, round.next()));
         });
 
-        ctx.wg::<(Vec<(F, F, F)>, F), _>(move |ctx, (absorb_rows, round_value)| {
+        ctx.wg::<(Vec<(F, F)>, F), _>(move |ctx, (absorb_rows, round_value)| {
             for i in 0..PART_SIZE {
                 for j in 0..PART_SIZE {
                     ctx.assign(
                         absorb_vec[i * PART_SIZE + j],
                         absorb_rows[i * PART_SIZE + j].1,
                     );
-
                     ctx.assign(s_vec[i][j], F::ZERO);
-                    ctx.assign(s_new_vec[i][j], absorb_rows[i * PART_SIZE + j].2);
                 }
             }
             ctx.assign(round, round_value);
@@ -537,14 +509,14 @@ fn keccak_circuit<F: PrimeField<Repr = [u8; 32]> + Eq + Hash>(
                             setup_s_vec[i][j] + setup_absorb_vec[i * PART_SIZE + j],
                             setup_sum_split_value_vec[i * PART_SIZE + j],
                         ));
+                        ctx.transition(eq(setup_s_new_vec[i][j], setup_s_vec[i][j].next()));
                     } else {
-                        ctx.constr(eq(setup_s_vec[i][j], setup_s_new_vec[i][j]));
+                        ctx.transition(eq(setup_s_vec[i][j], setup_s_vec[i][j].next()));
                         ctx.constr(eq(setup_absorb_vec[i * PART_SIZE + j], 0));
                     }
-                    ctx.transition(eq(setup_s_new_vec[i][j], setup_s_vec[i][j].next()));
                 }
             }
-            ctx.constr(eq(round, 0));
+            // ctx.constr(eq(round, 0));
             ctx.transition(eq(round, round.next()));
         });
 
@@ -566,7 +538,7 @@ fn keccak_circuit<F: PrimeField<Repr = [u8; 32]> + Eq + Hash>(
             ctx.assign(round, round_value);
         })
     });
-    let keccak_f_theta = ctx.step_type_def("keccak_f_theta_step", |ctx| {
+    let keccak_f_theta_step = ctx.step_type_def("keccak f theta step", |ctx| {
         // Theta
         // a[x][y][z] = a[x][y][z] + \sum_y' a[x-1][y'][z] + \sum a[x+1][y'][z-1]
         let s_vec = s_vec.clone();
@@ -636,38 +608,9 @@ fn keccak_circuit<F: PrimeField<Repr = [u8; 32]> + Eq + Hash>(
             },
         )
     });
-    let keccak_f_pi = ctx.step_type_def("keccak_f_pi_step", |ctx| {
-        // a[y][2x + 3y] = a[x][y]
-        let s_vec = s_vec.clone();
-        let setup_s_vec = s_vec.clone();
-
-        let s_new_vec = s_new_vec.clone();
-        let setup_s_new_vec = s_new_vec.clone();
-
-        ctx.setup(move |ctx| {
-            for k in 0..PART_SIZE * PART_SIZE {
-                let i = k / PART_SIZE;
-                let j = k % PART_SIZE;
-                let x = j;
-                let y = (2 * i + 3 * j) % 5;
-                ctx.constr(eq(setup_s_vec[i][j], setup_s_new_vec[x][y]));
-                ctx.transition(eq(setup_s_new_vec[i][j], setup_s_vec[i][j].next()));
-            }
-            ctx.transition(eq(round, round.next()));
-        });
-
-        ctx.wg::<(Vec<(F, F)>, F), _>(move |ctx, (absorb_rows, round_value)| {
-            for i in 0..PART_SIZE {
-                for j in 0..PART_SIZE {
-                    ctx.assign(s_vec[i][j], absorb_rows[i * PART_SIZE + j].0);
-                    ctx.assign(s_new_vec[i][j], absorb_rows[i * PART_SIZE + j].1);
-                }
-            }
-            ctx.assign(round, round_value);
-        })
-    });
-    let keccak_f_chi_step = ctx.step_type_def("keccak_f_chi_step", |ctx| {
+    let keccak_f_chi_iota_step = ctx.step_type_def("keccak f chi iota step", |ctx| {
         // a[x] = a[x] ^ (~a[x+1] & a[x+2])
+        // a[0][0] = a[0][0] ^ round_cst
         let s_vec = s_vec.clone();
         let setup_s_vec: Vec<Vec<Queriable<F>>> = s_vec.clone();
 
@@ -677,41 +620,104 @@ fn keccak_circuit<F: PrimeField<Repr = [u8; 32]> + Eq + Hash>(
         let sum_split_value_vec = sum_split_value_vec.clone();
         let setup_sum_split_value_vec = sum_split_value_vec.clone();
 
+        let threes: Queriable<F> = ctx.internal("threes");
+        let three: Queriable<F> = ctx.internal("three");
+
         let coeff_split_vec: Vec<Queriable<F>> = coeff_split_vec.clone();
         let setup_coeff_split_vec = coeff_split_vec.clone();
 
-        let threes: Queriable<F> = ctx.internal("threes");
+        let split_vec: Vec<Queriable<F>> = (0..NUM_BITS_PER_WORD)
+            .map(|i| ctx.internal(&format!("split_{}", i)))
+            .collect();
+        let setup_split_vec = split_vec.clone();
 
-        ctx.setup(move |ctx| {
-            let mut sum_split_vec: Expr<F> = setup_coeff_split_vec[0] + setup_coeff_split_vec[1];
-            for &setup_coeff_split in setup_coeff_split_vec.iter().take(NUM_BITS_PER_WORD).skip(2) {
-                sum_split_vec = sum_split_vec + setup_coeff_split
-            }
-            sum_split_vec = sum_split_vec * 3;
-            ctx.constr(eq(sum_split_vec, threes));
+        let split_xor_vec: Vec<Queriable<F>> = (0..NUM_BITS_PER_WORD)
+            .map(|i| ctx.internal(&format!("split_xor_{}", i)))
+            .collect();
+        let setup_split_xor_vec = split_xor_vec.clone();
 
-            for i in 0..PART_SIZE {
-                for j in 0..PART_SIZE {
+        let round_cst: Queriable<F> = ctx.internal("round_cst");
+        let s_new_add_cst = ctx.internal("s_new[0][0] + cst");
+
+        ctx.setup(
+            move |ctx: &mut chiquito::frontend::dsl::StepTypeSetupContext<'_, F>| {
+                ctx.constr(eq(coeff_eight, 8));
+                ctx.constr(eq(three, 3));
+                let mut sum_split_vec: Expr<F> = three * coeff_eight + three;
+                for _ in 2..NUM_BITS_PER_WORD {
+                    sum_split_vec = sum_split_vec * coeff_eight + three;
+                }
+                ctx.constr(eq(sum_split_vec, threes));
+
+                ctx.constr(eq(setup_coeff_split_vec[0], 1));
+                ctx.constr(eq(coeff_eight, 8));
+                for k in 1..NUM_BITS_PER_WORD {
                     ctx.constr(eq(
-                        threes - setup_s_vec[i][j] - setup_s_vec[i][j]
-                            + setup_s_vec[(i + 1) % 5][j]
-                            - setup_s_vec[(i + 2) % 5][j],
-                        setup_sum_split_value_vec[i * PART_SIZE + j],
+                        setup_coeff_split_vec[k - 1] * coeff_eight,
+                        setup_coeff_split_vec[k],
                     ));
                 }
-            }
+                ctx.add_lookup(param.constants_table.apply(round).apply(round_cst));
 
-            for i in 0..PART_SIZE {
-                for j in 0..PART_SIZE {
-                    ctx.transition(eq(setup_s_new_vec[i][j], setup_s_vec[i][j].next()));
+                for i in 0..PART_SIZE {
+                    for j in 0..PART_SIZE {
+                        ctx.constr(eq(
+                            threes - setup_s_vec[i][j] - setup_s_vec[i][j]
+                                + setup_s_vec[(i + 1) % 5][j]
+                                - setup_s_vec[(i + 2) % 5][j],
+                            setup_sum_split_value_vec[i * PART_SIZE + j],
+                        ));
+                    }
                 }
-            }
-            ctx.transition(eq(round, round.next()));
-        });
 
-        ctx.wg::<(Vec<(F, F, F, F)>, (F, F)), _>(
-            move |ctx, (absorb_rows, (round_value, threes_value))| {
+                {
+                    for k in 0..NUM_BITS_PER_WORD {
+                        ctx.add_lookup(
+                            param
+                                .xor_table
+                                .apply(setup_split_vec[k])
+                                .apply(setup_split_xor_vec[k]),
+                        );
+                    }
+                    // coeff_table
+                    let mut sum_s_split_vec: Expr<F> =
+                        setup_split_vec[0] * setup_coeff_split_vec[0];
+                    let mut sum_s_split_xor_vec: Expr<F> =
+                        setup_split_xor_vec[0] * setup_coeff_split_vec[0];
+                    for k in 1..NUM_BITS_PER_WORD {
+                        sum_s_split_vec =
+                            sum_s_split_vec + setup_split_vec[k] * setup_coeff_split_vec[k];
+                        sum_s_split_xor_vec =
+                            sum_s_split_xor_vec + setup_split_xor_vec[k] * setup_coeff_split_vec[k];
+                    }
+                    ctx.constr(eq(sum_s_split_vec, setup_s_new_vec[0][0] + round_cst));
+                    ctx.constr(eq(sum_s_split_xor_vec, s_new_add_cst));
+                }
+
+                for i in 0..PART_SIZE {
+                    for j in 0..PART_SIZE {
+                        if i == 0 && j == 0 {
+                            ctx.transition(eq(s_new_add_cst, setup_s_vec[i][j].next()));
+                        } else {
+                            ctx.transition(eq(setup_s_new_vec[i][j], setup_s_vec[i][j].next()));
+                        }
+                    }
+                }
+                ctx.transition(eq((round + 1 - round.next()) * (round + 1 - NUM_ROUNDS), 0));
+            },
+        );
+
+        ctx.wg::<(Vec<(F, F, F, F)>, Vec<(F, F)>, (F, F, F, F)), _>(
+            move |ctx,
+                  (
+                absorb_rows,
+                xor_rows,
+                (round_value, round_cst_value, threes_value, s_xor_cst_value),
+            )| {
                 ctx.assign(coeff_eight, F::from_u128(8));
+                ctx.assign(three, F::from_u128(3));
+                ctx.assign(threes, threes_value);
+
                 let mut coeff_value = F::from_u128(1);
                 for &coeff_split in coeff_split_vec.iter().take(NUM_BITS_PER_WORD) {
                     ctx.assign(coeff_split, coeff_value);
@@ -728,94 +734,7 @@ fn keccak_circuit<F: PrimeField<Repr = [u8; 32]> + Eq + Hash>(
                         ctx.assign(s_new_vec[i][j], absorb_rows[i * PART_SIZE + j].2);
                     }
                 }
-                ctx.assign(round, round_value);
-                ctx.assign(threes, threes_value);
-            },
-        )
-    });
-    let keccak_f_iota_step = ctx.step_type_def("keccak_f_iota_step", |ctx| {
-        let s_vec = s_vec.clone();
-        let setup_s_vec = s_vec.clone();
 
-        let s_new_vec = s_new_vec.clone();
-        let setup_s_new_vec = s_new_vec.clone();
-
-        let coeff_split_vec: Vec<Queriable<F>> = coeff_split_vec.clone();
-        let setup_coeff_split_vec = coeff_split_vec.clone();
-
-        let split_vec: Vec<Queriable<F>> = (0..NUM_BITS_PER_WORD)
-            .map(|i| ctx.internal(&format!("split_{}", i)))
-            .collect();
-        let setup_split_vec = split_vec.clone();
-
-        let split_xor_vec: Vec<Queriable<F>> = (0..NUM_BITS_PER_WORD)
-            .map(|i| ctx.internal(&format!("split_xor_{}", i)))
-            .collect();
-        let setup_split_xor_vec = split_xor_vec.clone();
-
-        let s_add_cst = ctx.internal("add constant");
-        let round_cst: Queriable<F> = ctx.internal("round_cst");
-
-        ctx.setup(move |ctx| {
-            ctx.constr(eq(setup_coeff_split_vec[0], 1));
-            ctx.constr(eq(coeff_eight, 8));
-            for k in 1..NUM_BITS_PER_WORD {
-                ctx.constr(eq(
-                    setup_coeff_split_vec[k - 1] * coeff_eight,
-                    setup_coeff_split_vec[k],
-                ));
-            }
-            ctx.add_lookup(param.constants_table.apply(round).apply(round_cst));
-
-            for i in 0..PART_SIZE {
-                for j in 0..PART_SIZE {
-                    if i == 0 && j == 0 {
-                        ctx.constr(eq(setup_s_vec[i][j] + round_cst, s_add_cst));
-                        for k in 0..NUM_BITS_PER_WORD {
-                            ctx.add_lookup(
-                                param
-                                    .xor_table
-                                    .apply(setup_split_vec[k])
-                                    .apply(setup_split_xor_vec[k]),
-                            );
-                        }
-                        let mut sum_s_split_vec: Expr<F> =
-                            setup_split_vec[0] * setup_coeff_split_vec[0];
-                        let mut sum_s_split_xor_vec: Expr<F> =
-                            setup_split_xor_vec[0] * setup_coeff_split_vec[0];
-                        for k in 1..NUM_BITS_PER_WORD {
-                            sum_s_split_vec =
-                                sum_s_split_vec + setup_split_vec[k] * setup_coeff_split_vec[k];
-                            sum_s_split_xor_vec = sum_s_split_xor_vec
-                                + setup_split_xor_vec[k] * setup_coeff_split_vec[k];
-                        }
-                        ctx.constr(eq(sum_s_split_vec, s_add_cst));
-                        ctx.constr(eq(sum_s_split_xor_vec, setup_s_new_vec[i][j]));
-                    } else {
-                        ctx.constr(eq(setup_s_vec[i][j], setup_s_new_vec[i][j]));
-                    }
-
-                    ctx.transition(eq(setup_s_new_vec[i][j], setup_s_vec[i][j].next()));
-                }
-            }
-            ctx.transition(eq((round + 1 - round.next()) * (round + 1 - NUM_ROUNDS), 0));
-        });
-
-        ctx.wg::<(Vec<(F, F, F, F)>, Vec<(F, F)>, (F, F)), _>(
-            move |ctx, (absorb_rows, xor_rows, (round_value, round_cst_value))| {
-                ctx.assign(coeff_eight, F::from_u128(8));
-                let mut coeff_value = F::from_u128(1);
-                for &coeff_split in coeff_split_vec.iter().take(NUM_BITS_PER_WORD) {
-                    ctx.assign(coeff_split, coeff_value);
-                    coeff_value *= F::from_u128(8);
-                }
-
-                for i in 0..PART_SIZE {
-                    for j in 0..PART_SIZE {
-                        ctx.assign(s_vec[i][j], absorb_rows[i * PART_SIZE + j].0);
-                        ctx.assign(s_new_vec[i][j], absorb_rows[i * PART_SIZE + j].1);
-                    }
-                }
                 for k in 0..NUM_BITS_PER_WORD {
                     ctx.assign(split_vec[k], xor_rows[k].0);
                     ctx.assign(split_xor_vec[k], xor_rows[k].1);
@@ -823,7 +742,7 @@ fn keccak_circuit<F: PrimeField<Repr = [u8; 32]> + Eq + Hash>(
 
                 ctx.assign(round, round_value);
                 ctx.assign(round_cst, round_cst_value);
-                ctx.assign(s_add_cst, round_cst_value + absorb_rows[0].0);
+                ctx.assign(s_new_add_cst, s_xor_cst_value);
             },
         )
     });
@@ -832,6 +751,7 @@ fn keccak_circuit<F: PrimeField<Repr = [u8; 32]> + Eq + Hash>(
         xor_rows: Vec<(F, F)>,
         round_value: F,
     }
+
     let keccak_f_split_xor_vec: Vec<StepTypeWGHandler<F, KeccakFSplitStepArgs<F>, _>> = (0
         ..PART_SIZE * PART_SIZE)
         .map(|s| {
@@ -941,6 +861,7 @@ fn keccak_circuit<F: PrimeField<Repr = [u8; 32]> + Eq + Hash>(
         xor_rows: Vec<(F, F)>,
         round_value: F,
     }
+
     let keccak_f_sum_split_xor_vec: Vec<StepTypeWGHandler<F, KeccakFSumSplitStepArgs<F>, _>> = (0
         ..PART_SIZE)
         .map(|s| {
@@ -1088,9 +1009,9 @@ fn keccak_circuit<F: PrimeField<Repr = [u8; 32]> + Eq + Hash>(
         xor_rows: Vec<F>,
         round_value: F,
     }
-    let keccak_f_rho_move_vec: Vec<StepTypeWGHandler<F, KeccakFRhoMoveStepArgs<F>, _>>= (0..PART_SIZE * PART_SIZE).map(|s|
+    let keccak_f_rho_move_and_pi_step_vec: Vec<StepTypeWGHandler<F, KeccakFRhoMoveStepArgs<F>, _>>= (0..PART_SIZE * PART_SIZE).map(|s|
         // a[x][y][z] = a[x][y][z-(t+1)(t+2)/2]
-        ctx.step_type_def("keccak_f_rho_move_step", |ctx|{
+        ctx.step_type_def("keccak_f_rho_move_and_pi_step", |ctx|{
             let s_vec = s_vec.clone();
             let setup_s_vec = s_vec.clone();
 
@@ -1131,11 +1052,18 @@ fn keccak_circuit<F: PrimeField<Repr = [u8; 32]> + Eq + Hash>(
                 }
                 ctx.constr(eq(sum_split_vec, setup_s_vec[i][j]));
                 ctx.constr(eq(sum_split_move_vec, setup_s_new_vec[i][j]));
-                for i in 0..PART_SIZE {
-                    for j in 0..PART_SIZE {
-                        if s == PART_SIZE * PART_SIZE - 1 {
-                            ctx.transition(eq(setup_s_new_vec[i][j], setup_s_vec[i][j].next()));
-                        } else {
+
+                if s == PART_SIZE * PART_SIZE - 1 {
+                    for k in 0..PART_SIZE * PART_SIZE {
+                        let i = k / PART_SIZE;
+                        let j = k % PART_SIZE;
+                        let x = j;
+                        let y = (2 * i + 3 * j) % 5;
+                        ctx.transition(eq(setup_s_new_vec[i][j], setup_s_vec[x][y].next()));
+                    }
+                } else {
+                    for i in 0..PART_SIZE {
+                        for j in 0..PART_SIZE {
                             ctx.transition(eq(setup_s_vec[i][j], setup_s_vec[i][j].next()));
                             ctx.transition(eq(setup_s_new_vec[i][j], setup_s_new_vec[i][j].next()));
                         }
@@ -1243,7 +1171,7 @@ fn keccak_circuit<F: PrimeField<Repr = [u8; 32]> + Eq + Hash>(
     ).collect();
 
     ctx.pragma_first_step(&keccak_first_step);
-    ctx.pragma_last_step(&keccak_f_iota_step);
+    ctx.pragma_last_step(&keccak_f_chi_iota_step);
 
     ctx.pragma_num_steps(param.step_num);
 
@@ -1280,19 +1208,27 @@ fn keccak_circuit<F: PrimeField<Repr = [u8; 32]> + Eq + Hash>(
                     absorb
                 })
                 .collect();
-            let absorb_rows: Vec<(F, F, F)> = (0..PART_SIZE * PART_SIZE)
-                .map(|idx| {
-                    (
-                        s[idx / PART_SIZE][idx % PART_SIZE],
-                        absorbs[(idx % PART_SIZE) * PART_SIZE + (idx / PART_SIZE)],
-                        s_new[idx / PART_SIZE][idx % PART_SIZE],
-                    )
-                })
-                .collect();
 
             if k == 0 {
+                let absorb_rows: Vec<(F, F)> = (0..PART_SIZE * PART_SIZE)
+                    .map(|idx| {
+                        (
+                            s[idx / PART_SIZE][idx % PART_SIZE],
+                            absorbs[(idx % PART_SIZE) * PART_SIZE + (idx / PART_SIZE)],
+                        )
+                    })
+                    .collect();
                 ctx.add(&keccak_first_step, (absorb_rows, F::ZERO));
             } else {
+                let absorb_rows: Vec<(F, F, F)> = (0..PART_SIZE * PART_SIZE)
+                    .map(|idx| {
+                        (
+                            s[idx / PART_SIZE][idx % PART_SIZE],
+                            absorbs[(idx % PART_SIZE) * PART_SIZE + (idx / PART_SIZE)],
+                            s_new[idx / PART_SIZE][idx % PART_SIZE],
+                        )
+                    })
+                    .collect();
                 let sum_rows: Vec<(F, F, F)> = (0..PART_SIZE * PART_SIZE)
                     .map(|i| {
                         let sum = absorb_rows[i].0 + absorb_rows[i].1;
@@ -1320,7 +1256,6 @@ fn keccak_circuit<F: PrimeField<Repr = [u8; 32]> + Eq + Hash>(
 
             for (round, &cst) in ROUND_CST.iter().enumerate().take(NUM_ROUNDS) {
                 // Theta
-                // let (absorb_rows, absorb_sum_rows) = eval_keccak_f_theta_step::<F>(&mut s_new);
                 let theta_values = eval_keccak_f_theta_step::<F>(&mut s_new);
 
                 for (i, keccak_f_split_xor) in keccak_f_split_xor_vec
@@ -1367,7 +1302,7 @@ fn keccak_circuit<F: PrimeField<Repr = [u8; 32]> + Eq + Hash>(
                     );
                 }
                 ctx.add(
-                    &keccak_f_theta,
+                    &keccak_f_theta_step,
                     (
                         theta_values.absorb_rows,
                         theta_values.absorb_sum_rows,
@@ -1379,7 +1314,7 @@ fn keccak_circuit<F: PrimeField<Repr = [u8; 32]> + Eq + Hash>(
                 let (absorb_rows, xor_rows) = eval_keccak_f_rho_step::<F>(&mut s_new);
                 for s in 0..PART_SIZE * PART_SIZE {
                     ctx.add(
-                        &keccak_f_rho_move_vec[s],
+                        &keccak_f_rho_move_and_pi_step_vec[s],
                         KeccakFRhoMoveStepArgs {
                             absorb_rows: absorb_rows.clone(),
                             xor_rows: xor_rows[s].clone(),
@@ -1389,8 +1324,7 @@ fn keccak_circuit<F: PrimeField<Repr = [u8; 32]> + Eq + Hash>(
                 }
 
                 // pi
-                let absorb_rows = eval_keccak_f_pi_step::<F>(&mut s_new);
-                ctx.add(&keccak_f_pi, (absorb_rows, F::from(round as u64)));
+                eval_keccak_f_pi_step::<F>(&mut s_new);
 
                 // chi
                 let absorb_rows: Vec<(F, F, F, F)> = eval_keccak_f_chi_step::<F>(&mut s_new);
@@ -1406,21 +1340,21 @@ fn keccak_circuit<F: PrimeField<Repr = [u8; 32]> + Eq + Hash>(
                         },
                     );
                 }
+                let (xor_rows, s_new_value) = eval_keccak_f_iota_step::<F>(s_new[0][0], cst);
                 ctx.add(
-                    &keccak_f_chi_step,
-                    (absorb_rows, (F::from(round as u64), eval_threes())),
-                );
-
-                // iota
-                let value = eval_keccak_f_iota_step::<F>(&mut s_new, cst);
-                ctx.add(
-                    &keccak_f_iota_step,
+                    &keccak_f_chi_iota_step,
                     (
-                        value.absorb_rows,
-                        value.xor_rows,
-                        (F::from(round as u64), pack_u64::<F>(cst)),
+                        absorb_rows,
+                        xor_rows,
+                        (
+                            F::from(round as u64),
+                            pack_u64::<F>(cst),
+                            eval_threes(),
+                            s_new_value,
+                        ),
                     ),
                 );
+                s_new[0][0] = s_new_value;
             }
         }
 
@@ -1482,7 +1416,7 @@ fn keccak_circuit<F: PrimeField<Repr = [u8; 32]> + Eq + Hash>(
                     );
                 }
                 ctx.add(
-                    &keccak_f_theta,
+                    &keccak_f_theta_step,
                     (
                         theta_values.absorb_rows,
                         theta_values.absorb_sum_rows,
@@ -1495,7 +1429,7 @@ fn keccak_circuit<F: PrimeField<Repr = [u8; 32]> + Eq + Hash>(
                 let (absorb_rows, xor_rows) = eval_keccak_f_rho_step::<F>(&mut s_new);
                 for s in 0..PART_SIZE * PART_SIZE {
                     ctx.add(
-                        &keccak_f_rho_move_vec[s],
+                        &keccak_f_rho_move_and_pi_step_vec[s],
                         KeccakFRhoMoveStepArgs {
                             absorb_rows: absorb_rows.clone(),
                             xor_rows: xor_rows[s].clone(),
@@ -1505,9 +1439,7 @@ fn keccak_circuit<F: PrimeField<Repr = [u8; 32]> + Eq + Hash>(
                 }
 
                 // pi
-                // a[y][2x + 3y] = a[x][y]
-                let absorb_rows = eval_keccak_f_pi_step::<F>(&mut s_new);
-                ctx.add(&keccak_f_pi, (absorb_rows, F::from(round as u64)));
+                eval_keccak_f_pi_step::<F>(&mut s_new);
 
                 // chi
                 // a[x] = a[x] ^ (~a[x+1] & a[x+2])
@@ -1524,22 +1456,21 @@ fn keccak_circuit<F: PrimeField<Repr = [u8; 32]> + Eq + Hash>(
                         },
                     );
                 }
+                let (xor_rows, s_new_value) = eval_keccak_f_iota_step::<F>(s_new[0][0], cst);
                 ctx.add(
-                    &keccak_f_chi_step,
-                    (absorb_rows, (F::from(round as u64), eval_threes())),
-                );
-
-                // iota
-                let value = eval_keccak_f_iota_step::<F>(&mut s_new, cst);
-
-                ctx.add(
-                    &keccak_f_iota_step,
+                    &keccak_f_chi_iota_step,
                     (
-                        value.absorb_rows,
-                        value.xor_rows,
-                        (F::from(round as u64), pack_u64::<F>(cst)),
+                        absorb_rows,
+                        xor_rows,
+                        (
+                            F::from(round as u64),
+                            pack_u64::<F>(cst),
+                            eval_threes(),
+                            s_new_value,
+                        ),
                     ),
                 );
+                s_new[0][0] = s_new_value;
             }
             let mut z_vec: Vec<F> = (0..NUM_WORDS_TO_ABSORB)
                 .map(|k| s_new[k % PART_SIZE][k / PART_SIZE])
@@ -1555,6 +1486,7 @@ fn keccak_circuit<F: PrimeField<Repr = [u8; 32]> + Eq + Hash>(
         assert!(output_bits.len() >= params.output_len);
         output_bits = output_bits[0..params.output_len].to_vec();
         println!("output = {:?}", output_bits);
+        // println!("num_steps = {:?}", ctx.num_steps);
     });
 }
 
@@ -1579,9 +1511,9 @@ fn keccak_super_circuit<F: PrimeField<Repr = [u8; 32]> + Eq + Hash>(
         let in_n = (input_len + 1 + RATE_IN_BITS) / RATE_IN_BITS;
         let out_n = output_len / RATE_IN_BITS;
         let step_num = in_n
-            * (1 + NUM_WORDS_TO_ABSORB + (NUM_ROUNDS) * ((25 + 5 + 1) + (25) + 1 + (25 + 1) + 1))
+            * (1 + NUM_WORDS_TO_ABSORB + (NUM_ROUNDS) * ((25 + 5 + 1) + (25) + (25 + 1)))
             - NUM_WORDS_TO_ABSORB
-            + out_n * ((NUM_ROUNDS) * ((25 + 5 + 1) + (25) + 1 + (25 + 1) + 1));
+            + out_n * ((NUM_ROUNDS) * ((25 + 5 + 1) + (25) + (25 + 1)));
 
         let single_config = config(SingleRowCellManager {}, SimpleStepSelectorBuilder {});
         let (_, constants_table) = ctx.sub_circuit(
@@ -1616,6 +1548,62 @@ fn main() {
     let circuit_param = KeccakCircuit {
         bits: vec![0, 0, 0, 0, 0, 0, 0, 0],
         output_len: 256,
+        // bits: vec![0,1,0,1,1,0,1, 1,1,1,1,0,0,0,0,0,1,0,1, 0,1,0,1,1,0,1,
+        // 1,1,1,1,0,0,0,0,0,1,0,1, 0,1,0,1,1,0,1, 1,1,1,1,0,0,0,0,0,1,0,1, 0,1,0,1,1,0,1,
+        // 1,1,1,1,0,0,0,0,0,1,0,1, 0,1,0,1,1,0,1, 1,1,1,1,0,0,0,0,0,1,0,1, 1, 0,1,0,1,1,0,1,
+        // 1,1,1,1,0,0,0,0,0,1,0,1, 0, 0,1,0,1,1,0,1, 1,1,1,1,0,0,0,0,0,1,0,1,1, 0,1,0,1,1,0,1,
+        // 1,1,1,1,0,0,0,0,0,1,0,1,1, 0,1,0,1,1,0,1, 1,1,1,1,0,0,0,0,0,1,0,1, 1,0,1,0,1,1,0,1,
+        // 1,1,1,1,0,0,0,0,0,1,0,1,0,1,0,1,1,0,1, 1,1,1,1,0,0,0,0,0,1,0,1, 0,1,0,1,1,0,1,
+        // 1,1,1,1,0,0,0,0,0,1,0,1, 0,1,0,1,1,0,1, 1,1,1,1,0,0,0,0,0,1,0,1, 0,1,0,1,1,0,1,
+        // 1,1,1,1,0,0,0,0,0,1,0,1, 0,1,0,1,1,0,1, 1,1,1,1,0,0,0,0,0,1,0,1, 1, 0,1,0,1,1,0,1,
+        // 1,1,1,1,0,0,0,0,0,1,0,1, 0, 0,1,0,1,1,0,1, 1,1,1,1,0,0,0,0,0,1,0,1,1, 0,1,0,1,1,0,1,
+        // 1,1,1,1,0,0,0,0,0,1,0,1,1, 0,1,0,1,1,0,1, 1,1,1,1,0,0,0,0,0,1,0,1, 1,0,1,0,1,1,0,1,
+        // 1,1,1,1,0,0,0,0,0,1,0,1,0,1,0,1,1,0,1, 1,1,1,1,0,0,0,0,0,1,0,1, 0,1,0,1,1,0,1,
+        // 1,1,1,1,0,0,0,0,0,1,0,1, 0,1,0,1,1,0,1, 1,1,1,1,0,0,0,0,0,1,0,1, 0,1,0,1,1,0,1,
+        // 1,1,1,1,0,0,0,0,0,1,0,1, 0,1,0,1,1,0,1, 1,1,1,1,0,0,0,0,0,1,0,1, 1, 0,1,0,1,1,0,1,
+        // 1,1,1,1,0,0,0,0,0,1,0,1, 0, 0,1,0,1,1,0,1, 1,1,1,1,0,0,0,0,0,1,0,1,1, 0,1,0,1,1,0,1,
+        // 1,1,1,1,0,0,0,0,0,1,0,1,1, 0,1,0,1,1,0,1, 1,1,1,1,0,0,0,0,0,1,0,1, 1,0,1,0,1,1,0,1,
+        // 1,1,1,1,0,0,0,0,0,1,0,1,0,1,0,1,1,0,1, 1,1,1,1,0,0,0,0,0,1,0,1, 0,1,0,1,1,0,1,
+        // 1,1,1,1,0,0,0,0,0,1,0,1, 0,1,0,1,1,0,1, 1,1,1,1,0,0,0,0,0,1,0,1, 0,1,0,1,1,0,1,
+        // 1,1,1,1,0,0,0,0,0,1,0,1, 0,1,0,1,1,0,1, 1,1,1,1,0,0,0,0,0,1,0,1, 1, 0,1,0,1,1,0,1,
+        // 1,1,1,1,0,0,0,0,0,1,0,1, 0, 0,1,0,1,1,0,1, 1,1,1,1,0,0,0,0,0,1,0,1,1, 0,1,0,1,1,0,1,
+        // 1,1,1,1,0,0,0,0,0,1,0,1,1, 0,1,0,1,1,0,1, 1,1,1,1,0,0,0,0,0,1,0,1, 1,0,1,0,1,1,0,1,
+        // 1,1,1,1,0,0,0,0,0,1,0,1,0,1,0,1,1,0,1, 1,1,1,1,0,0,0,0,0,1,0,1, 0,1,0,1,1,0,1,
+        // 1,1,1,1,0,0,0,0,0,1,0,1, 0,1,0,1,1,0,1, 1,1,1,1,0,0,0,0,0,1,0,1, 0,1,0,1,1,0,1,
+        // 1,1,1,1,0,0,0,0,0,1,0,1, 0,1,0,1,1,0,1, 1,1,1,1,0,0,0,0,0,1,0,1, 1, 0,1,0,1,1,0,1,
+        // 1,1,1,1,0,0,0,0,0,1,0,1, 0, 0,1,0,1,1,0,1, 1,1,1,1,0,0,0,0,0,1,0,1,1, 0,1,0,1,1,0,1,
+        // 1,1,1,1,0,0,0,0,0,1,0,1,1, 0,1,0,1,1,0,1, 1,1,1,1,0,0,0,0,0,1,0,1, 1,0,1,0,1,1,0,1,
+        // 1,1,1,1,0,0,0,0,0,1,0,1,0,1,0,1,1,0,1, 1,1,1,1,0,0,0,0,0,1,0,1, 0,1,0,1,1,0,1,
+        // 1,1,1,1,0,0,0,0,0,1,0,1, 0,1,0,1,1,0,1, 1,1,1,1,0,0,0,0,0,1,0,1, 0,1,0,1,1,0,1,
+        // 1,1,1,1,0,0,0,0,0,1,0,1, 0,1,0,1,1,0,1, 1,1,1,1,0,0,0,0,0,1,0,1, 1, 0,1,0,1,1,0,1,
+        // 1,1,1,1,0,0,0,0,0,1,0,1, 0, 0,1,0,1,1,0,1, 1,1,1,1,0,0,0,0,0,1,0,1,1, 0,1,0,1,1,0,1,
+        // 1,1,1,1,0,0,0,0,0,1,0,1,1, 0,1,0,1,1,0,1, 1,1,1,1,0,0,0,0,0,1,0,1, 1,0,1,0,1,1,0,1,
+        // 1,1,1,1,0,0,0,0,0,1,0,1,0,1,0,1,1,0,1, 1,1,1,1,0,0,0,0,0,1,0,1, 0,1,0,1,1,0,1,
+        // 1,1,1,1,0,0,0,0,0,1,0,1, 0,1,0,1,1,0,1, 1,1,1,1,0,0,0,0,0,1,0,1, 0,1,0,1,1,0,1,
+        // 1,1,1,1,0,0,0,0,0,1,0,1, 0,1,0,1,1,0,1, 1,1,1,1,0,0,0,0,0,1,0,1, 1, 0,1,0,1,1,0,1,
+        // 1,1,1,1,0,0,0,0,0,1,0,1, 0, 0,1,0,1,1,0,1, 1,1,1,1,0,0,0,0,0,1,0,1,1, 0,1,0,1,1,0,1,
+        // 1,1,1,1,0,0,0,0,0,1,0,1,1, 0,1,0,1,1,0,1, 1,1,1,1,0,0,0,0,0,1,0,1, 1,0,1,0,1,1,0,1,
+        // 1,1,1,1,0,0,0,0,0,1,0,1,0,1,0,1,1,0,1, 1,1,1,1,0,0,0,0,0,1,0,1, 0,1,0,1,1,0,1,
+        // 1,1,1,1,0,0,0,0,0,1,0,1, 0,1,0,1,1,0,1, 1,1,1,1,0,0,0,0,0,1,0,1, 0,1,0,1,1,0,1,
+        // 1,1,1,1,0,0,0,0,0,1,0,1, 0,1,0,1,1,0,1, 1,1,1,1,0,0,0,0,0,1,0,1, 1, 0,1,0,1,1,0,1,
+        // 1,1,1,1,0,0,0,0,0,1,0,1, 0, 0,1,0,1,1,0,1, 1,1,1,1,0,0,0,0,0,1,0,1,1, 0,1,0,1,1,0,1,
+        // 1,1,1,1,0,0,0,0,0,1,0,1,1, 0,1,0,1,1,0,1, 1,1,1,1,0,0,0,0,0,1,0,1, 1,0,1,0,1,1,0,1,
+        // 1,1,1,1,0,0,0,0,0,1,0,1,0,1,0,1,1,0,1, 1,1,1,1,0,0,0,0,0,1,0,1, 0,1,0,1,1,0,1,
+        // 1,1,1,1,0,0,0,0,0,1,0,1, 0,1,0,1,1,0,1, 1,1,1,1,0,0,0,0,0,1,0,1, 0,1,0,1,1,0,1,
+        // 1,1,1,1,0,0,0,0,0,1,0,1, 0,1,0,1,1,0,1, 1,1,1,1,0,0,0,0,0,1,0,1, 1, 0,1,0,1,1,0,1,
+        // 1,1,1,1,0,0,0,0,0,1,0,1, 0, 0,1,0,1,1,0,1, 1,1,1,1,0,0,0,0,0,1,0,1,1, 0,1,0,1,1,0,1,
+        // 1,1,1,1,0,0,0,0,0,1,0,1,1, 0,1,0,1,1,0,1, 1,1,1,1,0,0,0,0,0,1,0,1, 1,0,1,0,1,1,0,1,
+        // 1,1,1,1,0,0,0,0,0,1,0,1,0,1,0,1,1,0,1, 1,1,1,1,0,0,0,0,0,1,0,1, 0,1,0,1,1,0,1,
+        // 1,1,1,1,0,0,0,0,0,1,0,1, 0,1,0,1,1,0,1, 1,1,1,1,0,0,0,0,0,1,0,1, 0,1,0,1,1,0,1,
+        // 1,1,1,1,0,0,0,0,0,1,0,1, 0,1,0,1,1,0,1, 1,1,1,1,0,0,0,0,0,1,0,1, 1, 0,1,0,1,1,0,1,
+        // 1,1,1,1,0,0,0,0,0,1,0,1, 0, 0,1,0,1,1,0,1, 1,1,1,1,0,0,0,0,0,1,0,1,1, 0,1,0,1,1,0,1,
+        // 1,1,1,1,0,0,0,0,0,1,0,1,1, 0,1,0,1,1,0,1, 1,1,1,1,0,0,0,0,0,1,0,1, 1,0,1,0,1,1,0,1,
+        // 1,1,1,1,0,0,0,0,0,1,0,1,0,1,0,1,1,0,1, 1,1,1,1,0,0,0,0,0,1,0,1, 0,1,0,1,1,0,1,
+        // 1,1,1,1,0,0,0,0,0,1,0,1, 0,1,0,1,1,0,1, 1,1,1,1,0,0,0,0,0,1,0,1, 0,1,0,1,1,0,1,
+        // 1,1,1,1,0,0,0,0,0,1,0,1, 0,1,0,1,1,0,1, 1,1,1,1,0,0,0,0,0,1,0,1, 1, 0,1,0,1,1,0,1,
+        // 1,1,1,1,0,0,0,0,0,1,0,1, 0, 0,1,0,1,1,0,1, 1,1,1,1,0,0,0,0,0,1,0,1,1, 0,1,0,1,1,0,1,
+        // 1,1,1,1,0,0,0,0,0,1,0,1,1, 0,1,0,1,1,0,1, 1,1,1,1,0,0,0,0,0,1,0,1, 1,0,1,0,1,1,0,1,
+        // 1,1,1,1,0,0,0,0,0,1,0,1], output_len: 20,
     };
 
     let super_circuit =
@@ -1626,8 +1614,7 @@ fn main() {
         super_circuit.get_mapping().generate(circuit_param),
     );
 
-    let prover = MockProver::<Fr>::run(20, &circuit, Vec::new()).unwrap();
-
+    let prover = MockProver::<Fr>::run(11, &circuit, Vec::new()).unwrap();
     let result = prover.verify_par();
 
     println!("result = {:#?}", result);
@@ -1635,6 +1622,44 @@ fn main() {
     if let Err(failures) = &result {
         for failure in failures.iter() {
             println!("{}", failure);
+        }
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::{keccak_super_circuit, KeccakCircuit};
+    use chiquito::plonkish::backend::halo2::{
+        chiquitoSuperCircuit2Halo2, ChiquitoHalo2SuperCircuit,
+    };
+    use halo2_proofs::{dev::MockProver, halo2curves::bn256::Fr};
+
+    #[cfg_attr(feature = "benches", ignore)]
+    #[test]
+    fn bench_keccak_circuit_mocker_prover() {
+        let circuit_param = KeccakCircuit {
+            bits: vec![0, 0, 0, 0, 0, 0, 0, 0],
+            output_len: 256,
+        };
+
+        let super_circuit =
+            keccak_super_circuit::<Fr>(circuit_param.bits.len(), circuit_param.output_len);
+        let compiled = chiquitoSuperCircuit2Halo2(&super_circuit);
+        let circuit = ChiquitoHalo2SuperCircuit::new(
+            compiled,
+            super_circuit.get_mapping().generate(circuit_param),
+        );
+
+        let prover = MockProver::<Fr>::run(11, &circuit, Vec::new()).unwrap();
+
+        let result = prover.verify_par();
+
+        println!("result = {:#?}", result);
+
+        if let Err(failures) = &result {
+            for failure in failures.iter() {
+                println!("{}", failure);
+            }
         }
     }
 }
