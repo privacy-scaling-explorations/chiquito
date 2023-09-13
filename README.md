@@ -72,7 +72,7 @@ In research:
  + Signal typing system, which allows statically checking for soundness issues.
  + Folding backend with ProtoStar, HyperNova, and/or others.
 
-## Fibonnaci circtuit in Chiquito's Python frontend.
+## Fibonnaci circuit in Chiquito's Python frontend.
 
 But better see for yourself:
 
