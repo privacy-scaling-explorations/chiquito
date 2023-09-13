@@ -4,12 +4,12 @@ use chiquito::{
     ast::expr::*,
     frontend::dsl::circuit, // main function for constructing an AST circuit
     plonkish::backend::halo2::{chiquito2Halo2, ChiquitoHalo2Circuit}, /* compiles to
-                                                                       * Chiquito Halo2
-                                                                       * backend,
-                                                                       * which can be
-                                                                       * integrated into
-                                                                       * Halo2
-                                                                       * circuit */
+                             * Chiquito Halo2
+                             * backend,
+                             * which can be
+                             * integrated into
+                             * Halo2
+                             * circuit */
     plonkish::compiler::{
         cell_manager::SingleRowCellManager, // input for constructing the compiler
         compile,                            // input for constructing the compiler
@@ -34,7 +34,7 @@ fn fibo_circuit<F: Field + From<u64> + Hash>() -> (Circuit<F>, Option<Assignment
     // | 3 | 5 | 8 |
     // ...
 
-    use chiquito::frontend::dsl::cb::*;   // functions for constraint building
+    use chiquito::frontend::dsl::cb::*; // functions for constraint building
 
     let fibo = circuit::<F, (), _>("fibonacci", |ctx| {
         // the following objects (forward signals, steptypes) are defined on the circuit-level
