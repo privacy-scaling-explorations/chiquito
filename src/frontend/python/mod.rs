@@ -19,10 +19,7 @@ use crate::{
             cell_manager::SingleRowCellManager, compile, config,
             step_selector::SimpleStepSelectorBuilder,
         },
-        ir::{
-            assignments::AssignmentGenerator,
-            sc::MappingContext,
-        },
+        ir::{assignments::AssignmentGenerator, sc::MappingContext},
     },
     util::{uuid, UUID},
     wit_gen::{StepInstance, TraceContext, TraceWitness},

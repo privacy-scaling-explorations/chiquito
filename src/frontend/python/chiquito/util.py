@@ -20,6 +20,7 @@ class F(bn128.FQ):
         ]
         return ints
 
+
 class CustomEncoder(json.JSONEncoder):
     def default(self, obj):
         if hasattr(obj, "__json__"):

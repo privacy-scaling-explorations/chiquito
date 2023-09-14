@@ -7,6 +7,7 @@ from mimc7_constants import ROUND_KEYS
 
 ROUNDS = 91
 
+
 # It's the best practice to wrap all values in F, even though the `assign` functions automatically wrap values in F.
 class Mimc7Constants(Circuit):
     def setup(self):
@@ -19,6 +20,7 @@ class Mimc7Constants(Circuit):
         for i, round_key in enumerate(ROUND_KEYS):
             self.assign(i, self.lookup_row, F(i))
             self.assign(i, self.lookup_c, F(round_key))
+
 
 class Mimc7Circuit(Circuit):
     def setup(self):
@@ -57,6 +59,7 @@ class Mimc7Circuit(Circuit):
         x_value = F(x_value**7)
 
         self.add(self.mimc7_last_step, (x_value, k_value, c_value, row_value))
+
 
 class Mimc7FirstStep(StepType):
     def setup(self):
@@ -149,6 +152,7 @@ class Mimc7LastStep(StepType):
         self.assign(self.circuit.k, F(k_value))
         self.assign(self.circuit.row, F(row_value))
         self.assign(self.out, F(x_value + k_value))
+
 
 class Mimc7SuperCircuit(SuperCircuit):
     def setup(self):
