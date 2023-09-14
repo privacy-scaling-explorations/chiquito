@@ -59,10 +59,11 @@ fn fibo_circuit<F: Field + From<u64> + Hash>() -> (Circuit<F>, Option<Assignment
 
             ctx.wg(move |ctx, (a_value, b_value, n_value): (u32, u32, u32)| {
                 println!(
-                    "first fibo line wg: {} {} {}",
+                    "first fibo line wg: a: {}, b: {}, c: {}, n: {}",
                     a_value,
                     b_value,
-                    a_value + b_value
+                    a_value + b_value,
+                    n_value
                 );
                 ctx.assign(a, a_value.field());
                 ctx.assign(b, b_value.field());
@@ -100,7 +101,13 @@ fn fibo_circuit<F: Field + From<u64> + Hash>() -> (Circuit<F>, Option<Assignment
             // logics for assigning witness values wg function is defined here but no
             // witness value is assigned yet
             ctx.wg(move |ctx, (a_value, b_value, n_value): (u32, u32, u32)| {
-                println!("fib line wg: {} {} {}", a_value, b_value, a_value + b_value);
+                println!(
+                    "fib line wg: a: {}, b: {}, c: {}, n: {}",
+                    a_value,
+                    b_value,
+                    a_value + b_value,
+                    n_value
+                );
                 // assign arbitrary input values from witness generation function to witnesses
                 ctx.assign(a, a_value.field());
                 ctx.assign(b, b_value.field());
@@ -117,7 +124,7 @@ fn fibo_circuit<F: Field + From<u64> + Hash>() -> (Circuit<F>, Option<Assignment
             });
 
             ctx.wg(move |ctx, (a_value, b_value, n_value): (u32, u32, u32)| {
-                println!("padding: {} {} {}", a_value, b_value, n_value);
+                println!("padding: a: {}, b: {}, n: {}", a_value, b_value, n_value);
 
                 ctx.assign(a, a_value.field());
                 ctx.assign(b, b_value.field());
