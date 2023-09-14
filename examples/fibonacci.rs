@@ -4,12 +4,12 @@ use chiquito::{
     ast::expr::*,
     frontend::dsl::circuit, // main function for constructing an AST circuit
     plonkish::backend::halo2::{chiquito2Halo2, ChiquitoHalo2Circuit}, /* compiles to
-                                                                       * Chiquito Halo2
-                                                                       * backend,
-                                                                       * which can be
-                                                                       * integrated into
-                                                                       * Halo2
-                                                                       * circuit */
+                             * Chiquito Halo2
+                             * backend,
+                             * which can be
+                             * integrated into
+                             * Halo2
+                             * circuit */
     plonkish::compiler::{
         cell_manager::SingleRowCellManager, // input for constructing the compiler
         compile,                            // input for constructing the compiler
@@ -25,7 +25,8 @@ use halo2_proofs::{arithmetic::Field, dev::MockProver, halo2curves::bn256::Fr};
 // 1. type that implements a field trait
 // 2. empty trace arguments, i.e. (), because there are no external inputs to the Chiquito circuit
 // 3. two witness generation arguments both of u64 type, i.e. (u64, u64)
-fn fibo_circuit<F: Field + From<u64> + Hash>() -> (Circuit<F>, Option<AssignmentGenerator<F, u32>>) {
+fn fibo_circuit<F: Field + From<u64> + Hash>() -> (Circuit<F>, Option<AssignmentGenerator<F, u32>>)
+{
     // PLONKish table for the Fibonacci circuit:
     // | a | b | c |
     // | 1 | 1 | 2 |
@@ -34,7 +35,7 @@ fn fibo_circuit<F: Field + From<u64> + Hash>() -> (Circuit<F>, Option<Assignment
     // | 3 | 5 | 8 |
     // ...
 
-    use chiquito::frontend::dsl::cb::*;   // functions for constraint building
+    use chiquito::frontend::dsl::cb::*; // functions for constraint building
 
     let fibo = circuit::<F, u32, _>("fibonacci", |ctx| {
         // the following objects (forward signals, steptypes) are defined on the circuit-level
@@ -56,8 +57,13 @@ fn fibo_circuit<F: Field + From<u64> + Hash>() -> (Circuit<F>, Option<Assignment
                 ctx.transition(eq(n, n.next()));
             });
 
-            ctx.wg(move |ctx, (a_value, b_value, n_value) : (u32, u32, u32)| {
-                println!("first fibo line wg: {} {} {}", a_value, b_value, a_value + b_value);
+            ctx.wg(move |ctx, (a_value, b_value, n_value): (u32, u32, u32)| {
+                println!(
+                    "first fibo line wg: {} {} {}",
+                    a_value,
+                    b_value,
+                    a_value + b_value
+                );
                 ctx.assign(a, a_value.field());
                 ctx.assign(b, b_value.field());
                 ctx.assign(c, (a_value + b_value).field());
@@ -122,7 +128,6 @@ fn fibo_circuit<F: Field + From<u64> + Hash>() -> (Circuit<F>, Option<Assignment
         ctx.pragma_num_steps(11);
         ctx.pragma_first_step(&fibo_first_step);
         ctx.pragma_last_step(&padding);
-
 
         // trace function is responsible for adding step instantiations defined in step_type_def
         // function above trace function is Turing complete and allows arbitrary user
