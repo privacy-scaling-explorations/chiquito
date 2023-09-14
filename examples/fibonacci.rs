@@ -129,6 +129,9 @@ fn fibo_circuit<F: Field + From<u64> + Hash>() -> (Circuit<F>, Option<Assignment
         ctx.pragma_first_step(&fibo_first_step);
         ctx.pragma_last_step(&padding);
 
+        ctx.expose(b, chiquito::ast::ExposeOffset::Last);
+        ctx.expose(n, chiquito::ast::ExposeOffset::Last);
+
         // trace function is responsible for adding step instantiations defined in step_type_def
         // function above trace function is Turing complete and allows arbitrary user
         // defined logics for assigning witness values
@@ -197,8 +200,9 @@ fn main() {
     // this is unnecessary because Chiquito has a halo2 backend already
     let plaf_circuit = PlafH2Circuit { plaf, wit };
 
+    let plaf_instance = vec![vec![34.field(), 7.field()]];
     // same as halo2 boilerplate above
-    let prover_plaf = MockProver::<Fr>::run(8, &plaf_circuit, Vec::new()).unwrap();
+    let prover_plaf = MockProver::<Fr>::run(8, &plaf_circuit, plaf_instance).unwrap();
 
     let result_plaf = prover_plaf.verify_par();
 
