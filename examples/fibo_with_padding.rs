@@ -25,7 +25,8 @@ use halo2_proofs::{arithmetic::Field, dev::MockProver, halo2curves::bn256::Fr};
 // 1. type that implements a field trait
 // 2. empty trace arguments, i.e. (), because there are no external inputs to the Chiquito circuit
 // 3. two witness generation arguments both of u64 type, i.e. (u64, u64)
-fn fibo_circuit<F: Field + From<u64> + Hash>() -> (Circuit<F>, Option<AssignmentGenerator<F, ()>>) {
+fn fibo_circuit<F: Field + From<u64> + Hash>() -> (Circuit<F>, Option<AssignmentGenerator<F, u32>>)
+{
     // PLONKish table for the Fibonacci circuit:
     // | a | b | c |
     // | 1 | 1 | 2 |
@@ -36,12 +37,40 @@ fn fibo_circuit<F: Field + From<u64> + Hash>() -> (Circuit<F>, Option<Assignment
 
     use chiquito::frontend::dsl::cb::*; // functions for constraint building
 
-    let fibo = circuit::<F, (), _>("fibonacci", |ctx| {
+    let fibo = circuit::<F, u32, _>("fibonacci", |ctx| {
         // the following objects (forward signals, steptypes) are defined on the circuit-level
 
         // forward signals can have constraints across different steps
         let a = ctx.forward("a");
         let b = ctx.forward("b");
+        let n = ctx.forward("n");
+
+        let fibo_first_step = ctx.step_type_def("fibo first step", |ctx| {
+            let c = ctx.internal("c");
+
+            ctx.setup(move |ctx| {
+                ctx.constr(eq(a, 1));
+                ctx.constr(eq(b, 1));
+                ctx.constr(eq(a + b, c));
+                ctx.transition(eq(b, a.next()));
+                ctx.transition(eq(c, b.next()));
+                ctx.transition(eq(n, n.next()));
+            });
+
+            ctx.wg(move |ctx, (a_value, b_value, n_value): (u32, u32, u32)| {
+                println!(
+                    "first fibo line wg: a: {}, b: {}, c: {}, n: {}",
+                    a_value,
+                    b_value,
+                    a_value + b_value,
+                    n_value
+                );
+                ctx.assign(a, a_value.field());
+                ctx.assign(b, b_value.field());
+                ctx.assign(c, (a_value + b_value).field());
+                ctx.assign(n, n_value.field());
+            })
+        });
 
         // define step type
         let fibo_step = ctx.step_type_def("fibo step", |ctx| {
@@ -64,40 +93,72 @@ fn fibo_circuit<F: Field + From<u64> + Hash>() -> (Circuit<F>, Option<Assignment
                 // constrain that c is equal to the next instance of c, by calling `next` on forward
                 // signal
                 ctx.transition(eq(c, b.next()));
+
+                ctx.transition(eq(n, n.next()));
             });
 
             // witness generation (wg) function is Turing complete and allows arbitrary user defined
             // logics for assigning witness values wg function is defined here but no
             // witness value is assigned yet
-            ctx.wg(move |ctx, (a_value, b_value): (u32, u32)| {
-                println!("fib line wg: {} {} {}", a_value, b_value, a_value + b_value);
+            ctx.wg(move |ctx, (a_value, b_value, n_value): (u32, u32, u32)| {
+                println!(
+                    "fib line wg: a: {}, b: {}, c: {}, n: {}",
+                    a_value,
+                    b_value,
+                    a_value + b_value,
+                    n_value
+                );
                 // assign arbitrary input values from witness generation function to witnesses
                 ctx.assign(a, a_value.field());
                 ctx.assign(b, b_value.field());
                 ctx.assign(c, (a_value + b_value).field());
+
+                ctx.assign(n, n_value.field());
+            })
+        });
+
+        let padding = ctx.step_type_def("padding", |ctx| {
+            ctx.setup(move |ctx| {
+                ctx.transition(eq(b, b.next()));
+                ctx.transition(eq(n, n.next()));
+            });
+
+            ctx.wg(move |ctx, (a_value, b_value, n_value): (u32, u32, u32)| {
+                println!("padding: a: {}, b: {}, n: {}", a_value, b_value, n_value);
+
+                ctx.assign(a, a_value.field());
+                ctx.assign(b, b_value.field());
+                ctx.assign(n, n_value.field());
             })
         });
 
         ctx.pragma_num_steps(11);
+        ctx.pragma_first_step(&fibo_first_step);
+        ctx.pragma_last_step(&padding);
+
+        ctx.expose(b, chiquito::ast::ExposeOffset::Last);
+        ctx.expose(n, chiquito::ast::ExposeOffset::Last);
 
         // trace function is responsible for adding step instantiations defined in step_type_def
         // function above trace function is Turing complete and allows arbitrary user
         // defined logics for assigning witness values
-        ctx.trace(move |ctx: _, _| {
+        ctx.trace(move |ctx, n| {
             // add function adds a step instantiation to the main circuit and calls witness
             // generation function defined in step_type_def input values for witness
             // generation function are (1, 1) in this step instance
-            ctx.add(&fibo_step, (1, 1));
+            ctx.add(&fibo_first_step, (1, 1, n));
             let mut a = 1;
             let mut b = 2;
 
-            for _i in 1..11 {
-                ctx.add(&fibo_step, (a, b));
+            for _i in 1..n {
+                ctx.add(&fibo_step, (a, b, n));
 
                 let prev_a = a;
                 a = b;
                 b += prev_a;
             }
+
+            ctx.padding(&padding, || (a, b, n));
         })
     });
 
@@ -114,7 +175,7 @@ fn fibo_circuit<F: Field + From<u64> + Hash>() -> (Circuit<F>, Option<Assignment
 fn main() {
     let (chiquito, wit_gen) = fibo_circuit::<Fr>();
     let compiled = chiquito2Halo2(chiquito);
-    let circuit = ChiquitoHalo2Circuit::new(compiled, wit_gen.map(|g| g.generate(())));
+    let circuit = ChiquitoHalo2Circuit::new(compiled, wit_gen.map(|g| g.generate(7)));
 
     let prover = MockProver::<Fr>::run(7, &circuit, circuit.instance()).unwrap();
 
@@ -136,7 +197,7 @@ fn main() {
     let (circuit, wit_gen) = fibo_circuit::<Fr>();
     // get Plaf
     let (plaf, plaf_wit_gen) = chiquito2Plaf(circuit, 8, false);
-    let wit = plaf_wit_gen.generate(wit_gen.map(|v| v.generate(())));
+    let wit = plaf_wit_gen.generate(wit_gen.map(|v| v.generate(7)));
 
     // debug only: print witness
     println!("{}", WitnessDisplayCSV(&wit));
@@ -146,8 +207,9 @@ fn main() {
     // this is unnecessary because Chiquito has a halo2 backend already
     let plaf_circuit = PlafH2Circuit { plaf, wit };
 
+    let plaf_instance = vec![vec![34.field(), 7.field()]];
     // same as halo2 boilerplate above
-    let prover_plaf = MockProver::<Fr>::run(8, &plaf_circuit, Vec::new()).unwrap();
+    let prover_plaf = MockProver::<Fr>::run(8, &plaf_circuit, plaf_instance).unwrap();
 
     let result_plaf = prover_plaf.verify_par();
 
