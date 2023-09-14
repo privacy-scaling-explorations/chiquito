@@ -196,7 +196,7 @@ class Circuit:
             raise ValueError(
                 "FixedAssignment: must have initiated fixed_assignments before calling assign()"
             )
-        self.ast.add_fixed_assignment(offset, lhs, rhs)
+        self.ast.add_fixed_assignment(offset, lhs, F(rhs))
 
     def gen_witness(self: Circuit, args: Any) -> TraceWitness:
         self.mode = CircuitMode.Trace
@@ -271,7 +271,7 @@ class StepType:
     def assign(self: StepType, lhs: Queriable, rhs: F):
         assert self.mode == StepTypeMode.WG
 
-        self.step_instance.assign(lhs, rhs)
+        self.step_instance.assign(lhs, F(rhs))
 
     def add_lookup(self: StepType, lookup_builder: LookupBuilder):
         self.step_type.lookups.append(lookup_builder.build(self))

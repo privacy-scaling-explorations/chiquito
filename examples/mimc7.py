@@ -3,12 +3,11 @@ from chiquito.dsl import SuperCircuit, Circuit, StepType
 from chiquito.cb import eq, table
 from chiquito.util import F
 
-from chiquito.rust_chiquito import convert_and_print_ast
 from mimc7_constants import ROUND_KEYS
 
 ROUNDS = 91
 
-
+# It's the best practice to wrap all values in F, even though the `assign` functions automatically wrap values in F.
 class Mimc7Constants(Circuit):
     def setup(self):
         self.pragma_num_steps(ROUNDS)
@@ -20,12 +19,6 @@ class Mimc7Constants(Circuit):
         for i, round_key in enumerate(ROUND_KEYS):
             self.assign(i, self.lookup_row, F(i))
             self.assign(i, self.lookup_c, F(round_key))
-
-
-# mimc7_constants = Mimc7Constants()
-# mimc7_constants_json = mimc7_constants.get_ast_json()
-# convert_and_print_ast(mimc7_constants_json)
-
 
 class Mimc7Circuit(Circuit):
     def setup(self):
@@ -45,26 +38,25 @@ class Mimc7Circuit(Circuit):
     def trace(self, args):
         x_in_value, k_value = args
 
-        c_value = ROUND_KEYS[0]
-        x_value = x_in_value
+        c_value = F(ROUND_KEYS[0])
+        x_value = F(x_in_value)
         row_value = F(0)
 
         self.add(self.mimc7_first_step, (x_value, k_value, c_value, row_value))
 
         for i in range(1, ROUNDS):
             row_value += F(1)
-            x_value += k_value + c_value
+            x_value += F(k_value + c_value)
             x_value = F(x_value**7)
             c_value = F(ROUND_KEYS[i])
 
             self.add(self.mimc7_step, (x_value, k_value, c_value, row_value))
 
         row_value += F(1)
-        x_value += k_value + c_value
+        x_value += F(k_value + c_value)
         x_value = F(x_value**7)
 
         self.add(self.mimc7_last_step, (x_value, k_value, c_value, row_value))
-
 
 class Mimc7FirstStep(StepType):
     def setup(self):
@@ -101,7 +93,7 @@ class Mimc7FirstStep(StepType):
         self.assign(self.circuit.c, F(c_value))
         self.assign(self.circuit.row, F(row_value))
 
-        xkc_value = x_value + k_value + c_value
+        xkc_value = F(x_value + k_value + c_value)
         self.assign(self.xkc, F(xkc_value))
         self.assign(self.y, F(xkc_value**7))
 
@@ -140,7 +132,7 @@ class Mimc7Step(StepType):
         self.assign(self.circuit.c, F(c_value))
         self.assign(self.circuit.row, F(row_value))
 
-        xkc_value = x_value + k_value + c_value
+        xkc_value = F(x_value + k_value + c_value)
         self.assign(self.xkc, F(xkc_value))
         self.assign(self.y, F(xkc_value**7))
 
@@ -158,12 +150,6 @@ class Mimc7LastStep(StepType):
         self.assign(self.circuit.row, F(row_value))
         self.assign(self.out, F(x_value + k_value))
 
-
-# mimc7_circuit = Mimc7Circuit(imports=mimc7_constants.exports)
-# mimc7_witness = mimc7_circuit.gen_witness((1, 2))
-# mimc7_circuit.halo2_mock_prover(mimc7_witness)
-
-
 class Mimc7SuperCircuit(SuperCircuit):
     def setup(self):
         self.mimc7_constants = self.sub_circuit(Mimc7Constants(self, imports=None))
@@ -177,7 +163,7 @@ class Mimc7SuperCircuit(SuperCircuit):
 
 
 mimc7 = Mimc7SuperCircuit()
-mimc7_witnesses = mimc7.gen_witness((1, 2))
+mimc7_witnesses = mimc7.gen_witness((F(1), F(2)))
 # for key, value in mimc7_witnesses.items():
 #     print(f"{key}: {str(value)}")
 mimc7.halo2_mock_prover(mimc7_witnesses)
