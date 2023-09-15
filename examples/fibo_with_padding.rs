@@ -21,10 +21,8 @@ use chiquito::{
 use halo2_proofs::{arithmetic::Field, dev::MockProver, halo2curves::bn256::Fr};
 
 // the main circuit function: returns the compiled IR of a Chiquito circuit
-// Generic types F, (), (u64, 64) stand for:
-// 1. type that implements a field trait
-// 2. empty trace arguments, i.e. (), because there are no external inputs to the Chiquito circuit
-// 3. two witness generation arguments both of u64 type, i.e. (u64, u64)
+// Generic type F stands for type that implements a field trait
+// u32 type stands for external input that indicates the number of fibonacci iteration
 fn fibo_circuit<F: Field + From<u64> + Hash>() -> (Circuit<F>, Option<AssignmentGenerator<F, u32>>)
 {
     // PLONKish table for the Fibonacci circuit:
@@ -45,18 +43,41 @@ fn fibo_circuit<F: Field + From<u64> + Hash>() -> (Circuit<F>, Option<Assignment
         let b = ctx.forward("b");
         let n = ctx.forward("n");
 
+        // define step types
+        // Example table for 7 rounds:
+        // |    step_type    |  a |  b |  c |  n |
+        // ---------------------------------------
+        // | fibo_first_step |  1 |  1 |  2 |  7 |
+        // |    fibo_step    |  1 |  2 |  3 |  7 |
+        // |    fibo_step    |  2 |  3 |  5 |  7 |
+        //         ...
+        // |    fibo_step    | 13 | 21 | 34 |  7 |
+        // |     padding     | 21 | 34 |  . |  7 |
+        // |     padding     | 21 | 34 |  . |  7 |
+        //         ...
+
+        // For soundness, set "a" and "b" both 1 in the first step instance
         let fibo_first_step = ctx.step_type_def("fibo first step", |ctx| {
             let c = ctx.internal("c");
 
+            // set constraints of the step
             ctx.setup(move |ctx| {
+                // a == 1
                 ctx.constr(eq(a, 1));
+                // b == 1
                 ctx.constr(eq(b, 1));
+                // a + b == c
                 ctx.constr(eq(a + b, c));
+
+                // b == a.next
                 ctx.transition(eq(b, a.next()));
+                // c == b.next
                 ctx.transition(eq(c, b.next()));
+                // n == n.next
                 ctx.transition(eq(n, n.next()));
             });
 
+            // define wg function to set how to assign witness values
             ctx.wg(move |ctx, (a_value, b_value, n_value): (u32, u32, u32)| {
                 println!(
                     "first fibo line wg: a: {}, b: {}, c: {}, n: {}",
@@ -72,7 +93,6 @@ fn fibo_circuit<F: Field + From<u64> + Hash>() -> (Circuit<F>, Option<Assignment
             })
         });
 
-        // define step type
         let fibo_step = ctx.step_type_def("fibo step", |ctx| {
             // the following objects (constraints, transition constraints, witness generation
             // function) are defined on the step type-level
@@ -117,6 +137,7 @@ fn fibo_circuit<F: Field + From<u64> + Hash>() -> (Circuit<F>, Option<Assignment
             })
         });
 
+        // For flexibility of number of steps, add paddings to maximum number of steps
         let padding = ctx.step_type_def("padding", |ctx| {
             ctx.setup(move |ctx| {
                 ctx.transition(eq(b, b.next()));
@@ -126,16 +147,23 @@ fn fibo_circuit<F: Field + From<u64> + Hash>() -> (Circuit<F>, Option<Assignment
             ctx.wg(move |ctx, (a_value, b_value, n_value): (u32, u32, u32)| {
                 println!("padding: a: {}, b: {}, n: {}", a_value, b_value, n_value);
 
+                // have to assign "a" because fibo_step constrains 'b == a.next'
                 ctx.assign(a, a_value.field());
                 ctx.assign(b, b_value.field());
                 ctx.assign(n, n_value.field());
             })
         });
 
+        // set total number of steps
         ctx.pragma_num_steps(11);
+        // constrain steptype of first step
         ctx.pragma_first_step(&fibo_first_step);
+        // constrain steptype of last step
         ctx.pragma_last_step(&padding);
+        // Note that because we constrain last step to be padding, the maximum number of
+        // Fibonacci sequence is 10. (one less than num_steps above)
 
+        // Expose the result of calculation and round number
         ctx.expose(b, chiquito::ast::ExposeOffset::Last);
         ctx.expose(n, chiquito::ast::ExposeOffset::Last);
 
@@ -145,7 +173,6 @@ fn fibo_circuit<F: Field + From<u64> + Hash>() -> (Circuit<F>, Option<Assignment
         ctx.trace(move |ctx, n| {
             // add function adds a step instantiation to the main circuit and calls witness
             // generation function defined in step_type_def input values for witness
-            // generation function are (1, 1) in this step instance
             ctx.add(&fibo_first_step, (1, 1, n));
             let mut a = 1;
             let mut b = 2;
