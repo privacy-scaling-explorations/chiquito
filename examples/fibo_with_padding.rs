@@ -34,6 +34,7 @@ fn fibo_circuit<F: Field + From<u64> + Hash>() -> (Circuit<F>, Option<Assignment
     // ...
 
     use chiquito::frontend::dsl::cb::*; // functions for constraint building
+    use chiquito::ast::ExposeOffset::*; // for exposing witnesses
 
     let fibo = circuit::<F, u32, _>("fibonacci", |ctx| {
         // the following objects (forward signals, steptypes) are defined on the circuit-level
@@ -164,8 +165,8 @@ fn fibo_circuit<F: Field + From<u64> + Hash>() -> (Circuit<F>, Option<Assignment
         // Fibonacci sequence is 10. (one less than num_steps above)
 
         // Expose the result of calculation and round number
-        ctx.expose(b, chiquito::ast::ExposeOffset::Last);
-        ctx.expose(n, chiquito::ast::ExposeOffset::Last);
+        ctx.expose(b, Last);
+        ctx.expose(n, Last);
 
         // trace function is responsible for adding step instantiations defined in step_type_def
         // function above trace function is Turing complete and allows arbitrary user
