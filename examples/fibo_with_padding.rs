@@ -33,8 +33,10 @@ fn fibo_circuit<F: Field + From<u64> + Hash>() -> (Circuit<F>, Option<Assignment
     // | 3 | 5 | 8 |
     // ...
 
-    use chiquito::frontend::dsl::cb::*; // functions for constraint building
-    use chiquito::ast::ExposeOffset::*; // for exposing witnesses
+    use chiquito::{
+        ast::ExposeOffset::*, // for exposing witnesses
+        frontend::dsl::cb::*, // functions for constraint building
+    };
 
     let fibo = circuit::<F, u32, _>("fibonacci", |ctx| {
         // the following objects (forward signals, steptypes) are defined on the circuit-level
