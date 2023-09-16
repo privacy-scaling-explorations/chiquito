@@ -336,10 +336,11 @@ impl<F: PrimeField> PlafInstance<F> for PlafH2Circuit {
 
             for copyc in &self.plaf.copys {
                 let (col1, col2) = copyc.columns;
-                let (_, col2_offset) = copyc.offsets[0];
                 if col1.kind == ColumnKind::Public && col2.kind == ColumnKind::Witness {
+                    let witness_index = col2.index;
+                    let (_, witness_offset) = copyc.offsets[0];
                     instance_values.push(F::from(
-                        self.wit.witness[col2.index][col2_offset]
+                        self.wit.witness[witness_index][witness_offset]
                             .as_ref()
                             .unwrap()
                             .to_u64_digits()[0],
