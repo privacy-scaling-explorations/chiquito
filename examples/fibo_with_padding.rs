@@ -1,7 +1,7 @@
 use std::hash::Hash;
 
 use chiquito::{
-    ast::expr::*,
+    field::Field,
     frontend::dsl::circuit, // main function for constructing an AST circuit
     plonkish::backend::halo2::{chiquito2Halo2, ChiquitoHalo2Circuit}, /* compiles to
                              * Chiquito Halo2
@@ -17,8 +17,9 @@ use chiquito::{
         step_selector::SimpleStepSelectorBuilder,
     },
     plonkish::ir::{assignments::AssignmentGenerator, Circuit}, // compiled circuit type
+    poly::ToField,
 };
-use halo2_proofs::{arithmetic::Field, dev::MockProver, halo2curves::bn256::Fr};
+use halo2_proofs::{dev::MockProver, halo2curves::bn256::Fr};
 
 // the main circuit function: returns the compiled IR of a Chiquito circuit
 // Generic type F stands for type that implements a field trait
