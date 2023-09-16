@@ -707,11 +707,27 @@
 <a href="#707" id="707">707</a>
 <a href="#708" id="708">708</a>
 <a href="#709" id="709">709</a>
+<a href="#710" id="710">710</a>
+<a href="#711" id="711">711</a>
+<a href="#712" id="712">712</a>
+<a href="#713" id="713">713</a>
+<a href="#714" id="714">714</a>
+<a href="#715" id="715">715</a>
+<a href="#716" id="716">716</a>
+<a href="#717" id="717">717</a>
+<a href="#718" id="718">718</a>
+<a href="#719" id="719">719</a>
+<a href="#720" id="720">720</a>
+<a href="#721" id="721">721</a>
+<a href="#722" id="722">722</a>
+<a href="#723" id="723">723</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{fmt::Debug, vec};
 
-<span class="kw">use </span>halo2_proofs::arithmetic::Field;
-
-<span class="kw">use </span><span class="kw">crate</span>::ast::{query::Queriable, Expr, ToExpr};
+<span class="kw">use crate</span>::{
+    ast::{query::Queriable, ASTExpr},
+    field::Field,
+    poly::{Expr, ToExpr},
+};
 
 <span class="kw">use super</span>::{
     lb::{InPlaceLookupBuilder, LookupTableStore},
@@ -722,8 +738,14 @@
 </span><span class="attr">#[derive(Clone)]
 </span><span class="kw">pub struct </span>Constraint&lt;F&gt; {
     <span class="kw">pub </span>annotation: String,
-    <span class="kw">pub </span>expr: Expr&lt;F&gt;,
+    <span class="kw">pub </span>expr: ASTExpr&lt;F&gt;,
     <span class="kw">pub </span>typing: Typing,
+}
+
+<span class="kw">impl</span>&lt;F&gt; From&lt;Constraint&lt;F&gt;&gt; <span class="kw">for </span>ASTExpr&lt;F&gt; {
+    <span class="kw">fn </span>from(c: Constraint&lt;F&gt;) -&gt; <span class="self">Self </span>{
+        c.expr
+    }
 }
 
 <span class="attr">#[derive(Clone, Debug, PartialEq, Eq)]
@@ -733,8 +755,8 @@
     AntiBooly,
 }
 
-<span class="kw">impl</span>&lt;F: Debug&gt; From&lt;Expr&lt;F&gt;&gt; <span class="kw">for </span>Constraint&lt;F&gt; {
-    <span class="kw">fn </span>from(expr: Expr&lt;F&gt;) -&gt; <span class="self">Self </span>{
+<span class="kw">impl</span>&lt;F: Debug&gt; From&lt;ASTExpr&lt;F&gt;&gt; <span class="kw">for </span>Constraint&lt;F&gt; {
+    <span class="kw">fn </span>from(expr: ASTExpr&lt;F&gt;) -&gt; <span class="self">Self </span>{
         <span class="kw">let </span>annotation = <span class="macro">format!</span>(<span class="string">&quot;{:?}&quot;</span>, <span class="kw-2">&amp;</span>expr);
         <span class="kw">match </span>expr {
             Expr::Query(Queriable::StepTypeNext(<span class="kw">_</span>)) =&gt; <span class="self">Self </span>{
@@ -798,7 +820,7 @@
     inputs: I,
 ) -&gt; Constraint&lt;F&gt; {
     <span class="kw">let </span><span class="kw-2">mut </span>annotations: Vec&lt;String&gt; = <span class="macro">vec!</span>[];
-    <span class="kw">let </span><span class="kw-2">mut </span>expr: Expr&lt;F&gt; = <span class="number">1u64</span>.expr();
+    <span class="kw">let </span><span class="kw-2">mut </span>expr: ASTExpr&lt;F&gt; = <span class="number">1u64</span>.expr();
 
     <span class="kw">for </span>constraint <span class="kw">in </span>inputs.into_iter() {
         <span class="kw">let </span>constraint = constraint.into();
@@ -832,7 +854,7 @@
     inputs: I,
 ) -&gt; Constraint&lt;F&gt; {
     <span class="kw">let </span><span class="kw-2">mut </span>annotations: Vec&lt;String&gt; = <span class="macro">vec!</span>[];
-    <span class="kw">let </span><span class="kw-2">mut </span>exprs: Vec&lt;Expr&lt;F&gt;&gt; = <span class="macro">vec!</span>[];
+    <span class="kw">let </span><span class="kw-2">mut </span>exprs: Vec&lt;ASTExpr&lt;F&gt;&gt; = <span class="macro">vec!</span>[];
 
     <span class="kw">for </span>constraint <span class="kw">in </span>inputs.into_iter() {
         <span class="kw">let </span>constraint = constraint.into();
@@ -1047,10 +1069,12 @@
 /// given step type.
 </span><span class="kw">pub fn </span>next_step_must_be&lt;F: From&lt;u64&gt;, ST: Into&lt;StepTypeHandler&gt;&gt;(step_type: ST) -&gt; Constraint&lt;F&gt; {
     <span class="kw">let </span>step_type = step_type.into();
+    <span class="kw">let </span>next: Constraint&lt;F&gt; = step_type.next().into();
+    <span class="kw">let </span>not: Constraint&lt;F&gt; = not(next);
 
-    annotate(
+    annotate::&lt;<span class="kw">_</span>, Constraint&lt;F&gt;&gt;(
         <span class="macro">format!</span>(<span class="string">&quot;next_step_must_be({})&quot;</span>, step_type.annotation),
-        not(step_type.next()),
+        not,
         Typing::AntiBooly,
     )
 }
@@ -1071,7 +1095,11 @@
 
 <span class="doccomment">/// Takes a string annotation and an expression, and returns a new constraint with the given
 /// annotation and expression.
-</span><span class="kw">pub fn </span>annotate&lt;F, E: Into&lt;Expr&lt;F&gt;&gt;&gt;(annotation: String, expr: E, typing: Typing) -&gt; Constraint&lt;F&gt; {
+</span><span class="kw">pub fn </span>annotate&lt;F, E: Into&lt;ASTExpr&lt;F&gt;&gt;&gt;(
+    annotation: String,
+    expr: E,
+    typing: Typing,
+) -&gt; Constraint&lt;F&gt; {
     Constraint {
         annotation,
         expr: expr.into(),
@@ -1080,10 +1108,10 @@
 }
 
 <span class="doccomment">/// Computes the randomized linear combination of the given expressions and randomness.
-</span><span class="kw">pub fn </span>rlc&lt;F: From&lt;u64&gt;, E: Into&lt;Expr&lt;F&gt;&gt; + Clone, R: Into&lt;Expr&lt;F&gt;&gt; + Clone&gt;(
+</span><span class="kw">pub fn </span>rlc&lt;F: From&lt;u64&gt;, E: Into&lt;ASTExpr&lt;F&gt;&gt; + Clone, R: Into&lt;ASTExpr&lt;F&gt;&gt; + Clone&gt;(
     exprs: <span class="kw-2">&amp;</span>[E],
     randomness: R,
-) -&gt; Expr&lt;F&gt; {
+) -&gt; ASTExpr&lt;F&gt; {
     <span class="kw">if </span>!exprs.is_empty() {
         <span class="kw">let </span><span class="kw-2">mut </span>exprs = exprs.iter().rev().map(|e| e.clone().into());
         <span class="kw">let </span>init = exprs.next().expect(<span class="string">&quot;should not be empty&quot;</span>);
@@ -1109,7 +1137,7 @@
     <span class="kw">use </span>halo2_proofs::halo2curves::bn256::Fr;
 
     <span class="kw">use super</span>::<span class="kw-2">*</span>;
-    <span class="kw">use </span><span class="kw">crate</span>::ast::{ToExpr, ToField};
+    <span class="kw">use </span><span class="kw">crate</span>::poly::{ToExpr, ToField};
 
     <span class="attr">#[test]
     </span><span class="kw">fn </span>test_and_empty() {
@@ -1121,7 +1149,7 @@
 
     <span class="attr">#[test]
     </span><span class="kw">fn </span>test_and_single_input() {
-        <span class="kw">let </span>a = &lt;u64 <span class="kw">as </span>ToExpr&lt;Fr&gt;&gt;::expr(<span class="kw-2">&amp;</span><span class="number">10</span>);
+        <span class="kw">let </span>a = &lt;u64 <span class="kw">as </span>ToExpr&lt;Fr, Queriable&lt;Fr&gt;&gt;&gt;::expr(<span class="kw-2">&amp;</span><span class="number">10</span>);
         <span class="kw">let </span>result = and(<span class="macro">vec!</span>[a]);
 
         <span class="macro">assert!</span>(<span class="macro">matches!</span>(result.expr, Expr::Mul(v) <span class="kw">if </span>v.len() == <span class="number">2 </span>&amp;&amp;
@@ -1131,7 +1159,7 @@
 
     <span class="attr">#[test]
     </span><span class="kw">fn </span>test_and_multiple_inputs() {
-        <span class="kw">let </span>a = &lt;u64 <span class="kw">as </span>ToExpr&lt;Fr&gt;&gt;::expr(<span class="kw-2">&amp;</span><span class="number">10</span>);
+        <span class="kw">let </span>a = &lt;u64 <span class="kw">as </span>ToExpr&lt;Fr, Queriable&lt;Fr&gt;&gt;&gt;::expr(<span class="kw-2">&amp;</span><span class="number">10</span>);
         <span class="kw">let </span>b = <span class="number">20</span>.expr();
         <span class="kw">let </span>c = <span class="number">30</span>.expr();
         <span class="kw">let </span>result = and(<span class="macro">vec!</span>[a, b, c]);
@@ -1159,7 +1187,7 @@
 
     <span class="attr">#[test]
     </span><span class="kw">fn </span>test_or_single_input() {
-        <span class="kw">let </span>a = &lt;u64 <span class="kw">as </span>ToExpr&lt;Fr&gt;&gt;::expr(<span class="kw-2">&amp;</span><span class="number">10</span>);
+        <span class="kw">let </span>a = &lt;u64 <span class="kw">as </span>ToExpr&lt;Fr, Queriable&lt;Fr&gt;&gt;&gt;::expr(<span class="kw-2">&amp;</span><span class="number">10</span>);
         <span class="kw">let </span>result = or(<span class="macro">vec!</span>[a]);
 
         <span class="comment">// returns &quot;1 - (1 * (1 - 10))&quot;
@@ -1176,9 +1204,9 @@
 
     <span class="attr">#[test]
     </span><span class="kw">fn </span>test_or_multiple_input() {
-        <span class="kw">let </span>a = &lt;u64 <span class="kw">as </span>ToExpr&lt;Fr&gt;&gt;::expr(<span class="kw-2">&amp;</span><span class="number">10</span>);
-        <span class="kw">let </span>b = &lt;u64 <span class="kw">as </span>ToExpr&lt;Fr&gt;&gt;::expr(<span class="kw-2">&amp;</span><span class="number">20</span>);
-        <span class="kw">let </span>c = &lt;u64 <span class="kw">as </span>ToExpr&lt;Fr&gt;&gt;::expr(<span class="kw-2">&amp;</span><span class="number">30</span>);
+        <span class="kw">let </span>a = &lt;u64 <span class="kw">as </span>ToExpr&lt;Fr, Queriable&lt;Fr&gt;&gt;&gt;::expr(<span class="kw-2">&amp;</span><span class="number">10</span>);
+        <span class="kw">let </span>b = &lt;u64 <span class="kw">as </span>ToExpr&lt;Fr, Queriable&lt;Fr&gt;&gt;&gt;::expr(<span class="kw-2">&amp;</span><span class="number">20</span>);
+        <span class="kw">let </span>c = &lt;u64 <span class="kw">as </span>ToExpr&lt;Fr, Queriable&lt;Fr&gt;&gt;&gt;::expr(<span class="kw-2">&amp;</span><span class="number">30</span>);
         <span class="kw">let </span>result = or(<span class="macro">vec!</span>[a, b, c]);
 
         <span class="comment">// returns &quot;1 - (1 * (1 - 10) * (1 - 20) * (1 - 30))&quot;
@@ -1203,7 +1231,7 @@
 
     <span class="attr">#[test]
     </span><span class="kw">fn </span>test_not_one() {
-        <span class="kw">let </span>a = &lt;u64 <span class="kw">as </span>ToExpr&lt;Fr&gt;&gt;::expr(<span class="kw-2">&amp;</span><span class="number">1</span>);
+        <span class="kw">let </span>a = &lt;u64 <span class="kw">as </span>ToExpr&lt;Fr, Queriable&lt;Fr&gt;&gt;&gt;::expr(<span class="kw-2">&amp;</span><span class="number">1</span>);
         <span class="kw">let </span>result = not(a);
 
         <span class="macro">assert!</span>(<span class="macro">matches!</span>(result.expr, Expr::Sum(v) <span class="kw">if </span>v.len() == <span class="number">2 </span>&amp;&amp;
@@ -1214,7 +1242,7 @@
 
     <span class="attr">#[test]
     </span><span class="kw">fn </span>test_not_zero() {
-        <span class="kw">let </span>a = &lt;u64 <span class="kw">as </span>ToExpr&lt;Fr&gt;&gt;::expr(<span class="kw-2">&amp;</span><span class="number">0</span>);
+        <span class="kw">let </span>a = &lt;u64 <span class="kw">as </span>ToExpr&lt;Fr, Queriable&lt;Fr&gt;&gt;&gt;::expr(<span class="kw-2">&amp;</span><span class="number">0</span>);
         <span class="kw">let </span>result = not(a);
 
         <span class="macro">assert!</span>(<span class="macro">matches!</span>(result.expr, Expr::Sum(v) <span class="kw">if </span>v.len() == <span class="number">2 </span>&amp;&amp;
@@ -1225,8 +1253,8 @@
 
     <span class="attr">#[test]
     </span><span class="kw">fn </span>test_xor() {
-        <span class="kw">let </span>a = &lt;u64 <span class="kw">as </span>ToExpr&lt;Fr&gt;&gt;::expr(<span class="kw-2">&amp;</span><span class="number">10</span>);
-        <span class="kw">let </span>b = &lt;u64 <span class="kw">as </span>ToExpr&lt;Fr&gt;&gt;::expr(<span class="kw-2">&amp;</span><span class="number">20</span>);
+        <span class="kw">let </span>a = &lt;u64 <span class="kw">as </span>ToExpr&lt;Fr, Queriable&lt;Fr&gt;&gt;&gt;::expr(<span class="kw-2">&amp;</span><span class="number">10</span>);
+        <span class="kw">let </span>b = &lt;u64 <span class="kw">as </span>ToExpr&lt;Fr, Queriable&lt;Fr&gt;&gt;&gt;::expr(<span class="kw-2">&amp;</span><span class="number">20</span>);
         <span class="kw">let </span>result = xor(a, b);
 
         <span class="comment">// returns &quot;10 + 20 - 2 * 10 * 20&quot;
@@ -1242,8 +1270,8 @@
 
     <span class="attr">#[test]
     </span><span class="kw">fn </span>test_eq() {
-        <span class="kw">let </span>a = &lt;u64 <span class="kw">as </span>ToExpr&lt;Fr&gt;&gt;::expr(<span class="kw-2">&amp;</span><span class="number">10</span>);
-        <span class="kw">let </span>b = &lt;u64 <span class="kw">as </span>ToExpr&lt;Fr&gt;&gt;::expr(<span class="kw-2">&amp;</span><span class="number">20</span>);
+        <span class="kw">let </span>a = &lt;u64 <span class="kw">as </span>ToExpr&lt;Fr, Queriable&lt;Fr&gt;&gt;&gt;::expr(<span class="kw-2">&amp;</span><span class="number">10</span>);
+        <span class="kw">let </span>b = &lt;u64 <span class="kw">as </span>ToExpr&lt;Fr, Queriable&lt;Fr&gt;&gt;&gt;::expr(<span class="kw-2">&amp;</span><span class="number">20</span>);
         <span class="kw">let </span>result = eq(a, b);
 
         <span class="comment">// returns &quot;10 - 20&quot;
@@ -1255,9 +1283,9 @@
 
     <span class="attr">#[test]
     </span><span class="kw">fn </span>test_select() {
-        <span class="kw">let </span>selector = &lt;u64 <span class="kw">as </span>ToExpr&lt;Fr&gt;&gt;::expr(<span class="kw-2">&amp;</span><span class="number">1</span>);
-        <span class="kw">let </span>when_true = &lt;u64 <span class="kw">as </span>ToExpr&lt;Fr&gt;&gt;::expr(<span class="kw-2">&amp;</span><span class="number">10</span>);
-        <span class="kw">let </span>when_false = &lt;u64 <span class="kw">as </span>ToExpr&lt;Fr&gt;&gt;::expr(<span class="kw-2">&amp;</span><span class="number">20</span>);
+        <span class="kw">let </span>selector = &lt;u64 <span class="kw">as </span>ToExpr&lt;Fr, Queriable&lt;Fr&gt;&gt;&gt;::expr(<span class="kw-2">&amp;</span><span class="number">1</span>);
+        <span class="kw">let </span>when_true = &lt;u64 <span class="kw">as </span>ToExpr&lt;Fr, Queriable&lt;Fr&gt;&gt;&gt;::expr(<span class="kw-2">&amp;</span><span class="number">10</span>);
+        <span class="kw">let </span>when_false = &lt;u64 <span class="kw">as </span>ToExpr&lt;Fr, Queriable&lt;Fr&gt;&gt;&gt;::expr(<span class="kw-2">&amp;</span><span class="number">20</span>);
         <span class="kw">let </span>result = select(selector, when_true, when_false);
 
         <span class="comment">// returns &quot;1 * 10 + (1 - 1) * 20&quot;
@@ -1275,8 +1303,8 @@
 
     <span class="attr">#[test]
     </span><span class="kw">fn </span>test_when_true() {
-        <span class="kw">let </span>selector = &lt;u64 <span class="kw">as </span>ToExpr&lt;Fr&gt;&gt;::expr(<span class="kw-2">&amp;</span><span class="number">1</span>);
-        <span class="kw">let </span>when_true = &lt;u64 <span class="kw">as </span>ToExpr&lt;Fr&gt;&gt;::expr(<span class="kw-2">&amp;</span><span class="number">10</span>);
+        <span class="kw">let </span>selector = &lt;u64 <span class="kw">as </span>ToExpr&lt;Fr, Queriable&lt;Fr&gt;&gt;&gt;::expr(<span class="kw-2">&amp;</span><span class="number">1</span>);
+        <span class="kw">let </span>when_true = &lt;u64 <span class="kw">as </span>ToExpr&lt;Fr, Queriable&lt;Fr&gt;&gt;&gt;::expr(<span class="kw-2">&amp;</span><span class="number">10</span>);
         <span class="kw">let </span>result = when(selector, when_true);
 
         <span class="comment">// returns &quot;1 * 10&quot;
@@ -1287,8 +1315,8 @@
 
     <span class="attr">#[test]
     </span><span class="kw">fn </span>test_when_false() {
-        <span class="kw">let </span>selector = &lt;u64 <span class="kw">as </span>ToExpr&lt;Fr&gt;&gt;::expr(<span class="kw-2">&amp;</span><span class="number">0</span>);
-        <span class="kw">let </span>when_true = &lt;u64 <span class="kw">as </span>ToExpr&lt;Fr&gt;&gt;::expr(<span class="kw-2">&amp;</span><span class="number">10</span>);
+        <span class="kw">let </span>selector = &lt;u64 <span class="kw">as </span>ToExpr&lt;Fr, Queriable&lt;Fr&gt;&gt;&gt;::expr(<span class="kw-2">&amp;</span><span class="number">0</span>);
+        <span class="kw">let </span>when_true = &lt;u64 <span class="kw">as </span>ToExpr&lt;Fr, Queriable&lt;Fr&gt;&gt;&gt;::expr(<span class="kw-2">&amp;</span><span class="number">10</span>);
         <span class="kw">let </span>result = when(selector, when_true);
 
         <span class="comment">// returns &quot;0 * 10&quot;
@@ -1299,8 +1327,8 @@
 
     <span class="attr">#[test]
     </span><span class="kw">fn </span>test_unless() {
-        <span class="kw">let </span>selector = &lt;u64 <span class="kw">as </span>ToExpr&lt;Fr&gt;&gt;::expr(<span class="kw-2">&amp;</span><span class="number">1</span>);
-        <span class="kw">let </span>when_false = &lt;u64 <span class="kw">as </span>ToExpr&lt;Fr&gt;&gt;::expr(<span class="kw-2">&amp;</span><span class="number">10</span>);
+        <span class="kw">let </span>selector = &lt;u64 <span class="kw">as </span>ToExpr&lt;Fr, Queriable&lt;Fr&gt;&gt;&gt;::expr(<span class="kw-2">&amp;</span><span class="number">1</span>);
+        <span class="kw">let </span>when_false = &lt;u64 <span class="kw">as </span>ToExpr&lt;Fr, Queriable&lt;Fr&gt;&gt;&gt;::expr(<span class="kw-2">&amp;</span><span class="number">10</span>);
         <span class="kw">let </span>result = unless(selector, when_false);
 
         <span class="comment">// returns &quot;(1 - 1) * 10&quot;
@@ -1314,8 +1342,8 @@
 
     <span class="attr">#[test]
     </span><span class="kw">fn </span>test_isz() {
-        <span class="kw">let </span>zero = &lt;u64 <span class="kw">as </span>ToExpr&lt;Fr&gt;&gt;::expr(<span class="kw-2">&amp;</span><span class="number">0</span>);
-        <span class="kw">let </span>non_zero = &lt;u64 <span class="kw">as </span>ToExpr&lt;Fr&gt;&gt;::expr(<span class="kw-2">&amp;</span><span class="number">10</span>);
+        <span class="kw">let </span>zero = &lt;u64 <span class="kw">as </span>ToExpr&lt;Fr, Queriable&lt;Fr&gt;&gt;&gt;::expr(<span class="kw-2">&amp;</span><span class="number">0</span>);
+        <span class="kw">let </span>non_zero = &lt;u64 <span class="kw">as </span>ToExpr&lt;Fr, Queriable&lt;Fr&gt;&gt;&gt;::expr(<span class="kw-2">&amp;</span><span class="number">10</span>);
         <span class="kw">let </span>result_zero = isz(zero);
         <span class="kw">let </span>result_non_zero = isz(non_zero);
 
@@ -1328,7 +1356,7 @@
     <span class="attr">#[test]
     </span><span class="kw">fn </span>test_if_next_step() {
         <span class="kw">let </span>step_type = StepTypeHandler::new(<span class="string">&quot;test_step&quot;</span>.to_string());
-        <span class="kw">let </span>constraint = &lt;u64 <span class="kw">as </span>ToExpr&lt;Fr&gt;&gt;::expr(<span class="kw-2">&amp;</span><span class="number">10</span>);
+        <span class="kw">let </span>constraint = &lt;u64 <span class="kw">as </span>ToExpr&lt;Fr, Queriable&lt;Fr&gt;&gt;&gt;::expr(<span class="kw-2">&amp;</span><span class="number">10</span>);
         <span class="kw">let </span>result = if_next_step(step_type, constraint);
 
         <span class="comment">// returns &quot;Expr::Query(Queriable::StepTypeNext(StepTypeHandler{id: _id, annotation:
@@ -1371,7 +1399,7 @@
 
     <span class="attr">#[test]
     </span><span class="kw">fn </span>test_annotate() {
-        <span class="kw">let </span>expr = &lt;u64 <span class="kw">as </span>ToExpr&lt;Fr&gt;&gt;::expr(<span class="kw-2">&amp;</span><span class="number">10</span>);
+        <span class="kw">let </span>expr = &lt;u64 <span class="kw">as </span>ToExpr&lt;Fr, Queriable&lt;Fr&gt;&gt;&gt;::expr(<span class="kw-2">&amp;</span><span class="number">10</span>);
         <span class="kw">let </span>result = annotate(<span class="string">&quot;my_constraint&quot;</span>.to_string(), expr, Typing::Unknown);
 
         <span class="macro">assert_eq!</span>(result.annotation, <span class="string">&quot;my_constraint&quot;</span>);
@@ -1381,8 +1409,8 @@
 
     <span class="attr">#[test]
     </span><span class="kw">fn </span>test_rlc_empty() {
-        <span class="kw">let </span>randomness = &lt;u64 <span class="kw">as </span>ToExpr&lt;Fr&gt;&gt;::expr(<span class="kw-2">&amp;</span><span class="number">40</span>);
-        <span class="kw">let </span>result = rlc::&lt;Fr, Expr&lt;Fr&gt;, Expr&lt;Fr&gt;&gt;(<span class="kw-2">&amp;</span>[], randomness);
+        <span class="kw">let </span>randomness = &lt;u64 <span class="kw">as </span>ToExpr&lt;Fr, Queriable&lt;Fr&gt;&gt;&gt;::expr(<span class="kw-2">&amp;</span><span class="number">40</span>);
+        <span class="kw">let </span>result = rlc::&lt;Fr, Expr&lt;Fr, Queriable&lt;Fr&gt;&gt;, Expr&lt;Fr, Queriable&lt;Fr&gt;&gt;&gt;(<span class="kw-2">&amp;</span>[], randomness);
 
         <span class="comment">// returns &quot;0&quot;
         </span><span class="macro">assert!</span>(<span class="macro">matches!</span>(result, Expr::Const(c) <span class="kw">if </span>c == <span class="number">0u64</span>.field()));
@@ -1390,7 +1418,7 @@
 
     <span class="attr">#[test]
     </span><span class="kw">fn </span>test_rlc_one_input() {
-        <span class="kw">let </span>a = &lt;u64 <span class="kw">as </span>ToExpr&lt;Fr&gt;&gt;::expr(<span class="kw-2">&amp;</span><span class="number">10</span>);
+        <span class="kw">let </span>a = &lt;u64 <span class="kw">as </span>ToExpr&lt;Fr, Queriable&lt;Fr&gt;&gt;&gt;::expr(<span class="kw-2">&amp;</span><span class="number">10</span>);
         <span class="kw">let </span>result = rlc(<span class="kw-2">&amp;</span>[a], <span class="number">40u64</span>.expr());
 
         <span class="comment">// returns &quot;10&quot;
@@ -1399,7 +1427,7 @@
 
     <span class="attr">#[test]
     </span><span class="kw">fn </span>test_rlc_multiple_inputs() {
-        <span class="kw">let </span>a = &lt;u64 <span class="kw">as </span>ToExpr&lt;Fr&gt;&gt;::expr(<span class="kw-2">&amp;</span><span class="number">10</span>);
+        <span class="kw">let </span>a = &lt;u64 <span class="kw">as </span>ToExpr&lt;Fr, Queriable&lt;Fr&gt;&gt;&gt;::expr(<span class="kw-2">&amp;</span><span class="number">10</span>);
         <span class="kw">let </span>b = <span class="number">20u64</span>.expr();
         <span class="kw">let </span>c = <span class="number">30u64</span>.expr();
         <span class="kw">let </span>result = rlc(<span class="kw-2">&amp;</span>[a, b, c], <span class="number">40u64</span>.expr());

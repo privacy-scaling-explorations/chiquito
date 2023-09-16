@@ -542,7 +542,7 @@
                 }
             }
             cPolyExpr::Halo2Expr(e) =&gt; pExpr::from(e),
-            cPolyExpr::Query(column, rotation, annotation) =&gt; {
+            cPolyExpr::Query((column, rotation, annotation)) =&gt; {
                 <span class="kw">let </span>index = <span class="self">self
                     </span>.c_column_id_to_p_column_index
                     .get(<span class="kw-2">&amp;</span>column.uuid())

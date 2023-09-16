@@ -227,13 +227,11 @@
 <a href="#227" id="227">227</a>
 <a href="#228" id="228">228</a>
 <a href="#229" id="229">229</a>
-<a href="#230" id="230">230</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::collections::HashMap;
 
-<span class="kw">use </span>halo2_proofs::{
-    arithmetic::Field,
-    plonk::{Advice, Column <span class="kw">as </span>Halo2Column},
-};
+<span class="kw">use </span><span class="kw">crate</span>::field::Field;
+
+<span class="kw">use </span>halo2_proofs::plonk::{Advice, Column <span class="kw">as </span>Halo2Column};
 
 <span class="kw">use crate</span>::{
     ast::{query::Queriable, ForwardSignal, SharedSignal, StepTypeUUID},
@@ -346,7 +344,7 @@
 
         <span class="kw">for </span>(expr, value) <span class="kw">in </span>selector_assignment.iter() {
             <span class="kw">match </span>expr {
-                PolyExpr::Query(column, rot, <span class="kw">_</span>) =&gt; {
+                PolyExpr::Query((column, rot, <span class="kw">_</span>)) =&gt; {
                     <span class="self">self</span>.set_value(assignments, column.clone(), <span class="kw-2">*</span>offset + <span class="kw-2">*</span>rot <span class="kw">as </span>usize, value)
                 }
                 <span class="kw">_ </span>=&gt; <span class="macro">panic!</span>(<span class="string">&quot;wrong type of expresion is selector assignment&quot;</span>),

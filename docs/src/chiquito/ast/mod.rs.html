@@ -516,17 +516,17 @@
 <a href="#516" id="516">516</a>
 <a href="#517" id="517">517</a>
 <a href="#518" id="518">518</a>
-</pre></div><pre class="rust"><code><span class="kw">pub mod </span>expr;
+<a href="#519" id="519">519</a>
+</pre></div><pre class="rust"><code><span class="kw">pub mod </span>query;
 
 <span class="kw">use </span>std::{collections::HashMap, fmt::Debug, rc::Rc};
 
 <span class="kw">use crate</span>::{
     frontend::dsl::StepTypeHandler,
+    poly::Expr,
     util::{uuid, UUID},
     wit_gen::{FixedGenContext, Trace, TraceContext},
 };
-
-<span class="kw">pub use </span>expr::<span class="kw-2">*</span>;
 
 <span class="kw">use </span>halo2_proofs::plonk::{Advice, Column <span class="kw">as </span>Halo2Column, ColumnType, Fixed};
 
@@ -755,13 +755,13 @@
         signal
     }
 
-    <span class="kw">pub fn </span>add_constr(<span class="kw-2">&amp;mut </span><span class="self">self</span>, annotation: String, expr: Expr&lt;F&gt;) {
+    <span class="kw">pub fn </span>add_constr(<span class="kw-2">&amp;mut </span><span class="self">self</span>, annotation: String, expr: ASTExpr&lt;F&gt;) {
         <span class="kw">let </span>condition = Constraint { annotation, expr };
 
         <span class="self">self</span>.constraints.push(condition)
     }
 
-    <span class="kw">pub fn </span>add_transition(<span class="kw-2">&amp;mut </span><span class="self">self</span>, annotation: String, expr: Expr&lt;F&gt;) {
+    <span class="kw">pub fn </span>add_transition(<span class="kw-2">&amp;mut </span><span class="self">self</span>, annotation: String, expr: ASTExpr&lt;F&gt;) {
         <span class="kw">let </span>condition = TransitionConstraint { annotation, expr };
 
         <span class="self">self</span>.transition_constraints.push(condition)
@@ -782,24 +782,26 @@
     }
 }
 
+<span class="kw">pub type </span>ASTExpr&lt;F&gt; = Expr&lt;F, Queriable&lt;F&gt;&gt;;
+
 <span class="attr">#[derive(Clone, Debug)]
 </span><span class="doccomment">/// Condition
 </span><span class="kw">pub struct </span>Constraint&lt;F&gt; {
     <span class="kw">pub </span>annotation: String,
-    <span class="kw">pub </span>expr: Expr&lt;F&gt;,
+    <span class="kw">pub </span>expr: ASTExpr&lt;F&gt;,
 }
 
 <span class="attr">#[derive(Clone, Debug)]
 </span><span class="doccomment">/// TransitionCondition
 </span><span class="kw">pub struct </span>TransitionConstraint&lt;F&gt; {
     <span class="kw">pub </span>annotation: String,
-    <span class="kw">pub </span>expr: Expr&lt;F&gt;,
+    <span class="kw">pub </span>expr: ASTExpr&lt;F&gt;,
 }
 
 <span class="attr">#[derive(Clone)]
 </span><span class="kw">pub struct </span>Lookup&lt;F&gt; {
     <span class="kw">pub </span>annotation: String,
-    <span class="kw">pub </span>exprs: Vec&lt;(Constraint&lt;F&gt;, Expr&lt;F&gt;)&gt;,
+    <span class="kw">pub </span>exprs: Vec&lt;(Constraint&lt;F&gt;, ASTExpr&lt;F&gt;)&gt;,
     <span class="kw">pub </span>enable: <span class="prelude-ty">Option</span>&lt;Constraint&lt;F&gt;&gt;,
 }
 
@@ -807,7 +809,7 @@
     <span class="kw">fn </span>default() -&gt; <span class="self">Self </span>{
         Lookup {
             annotation: String::new(),
-            exprs: Vec::&lt;(Constraint&lt;F&gt;, Expr&lt;F&gt;)&gt;::new(),
+            exprs: Vec::&lt;(Constraint&lt;F&gt;, ASTExpr&lt;F&gt;)&gt;::new(),
             enable: <span class="prelude-val">None</span>,
         }
     }
@@ -821,8 +823,8 @@
     </span><span class="kw">pub fn </span>add(
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
         constraint_annotation: String,
-        constraint_expr: Expr&lt;F&gt;,
-        expression: Expr&lt;F&gt;,
+        constraint_expr: ASTExpr&lt;F&gt;,
+        expression: ASTExpr&lt;F&gt;,
     ) {
         <span class="kw">let </span>constraint = Constraint {
             annotation: constraint_annotation,
@@ -844,7 +846,7 @@
 
     <span class="comment">// Function: setup the enabler field and multiply all LHS constraints by the enabler if there&#39;s
     // no enabler, OR panic if there&#39;s an enabler already
-    </span><span class="kw">pub fn </span>enable(<span class="kw-2">&amp;mut </span><span class="self">self</span>, enable_annotation: String, enable_expr: Expr&lt;F&gt;) {
+    </span><span class="kw">pub fn </span>enable(<span class="kw-2">&amp;mut </span><span class="self">self</span>, enable_annotation: String, enable_expr: ASTExpr&lt;F&gt;) {
         <span class="kw">let </span>enable = Constraint {
             annotation: enable_annotation.clone(),
             expr: enable_expr,

@@ -1465,9 +1465,8 @@
 
 <span class="kw">use crate</span>::{
     ast::{
-        expr::{query::Queriable, Expr},
-        Circuit, Constraint, ExposeOffset, FixedSignal, ForwardSignal, InternalSignal,
-        SharedSignal, StepType, StepTypeUUID, TransitionConstraint,
+        query::Queriable, Circuit, Constraint, ExposeOffset, FixedSignal, ForwardSignal,
+        InternalSignal, SharedSignal, StepType, StepTypeUUID, TransitionConstraint,
     },
     frontend::dsl::StepTypeHandler,
     plonkish::{
@@ -1478,6 +1477,7 @@
         },
         ir::assignments::AssignmentGenerator,
     },
+    poly::Expr,
     util::{uuid, UUID},
     wit_gen::{StepInstance, TraceContext, TraceWitness},
 };
@@ -1816,7 +1816,7 @@
                             <span class="kw">if </span>expr.is_some() {
                                 <span class="kw">return </span><span class="prelude-val">Err</span>(de::Error::duplicate_field(<span class="string">&quot;expr&quot;</span>));
                             }
-                            expr = <span class="prelude-val">Some</span>(map.next_value::&lt;Expr&lt;Fr&gt;&gt;()<span class="question-mark">?</span>);
+                            expr = <span class="prelude-val">Some</span>(map.next_value::&lt;Expr&lt;Fr, Queriable&lt;Fr&gt;&gt;&gt;()<span class="question-mark">?</span>);
                         }
                         <span class="kw">_ </span>=&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(de::Error::unknown_field(<span class="kw-2">&amp;</span>key, <span class="kw-2">&amp;</span>[<span class="string">&quot;annotation&quot;</span>, <span class="string">&quot;expr&quot;</span>])),
                     }
@@ -1840,13 +1840,13 @@
 <span class="kw">struct </span>ExprVisitor;
 
 <span class="kw">impl</span>&lt;<span class="lifetime">&#39;de</span>&gt; Visitor&lt;<span class="lifetime">&#39;de</span>&gt; <span class="kw">for </span>ExprVisitor {
-    <span class="kw">type </span>Value = Expr&lt;Fr&gt;;
+    <span class="kw">type </span>Value = Expr&lt;Fr, Queriable&lt;Fr&gt;&gt;;
 
     <span class="kw">fn </span>expecting(<span class="kw-2">&amp;</span><span class="self">self</span>, formatter: <span class="kw-2">&amp;mut </span>fmt::Formatter) -&gt; fmt::Result {
         formatter.write_str(<span class="string">&quot;enum Expr&quot;</span>)
     }
 
-    <span class="kw">fn </span>visit_map&lt;A&gt;(<span class="self">self</span>, <span class="kw-2">mut </span>map: A) -&gt; <span class="prelude-ty">Result</span>&lt;Expr&lt;Fr&gt;, A::Error&gt;
+    <span class="kw">fn </span>visit_map&lt;A&gt;(<span class="self">self</span>, <span class="kw-2">mut </span>map: A) -&gt; <span class="prelude-ty">Result</span>&lt;Expr&lt;Fr, Queriable&lt;Fr&gt;&gt;, A::Error&gt;
     <span class="kw">where
         </span>A: MapAccess&lt;<span class="lifetime">&#39;de</span>&gt;,
     {
@@ -2172,7 +2172,7 @@
     };
 }
 
-<span class="macro">impl_deserialize!</span>(ExprVisitor, Expr&lt;Fr&gt;);
+<span class="macro">impl_deserialize!</span>(ExprVisitor, Expr&lt;Fr, Queriable&lt;Fr&gt;&gt;);
 <span class="macro">impl_deserialize!</span>(QueriableVisitor, Queriable&lt;Fr&gt;);
 <span class="macro">impl_deserialize!</span>(ExposeOffsetVisitor, ExposeOffset);
 <span class="macro">impl_deserialize!</span>(InternalSignalVisitor, InternalSignal);
@@ -2874,7 +2874,7 @@
                 }
             ]
             }&quot;#</span>;
-        <span class="kw">let </span>expr: Expr&lt;Fr&gt; = serde_json::from_str(json).unwrap();
+        <span class="kw">let </span>expr: Expr&lt;Fr, Queriable&lt;Fr&gt;&gt; = serde_json::from_str(json).unwrap();
         <span class="macro">println!</span>(<span class="string">&quot;{:?}&quot;</span>, expr);
     }
 }

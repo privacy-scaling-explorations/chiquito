@@ -49,16 +49,18 @@
 <a href="#49" id="49">49</a>
 <a href="#50" id="50">50</a>
 <a href="#51" id="51">51</a>
+<a href="#52" id="52">52</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::hash::Hash;
 
-<span class="kw">use </span>halo2_proofs::arithmetic::Field;
+<span class="kw">use </span><span class="kw">crate</span>::field::Field;
 
 <span class="kw">use crate</span>::{
-    ast::{query::Queriable, ToExpr},
+    ast::query::Queriable,
     frontend::dsl::{
         cb::{Constraint, Typing},
         StepTypeContext,
     },
+    poly::ToExpr,
     wit_gen::StepInstance,
 };
 
@@ -97,7 +99,7 @@
 
 <span class="kw">impl</span>&lt;F: Field + Eq + Hash&gt; IsZero&lt;F&gt; {
     <span class="kw">pub fn </span>wg&lt;WGC&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>, ctx: <span class="kw-2">&amp;mut </span>StepInstance&lt;F&gt;, value: F) {
-        ctx.assign(<span class="self">self</span>.value_inv, value.invert().unwrap_or(F::ZERO));
+        ctx.assign(<span class="self">self</span>.value_inv, value.mi());
     }
 }
 </code></pre></div></section></main></body></html>

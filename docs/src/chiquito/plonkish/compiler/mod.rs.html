@@ -560,34 +560,17 @@
 <a href="#560" id="560">560</a>
 <a href="#561" id="561">561</a>
 <a href="#562" id="562">562</a>
-<a href="#563" id="563">563</a>
-<a href="#564" id="564">564</a>
-<a href="#565" id="565">565</a>
-<a href="#566" id="566">566</a>
-<a href="#567" id="567">567</a>
-<a href="#568" id="568">568</a>
-<a href="#569" id="569">569</a>
-<a href="#570" id="570">570</a>
-<a href="#571" id="571">571</a>
-<a href="#572" id="572">572</a>
-<a href="#573" id="573">573</a>
-<a href="#574" id="574">574</a>
-<a href="#575" id="575">575</a>
-<a href="#576" id="576">576</a>
-<a href="#577" id="577">577</a>
-<a href="#578" id="578">578</a>
-</pre></div><pre class="rust"><code><span class="kw">use </span>std::{hash::Hash, rc::Rc};
-
-<span class="kw">use </span>halo2_proofs::arithmetic::Field;
-
-<span class="kw">use crate</span>::{
-    ast::{query::Queriable, Circuit <span class="kw">as </span>astCircuit, ExposeOffset, Expr, StepType, StepTypeUUID},
+</pre></div><pre class="rust"><code><span class="kw">use crate</span>::{
+    ast::{query::Queriable, ASTExpr, Circuit <span class="kw">as </span>astCircuit, ExposeOffset, StepType, StepTypeUUID},
+    field::Field,
     plonkish::ir::{
         assignments::{AssignmentGenerator, Assignments},
         Circuit, Column, Poly, PolyExpr, PolyLookup,
     },
+    poly::Expr,
     wit_gen::{FixedAssignment, FixedGenContext, TraceGenerator},
 };
+<span class="kw">use </span>std::{hash::Hash, rc::Rc};
 
 <span class="kw">use </span>cell_manager::{CellManager, SignalPlacement};
 <span class="kw">use </span>step_selector::StepSelectorBuilder;
@@ -837,7 +820,7 @@
                 <span class="macro">format!</span>(<span class="string">&quot;[{}, {}]&quot;</span>, placement.column.annotation, placement.rotation)
             };
 
-            PolyExpr::Query(placement.column, placement.rotation, annotation)
+            PolyExpr::Query((placement.column, placement.rotation, annotation))
         }
         Queriable::Forward(forward, next) =&gt; {
             <span class="kw">let </span>placement = unit.get_forward_placement(<span class="kw-2">&amp;</span>forward);
@@ -864,7 +847,7 @@
             } <span class="kw">else </span>{
                 <span class="macro">format!</span>(<span class="string">&quot;[{}, {}]&quot;</span>, placement.column.annotation, super_rotation)
             };
-            PolyExpr::Query(placement.column, super_rotation, annotation)
+            PolyExpr::Query((placement.column, super_rotation, annotation))
         }
         Queriable::Shared(shared, rot) =&gt; {
             <span class="kw">let </span>placement = unit.get_shared_placement(<span class="kw-2">&amp;</span>shared);
@@ -887,7 +870,7 @@
             } <span class="kw">else </span>{
                 <span class="macro">format!</span>(<span class="string">&quot;[{}, {}]&quot;</span>, placement.column.annotation, super_rotation)
             };
-            PolyExpr::Query(placement.column, super_rotation, annotation)
+            PolyExpr::Query((placement.column, super_rotation, annotation))
         }
         Queriable::Fixed(fixed, rot) =&gt; {
             <span class="kw">let </span>placement = unit.get_fixed_placement(<span class="kw-2">&amp;</span>fixed);
@@ -910,7 +893,7 @@
             } <span class="kw">else </span>{
                 <span class="macro">format!</span>(<span class="string">&quot;[{}, {}]&quot;</span>, placement.column.annotation, super_rotation)
             };
-            PolyExpr::Query(placement.column, super_rotation, annotation)
+            PolyExpr::Query((placement.column, super_rotation, annotation))
         }
         Queriable::StepTypeNext(step_type_handle) =&gt; {
             <span class="kw">let </span>super_rotation = unit.placement.step_height(step.uuid());
@@ -927,12 +910,12 @@
             } <span class="kw">else </span>{
                 <span class="macro">format!</span>(<span class="string">&quot;[halo2_advice?, {}]&quot;</span>, rot)
             };
-            PolyExpr::Query(
+            PolyExpr::Query((
                 unit.find_halo2_advice(signal)
                     .expect(<span class="string">&quot;halo2 advice column not found&quot;</span>),
                 rot,
                 annotation,
-            )
+            ))
         }
         Queriable::Halo2FixedQuery(signal, rot) =&gt; {
             <span class="kw">let </span>annotation = <span class="kw">if let </span><span class="prelude-val">Some</span>(annotation) = unit.annotations.get(<span class="kw-2">&amp;</span>signal.uuid()) {
@@ -940,12 +923,12 @@
             } <span class="kw">else </span>{
                 <span class="macro">format!</span>(<span class="string">&quot;[halo2_fixed?, {}]&quot;</span>, rot)
             };
-            PolyExpr::Query(
+            PolyExpr::Query((
                 unit.find_halo2_fixed(signal)
                     .expect(<span class="string">&quot;halo2 fixed column not found&quot;</span>),
                 rot,
                 annotation,
-            )
+            ))
         }
         Queriable::_unaccessible(<span class="kw">_</span>) =&gt; <span class="macro">panic!</span>(<span class="string">&quot;jarrl&quot;</span>),
     }
@@ -954,7 +937,7 @@
 <span class="kw">fn </span>transform_expr&lt;F: Clone&gt;(
     unit: <span class="kw-2">&amp;</span>CompilationUnit&lt;F&gt;,
     step: <span class="kw-2">&amp;</span>StepType&lt;F&gt;,
-    source: <span class="kw-2">&amp;</span>Expr&lt;F&gt;,
+    source: <span class="kw-2">&amp;</span>ASTExpr&lt;F&gt;,
 ) -&gt; PolyExpr&lt;F&gt; {
     <span class="kw">match </span>source.clone() {
         Expr::Const(c) =&gt; PolyExpr::Const(c),
@@ -1024,10 +1007,7 @@
         .iter()
         .map(|poly| Poly {
             annotation: poly.annotation.clone(),
-            expr: PolyExpr::Mul(<span class="macro">vec!</span>[
-                PolyExpr::&lt;F&gt;::Query(q_enable.clone(), <span class="number">0</span>, <span class="string">&quot;q_enable&quot;</span>.to_owned()),
-                poly.expr.clone(),
-            ]),
+            expr: q_enable.query(<span class="number">0</span>, <span class="string">&quot;q_enable&quot;</span>.to_owned()) * poly.expr.clone(),
         })
         .collect();
 
@@ -1041,10 +1021,7 @@
                 .iter()
                 .map(|(src, dest)| {
                     (
-                        PolyExpr::Mul(<span class="macro">vec!</span>[
-                            PolyExpr::&lt;F&gt;::Query(q_enable.clone(), <span class="number">0</span>, <span class="string">&quot;q_enable&quot;</span>.to_owned()),
-                            src.clone(),
-                        ]),
+                        q_enable.query(<span class="number">0</span>, <span class="string">&quot;q_enable&quot;</span>.to_owned()) * src.clone(),
                         dest.clone(),
                     )
                 })
@@ -1059,10 +1036,7 @@
 <span class="kw">fn </span>add_q_first&lt;F: Field&gt;(unit: <span class="kw-2">&amp;mut </span>CompilationUnit&lt;F&gt;, step_uuid: StepTypeUUID, q_first: Column) {
     <span class="kw">let </span>step = unit.step_types.get(<span class="kw-2">&amp;</span>step_uuid).expect(<span class="string">&quot;step not found&quot;</span>);
 
-    <span class="kw">let </span>poly = PolyExpr::Mul(<span class="macro">vec!</span>[
-        PolyExpr::&lt;F&gt;::Query(q_first.clone(), <span class="number">0</span>, <span class="string">&quot;q_first&quot;</span>.to_owned()),
-        unit.selector.unselect(step.uuid()),
-    ]);
+    <span class="kw">let </span>poly = q_first.query(<span class="number">0</span>, <span class="string">&quot;q_first&quot;</span>) * unit.selector.unselect(step.uuid());
 
     unit.polys.push(Poly {
         annotation: <span class="string">&quot;q_first&quot;</span>.to_string(),
@@ -1082,10 +1056,7 @@
     <span class="kw">if let </span><span class="prelude-val">Some</span>(step_uuid) = step_uuid {
         <span class="kw">let </span>step = unit.step_types.get(<span class="kw-2">&amp;</span>step_uuid).expect(<span class="string">&quot;step not found&quot;</span>);
 
-        <span class="kw">let </span>poly = PolyExpr::Mul(<span class="macro">vec!</span>[
-            PolyExpr::&lt;F&gt;::Query(q_last.clone(), <span class="number">0</span>, <span class="string">&quot;q_last&quot;</span>.to_owned()),
-            unit.selector.unselect(step.uuid()),
-        ]);
+        <span class="kw">let </span>poly = q_last.query(<span class="number">0</span>, <span class="string">&quot;q_last&quot;</span>.to_owned()) * unit.selector.unselect(step.uuid());
 
         unit.polys.push(Poly {
             annotation: <span class="string">&quot;q_last&quot;</span>.to_string(),
@@ -1103,13 +1074,10 @@
     constraint: PolyExpr&lt;F&gt;,
 ) -&gt; PolyExpr&lt;F&gt; {
     <span class="kw">let </span>q_last_column = unit.last_step.clone().expect(<span class="string">&quot;last column not found&quot;</span>).<span class="number">1</span>;
-    <span class="kw">let </span>q_last = PolyExpr::&lt;F&gt;::Query(q_last_column, <span class="number">0</span>, <span class="string">&quot;q_last&quot;</span>.to_owned());
-    <span class="kw">let </span>not_q_last_expr = PolyExpr::Sum(<span class="macro">vec!</span>[
-        PolyExpr::Const(F::ONE),
-        PolyExpr::Neg(Box::new(q_last)),
-    ]);
+    <span class="kw">let </span>q_last = q_last_column.query(<span class="number">0</span>, <span class="string">&quot;q_last&quot;</span>.to_owned());
+    <span class="kw">let </span>not_q_last_expr = PolyExpr::Const(F::ONE) + (-q_last);
 
-    PolyExpr::Mul(<span class="macro">vec!</span>[not_q_last_expr, constraint])
+    not_q_last_expr * constraint
 }
 
 <span class="kw">fn </span>add_default_columns&lt;F&gt;(unit: <span class="kw-2">&amp;mut </span>CompilationUnit&lt;F&gt;) {

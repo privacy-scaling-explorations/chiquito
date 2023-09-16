@@ -208,7 +208,7 @@
 };
 
 <span class="kw">use crate</span>::{
-    ast::{Expr, Lookup},
+    ast::{ASTExpr, Lookup},
     util::{uuid, UUID},
 };
 
@@ -242,7 +242,7 @@
     /// mutable reference to the `LookupBuilder&lt;F&gt;`, it can an chain multiple `add` and `enable`
     /// function calls to build the lookup table. Requires calling `lookup` to create an empty
     /// `LookupBuilder` instance at the very front.
-    </span><span class="kw">pub fn </span>add&lt;C: Into&lt;Constraint&lt;F&gt;&gt;, E: Into&lt;Expr&lt;F&gt;&gt;&gt;(
+    </span><span class="kw">pub fn </span>add&lt;C: Into&lt;Constraint&lt;F&gt;&gt;, E: Into&lt;ASTExpr&lt;F&gt;&gt;&gt;(
         <span class="kw-2">mut </span><span class="self">self</span>,
         constraint: C,
         expression: E,
@@ -267,7 +267,7 @@
 <span class="attr">#[derive(Debug, Clone)]
 </span><span class="kw">pub struct </span>LookupTableStore&lt;F&gt; {
     id: UUID,
-    dest: Vec&lt;Expr&lt;F&gt;&gt;,
+    dest: Vec&lt;ASTExpr&lt;F&gt;&gt;,
 }
 
 <span class="kw">impl</span>&lt;F&gt; Default <span class="kw">for </span>LookupTableStore&lt;F&gt; {
@@ -281,7 +281,7 @@
 
 <span class="kw">impl</span>&lt;F&gt; LookupTableStore&lt;F&gt; {
     <span class="attr">#[allow(clippy::should_implement_trait)]
-    </span><span class="kw">pub fn </span>add&lt;E: Into&lt;Expr&lt;F&gt;&gt;&gt;(<span class="kw-2">mut </span><span class="self">self</span>, expr: E) -&gt; <span class="self">Self </span>{
+    </span><span class="kw">pub fn </span>add&lt;E: Into&lt;ASTExpr&lt;F&gt;&gt;&gt;(<span class="kw-2">mut </span><span class="self">self</span>, expr: E) -&gt; <span class="self">Self </span>{
         <span class="self">self</span>.dest.push(expr.into());
 
         <span class="self">self
