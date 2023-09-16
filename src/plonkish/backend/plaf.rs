@@ -16,6 +16,7 @@ use num_bigint::BigUint;
 use polyexen::{
     expr::{get_field_p, Column as pColumn, ColumnKind, ColumnQuery, Expr as pExpr, PlonkVar},
     plaf::{
+        backends::halo2::PlafH2Circuit,
         ColumnFixed, ColumnPublic, ColumnWitness, CopyC as pCopyC, Lookup as pLookup, Plaf,
         Poly as pPoly, Witness as pWitness,
     },
@@ -322,5 +323,17 @@ impl ChiquitoPlafWitGen {
         } else {
             plaf_witness
         }
+    }
+}
+
+pub trait PlafInstance<F> {
+    fn instance(&self) -> Vec<Vec<F>>;
+}
+
+impl<F: PrimeField> PlafInstance<F> for PlafH2Circuit {
+    fn instance(&self) -> Vec<Vec<F>> {
+        println!("{:#?}", self.plaf.columns.public);
+        if !self.plaf.columns.public.is_empty() {}
+        Vec::new()
     }
 }
