@@ -1,6 +1,7 @@
 use std::hash::Hash;
 
 use chiquito::{
+    field::Field,
     frontend::dsl::{
         cb::*,   // functions for constraint building
         circuit, // main function for constructing an AST circuit
@@ -21,7 +22,7 @@ use chiquito::{
     plonkish::ir::{assignments::AssignmentGenerator, Circuit}, // compiled circuit type
     poly::ToField,
 };
-use halo2_proofs::{arithmetic::Field, dev::MockProver, halo2curves::bn256::Fr};
+use halo2_proofs::{dev::MockProver, halo2curves::bn256::Fr};
 
 // the main circuit function: returns the compiled IR of a Chiquito circuit
 // Generic types F, (), (u64, 64) stand for:
