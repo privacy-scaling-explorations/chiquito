@@ -14,8 +14,7 @@ class FiboFirstStep(StepType):
         self.transition(eq(self.c, self.circuit.b.next()))
         self.transition(eq(self.circuit.n, self.circuit.n.next()))
 
-    def wg(self, args):
-        a_value, b_value, n_value = args
+    def wg(self, a_value, b_value, n_value):
         self.assign(self.circuit.a, F(a_value))
         self.assign(self.circuit.b, F(b_value))
         self.assign(self.c, F(a_value + b_value))
@@ -30,8 +29,7 @@ class FiboStep(StepType):
         self.transition(eq(self.c, self.circuit.b.next()))
         self.transition(eq(self.circuit.n, self.circuit.n.next()))
 
-    def wg(self, args):
-        a_value, b_value, n_value = args
+    def wg(self, a_value, b_value, n_value):
         self.assign(self.circuit.a, F(a_value))
         self.assign(self.circuit.b, F(b_value))
         self.assign(self.c, F(a_value + b_value))
@@ -43,8 +41,7 @@ class Padding(StepType):
         self.transition(eq(self.circuit.b, self.circuit.b.next()))
         self.transition(eq(self.circuit.n, self.circuit.n.next()))
 
-    def wg(self, args):
-        a_value, b_value, n_value = args
+    def wg(self, a_value, b_value, n_value):
         self.assign(self.circuit.a, F(a_value))
         self.assign(self.circuit.b, F(b_value))
         self.assign(self.circuit.n, F(n_value))
@@ -68,16 +65,16 @@ class Fibonacci(Circuit):
         self.expose(self.n, Last())
 
     def trace(self, n):
-        self.add(self.fibo_first_step, (1, 1, n))
+        self.add(self.fibo_first_step, 1, 1, n)
         a = 1
         b = 2
         for i in range(1, n):
-            self.add(self.fibo_step, (a, b, n))
+            self.add(self.fibo_step, a, b, n)
             prev_a = a
             a = b
             b += prev_a
         while self.needs_padding():
-            self.add(self.padding, (a, b, n))
+            self.add(self.padding, a, b, n)
 
 
 fibo = Fibonacci()
