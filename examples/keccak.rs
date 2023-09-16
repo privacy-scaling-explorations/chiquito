@@ -549,19 +549,18 @@ fn keccak_circuit<F: PrimeField<Repr = [u8; 32]> + Eq + Hash>(
         .map(|i| ctx.forward(&format!("sum_sum_split_move_value_{}", i)))
         .collect();
 
-    let coeff_split_vec: Vec<Queriable<F>> = (0..NUM_PER_WORD)
+    let coeff_split_or_absorb_vec: Vec<Queriable<F>> = (0..NUM_PER_WORD)
         .map(|i| ctx.forward(&format!("coeff_split_{}", i)))
         .collect();
 
     let round: Queriable<F> = ctx.forward("round");
+    let coeff64: Queriable<F> = ctx.forward("64");
 
     let keccak_first_step = ctx.step_type_def("keccak first step", |ctx| {
         let s_vec = s_vec.clone();
         let setup_s_vec = s_vec.clone();
 
-        let absorb_vec: Vec<Queriable<F>> = (0..PART_SIZE * PART_SIZE)
-            .map(|_| ctx.internal("absorb"))
-            .collect();
+        let absorb_vec = coeff_split_or_absorb_vec.clone();
         let setup_absorb_vec = absorb_vec.clone();
 
         ctx.setup(move |ctx| {
@@ -605,9 +604,7 @@ fn keccak_circuit<F: PrimeField<Repr = [u8; 32]> + Eq + Hash>(
         let s_new_vec = s_new_vec.clone();
         let setup_s_new_vec = s_new_vec.clone();
 
-        let absorb_vec: Vec<Queriable<F>> = (0..PART_SIZE * PART_SIZE)
-            .map(|_| ctx.internal("absorb"))
-            .collect();
+        let absorb_vec = coeff_split_or_absorb_vec.clone();
         let setup_absorb_vec = absorb_vec.clone();
 
         let sum_split_value_vec = sum_split_value_vec.clone();
@@ -662,10 +659,7 @@ fn keccak_circuit<F: PrimeField<Repr = [u8; 32]> + Eq + Hash>(
         let sum_split_value_vec = sum_split_value_vec.clone();
         let setup_sum_split_value_vec = sum_split_value_vec.clone();
 
-        let threes: Queriable<F> = ctx.internal("threes");
-        let three2: Queriable<F> = ctx.internal("three");
-
-        let coeff_split_vec: Vec<Queriable<F>> = coeff_split_vec.clone();
+        let coeff_split_vec: Vec<Queriable<F>> = coeff_split_or_absorb_vec.clone();
         let setup_coeff_split_vec = coeff_split_vec.clone();
 
         let split_vec: Vec<Queriable<F>> = (0..NUM_PER_WORD)
@@ -678,17 +672,18 @@ fn keccak_circuit<F: PrimeField<Repr = [u8; 32]> + Eq + Hash>(
             .collect();
         let setup_split_xor_vec = split_xor_vec.clone();
 
-        let coeff64: Queriable<F> = ctx.internal("64");
-        let round_cst: Queriable<F> = ctx.internal("round_cst");
-        let s_new_add_cst = ctx.internal("s_new[0][0] + cst");
+        let threes: Queriable<F> = sum_sum_split_xor_value_vec[0];
+        let three2: Queriable<F> = sum_sum_split_xor_value_vec[1];
+        let round_cst: Queriable<F> = sum_sum_split_xor_value_vec[2];
+        let s_new_add_cst = sum_sum_split_xor_value_vec[3];
 
         ctx.setup(
             move |ctx: &mut chiquito::frontend::dsl::StepTypeSetupContext<'_, F>| {
                 ctx.constr(eq(coeff64, 64));
                 ctx.constr(eq(three2, 27));
-                let mut sum_split_vec: Expr<F> = three2 * coeff64 + three2;
+                let mut sum_split_vec: Expr<F> = three2 * 64 + three2;
                 for _ in 2..NUM_PER_WORD {
-                    sum_split_vec = sum_split_vec * coeff64 + three2;
+                    sum_split_vec = sum_split_vec * 64 + three2;
                 }
                 ctx.constr(eq(sum_split_vec, threes));
 
@@ -798,7 +793,7 @@ fn keccak_circuit<F: PrimeField<Repr = [u8; 32]> + Eq + Hash>(
                 let s_new_vec = s_new_vec.clone();
                 let setup_s_new_vec = s_new_vec.clone();
 
-                let coeff_split_vec: Vec<Queriable<F>> = coeff_split_vec.clone();
+                let coeff_split_vec: Vec<Queriable<F>> = coeff_split_or_absorb_vec.clone();
                 let setup_coeff_split_vec = coeff_split_vec.clone();
 
                 let split_vec: Vec<Queriable<F>> = (0..NUM_PER_WORD)
@@ -813,8 +808,6 @@ fn keccak_circuit<F: PrimeField<Repr = [u8; 32]> + Eq + Hash>(
 
                 let sum_split_value_vec = sum_split_value_vec.clone();
                 let setup_sum_split_value_vec = sum_split_value_vec.clone();
-
-                let coeff64: Queriable<F> = ctx.internal("64");
 
                 ctx.setup(move |ctx| {
                     let s = (s % PART_SIZE) * PART_SIZE + s / PART_SIZE;
@@ -903,7 +896,7 @@ fn keccak_circuit<F: PrimeField<Repr = [u8; 32]> + Eq + Hash>(
                 let s_vec = s_vec.clone();
                 let setup_s_vec = s_vec.clone();
 
-                let coeff_split_vec: Vec<Queriable<F>> = coeff_split_vec.clone();
+                let coeff_split_vec: Vec<Queriable<F>> = coeff_split_or_absorb_vec.clone();
                 let setup_coeff_split_vec = coeff_split_vec.clone();
 
                 let split_vec: Vec<Queriable<F>> = (0..NUM_PER_WORD)
@@ -923,9 +916,8 @@ fn keccak_circuit<F: PrimeField<Repr = [u8; 32]> + Eq + Hash>(
                 let setup_sum_sum_split_xor_move_value_vec =
                     sum_sum_split_xor_move_value_vec.clone();
 
-                let coeff64: Queriable<F> = ctx.internal("64");
-                let bit_0 = ctx.internal("bit0");
-                let bit_1 = ctx.internal("bit1");
+                let bit_0 = s_new_vec[0][0];
+                let bit_1 = s_new_vec[0][1];
 
                 ctx.setup(move |ctx| {
                     ctx.constr(eq(setup_coeff_split_vec[0], 1));
@@ -1036,7 +1028,7 @@ fn keccak_circuit<F: PrimeField<Repr = [u8; 32]> + Eq + Hash>(
                 let s_new_vec = s_new_vec.clone();
                 let setup_s_new_vec = s_new_vec.clone();
 
-                let coeff_split_vec: Vec<Queriable<F>> = coeff_split_vec.clone();
+                let coeff_split_vec: Vec<Queriable<F>> = coeff_split_or_absorb_vec.clone();
                 let setup_coeff_split_vec = coeff_split_vec.clone();
 
                 let split_vec: Vec<Queriable<F>> = (0..NUM_PER_WORD)
@@ -1055,8 +1047,6 @@ fn keccak_circuit<F: PrimeField<Repr = [u8; 32]> + Eq + Hash>(
                 let sum_sum_split_xor_move_value_vec = sum_sum_split_xor_move_value_vec.clone();
                 let setup_sum_sum_split_xor_move_value_vec =
                     sum_sum_split_xor_move_value_vec.clone();
-
-                let coeff64: Queriable<F> = ctx.internal("64");
 
                 ctx.setup(move |ctx| {
                     ctx.constr(eq(setup_coeff_split_vec[0], 1));
@@ -1170,15 +1160,17 @@ fn keccak_circuit<F: PrimeField<Repr = [u8; 32]> + Eq + Hash>(
             let s_new_vec = s_new_vec.clone();
             let setup_s_new_vec:  Vec<Vec<Queriable<F>>> =  s_new_vec.clone();
 
-            let coeff_split_vec: Vec<Queriable<F>> = (0..NUM_PER_WORD).map(|i|ctx.internal(&format!("coeff_split_{}", i))).collect();
+            let coeff_split_vec: Vec<Queriable<F>> = coeff_split_or_absorb_vec.clone();
             let setup_coeff_split_vec = coeff_split_vec.clone();
 
             let split_vec: Vec<Queriable<F>>= (0..NUM_PER_WORD).map(|i|ctx.internal(&format!("split_{}", i))).collect();
             let setup_split_vec = split_vec.clone();
 
-            let coeff_eight: Queriable<F> = ctx.internal("64");
-            let bit_0 = ctx.internal("bit0");
-            let bit_1 = ctx.internal("bit1");
+            // let bit_0 = ctx.internal("bit0");
+            // let bit_1 = ctx.internal("bit1");
+            let bit_0 = sum_sum_split_xor_value_vec[0];
+            let bit_1 = sum_sum_split_xor_value_vec[1];
+
 
             ctx.setup(move |ctx| {
                 let mut i = 0;
@@ -1200,9 +1192,9 @@ fn keccak_circuit<F: PrimeField<Repr = [u8; 32]> + Eq + Hash>(
                 } else {
 
                     ctx.constr(eq(setup_coeff_split_vec[0], 1));
-                    ctx.constr(eq(coeff_eight, 64));
+                    ctx.constr(eq(coeff64, 64));
                     for k in 1..NUM_PER_WORD {
-                        ctx.constr(eq(setup_coeff_split_vec[k-1] * coeff_eight, setup_coeff_split_vec[k]));
+                        ctx.constr(eq(setup_coeff_split_vec[k-1] * coeff64, setup_coeff_split_vec[k]));
                     }
 
                     let mut sum_split_vec: Expr<F> = setup_split_vec[0] * setup_coeff_split_vec[0];
@@ -1246,7 +1238,7 @@ fn keccak_circuit<F: PrimeField<Repr = [u8; 32]> + Eq + Hash>(
                 ctx.transition(eq(round, round.next()));
             });
             ctx.wg::<KeccakFRhoMoveStepArgs<F>, _>(move |ctx, values|{
-                ctx.assign(coeff_eight, F::from_u128(64));
+                ctx.assign(coeff64, F::from_u128(64));
                 let mut coeff_value = F::from_u128(1);
                 for &coeff_split in coeff_split_vec.iter().take(NUM_BITS_PER_WORD) {
                     ctx.assign(coeff_split, coeff_value);
@@ -1277,7 +1269,7 @@ fn keccak_circuit<F: PrimeField<Repr = [u8; 32]> + Eq + Hash>(
             let s_new_vec = s_new_vec.clone();
             let setup_s_new_vec: Vec<Vec<Queriable<F>>> =  s_new_vec.clone();
 
-            let coeff_split_vec: Vec<Queriable<F>> = coeff_split_vec.clone(); //(0..NUM_BITS_PER_WORD).map(|i|ctx.internal(&format!("coeff_split_{}", i))).collect();
+            let coeff_split_vec: Vec<Queriable<F>> = coeff_split_or_absorb_vec.clone(); //(0..NUM_BITS_PER_WORD).map(|i|ctx.internal(&format!("coeff_split_{}", i))).collect();
             let setup_coeff_split_vec = coeff_split_vec.clone();
 
             let split_vec: Vec<Queriable<F>>= (0..NUM_PER_WORD).map(|i|ctx.internal(&format!("split_{}", i))).collect();
@@ -1288,8 +1280,6 @@ fn keccak_circuit<F: PrimeField<Repr = [u8; 32]> + Eq + Hash>(
 
             let sum_split_value_vec = sum_split_value_vec.clone();
             let setup_sum_split_value_vec = sum_split_value_vec.clone();
-
-            let coeff64: Queriable<F> = ctx.internal("64");
 
             ctx.setup(move |ctx| {
                 ctx.constr(eq(setup_coeff_split_vec[0], 1));
