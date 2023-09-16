@@ -1,9 +1,8 @@
 use std::{collections::HashMap, hash::Hash, rc::Rc};
 
-use halo2_proofs::arithmetic::Field;
-
 use crate::{
     ast::{query::Queriable, StepTypeUUID},
+    field::Field,
     frontend::dsl::StepTypeWGHandler,
 };
 

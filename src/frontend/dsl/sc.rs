@@ -1,6 +1,6 @@
 use std::{hash::Hash, rc::Rc};
 
-use halo2_proofs::arithmetic::Field;
+use crate::field::Field;
 
 use crate::{
     ast::Circuit,
