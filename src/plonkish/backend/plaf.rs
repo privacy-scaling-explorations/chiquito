@@ -16,9 +16,8 @@ use num_bigint::BigUint;
 use polyexen::{
     expr::{get_field_p, Column as pColumn, ColumnKind, ColumnQuery, Expr as pExpr, PlonkVar},
     plaf::{
-        backends::halo2::PlafH2Circuit,
-        ColumnFixed, ColumnPublic, ColumnWitness, CopyC as pCopyC, Lookup as pLookup, Plaf,
-        Poly as pPoly, Witness as pWitness,
+        backends::halo2::PlafH2Circuit, ColumnFixed, ColumnPublic, ColumnWitness, CopyC as pCopyC,
+        Lookup as pLookup, Plaf, Poly as pPoly, Witness as pWitness,
     },
 };
 
@@ -332,8 +331,25 @@ pub trait PlafInstance<F> {
 
 impl<F: PrimeField> PlafInstance<F> for PlafH2Circuit {
     fn instance(&self) -> Vec<Vec<F>> {
-        println!("{:#?}", self.plaf.columns.public);
-        if !self.plaf.columns.public.is_empty() {}
+        if !self.plaf.columns.public.is_empty() {
+            let mut instance_values = Vec::new();
+
+            for copyc in &self.plaf.copys {
+                let (col1, col2) = copyc.columns;
+                let (_, col2_offset) = copyc.offsets[0];
+                if col1.kind == ColumnKind::Public && col2.kind == ColumnKind::Witness {
+                    instance_values.push(F::from(
+                        self.wit.witness[col2.index][col2_offset]
+                            .as_ref()
+                            .unwrap()
+                            .to_u64_digits()[0],
+                    ));
+                }
+            }
+
+            return vec![instance_values];
+        }
+
         Vec::new()
     }
 }
