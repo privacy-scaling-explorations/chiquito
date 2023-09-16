@@ -1,15 +1,15 @@
 use std::{fmt::Debug, hash::Hash};
 
-use halo2_proofs::plonk::Expression;
-
 use crate::{
     ast::{ImportedHalo2Advice, ImportedHalo2Fixed},
+    poly::Expr,
     util::{uuid, UUID},
 };
 
-use self::assignments::Assignments;
+use self::{assignments::Assignments, query::Queriable};
 
 pub mod assignments;
+pub mod query;
 pub mod sc;
 
 #[derive(Clone, Default)]
@@ -111,6 +111,10 @@ impl Column {
     pub fn uuid(&self) -> UUID {
         self.id
     }
+
+    pub fn query<F, A: Into<String>>(&self, rotation: i32, annotation: A) -> PolyExpr<F> {
+        PolyExpr::Query((self.clone(), rotation, annotation.into()))
+    }
 }
 
 impl PartialEq for Column {
@@ -139,58 +143,17 @@ impl<F: Debug> Debug for Poly<F> {
     }
 }
 
-#[derive(Clone)]
-pub enum PolyExpr<F> {
-    Const(F),
-    Query(Column, i32, String), // column, rotation, annotation
-    Sum(Vec<PolyExpr<F>>),
-    Mul(Vec<PolyExpr<F>>),
-    Neg(Box<PolyExpr<F>>),
-    Pow(Box<PolyExpr<F>>, u32),
-    Halo2Expr(Expression<F>),
-}
-
-impl<F: Debug> Debug for PolyExpr<F> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let joiner = |list: &Vec<PolyExpr<F>>, sep: &str| {
-            list.iter()
-                .map(|v| format!("{:?}", v))
-                .collect::<Vec<String>>()
-                .join(sep)
-        };
-
-        match self {
-            Self::Const(arg0) => {
-                let formatted = format!("{:?}", arg0);
-                if formatted.starts_with("0x") {
-                    let s = format!(
-                        "0x{}",
-                        formatted.trim_start_matches("0x").trim_start_matches('0')
-                    );
-                    write!(f, "{}", s)
-                } else {
-                    write!(f, "{}", formatted)
-                }
-            }
-            Self::Query(_, _, annotation) => write!(f, "`{}`", annotation),
-            Self::Sum(arg0) => write!(f, "({})", joiner(arg0, " + ")),
-            Self::Mul(arg0) => write!(f, "({})", joiner(arg0, " * ")),
-            Self::Neg(arg0) => write!(f, "(-{:?})", arg0),
-            Self::Pow(arg0, arg1) => f.debug_tuple("Pow").field(arg0).field(arg1).finish(),
-            Self::Halo2Expr(expr) => write!(f, "{:?}", expr),
-        }
-    }
-}
+pub type PolyExpr<F> = Expr<F, Queriable>;
 
 impl<F: Clone> PolyExpr<F> {
     pub fn rotate(&self, rot: i32) -> PolyExpr<F> {
         match self {
             PolyExpr::Const(_) => (*self).clone(),
-            PolyExpr::Query(c, orig_rot, annotation) => PolyExpr::Query(
+            PolyExpr::Query((c, orig_rot, annotation)) => PolyExpr::Query((
                 c.clone(),
                 orig_rot + rot,
                 format!("rot[{}, {}]", rot, annotation),
-            ),
+            )),
             PolyExpr::Sum(v) => PolyExpr::Sum(v.iter().map(|e| e.rotate(rot)).collect()),
             PolyExpr::Mul(v) => PolyExpr::Mul(v.iter().map(|e| e.rotate(rot)).collect()),
             PolyExpr::Neg(v) => PolyExpr::Neg(Box::new(v.rotate(rot))),
@@ -229,6 +192,6 @@ mod tests {
         assert_eq!(format!("{:?}", expr4), "(-0xa)");
 
         let expr5 = PolyExpr::Pow(Box::new(PolyExpr::Const(&a)), 2);
-        assert_eq!(format!("{:?}", expr5), "Pow(0xa, 2)");
+        assert_eq!(format!("{:?}", expr5), "(0xa)^2");
     }
 }

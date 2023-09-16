@@ -216,7 +216,7 @@ impl<F: PrimeField<Repr = [u8; 32]>> ChiquitoPlaf<F> {
                 }
             }
             cPolyExpr::Halo2Expr(e) => pExpr::from(e),
-            cPolyExpr::Query(column, rotation, annotation) => {
+            cPolyExpr::Query((column, rotation, annotation)) => {
                 let index = self
                     .c_column_id_to_p_column_index
                     .get(&column.uuid())
