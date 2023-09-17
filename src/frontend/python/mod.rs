@@ -6,7 +6,7 @@ use pyo3::{
 use crate::{
     ast::{
         query::Queriable, Circuit, Constraint, ExposeOffset, FixedSignal, ForwardSignal,
-        InternalSignal, SharedSignal, StepType, StepTypeUUID, TransitionConstraint, Lookup,
+        InternalSignal, Lookup, SharedSignal, StepType, StepTypeUUID, TransitionConstraint,
     },
     frontend::dsl::StepTypeHandler,
     plonkish::{
@@ -425,7 +425,8 @@ impl<'de> Visitor<'de> for LookupVisitor {
                     if exprs.is_some() {
                         return Err(de::Error::duplicate_field("exprs"));
                     }
-                    exprs = Some(map.next_value::<Vec<(Constraint<Fr>, Expr<Fr>)>>()?);
+                    exprs =
+                        Some(map.next_value::<Vec<(Constraint<Fr>, Expr<Fr, Queriable<Fr>>)>>()?);
                 }
                 "enable" => {
                     if enable.is_some() {

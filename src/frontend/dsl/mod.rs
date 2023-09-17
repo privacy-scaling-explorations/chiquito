@@ -1,7 +1,8 @@
 use crate::{
     ast::{query::Queriable, Circuit, ExposeOffset, StepType, StepTypeUUID},
+    field::Field,
     util::{uuid, UUID},
-    wit_gen::{FixedGenContext, StepInstance, TraceContext}, field::Field,
+    wit_gen::{FixedGenContext, StepInstance, TraceContext},
 };
 
 use halo2_proofs::plonk::{Advice, Column as Halo2Column, Fixed};
