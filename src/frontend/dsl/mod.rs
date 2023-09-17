@@ -179,7 +179,7 @@ impl<F: Field + Hash, TraceArgs> CircuitContext<F, TraceArgs> {
         let mut ctx = FixedGenContext::new(self.circuit.num_steps);
         (def)(&mut ctx);
 
-        let assignments = Some(ctx.get_assignments());
+        let assignments = ctx.get_assignments();
 
         self.circuit.set_fixed_assignments(assignments);
     }
