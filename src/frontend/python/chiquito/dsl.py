@@ -98,7 +98,7 @@ class Circuit:
 
     def new_table(self: Circuit, table: LookupTable) -> LookupTable:
         assert self.mode == CircuitMode.SETUP
-        self.tables.add(table)
+        self.tables[table.uuid] = table
         return table
 
     # called under trace()
