@@ -12,7 +12,6 @@ from chiquito.cb import (
     Typing,
     ToConstraint,
     to_constraint,
-    LookupTableRegistry,
     LookupTable,
     LookupTableBuilder,
     InPlaceLookupBuilder,
@@ -30,7 +29,7 @@ class CircuitMode(Enum):
 class Circuit:
     def __init__(self: Circuit):
         self.ast = ASTCircuit()
-        self.tables = LookupTableRegistry()
+        self.tables: Dict[int, LookupTable] = {}
         self.witness = TraceWitness()
         self.rust_ast_id = 0
         self.mode = CircuitMode.SETUP

@@ -230,17 +230,6 @@ def to_constraint(v: ToConstraint) -> Constraint:
 
 
 @dataclass
-class LookupTableRegistry:
-    tables: Dict[int, LookupTable] = field(default_factory=dict)
-
-    def add(self: LookupTableRegistry, table: LookupTable):
-        self.tables[table.uuid] = table
-
-    def get(self: LookupTableRegistry, uuid: int) -> LookupTable:
-        return self.tables[uuid]
-
-
-@dataclass
 class LookupTable:
     uuid: int = 0
     dest: List[Expr] = field(default_factory=list)
