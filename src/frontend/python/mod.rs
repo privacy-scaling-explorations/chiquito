@@ -6,7 +6,7 @@ use pyo3::{
 use crate::{
     ast::{
         query::Queriable, Circuit, Constraint, ExposeOffset, FixedSignal, ForwardSignal,
-        InternalSignal, SharedSignal, StepType, StepTypeUUID, TransitionConstraint,
+        InternalSignal, SharedSignal, StepType, StepTypeUUID, TransitionConstraint, Lookup,
     },
     frontend::dsl::StepTypeHandler,
     plonkish::{

@@ -6,7 +6,7 @@ use crate::{
         Circuit, Column, Poly, PolyExpr, PolyLookup,
     },
     poly::Expr,
-    wit_gen::{FixedAssignment, FixedGenContext, TraceGenerator},
+    wit_gen::{FixedAssignment, TraceGenerator},
 };
 use std::{hash::Hash, rc::Rc};
 
