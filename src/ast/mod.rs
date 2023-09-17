@@ -180,9 +180,7 @@ impl<F, TraceArgs> Circuit<F, TraceArgs> {
 
         Rc::clone(step_rc)
     }
-}
 
-impl<F: Field + Hash, TraceArgs> Circuit<F, TraceArgs> {
     pub fn set_fixed_assignments(&mut self, assignments: FixedAssignment<F>) {
         match self.fixed_assignments {
             None => {
