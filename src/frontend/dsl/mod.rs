@@ -1,16 +1,13 @@
 use crate::{
     ast::{query::Queriable, Circuit, ExposeOffset, StepType, StepTypeUUID},
     util::{uuid, UUID},
-    wit_gen::{FixedGenContext, StepInstance, TraceContext},
+    wit_gen::{FixedGenContext, StepInstance, TraceContext}, field::Field,
 };
 
-use halo2_proofs::{
-    arithmetic::Field,
-    plonk::{Advice, Column as Halo2Column, Fixed},
-};
+use halo2_proofs::plonk::{Advice, Column as Halo2Column, Fixed};
 
 use core::fmt::Debug;
-use std::{hash::Hash, marker::PhantomData};
+use std::marker::PhantomData;
 
 use self::{
     cb::{Constraint, Typing},
@@ -164,7 +161,7 @@ impl<F, TraceArgs> CircuitContext<F, TraceArgs> {
     }
 }
 
-impl<F: Field + Hash, TraceArgs> CircuitContext<F, TraceArgs> {
+impl<F: Field, TraceArgs> CircuitContext<F, TraceArgs> {
     /// Sets the fixed generation function for the circuit. The fixed generation function is
     /// responsible for assigning fixed values to fixed columns. It is entirely left
     /// for the user to implement and is Turing complete. Users typically generate cell values and
