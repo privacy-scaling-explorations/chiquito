@@ -74,30 +74,47 @@ impl StepSelectorBuilder for SimpleStepSelectorBuilder {
             columns: Vec::new(),
         };
 
-        for step in unit.step_types.values() {
-            let annotation = if let Some(annotation) = unit.annotations.get(&step.uuid()) {
-                format!("'step selector for {}'", annotation)
-            } else {
-                "'step selector'".to_string()
-            };
+        if unit.step_types.len() == 1 {
+            let step = unit.step_types.values().next().expect("step not found");
 
-            let column = Column::advice(annotation.clone(), 0);
-
-            selector.columns.push(column.clone());
-
+            // use constant F::ONE as true, F::ZERO as false Expr
             selector
                 .selector_expr
-                .insert(step.uuid(), column.query(0, annotation.clone()));
+                .insert(step.uuid(), PolyExpr::Const(F::ONE));
 
-            selector.selector_expr_not.insert(
-                step.uuid(),
-                PolyExpr::Const(F::ONE) + (-column.query(0, annotation.clone())),
-            );
+            selector
+                .selector_expr_not
+                .insert(step.uuid(), PolyExpr::Const(F::ZERO));
 
-            selector.selector_assignment.insert(
-                step.uuid(),
-                vec![(column.query(0, annotation.clone()), F::ONE)],
-            );
+            selector
+                .selector_assignment
+                .insert(step.uuid(), vec![(PolyExpr::Const(F::ONE), F::ONE)]);
+        } else {
+            for step in unit.step_types.values() {
+                let annotation = if let Some(annotation) = unit.annotations.get(&step.uuid()) {
+                    format!("'step selector for {}'", annotation)
+                } else {
+                    "'step selector'".to_string()
+                };
+
+                let column = Column::advice(annotation.clone(), 0);
+
+                selector.columns.push(column.clone());
+
+                selector
+                    .selector_expr
+                    .insert(step.uuid(), column.query(0, annotation.clone()));
+
+                selector.selector_expr_not.insert(
+                    step.uuid(),
+                    PolyExpr::Const(F::ONE) + (-column.query(0, annotation.clone())),
+                );
+
+                selector.selector_assignment.insert(
+                    step.uuid(),
+                    vec![(column.query(0, annotation.clone()), F::ONE)],
+                );
+            }
         }
 
         unit.columns.extend_from_slice(&selector.columns);

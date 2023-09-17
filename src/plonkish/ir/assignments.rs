@@ -118,6 +118,9 @@ impl<F: Field, TraceArgs> AssignmentGenerator<F, TraceArgs> {
                 PolyExpr::Query((column, rot, _)) => {
                     self.set_value(assignments, column.clone(), *offset + *rot as usize, value)
                 }
+                PolyExpr::Const(_) => {
+                    continue; // empty assignment for constant
+                }
                 _ => panic!("wrong type of expresion is selector assignment"),
             }
         }
