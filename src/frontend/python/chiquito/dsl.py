@@ -98,6 +98,7 @@ class Circuit:
 
     def new_table(self: Circuit, table: LookupTable) -> LookupTable:
         assert self.mode == CircuitMode.SETUP
+        table.read_only = True
         self.tables[table.uuid] = table
         return table
 
