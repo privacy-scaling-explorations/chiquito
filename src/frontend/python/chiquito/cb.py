@@ -233,19 +233,24 @@ def to_constraint(v: ToConstraint) -> Constraint:
 class LookupTable:
     uuid: int = 0
     dest: List[Expr] = field(default_factory=list)
+    read_only: bool = False
 
     def __init__(self: LookupTable):
         self.uuid: int = uuid()
         self.dest = []
+        self.read_only = False
 
     def add(self: LookupTable, expr: ToExpr) -> LookupTable:
+        assert self.read_only == False
         self.dest.append(to_expr(expr))
         return self
 
     def apply(self: LookupTable, constraint: ToConstraint) -> LookupTableBuilder:
+        assert self.read_only == True
         return LookupTableBuilder(self.uuid).apply(constraint)
 
     def when(self: LookupTable, enable: ToConstraint) -> LookupTableBuilder:
+        assert self.read_only == True
         return LookupTableBuilder(self.uuid).when(enable)
 
 
