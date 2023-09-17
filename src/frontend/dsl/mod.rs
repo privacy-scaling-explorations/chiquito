@@ -6,7 +6,7 @@ use crate::{
 
 use halo2_proofs::plonk::{Advice, Column as Halo2Column, Fixed};
 
-use core::fmt::Debug;
+use core::{fmt::Debug, hash::Hash};
 use std::marker::PhantomData;
 
 use self::{
@@ -161,7 +161,7 @@ impl<F, TraceArgs> CircuitContext<F, TraceArgs> {
     }
 }
 
-impl<F: Field, TraceArgs> CircuitContext<F, TraceArgs> {
+impl<F: Field + Hash, TraceArgs> CircuitContext<F, TraceArgs> {
     /// Sets the fixed generation function for the circuit. The fixed generation function is
     /// responsible for assigning fixed values to fixed columns. It is entirely left
     /// for the user to implement and is Turing complete. Users typically generate cell values and
