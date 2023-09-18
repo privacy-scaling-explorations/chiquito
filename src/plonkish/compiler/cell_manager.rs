@@ -246,7 +246,7 @@ impl MaxWidthCellManager {
 
 impl CellManager for MaxWidthCellManager {
     fn place<F>(&self, unit: &mut CompilationUnit<F>) {
-        if (!unit.shared_signals.is_empty() || !unit.fixed_signals.is_empty()) && !self.same_height
+        if (!unit.shared_signals.is_empty()) && !self.same_height
         {
             panic!("Shared signals and fixed signals are not supported for MaxWidthCellManager, which might return steps with variable heights.");
         }
@@ -298,6 +298,51 @@ impl CellManager for MaxWidthCellManager {
         } else {
             forward_signal_row
         } as u32;
+
+
+
+        let mut fixed_signal_column: usize = 0;
+        let mut fixed_signal_row: usize = 0;
+
+        for fixed_signal in unit.fixed_signals.iter() {
+            let column = if placement.columns.len() <= fixed_signal_column {
+                let column = if let Some(annotation) = unit.annotations.get(&fixed_signal.uuid())
+                {
+                    Column::fixed(format!("mwcm fixed signal {}", annotation))
+                } else {
+                    Column::fixed("mwcm fixed signal")
+                };
+
+                placement.columns.push(column.clone());
+                column
+            } else {
+                placement.columns[fixed_signal_column].clone()
+            };
+
+            placement.fixed.insert(
+                *fixed_signal,
+                SignalPlacement {
+                    column,
+                    rotation: fixed_signal_row as i32,
+                },
+            );
+
+            fixed_signal_column += 1;
+            if fixed_signal_column >= self.max_width {
+                fixed_signal_column = 0;
+                fixed_signal_row += 1;
+            }
+        }
+
+        placement.base_height = if fixed_signal_column != 0 {
+            fixed_signal_row + 1
+        } else {
+            fixed_signal_row
+        } as u32;
+
+
+
+
 
         for step in unit.step_types.values() {
             let mut step_placement = StepPlacement {
