@@ -77,7 +77,7 @@ impl StepSelectorBuilder for SimpleStepSelectorBuilder {
         if unit.step_types.len() == 1 {
             let step = unit.step_types.values().next().expect("step not found");
 
-            // use constant F::ONE as true, F::ZERO as false Expr
+            // use F::ONE for selector constantly on, F::ZERO for off
             selector
                 .selector_expr
                 .insert(step.uuid(), PolyExpr::Const(F::ONE));
@@ -213,4 +213,64 @@ fn other_step_type<F>(unit: &CompilationUnit<F>, uuid: UUID) -> Option<Rc<StepTy
     }
 
     None
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::{
+        ast::Constraint,
+        frontend::dsl::cb::eq,
+        plonkish::compiler::{transform_expr, CompilationUnit},
+        poly::ToExpr,
+    };
+    use halo2_proofs::halo2curves::bn256::Fr;
+
+    #[test]
+    fn test_ssb_single_step() {
+        // unit test for SSB with only one step type
+        let mut unit = CompilationUnit::<Fr>::default();
+        let step = StepType::<Fr>::new(UUID::default(), "single step".to_string());
+        let uuid = step.uuid();
+        unit.annotations.insert(uuid, step.name.clone());
+        unit.step_types.insert(uuid, Rc::new(step));
+
+        let ssb = SimpleStepSelectorBuilder {};
+        ssb.build(&mut unit);
+
+        let constraint = Constraint::<Fr> {
+            annotation: "test constraint".to_string(),
+            expr: eq(1.expr() - 1.expr(), 0.expr()).into(),
+        };
+        let constraint = transform_expr(
+            &unit,
+            unit.step_types.get(&uuid).expect("step not found {}"),
+            &constraint.expr,
+        );
+
+        // selector.select should return constraint switched on
+        assert_eq!(
+            format!("{:?}", unit.selector.select(uuid, &constraint)),
+            format!(
+                "{:?}",
+                PolyExpr::Mul(vec![PolyExpr::Const(Fr::ONE), constraint])
+            )
+        );
+        // selector.unselect should return zero
+        assert_eq!(
+            format!("{:?}", unit.selector.unselect(uuid)),
+            format!("{:?}", PolyExpr::Const(Fr::ZERO))
+        );
+        // selector.next_expr should return constant one
+        assert_eq!(
+            format!("{:?}", unit.selector.next_expr(uuid, 1)),
+            format!("{:?}", PolyExpr::Const(Fr::ONE))
+        );
+        // selector.get_selector_assignment should return constant expr
+        let (expr, _) = &unit.selector.get_selector_assignment(uuid)[0];
+        assert!(match expr {
+            PolyExpr::Const(_) => true,
+            _ => false,
+        });
+    }
 }
