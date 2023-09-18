@@ -217,7 +217,7 @@ fn main() {
     }
 
     // plaf boilerplate
-    use chiquito::plonkish::backend::plaf::{chiquito2Plaf,PlafInstance};
+    use chiquito::plonkish::backend::plaf::{chiquito2Plaf, PlafInstance};
     use polyexen::plaf::{backends::halo2::PlafH2Circuit, WitnessDisplayCSV};
 
     // get Chiquito ir
