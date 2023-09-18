@@ -138,7 +138,7 @@ impl<F: PrimeField<Repr = [u8; 32]>> ChiquitoPlaf<F> {
             plaf.columns.public.push(plaf_public);
         }
 
-        for (index, (c_column, rotation)) in self.circuit.exposed.iter().enumerate() {
+        for (index, (c_column, rotation)) in self.circuit.exposed.iter().rev().enumerate() {
             let public_column = pColumn {
                 kind: ColumnKind::Public,
                 index: 0, // Chiquito only has one public column, so the index is always 0.
@@ -332,21 +332,37 @@ pub trait PlafInstance<F> {
 impl<F: PrimeField> PlafInstance<F> for PlafH2Circuit {
     fn instance(&self) -> Vec<Vec<F>> {
         if !self.plaf.columns.public.is_empty() {
-            let mut instance_values = Vec::new();
+            let mut instance_with_offsets = Vec::new();
+            for copy in &self.plaf.copys {
+                let (left_col, right_col) = &copy.columns;
 
-            for copyc in &self.plaf.copys {
-                let (col1, col2) = copyc.columns;
-                if col1.kind == ColumnKind::Public && col2.kind == ColumnKind::Witness {
-                    let witness_index = col2.index;
-                    let (_, witness_offset) = copyc.offsets[0];
-                    instance_values.push(F::from(
-                        self.wit.witness[witness_index][witness_offset]
+                let (witness_col, _, offsets) = match (left_col.kind, right_col.kind) {
+                    (ColumnKind::Witness, ColumnKind::Public) => {
+                        (left_col, right_col, copy.offsets.clone())
+                    }
+                    (ColumnKind::Public, ColumnKind::Witness) => (
+                        right_col,
+                        left_col,
+                        copy.offsets.iter().map(|(l, r)| (*r, *l)).collect(),
+                    ),
+                    _ => continue,
+                };
+
+                for (witness_offset, public_offset) in offsets {
+                    instance_with_offsets.push((
+                        self.wit.witness[witness_col.index][witness_offset]
                             .as_ref()
                             .unwrap()
                             .to_u64_digits()[0],
+                        public_offset,
                     ));
                 }
             }
+            instance_with_offsets.sort_by_key(|&(_, offset)| offset);
+            let instance_values = instance_with_offsets
+                .iter()
+                .map(|&(val, _)| F::from(val))
+                .collect();
 
             return vec![instance_values];
         }
