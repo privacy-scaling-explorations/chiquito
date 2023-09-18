@@ -137,7 +137,7 @@ fn fibo_circuit<F: Field + From<u64> + Hash>() -> (Circuit<F>, Option<Assignment
             ctx.setup(move |ctx| {
                 // b == b.next
                 ctx.transition(eq(b, b.next()));
-                // n == n.ext
+                // n == n.next
                 ctx.transition(eq(n, n.next()));
             });
 
