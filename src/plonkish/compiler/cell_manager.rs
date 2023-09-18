@@ -341,9 +341,6 @@ impl CellManager for MaxWidthCellManager {
         } as u32;
 
 
-
-
-
         for step in unit.step_types.values() {
             let mut step_placement = StepPlacement {
                 height: if forward_signal_column > 0 {
