@@ -268,9 +268,6 @@ mod tests {
         );
         // selector.get_selector_assignment should return constant expr
         let (expr, _) = &unit.selector.get_selector_assignment(uuid)[0];
-        assert!(match expr {
-            PolyExpr::Const(_) => true,
-            _ => false,
-        });
+        assert!(matches!(expr, PolyExpr::Const(_)));
     }
 }
