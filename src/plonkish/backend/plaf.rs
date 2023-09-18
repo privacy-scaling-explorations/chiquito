@@ -336,13 +336,10 @@ impl<F: PrimeField> PlafInstance<F> for PlafH2Circuit {
             for copy in &self.plaf.copys {
                 let (left_col, right_col) = &copy.columns;
 
-                let (witness_col, _, offsets) = match (left_col.kind, right_col.kind) {
-                    (ColumnKind::Witness, ColumnKind::Public) => {
-                        (left_col, right_col, copy.offsets.clone())
-                    }
+                let (witness_col, offsets) = match (left_col.kind, right_col.kind) {
+                    (ColumnKind::Witness, ColumnKind::Public) => (left_col, copy.offsets.clone()),
                     (ColumnKind::Public, ColumnKind::Witness) => (
                         right_col,
-                        left_col,
                         copy.offsets.iter().map(|(l, r)| (*r, *l)).collect(),
                     ),
                     _ => continue,
