@@ -5,9 +5,8 @@ use pyo3::{
 
 use crate::{
     ast::{
-        expr::{query::Queriable, Expr},
-        Circuit, Constraint, ExposeOffset, FixedSignal, ForwardSignal, InternalSignal, Lookup,
-        SharedSignal, StepType, StepTypeUUID, TransitionConstraint,
+        query::Queriable, Circuit, Constraint, ExposeOffset, FixedSignal, ForwardSignal,
+        InternalSignal, Lookup, SharedSignal, StepType, StepTypeUUID, TransitionConstraint,
     },
     frontend::dsl::{StepTypeHandler, SuperCircuitContext},
     plonkish::{
@@ -21,6 +20,7 @@ use crate::{
         },
         ir::{assignments::AssignmentGenerator, sc::MappingContext},
     },
+    poly::Expr,
     util::{uuid, UUID},
     wit_gen::{StepInstance, TraceContext, TraceWitness},
 };
@@ -464,7 +464,7 @@ macro_rules! impl_visitor_constraint_transition {
                             if expr.is_some() {
                                 return Err(de::Error::duplicate_field("expr"));
                             }
-                            expr = Some(map.next_value::<Expr<Fr>>()?);
+                            expr = Some(map.next_value::<Expr<Fr, Queriable<Fr>>>()?);
                         }
                         _ => return Err(de::Error::unknown_field(&key, &["annotation", "expr"])),
                     }
@@ -513,7 +513,8 @@ impl<'de> Visitor<'de> for LookupVisitor {
                     if exprs.is_some() {
                         return Err(de::Error::duplicate_field("exprs"));
                     }
-                    exprs = Some(map.next_value::<Vec<(Constraint<Fr>, Expr<Fr>)>>()?);
+                    exprs =
+                        Some(map.next_value::<Vec<(Constraint<Fr>, Expr<Fr, Queriable<Fr>>)>>()?);
                 }
                 "enable" => {
                     if enable.is_some() {
@@ -543,13 +544,13 @@ impl<'de> Visitor<'de> for LookupVisitor {
 struct ExprVisitor;
 
 impl<'de> Visitor<'de> for ExprVisitor {
-    type Value = Expr<Fr>;
+    type Value = Expr<Fr, Queriable<Fr>>;
 
     fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
         formatter.write_str("enum Expr")
     }
 
-    fn visit_map<A>(self, mut map: A) -> Result<Expr<Fr>, A::Error>
+    fn visit_map<A>(self, mut map: A) -> Result<Expr<Fr, Queriable<Fr>>, A::Error>
     where
         A: MapAccess<'de>,
     {
@@ -875,7 +876,7 @@ macro_rules! impl_deserialize {
     };
 }
 
-impl_deserialize!(ExprVisitor, Expr<Fr>);
+impl_deserialize!(ExprVisitor, Expr<Fr, Queriable<Fr>>);
 impl_deserialize!(QueriableVisitor, Queriable<Fr>);
 impl_deserialize!(ExposeOffsetVisitor, ExposeOffset);
 impl_deserialize!(InternalSignalVisitor, InternalSignal);
@@ -1808,7 +1809,7 @@ mod tests {
                 }
             ]
             }"#;
-        let expr: Expr<Fr> = serde_json::from_str(json).unwrap();
+        let expr: Expr<Fr, Queriable<Fr>> = serde_json::from_str(json).unwrap();
         println!("{:?}", expr);
     }
 }

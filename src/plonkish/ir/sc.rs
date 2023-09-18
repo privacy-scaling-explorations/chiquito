@@ -1,8 +1,6 @@
 use std::{collections::HashMap, rc::Rc};
 
-use halo2_proofs::arithmetic::Field;
-
-use crate::{util::UUID, wit_gen::TraceWitness};
+use crate::{field::Field, util::UUID, wit_gen::TraceWitness};
 
 use super::{
     assignments::{AssignmentGenerator, Assignments},

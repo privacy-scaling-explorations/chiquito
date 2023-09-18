@@ -1,16 +1,14 @@
 use crate::{
     ast::{query::Queriable, Circuit, ExposeOffset, StepType, StepTypeUUID},
+    field::Field,
     util::{uuid, UUID},
     wit_gen::{FixedGenContext, StepInstance, TraceContext},
 };
 
-use halo2_proofs::{
-    arithmetic::Field,
-    plonk::{Advice, Column as Halo2Column, Fixed},
-};
+use halo2_proofs::plonk::{Advice, Column as Halo2Column, Fixed};
 
-use core::fmt::Debug;
-use std::{hash::Hash, marker::PhantomData};
+use core::{fmt::Debug, hash::Hash};
+use std::marker::PhantomData;
 
 use self::{
     cb::{Constraint, Typing},
@@ -179,7 +177,7 @@ impl<F: Field + Hash, TraceArgs> CircuitContext<F, TraceArgs> {
         let mut ctx = FixedGenContext::new(self.circuit.num_steps);
         (def)(&mut ctx);
 
-        let assignments = Some(ctx.get_assignments());
+        let assignments = ctx.get_assignments();
 
         self.circuit.set_fixed_assignments(assignments);
     }
