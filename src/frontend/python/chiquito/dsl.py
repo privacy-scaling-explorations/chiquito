@@ -50,9 +50,9 @@ class SuperCircuit:
 
     # called under mapping()
     # generates TraceWitness for sub_circuit
-    def map(self: SuperCircuit, sub_circuit: Circuit, args: Any) -> TraceWitness:
+    def map(self: SuperCircuit, sub_circuit: Circuit, *args: Any) -> TraceWitness:
         assert self.mode == SuperCircuitMode.Mapping
-        witness: TraceWitness = sub_circuit.gen_witness(args)
+        witness: TraceWitness = sub_circuit.gen_witness(*args)
         if sub_circuit.rust_id == 0:
             raise ValueError(
                 "SuperCircuit: must call sub_circuit() before calling map() on a Circuit."
@@ -62,9 +62,9 @@ class SuperCircuit:
 
     # called at the outermost level
     # generates TraceWitness mapping
-    def gen_witness(self: SuperCircuit, args: Any) -> Dict[int, TraceWitness]:
+    def gen_witness(self: SuperCircuit, *args: Any) -> Dict[int, TraceWitness]:
         self.mode = SuperCircuitMode.Mapping
-        self.mapping(args)
+        self.mapping(*args)
         self.mode = SuperCircuitMode.NoMode
         witnesses: Dict[int, TraceWitness] = self.ast.witnesses
         del (
@@ -165,6 +165,7 @@ class Circuit:
 
     def new_table(self: Circuit, table: LookupTable) -> LookupTable:
         assert self.mode == CircuitMode.SETUP
+        table.read_only = True
         if self.super_circuit is None:
             raise SyntaxError(
                 "Circuit: new_table() is only available for Circuit with initiated super_circuit field."
@@ -173,7 +174,7 @@ class Circuit:
         return table
 
     # called under trace()
-    def add(self: Circuit, step_type: StepType, args: Any):
+    def add(self: Circuit, step_type: StepType, *args: Any):
         assert self.mode == CircuitMode.Trace
         if len(self.witness.step_instances) >= self.ast.num_steps:
             raise ValueError(f"Number of step instances exceeds {self.ast.num_steps}")

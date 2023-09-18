@@ -37,14 +37,12 @@ class Mimc7Circuit(Circuit):
         self.pragma_last_step(self.mimc7_last_step)
         self.pragma_num_steps(ROUNDS + 2 - 1)
 
-    def trace(self, args):
-        x_in_value, k_value = args
-
+    def trace(self, x_in_value, k_value):
         c_value = F(ROUND_KEYS[0])
         x_value = F(x_in_value)
         row_value = F(0)
 
-        self.add(self.mimc7_first_step, (x_value, k_value, c_value, row_value))
+        self.add(self.mimc7_first_step, x_value, k_value, c_value, row_value)
 
         for i in range(1, ROUNDS):
             row_value += F(1)
@@ -52,13 +50,13 @@ class Mimc7Circuit(Circuit):
             x_value = F(x_value**7)
             c_value = F(ROUND_KEYS[i])
 
-            self.add(self.mimc7_step, (x_value, k_value, c_value, row_value))
+            self.add(self.mimc7_step, x_value, k_value, c_value, row_value)
 
         row_value += F(1)
         x_value += F(k_value + c_value)
         x_value = F(x_value**7)
 
-        self.add(self.mimc7_last_step, (x_value, k_value, c_value, row_value))
+        self.add(self.mimc7_last_step, x_value, k_value, c_value, row_value)
 
 
 class Mimc7FirstStep(StepType):
@@ -89,8 +87,7 @@ class Mimc7FirstStep(StepType):
             self.circuit.imports.apply(self.circuit.row).apply(self.circuit.c)
         )
 
-    def wg(self, args):
-        x_value, k_value, c_value, row_value = args
+    def wg(self, x_value, k_value, c_value, row_value):
         self.assign(self.circuit.x, F(x_value))
         self.assign(self.circuit.k, F(k_value))
         self.assign(self.circuit.c, F(c_value))
@@ -128,8 +125,7 @@ class Mimc7Step(StepType):
             self.circuit.imports.apply(self.circuit.row).apply(self.circuit.c)
         )
 
-    def wg(self, args):
-        x_value, k_value, c_value, row_value = args
+    def wg(self, x_value, k_value, c_value, row_value):
         self.assign(self.circuit.x, F(x_value))
         self.assign(self.circuit.k, F(k_value))
         self.assign(self.circuit.c, F(c_value))
@@ -146,8 +142,7 @@ class Mimc7LastStep(StepType):
 
         self.constr(eq(self.circuit.x + self.circuit.k, self.out))
 
-    def wg(self, args):
-        x_value, k_value, _, row_value = args
+    def wg(self, x_value, k_value, _, row_value):
         self.assign(self.circuit.x, F(x_value))
         self.assign(self.circuit.k, F(k_value))
         self.assign(self.circuit.row, F(row_value))
@@ -161,13 +156,12 @@ class Mimc7SuperCircuit(SuperCircuit):
             Mimc7Circuit(self, imports=self.mimc7_constants.exports)
         )
 
-    def mapping(self, args):
-        x_in_value, k_value = args
-        self.map(self.mimc7_circuit, (x_in_value, k_value))
+    def mapping(self, x_in_value, k_value):
+        self.map(self.mimc7_circuit, x_in_value, k_value)
 
 
 mimc7 = Mimc7SuperCircuit()
-mimc7_witnesses = mimc7.gen_witness((F(1), F(2)))
+mimc7_witnesses = mimc7.gen_witness(F(1), F(2))
 # for key, value in mimc7_witnesses.items():
 #     print(f"{key}: {str(value)}")
 mimc7.halo2_mock_prover(mimc7_witnesses)
