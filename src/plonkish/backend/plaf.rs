@@ -138,7 +138,7 @@ impl<F: PrimeField<Repr = [u8; 32]>> ChiquitoPlaf<F> {
             plaf.columns.public.push(plaf_public);
         }
 
-        for (index, (c_column, rotation)) in self.circuit.exposed.iter().rev().enumerate() {
+        for (index, (c_column, rotation)) in self.circuit.exposed.iter().enumerate() {
             let public_column = pColumn {
                 kind: ColumnKind::Public,
                 index: 0, // Chiquito only has one public column, so the index is always 0.
