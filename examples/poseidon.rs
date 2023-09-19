@@ -661,25 +661,22 @@ fn poseidon_super_circuit<F: PrimeField + Eq + Hash>(
     lens: Lens,
 ) -> SuperCircuit<F, ValuesAndLens<F>> {
     super_circuit::<F, ValuesAndLens<F>, _>("poseidon", |ctx| {
-        let single_config = config(MaxWidthCellManager::new(2, 3, true), SimpleStepSelectorBuilder {});
+        let config = config(MaxWidthCellManager::new(2, 2, true), SimpleStepSelectorBuilder {});
         let (_, constants_table) = ctx.sub_circuit(
-            single_config.clone(),
+            config.clone(),
             poseidon_constants_table,
             lens.n_inputs + 1,
         );
         let (_, matrix_table) =
-            ctx.sub_circuit(single_config.clone(), poseidon_matrix_table, lens.n_inputs + 1);
+            ctx.sub_circuit(config.clone(), poseidon_matrix_table, lens.n_inputs + 1);
 
         let params = CircuitParams {
             lens,
             constants_table,
             matrix_table,
         };
-        let maxwidth_config = config(
-            MaxWidthCellManager::new(4,5, true),
-            SimpleStepSelectorBuilder {},
-        );
-        let (poseidon, _) = ctx.sub_circuit(single_config, poseidon_circuit, params);
+
+        let (poseidon, _) = ctx.sub_circuit(config, poseidon_circuit, params);
 
         ctx.mapping(move |ctx, values| {
             ctx.map(&poseidon, values);

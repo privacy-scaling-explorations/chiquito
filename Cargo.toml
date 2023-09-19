@@ -25,11 +25,3 @@ serde_json = "1.0"
 halo2_proofs = { git = "https://github.com/appliedzkp/halo2.git", rev = "d3746109d7d38be53afc8ddae8fdfaf1f02ad1d7", features = [
     "circuit-params",
 ] }
-
-
-[[bin]]
-name = "fibo"
-path = "examples/fibonacci.rs"
-[[bin]]
-name = "pose"
-path = "examples/poseidon.rs"
