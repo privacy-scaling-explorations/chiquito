@@ -30,8 +30,6 @@ class SuperCircuitMode(Enum):
 class SuperCircuit:
     def __init__(self: SuperCircuit):
         self.ast = ASTSuperCircuit()
-        self.tables: Dict[int, LookupTable] = {}
-        # self.rust_id: List[int] = []
         self.mode = SuperCircuitMode.SETUP
         self.setup()
         self.mode = SuperCircuitMode.NoMode
@@ -93,7 +91,7 @@ class CircuitMode(Enum):
 
 
 class Circuit:
-    def __init__(self: Circuit, super_circuit=None, imports=None):
+    def __init__(self: Circuit, super_circuit: SuperCircuit=None, imports: Any=None):
         self.ast = ASTCircuit()
         self.witness = TraceWitness()
         self.rust_id = 0
@@ -165,12 +163,9 @@ class Circuit:
 
     def new_table(self: Circuit, table: LookupTable) -> LookupTable:
         assert self.mode == CircuitMode.SETUP
-        table.read_only = True
-        if self.super_circuit is None:
-            raise SyntaxError(
-                "Circuit: new_table() is only available for Circuit with initiated super_circuit field."
-            )
-        self.super_circuit.tables[table.uuid] = table
+        # have a method called set_finished_flag() to encapsulate
+        # call finished_flag "finished" instead
+        table.set_finished_flag()
         return table
 
     # called under trace()
@@ -275,7 +270,7 @@ class StepType:
         self.step_instance.assign(lhs, F(rhs))
 
     def add_lookup(self: StepType, lookup_builder: LookupBuilder):
-        self.step_type.lookups.append(lookup_builder.build(self))
+        self.step_type.lookups.append(lookup_builder.build())
 
 
 LookupBuilder = LookupTableBuilder | InPlaceLookupBuilder

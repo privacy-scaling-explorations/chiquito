@@ -14,7 +14,7 @@ class Mimc7Constants(Circuit):
         self.pragma_num_steps(ROUNDS)
         self.lookup_row = self.fixed("constant row")
         self.lookup_c = self.fixed("constant value")
-        self.exports = self.new_table(table().add(self.lookup_row).add(self.lookup_c))
+        self.lookup_table = self.new_table(table().add(self.lookup_row).add(self.lookup_c))
 
     def fixed_gen(self):
         for i, round_key in enumerate(ROUND_KEYS):
@@ -153,7 +153,7 @@ class Mimc7SuperCircuit(SuperCircuit):
     def setup(self):
         self.mimc7_constants = self.sub_circuit(Mimc7Constants(self, imports=None))
         self.mimc7_circuit = self.sub_circuit(
-            Mimc7Circuit(self, imports=self.mimc7_constants.exports)
+            Mimc7Circuit(self, imports=self.mimc7_constants.lookup_table)
         )
 
     def mapping(self, x_in_value, k_value):

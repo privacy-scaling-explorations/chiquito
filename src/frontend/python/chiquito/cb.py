@@ -233,35 +233,40 @@ def to_constraint(v: ToConstraint) -> Constraint:
 class LookupTable:
     uuid: int = 0
     dest: List[Expr] = field(default_factory=list)
-    read_only: bool = False
+    finished_flag: bool = False
 
     def __init__(self: LookupTable):
         self.uuid: int = uuid()
         self.dest = []
-        self.read_only = False
+        self.finished_flag = False
 
     def add(self: LookupTable, expr: ToExpr) -> LookupTable:
-        assert self.read_only == False
+        assert self.finished_flag == False
         self.dest.append(to_expr(expr))
         return self
 
     def apply(self: LookupTable, constraint: ToConstraint) -> LookupTableBuilder:
-        assert self.read_only == True
-        return LookupTableBuilder(self.uuid).apply(constraint)
+        assert self.finished_flag == True
+        # just pass in lookuptable itself rather than finding it from uuid
+        return LookupTableBuilder(self).apply(constraint)
 
     def when(self: LookupTable, enable: ToConstraint) -> LookupTableBuilder:
-        assert self.read_only == True
-        return LookupTableBuilder(self.uuid).when(enable)
+        assert self.finished_flag == True
+        return LookupTableBuilder(self).when(enable)
+    
+    def set_finished_flag(self: LookupTable):
+        assert self.finished_flag == False
+        self.finished_flag = True
 
 
 @dataclass
 class LookupTableBuilder:
-    uuid: int
+    lookup_table: LookupTable
     src: List[Constraint] = field(default_factory=list)
     enable: Optional[Constraint] = None
 
-    def __init__(self: LookupTableBuilder, uuid: int):
-        self.uuid: int = uuid
+    def __init__(self: LookupTableBuilder, lookup_table: LookupTable):
+        self.lookup_table = lookup_table
         self.src = []
         self.enable = None
 
@@ -275,17 +280,12 @@ class LookupTableBuilder:
         self.enable = to_constraint(enable)
         return self
 
-    def build(self: LookupTableBuilder, step_type: StepType) -> Lookup:
-        # print(step_type.circuit)
-        print(f"tables: {step_type.circuit.super_circuit.tables}")
-        if step_type.circuit.super_circuit is None:
-            raise ValueError("LookupTableBuilder: build() cannot find super_circuit.")
-        table = step_type.circuit.super_circuit.tables.get(self.uuid)
-        if table is None:
+    def build(self: LookupTableBuilder) -> Lookup:
+        if self.lookup_table is None:
             raise ValueError(
-                f"LookupTableBuilder: build() cannot find table with uuid {self.uuid}."
+                f"LookupTableBuilder: cannot call build() if self.lookup_table is None"
             )
-        if len(self.src) != len(table.dest):
+        if len(self.src) != len(self.lookup_table.dest):
             raise ValueError(
                 "LookupTableBuilder: build() has different number of source columns and destination columns."
             )
@@ -296,7 +296,7 @@ class LookupTableBuilder:
             lookup.enable(self.enable.annotation, self.enable.expr)
 
         for i in range(len(self.src)):
-            lookup.add(self.src[i].annotation, self.src[i].expr, table.dest[i])
+            lookup.add(self.src[i].annotation, self.src[i].expr, self.lookup_table.dest[i])
 
         return lookup
 
@@ -305,7 +305,7 @@ class LookupTableBuilder:
 class InPlaceLookupBuilder:
     lookup: Lookup = field(default_factory=Lookup)
 
-    def build(self: InPlaceLookupBuilder, _: StepType) -> Lookup:
+    def build(self: InPlaceLookupBuilder) -> Lookup:
         return self.lookup
 
     def add(
