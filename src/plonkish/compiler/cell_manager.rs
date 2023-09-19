@@ -231,14 +231,16 @@ impl CellManager for SingleRowCellManager {
 
 #[derive(Debug, Default, Clone)]
 pub struct MaxWidthCellManager {
-    max_width: usize,
+    max_width_advice: usize,
+    max_width_fixed: usize,
     same_height: bool,
 }
 
 impl MaxWidthCellManager {
-    pub fn new(max_width: usize, same_height: bool) -> Self {
+    pub fn new(max_width_advice: usize, max_width_fixed: usize, same_height: bool) -> Self {
         Self {
-            max_width,
+            max_width_advice,
+            max_width_fixed,
             same_height,
         }
     }
@@ -248,7 +250,7 @@ impl CellManager for MaxWidthCellManager {
     fn place<F>(&self, unit: &mut CompilationUnit<F>) {
         if (!unit.shared_signals.is_empty()) && !self.same_height
         {
-            panic!("Shared signals and fixed signals are not supported for MaxWidthCellManager, which might return steps with variable heights.");
+            panic!("Shared signals are not supported for MaxWidthCellManager, which might return steps with variable heights.");
         }
 
         let mut placement = Placement {
@@ -287,7 +289,7 @@ impl CellManager for MaxWidthCellManager {
             );
 
             forward_signal_column += 1;
-            if forward_signal_column >= self.max_width {
+            if forward_signal_column >= self.max_width_advice {
                 forward_signal_column = 0;
                 forward_signal_row += 1;
             }
@@ -328,7 +330,7 @@ impl CellManager for MaxWidthCellManager {
             );
 
             fixed_signal_column += 1;
-            if fixed_signal_column >= self.max_width {
+            if fixed_signal_column >= self.max_width_fixed {
                 fixed_signal_column = 0;
                 fixed_signal_row += 1;
             }
@@ -379,7 +381,7 @@ impl CellManager for MaxWidthCellManager {
                 step_placement.height = (internal_signal_row + 1) as u32;
 
                 internal_signal_column += 1;
-                if internal_signal_column >= self.max_width {
+                if internal_signal_column >= self.max_width_advice {
                     internal_signal_column = 0;
                     internal_signal_row += 1;
                 }
@@ -444,7 +446,8 @@ mod tests {
         // forward signals: a, b; step1 internal: c1, d, e; step2 internal c2
 
         let cm = MaxWidthCellManager {
-            max_width: 2,
+            max_width_advice: 2,
+            max_width_fixed: 2,
             same_height: false,
         };
 
@@ -514,7 +517,8 @@ mod tests {
         // forward signals: a, b; step1 internal: c1, d, e; step2 internal c2
 
         let cm = MaxWidthCellManager {
-            max_width: 2,
+            max_width_advice: 2,
+            max_width_fixed: 2,
             same_height: true,
         };
 
