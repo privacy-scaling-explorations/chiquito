@@ -55,7 +55,7 @@ class SuperCircuit:
             raise ValueError(
                 "SuperCircuit: must call sub_circuit() before calling map() on a Circuit."
             )
-        self.ast.witnesses[sub_circuit.rust_id] = witness
+        self.ast.super_witness[sub_circuit.rust_id] = witness
         return witness
 
     # called at the outermost level
@@ -64,22 +64,22 @@ class SuperCircuit:
         self.mode = SuperCircuitMode.Mapping
         self.mapping(*args)
         self.mode = SuperCircuitMode.NoMode
-        witnesses: Dict[int, TraceWitness] = self.ast.witnesses
+        super_witness: Dict[int, TraceWitness] = self.ast.super_witness
         del (
-            self.ast.witnesses
+            self.ast.super_witness
         )  # so that we can generate different witness mapping in the next gen_witness() call
-        return witnesses
+        return super_witness
 
-    def halo2_mock_prover(self: SuperCircuit, witnesses: Dict[int, TraceWitness]):
-        for rust_id, witness in witnesses.items():
-            witness_json: str = witness.get_witness_json()
+    def halo2_mock_prover(self: SuperCircuit, super_witness: Dict[int, TraceWitness]):
+        for rust_id, witness in super_witness.items():
             if rust_id not in self.ast.sub_circuits:
                 raise ValueError(
                     f"SuperCircuit.halo2_mock_prover(): TraceWitness with rust_id {rust_id} not found in sub_circuits."
                 )
-            rust_chiquito.add_witness_to_rust_id(witness_json, rust_id)
+            witness_json: str = witness.get_witness_json()
+            super_witness[rust_id] = witness_json
         rust_chiquito.super_circuit_halo2_mock_prover(
-            list(self.ast.sub_circuits.keys())
+            list(self.ast.sub_circuits.keys()), super_witness
         )
 
 
@@ -91,7 +91,9 @@ class CircuitMode(Enum):
 
 
 class Circuit:
-    def __init__(self: Circuit, super_circuit: SuperCircuit=None, imports: Any=None):
+    def __init__(
+        self: Circuit, super_circuit: SuperCircuit = None, imports: Any = None
+    ):
         self.ast = ASTCircuit()
         self.witness = TraceWitness()
         self.rust_id = 0

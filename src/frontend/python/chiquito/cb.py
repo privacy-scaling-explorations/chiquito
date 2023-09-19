@@ -253,7 +253,7 @@ class LookupTable:
     def when(self: LookupTable, enable: ToConstraint) -> LookupTableBuilder:
         assert self.finished_flag == True
         return LookupTableBuilder(self).when(enable)
-    
+
     def set_finished_flag(self: LookupTable):
         assert self.finished_flag == False
         self.finished_flag = True
@@ -296,7 +296,9 @@ class LookupTableBuilder:
             lookup.enable(self.enable.annotation, self.enable.expr)
 
         for i in range(len(self.src)):
-            lookup.add(self.src[i].annotation, self.src[i].expr, self.lookup_table.dest[i])
+            lookup.add(
+                self.src[i].annotation, self.src[i].expr, self.lookup_table.dest[i]
+            )
 
         return lookup
 

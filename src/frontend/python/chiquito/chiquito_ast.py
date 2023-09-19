@@ -34,7 +34,7 @@ from chiquito.query import Queriable, Fixed
 @dataclass
 class ASTSuperCircuit:
     sub_circuits: Dict[int, ASTCircuit] = field(default_factory=dict)
-    witnesses: Dict[int, TraceWitness] = field(default_factory=dict)
+    super_witness: Dict[int, TraceWitness] = field(default_factory=dict)
 
 
 @dataclass

@@ -14,7 +14,9 @@ class Mimc7Constants(Circuit):
         self.pragma_num_steps(ROUNDS)
         self.lookup_row = self.fixed("constant row")
         self.lookup_c = self.fixed("constant value")
-        self.lookup_table = self.new_table(table().add(self.lookup_row).add(self.lookup_c))
+        self.lookup_table = self.new_table(
+            table().add(self.lookup_row).add(self.lookup_c)
+        )
 
     def fixed_gen(self):
         for i, round_key in enumerate(ROUND_KEYS):
@@ -161,7 +163,7 @@ class Mimc7SuperCircuit(SuperCircuit):
 
 
 mimc7 = Mimc7SuperCircuit()
-mimc7_witnesses = mimc7.gen_witness(F(1), F(2))
-# for key, value in mimc7_witnesses.items():
+mimc7_super_witness = mimc7.gen_witness(F(1), F(2))
+# for key, value in mimc7_super_witness.items():
 #     print(f"{key}: {str(value)}")
-mimc7.halo2_mock_prover(mimc7_witnesses)
+mimc7.halo2_mock_prover(mimc7_super_witness)
