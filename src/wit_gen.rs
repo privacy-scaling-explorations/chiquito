@@ -14,6 +14,16 @@ pub struct StepInstance<F> {
     pub assignments: HashMap<Queriable<F>, F>,
 }
 
+impl<F: fmt::Debug> fmt::Display for StepInstance<F> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "({}): ", self.step_type_uuid)?;
+        for (queriable, value) in self.assignments.iter() {
+            write!(f, "{:?} = {:?}, ", queriable, value)?;
+        }
+        Ok(())
+    }
+}
+
 impl<F> StepInstance<F> {
     pub fn new(step_type_uuid: StepTypeUUID) -> StepInstance<F> {
         StepInstance {
@@ -39,30 +49,16 @@ pub struct TraceWitness<F> {
 }
 
 impl<F: fmt::Debug> fmt::Display for TraceWitness<F> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        // get the decimal width based on the step_instances size, add extra one leading zero
+        let decimal_width = self.step_instances.len().checked_ilog10().unwrap_or(0) + 2;
         // offset(step_uuid): assignations
         for (i, step_instance) in self.step_instances.iter().enumerate() {
-            let assignments = step_instance.assignments.iter().fold(
-                String::new(),
-                |mut acc, (queriable, value)| {
-                    acc.push_str(&format!("{:?} = {:?}, ", queriable, value));
-                    acc
-                },
-            );
-            // get the decimal width based on the assignments size, and extra one leading zero
-            let decimal_width = step_instance
-                .assignments
-                .len()
-                .checked_ilog10()
-                .unwrap_or(0)
-                + 2;
-
             writeln!(
                 f,
-                "{:0>width$}({}): {}",
+                "{:0>width$}{}",
                 i,
-                step_instance.step_type_uuid,
-                assignments,
+                step_instance,
                 width = decimal_width as usize,
             )?;
         }
@@ -199,7 +195,7 @@ impl<F: Field + Hash> FixedGenContext<F> {
 mod tests {
     use super::*;
     use crate::{
-        ast::{quqery::Queriable, FixedSignal},
+        ast::{query::Queriable, FixedSignal},
         frontend::dsl::StepTypeWGHandler,
         util::uuid,
     };
@@ -235,7 +231,7 @@ mod tests {
     #[test]
     fn test_trace_witness_display() {
         let display = format!(
-            "{}", // pretty display
+            "{}",
             TraceWitness::<i32> {
                 step_instances: vec![
                     StepInstance {
