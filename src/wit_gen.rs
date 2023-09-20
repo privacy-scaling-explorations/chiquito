@@ -42,9 +42,6 @@ pub struct TraceWitness<F> {
 impl<F: fmt::Debug> fmt::Display for TraceWitness<F> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> std::fmt::Result {
         // offset(step_uuid): assignations
-        // examples:
-        //  00(9): a = 1, b =2
-        //  01(10): a = 1, b =2
         for (i, step_instance) in self.step_instances.iter().enumerate() {
             let assignments = step_instance.assignments.iter().fold(
                 String::new(),
@@ -54,9 +51,6 @@ impl<F: fmt::Debug> fmt::Display for TraceWitness<F> {
                 },
             );
             // get the decimal width based on the assignments size, and extra one leading zero
-            // len in 0..=9 -> width = 2
-            // len in 10..=99-> width = 3
-            // len in 100..=999 -> width = 4
             let decimal_width = step_instance
                 .assignments
                 .len()
@@ -236,7 +230,7 @@ mod tests {
 
     #[test]
     fn test_trace_witness_display() {
-        let left = format!(
+        let display = format!(
             "{}", // pretty display
             TraceWitness::<i32> {
                 step_instances: vec![
@@ -257,9 +251,6 @@ mod tests {
                 ]
             }
         );
-        // the hashmap is not ordered, so the order of the assignments is not guaranteed
-        println!("{}", left);
-        // 00(9): a = 1, b = 2,
-        // 01(10): a = 1, b = 2,
+        println!("{}", display);
     }
 }
