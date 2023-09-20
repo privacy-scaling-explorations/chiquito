@@ -33,7 +33,7 @@ Another important piece of Chiquito are the signals. They represent elements of 
 
 There are several types:
 
- + Internal signals: they are private for a particular step, and cannot be constriants for other steps.
+ + Internal signals: they are private for a particular step, and cannot be constraints for other steps.
  + Shared signals: they are shared by all steps in the circuit, and they can be constraints for their values on relative step instances (**rotation**). For example, if "a" is a shared signal, you could assert in a step type setup that `a == a.rot(2)` which means that `a` is equal to `a` in the next of the next step (super rotation `+2`).
  + Forward signals: They are like shared signals with the restriction that they can only constrain in the current and the next step instances. For example you could assert `a == a.next()` but you could not assert `a == a.prev()`. Forward signal has the advantage of allowing for witness size optimisations.
  + Fixed signals: Their values are set during setup and cannot change.
@@ -72,11 +72,11 @@ In research:
  + Signal typing system, which allows statically checking for soundness issues.
  + Folding backend with ProtoStar, HyperNova, and/or others.
 
-## Fibonnaci circtuit in PyChiquito.
+## Fibonnaci circuit in Chiquito's Python frontend.
 
 But better see for yourself:
 
-```
+```python
 class FiboStep(StepType):
     def setup(self: FiboStep):
         self.c = self.internal("c")
@@ -121,15 +121,15 @@ This is explained in more detail in the tutorial, but you can see already how co
 
 ### Read the tutorial
 
- + TODO
+All located in the [tutorial](https://github.com/privacy-scaling-explorations/chiquito/tree/main/tutorials) folder.
 
-### Run the tutorial locally
+### Run the tutorial locally
 
- + TODO
+Follow [Part 2: Quick Start](https://github.com/privacy-scaling-explorations/chiquito/blob/main/tutorials/tutorial_pt2.ipynb) of the `tutorial` folder.
 
 ### Writing a chiquito circuit in your project
 
-To use chiquito in Python, just need to install it with pip
+To use chiquito in Python, just need to install it with pip:
 
 ```bash
 pip install chiquito
@@ -139,19 +139,19 @@ To use chiquito in Rust (TODO)
 
 ## Build from source
 
-Chiquito is built in Rust. First [install Rust](https://www.rust-lang.org/tools/install), then clone this repo and enter the repo directory.
+Chiquito is built in Rust. First [install Rust](https://www.rust-lang.org/tools/install). Then clone this repo and enter the repo directory.
 
 ```bash
 git clone https://github.com/privacy-scaling-explorations/chiquito
 cd chiquito
 ```
 
-Then to build python chiquito with maturin
+Then to build Python chiquito with maturin
 
 ```bash
 python -m venv .env
 source .env/bin/activate
-pip install maturin
+pip install -r requirements.txt
 maturin develop
 ```
 
@@ -159,13 +159,7 @@ maturin develop
 
 **API documentation**: `cargo doc --no-deps --package chiquito --open`
 
-Currently API documentation is only written for exposed user functions, which are scattered across the DSL, constraint builder, compiler, and AST. **Refer to the following subdirectories for specific functions:**
-
-- Circuit building (DSL): https://qwang98.github.io/chiquito/chiquito/dsl/index.html
-- Constraint building (constraint builder): https://qwang98.github.io/chiquito/chiquito/dsl/cb/index.html
-- Witness generation (compiler): https://qwang98.github.io/chiquito/chiquito/compiler/trait.WitnessGenContext.html
-- Fixed column generation (compiler): https://qwang98.github.io/chiquito/chiquito/compiler/trait.FixedGenContext.html
-- Invoking the next instance of a forward signal (AST): https://qwang98.github.io/chiquito/chiquito/ast/expr/query/enum.Queriable.html#method.next
+Also auto-published here for the latest commit to main: [apidocs.pecadorplonkish.xyz/](apidocs.pecadorplonkish.xyz/)
 
 # Licenses
 
