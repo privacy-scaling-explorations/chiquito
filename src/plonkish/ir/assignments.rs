@@ -113,15 +113,14 @@ impl<F: Field, TraceArgs> AssignmentGenerator<F, TraceArgs> {
             .selector
             .get_selector_assignment(step_instance.step_type_uuid);
 
-        for (expr, value) in selector_assignment.iter() {
-            match expr {
-                PolyExpr::Query((column, rot, _)) => {
-                    self.set_value(assignments, column.clone(), *offset + *rot as usize, value)
+        if let Some(selector_assignment) = selector_assignment {
+            for (expr, value) in selector_assignment.iter() {
+                match expr {
+                    PolyExpr::Query((column, rot, _)) => {
+                        self.set_value(assignments, column.clone(), *offset + *rot as usize, value)
+                    }
+                    _ => panic!("wrong type of expresion is selector assignment"),
                 }
-                PolyExpr::Const(_) => {
-                    continue; // empty assignment for constant
-                }
-                _ => panic!("wrong type of expresion is selector assignment"),
             }
         }
 

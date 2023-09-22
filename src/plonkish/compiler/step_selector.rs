@@ -16,7 +16,7 @@ pub type SelectorAssignment<F> = (PolyExpr<F>, F);
 pub struct StepSelector<F> {
     pub selector_expr: HashMap<StepTypeUUID, PolyExpr<F>>,
     pub selector_expr_not: HashMap<StepTypeUUID, PolyExpr<F>>,
-    pub selector_assignment: HashMap<StepTypeUUID, Vec<SelectorAssignment<F>>>,
+    pub selector_assignment: HashMap<StepTypeUUID, Option<Vec<SelectorAssignment<F>>>>,
     pub columns: Vec<Column>,
 }
 
@@ -50,7 +50,10 @@ impl<F: Clone> StepSelector<F> {
             .clone()
     }
 
-    pub fn get_selector_assignment(&self, step_uuid: StepTypeUUID) -> Vec<SelectorAssignment<F>> {
+    pub fn get_selector_assignment(
+        &self,
+        step_uuid: StepTypeUUID,
+    ) -> Option<Vec<SelectorAssignment<F>>> {
         self.selector_assignment
             .get(&step_uuid)
             .expect("selector assignment for step not found")
@@ -74,6 +77,7 @@ impl StepSelectorBuilder for SimpleStepSelectorBuilder {
             columns: Vec::new(),
         };
 
+        // don't add a column for a single step type
         if unit.step_types.len() == 1 {
             let step = unit.step_types.values().next().expect("step not found");
 
@@ -86,9 +90,7 @@ impl StepSelectorBuilder for SimpleStepSelectorBuilder {
                 .selector_expr_not
                 .insert(step.uuid(), PolyExpr::Const(F::ZERO));
 
-            selector
-                .selector_assignment
-                .insert(step.uuid(), vec![(PolyExpr::Const(F::ONE), F::ONE)]);
+            selector.selector_assignment.insert(step.uuid(), None);
 
             unit.selector = selector;
             return;
@@ -116,7 +118,7 @@ impl StepSelectorBuilder for SimpleStepSelectorBuilder {
 
             selector.selector_assignment.insert(
                 step.uuid(),
-                vec![(column.query(0, annotation.clone()), F::ONE)],
+                Some(vec![(column.query(0, annotation.clone()), F::ONE)]),
             );
         }
 
@@ -188,7 +190,7 @@ impl StepSelectorBuilder for TwoStepsSelectorBuilder {
 
         unit.selector.selector_assignment.insert(
             step_zero.uuid(),
-            vec![(column.query(0, "selector step zero"), F::ZERO)],
+            Some(vec![(column.query(0, "selector step zero"), F::ZERO)]),
         );
 
         // One
@@ -203,7 +205,7 @@ impl StepSelectorBuilder for TwoStepsSelectorBuilder {
 
         unit.selector.selector_assignment.insert(
             step_one.uuid(),
-            vec![(column.query(0, "selector step one"), F::ONE)],
+            Some(vec![(column.query(0, "selector step one"), F::ONE)]),
         );
     }
 }
@@ -259,18 +261,14 @@ mod tests {
                 PolyExpr::Mul(vec![PolyExpr::Const(Fr::ONE), constraint])
             )
         );
-        // selector.unselect should return zero
         assert_eq!(
             format!("{:?}", unit.selector.unselect(uuid)),
             format!("{:?}", PolyExpr::Const(Fr::ZERO))
         );
-        // selector.next_expr should return constant one
         assert_eq!(
             format!("{:?}", unit.selector.next_expr(uuid, 1)),
             format!("{:?}", PolyExpr::Const(Fr::ONE))
         );
-        // selector.get_selector_assignment should return constant expr
-        let (expr, _) = &unit.selector.get_selector_assignment(uuid)[0];
-        assert!(matches!(expr, PolyExpr::Const(_)));
+        assert!(unit.selector.get_selector_assignment(uuid).is_none());
     }
 }
