@@ -3,20 +3,22 @@ from py_ecc import bn128
 from uuid import uuid1
 import json
 
-F = bn128.FQ
 
+class F(bn128.FQ):
+    field_modulus = (
+        21888242871839275222246405745257275088548364400416034343698204186575808495617
+    )
 
-def json_method(self: F):
-    # Convert the integer to a byte array
-    byte_array = self.n.to_bytes(32, "little")
-
-    # Split into four 64-bit integers
-    ints = [int.from_bytes(byte_array[i * 8 : i * 8 + 8], "little") for i in range(4)]
-
-    return ints
-
-
-F.__json__ = json_method
+    def __json__(self: F):
+        R = 2**256
+        # Convert the integer to a byte array
+        montgomery_form = self.n * R % F.field_modulus
+        byte_array = montgomery_form.to_bytes(32, "little")
+        # Split into four 64-bit integers
+        ints = [
+            int.from_bytes(byte_array[i * 8 : i * 8 + 8], "little") for i in range(4)
+        ]
+        return ints
 
 
 class CustomEncoder(json.JSONEncoder):
