@@ -6,7 +6,7 @@ use crate::{
         Circuit, Column, Poly, PolyExpr, PolyLookup,
     },
     poly::Expr,
-    wit_gen::{FixedAssignment, FixedGenContext, TraceGenerator},
+    wit_gen::{FixedAssignment, TraceGenerator},
 };
 use std::{hash::Hash, rc::Rc};
 
@@ -228,13 +228,8 @@ fn compile_fixed<F: Field + Hash, TraceArgs>(
     ast: &astCircuit<F, TraceArgs>,
     unit: &mut CompilationUnit<F>,
 ) {
-    if let Some(fixed_gen) = &ast.fixed_gen {
-        let mut ctx = FixedGenContext::new(unit.num_steps);
-        (*fixed_gen)(&mut ctx);
-
-        let assignments = ctx.get_assignments();
-
-        unit.fixed_assignments = place_fixed_assignments(unit, assignments);
+    if let Some(fixed_assignments) = &ast.fixed_assignments {
+        unit.fixed_assignments = place_fixed_assignments(unit, fixed_assignments.clone());
     }
 }
 
