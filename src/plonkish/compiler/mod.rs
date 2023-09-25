@@ -11,9 +11,15 @@ use crate::{
 use std::{hash::Hash, rc::Rc};
 
 use cell_manager::{CellManager, SignalPlacement};
+use halo2_proofs::plonk::{Advice, Column as Halo2Column};
 use step_selector::StepSelectorBuilder;
 
 use unit::CompilationUnit;
+
+use self::{
+    cell_manager::{MaxWidthCellManager, SingleRowCellManager},
+    step_selector::{SimpleStepSelectorBuilder, TwoStepsSelectorBuilder},
+};
 
 pub mod cell_manager;
 pub mod step_selector;
@@ -555,3 +561,144 @@ fn add_halo2_columns<F, TraceArgs>(unit: &mut CompilationUnit<F>, ast: &astCircu
     unit.columns.extend(halo2_advice_columns);
     unit.columns.extend(halo2_fixed_columns);
 }
+
+
+/**
+ * State for the config builder.
+ * There might be better ways of doing this and associating them,
+ * but so far this is the simplest method found.
+ */
+pub struct CMNotSet;
+pub struct SingleRowCMSet;
+pub struct MaxWidthCMSet;
+pub struct SSBNotSet;
+pub struct SSBSet<SSB: StepSelectorBuilder>(SSB);
+
+
+/**
+ * Struct for the config builder.
+ * As new components come in, their arguments should be added here for the builder.
+ * 
+ * P.S. the `cm_selection` field is there to allow constraining the generics, and this
+ * might be a bad way of doing it.
+ */
+pub struct CompilerConfigBuilder<CMSetter, SSBSetter> {
+    cm_selection: CMSetter,
+    max_width: Option<usize>,
+    same_height: Option<bool>,
+    step_selector_builder: SSBSetter,
+}
+
+/**
+ * General implementation
+ */
+impl<CMSetter, SSBSetter> CompilerConfigBuilder<CMSetter, SSBSetter> {
+    pub fn new() -> CompilerConfigBuilder<CMNotSet, SSBNotSet> {
+        CompilerConfigBuilder {
+            cm_selection: CMNotSet,
+            max_width: None,
+            same_height: None,
+            step_selector_builder: SSBNotSet,
+        }
+    }
+
+    pub fn simple_step_selector_builder(
+        self,
+    ) -> CompilerConfigBuilder<CMSetter, SSBSet<SimpleStepSelectorBuilder>> {
+        CompilerConfigBuilder {
+            cm_selection: self.cm_selection,
+            max_width: self.max_width,
+            same_height: self.same_height,
+            step_selector_builder: SSBSet(SimpleStepSelectorBuilder::default()),
+        }
+    }
+
+    pub fn two_step_selector_builder(
+        self,
+        halo2_column: Option<Halo2Column<Advice>>,
+        hint_one: Option<String>,
+    ) -> CompilerConfigBuilder<CMSetter, SSBSet<TwoStepsSelectorBuilder>> {
+        CompilerConfigBuilder {
+            cm_selection: self.cm_selection,
+            max_width: self.max_width,
+            same_height: self.same_height,
+            step_selector_builder: SSBSet(TwoStepsSelectorBuilder {
+                halo2_column,
+                hint_one,
+            }),
+        }
+    }
+}
+
+/**
+ * Implementation for only when cell manager are not set.
+ * User should not be able to set other attributes not related to their selected cell manager.
+ */
+impl <SSBSetter> CompilerConfigBuilder<CMNotSet, SSBSetter> {
+    pub fn single_row(self) -> CompilerConfigBuilder<SingleRowCMSet, SSBSetter> {
+        CompilerConfigBuilder {
+            cm_selection: SingleRowCMSet,
+            max_width: None,
+            same_height: None,
+            step_selector_builder: self.step_selector_builder,
+        }
+    }
+
+    pub fn max_width(self, width: usize) -> CompilerConfigBuilder<MaxWidthCMSet, SSBSetter> {
+        CompilerConfigBuilder {
+            cm_selection: MaxWidthCMSet,
+            max_width: Some(width),
+            same_height: Some(false),
+            step_selector_builder: self.step_selector_builder,
+        }
+    }
+
+    pub fn max_height(self, height: usize) -> CompilerConfigBuilder<MaxWidthCMSet, SSBSetter> {
+        CompilerConfigBuilder {
+            cm_selection: MaxWidthCMSet,
+            max_width: Some(height),
+            same_height: Some(true),
+            step_selector_builder: self.step_selector_builder,
+        }
+    }
+
+}
+
+/**
+ * Build for each unique cell manager, respecting types
+ */
+impl<SSB: StepSelectorBuilder> CompilerConfigBuilder<SingleRowCMSet, SSBSet<SSB>> {
+    pub fn build(self) -> Result<CompilerConfig<SingleRowCellManager, SSB>, String> {
+        Ok(CompilerConfig {
+            cell_manager: SingleRowCellManager{},
+            step_selector_builder: self.step_selector_builder.0,
+        })
+    }
+}
+
+impl<SSB: StepSelectorBuilder> CompilerConfigBuilder<MaxWidthCMSet, SSBSet<SSB>> {
+    pub fn build(self) -> Result<CompilerConfig<MaxWidthCellManager, SSB>, String> {
+        let cm = match self {
+            CompilerConfigBuilder {
+                max_width: Some(max_width),
+                same_height: Some(same_height),
+                cm_selection: _,
+                step_selector_builder: _,
+            } => MaxWidthCellManager::new(max_width, same_height),
+            _ => return Err("Parameters not set properly for cell manager.".to_owned()),
+        };
+        Ok(CompilerConfig {
+            cell_manager: cm,
+            step_selector_builder: self.step_selector_builder.0,
+        })
+    }
+}
+
+pub fn config_builder() -> CompilerConfigBuilder<CMNotSet, SSBNotSet> {
+    let config_builder: CompilerConfigBuilder<CMNotSet, SSBNotSet> =
+        CompilerConfigBuilder::<CMNotSet, SSBNotSet>::new();
+    config_builder
+}
+
+#[cfg(test)]
+mod tests {}
