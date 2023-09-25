@@ -555,11 +555,6 @@
 <a href="#555" id="555">555</a>
 <a href="#556" id="556">556</a>
 <a href="#557" id="557">557</a>
-<a href="#558" id="558">558</a>
-<a href="#559" id="559">559</a>
-<a href="#560" id="560">560</a>
-<a href="#561" id="561">561</a>
-<a href="#562" id="562">562</a>
 </pre></div><pre class="rust"><code><span class="kw">use crate</span>::{
     ast::{query::Queriable, ASTExpr, Circuit <span class="kw">as </span>astCircuit, ExposeOffset, StepType, StepTypeUUID},
     field::Field,
@@ -568,7 +563,7 @@
         Circuit, Column, Poly, PolyExpr, PolyLookup,
     },
     poly::Expr,
-    wit_gen::{FixedAssignment, FixedGenContext, TraceGenerator},
+    wit_gen::{FixedAssignment, TraceGenerator},
 };
 <span class="kw">use </span>std::{hash::Hash, rc::Rc};
 
@@ -790,13 +785,8 @@
     ast: <span class="kw-2">&amp;</span>astCircuit&lt;F, TraceArgs&gt;,
     unit: <span class="kw-2">&amp;mut </span>CompilationUnit&lt;F&gt;,
 ) {
-    <span class="kw">if let </span><span class="prelude-val">Some</span>(fixed_gen) = <span class="kw-2">&amp;</span>ast.fixed_gen {
-        <span class="kw">let </span><span class="kw-2">mut </span>ctx = FixedGenContext::new(unit.num_steps);
-        (<span class="kw-2">*</span>fixed_gen)(<span class="kw-2">&amp;mut </span>ctx);
-
-        <span class="kw">let </span>assignments = ctx.get_assignments();
-
-        unit.fixed_assignments = place_fixed_assignments(unit, assignments);
+    <span class="kw">if let </span><span class="prelude-val">Some</span>(fixed_assignments) = <span class="kw-2">&amp;</span>ast.fixed_assignments {
+        unit.fixed_assignments = place_fixed_assignments(unit, fixed_assignments.clone());
     }
 }
 

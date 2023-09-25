@@ -105,9 +105,18 @@
 <a href="#105" id="105">105</a>
 <a href="#106" id="106">106</a>
 <a href="#107" id="107">107</a>
+<a href="#108" id="108">108</a>
+<a href="#109" id="109">109</a>
+<a href="#110" id="110">110</a>
+<a href="#111" id="111">111</a>
+<a href="#112" id="112">112</a>
+<a href="#113" id="113">113</a>
+<a href="#114" id="114">114</a>
+<a href="#115" id="115">115</a>
+<a href="#116" id="116">116</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{collections::HashMap, rc::Rc};
 
-<span class="kw">use crate</span>::{field::Field, util::UUID};
+<span class="kw">use crate</span>::{field::Field, util::UUID, wit_gen::TraceWitness};
 
 <span class="kw">use super</span>::{
     assignments::{AssignmentGenerator, Assignments},
@@ -172,7 +181,16 @@
         <span class="self">self</span>.assignments.insert(gen.uuid(), gen.generate(args));
     }
 
-    <span class="kw">fn </span>get_super_assignments(<span class="self">self</span>) -&gt; SuperAssignments&lt;F&gt; {
+    <span class="kw">pub fn </span>map_with_witness&lt;TraceArgs&gt;(
+        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
+        gen: <span class="kw-2">&amp;</span>AssignmentGenerator&lt;F, TraceArgs&gt;,
+        witness: TraceWitness&lt;F&gt;,
+    ) {
+        <span class="self">self</span>.assignments
+            .insert(gen.uuid(), gen.generate_with_witness(witness));
+    }
+
+    <span class="kw">pub fn </span>get_super_assignments(<span class="self">self</span>) -&gt; SuperAssignments&lt;F&gt; {
         <span class="self">self</span>.assignments
     }
 }

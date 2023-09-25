@@ -264,7 +264,7 @@
 
 <span class="kw">pub type </span>Witness&lt;F&gt; = Vec&lt;StepInstance&lt;F&gt;&gt;;
 
-<span class="attr">#[derive(Debug, Default)]
+<span class="attr">#[derive(Debug, Default, Clone)]
 </span><span class="kw">pub struct </span>TraceWitness&lt;F&gt; {
     <span class="kw">pub </span>step_instances: Witness&lt;F&gt;,
 }

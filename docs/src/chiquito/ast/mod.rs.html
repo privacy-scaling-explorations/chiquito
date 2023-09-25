@@ -517,15 +517,23 @@
 <a href="#517" id="517">517</a>
 <a href="#518" id="518">518</a>
 <a href="#519" id="519">519</a>
+<a href="#520" id="520">520</a>
+<a href="#521" id="521">521</a>
+<a href="#522" id="522">522</a>
+<a href="#523" id="523">523</a>
+<a href="#524" id="524">524</a>
+<a href="#525" id="525">525</a>
+<a href="#526" id="526">526</a>
+<a href="#527" id="527">527</a>
 </pre></div><pre class="rust"><code><span class="kw">pub mod </span>query;
 
-<span class="kw">use </span>std::{collections::HashMap, fmt::Debug, rc::Rc};
+<span class="kw">use </span>std::{collections::HashMap, fmt::Debug, hash::Hash, rc::Rc};
 
 <span class="kw">use crate</span>::{
     frontend::dsl::StepTypeHandler,
     poly::Expr,
     util::{uuid, UUID},
-    wit_gen::{FixedGenContext, Trace, TraceContext},
+    wit_gen::{FixedAssignment, FixedGenContext, Trace, TraceContext},
 };
 
 <span class="kw">use </span>halo2_proofs::plonk::{Advice, Column <span class="kw">as </span>Halo2Column, ColumnType, Fixed};
@@ -547,7 +555,7 @@
     <span class="kw">pub </span>annotations: HashMap&lt;UUID, String&gt;,
 
     <span class="kw">pub </span>trace: <span class="prelude-ty">Option</span>&lt;Rc&lt;Trace&lt;F, TraceArgs&gt;&gt;&gt;,
-    <span class="kw">pub </span>fixed_gen: <span class="prelude-ty">Option</span>&lt;Rc&lt;FixedGen&lt;F&gt;&gt;&gt;,
+    <span class="kw">pub </span>fixed_assignments: <span class="prelude-ty">Option</span>&lt;FixedAssignment&lt;F&gt;&gt;,
 
     <span class="kw">pub </span>first_step: <span class="prelude-ty">Option</span>&lt;StepTypeUUID&gt;,
     <span class="kw">pub </span>last_step: <span class="prelude-ty">Option</span>&lt;StepTypeUUID&gt;,
@@ -560,10 +568,19 @@
 <span class="kw">impl</span>&lt;F: Debug, TraceArgs: Debug&gt; Debug <span class="kw">for </span>Circuit&lt;F, TraceArgs&gt; {
     <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>std::fmt::Formatter&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; std::fmt::Result {
         f.debug_struct(<span class="string">&quot;Circuit&quot;</span>)
-            .field(<span class="string">&quot;forward_signals&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.forward_signals)
-            .field(<span class="string">&quot;halo2_advice&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.halo2_advice)
             .field(<span class="string">&quot;step_types&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.step_types)
+            .field(<span class="string">&quot;forward_signals&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.forward_signals)
+            .field(<span class="string">&quot;shared_signals&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.shared_signals)
+            .field(<span class="string">&quot;fixed_signals&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.fixed_signals)
+            .field(<span class="string">&quot;halo2_advice&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.halo2_advice)
+            .field(<span class="string">&quot;halo2_fixed&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.halo2_fixed)
+            .field(<span class="string">&quot;exposed&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.exposed)
             .field(<span class="string">&quot;annotations&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.annotations)
+            .field(<span class="string">&quot;fixed_assignments&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.fixed_assignments)
+            .field(<span class="string">&quot;first_step&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.first_step)
+            .field(<span class="string">&quot;last_step&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.last_step)
+            .field(<span class="string">&quot;num_steps&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.num_steps)
+            .field(<span class="string">&quot;q_enable&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.q_enable)
             .finish()
     }
 }
@@ -584,7 +601,7 @@
             annotations: Default::default(),
 
             trace: <span class="prelude-val">None</span>,
-            fixed_gen: <span class="prelude-val">None</span>,
+            fixed_assignments: <span class="prelude-val">None</span>,
 
             first_step: <span class="prelude-val">None</span>,
             last_step: <span class="prelude-val">None</span>,
@@ -685,20 +702,19 @@
         }
     }
 
-    <span class="kw">pub fn </span>set_fixed_gen&lt;D&gt;(<span class="kw-2">&amp;mut </span><span class="self">self</span>, def: D)
-    <span class="kw">where
-        </span>D: Fn(<span class="kw-2">&amp;mut </span>FixedGenContext&lt;F&gt;) + <span class="lifetime">&#39;static</span>,
-    {
-        <span class="kw">match </span><span class="self">self</span>.fixed_gen {
-            <span class="prelude-val">None </span>=&gt; <span class="self">self</span>.fixed_gen = <span class="prelude-val">Some</span>(Rc::new(def)),
-            <span class="prelude-val">Some</span>(<span class="kw">_</span>) =&gt; <span class="macro">panic!</span>(<span class="string">&quot;circuit cannot have more than one fixed generator&quot;</span>),
-        }
-    }
-
     <span class="kw">pub fn </span>get_step_type(<span class="kw-2">&amp;</span><span class="self">self</span>, uuid: UUID) -&gt; Rc&lt;StepType&lt;F&gt;&gt; {
         <span class="kw">let </span>step_rc = <span class="self">self</span>.step_types.get(<span class="kw-2">&amp;</span>uuid).expect(<span class="string">&quot;step type not found&quot;</span>);
 
         Rc::clone(step_rc)
+    }
+
+    <span class="kw">pub fn </span>set_fixed_assignments(<span class="kw-2">&amp;mut </span><span class="self">self</span>, assignments: FixedAssignment&lt;F&gt;) {
+        <span class="kw">match </span><span class="self">self</span>.fixed_assignments {
+            <span class="prelude-val">None </span>=&gt; {
+                <span class="self">self</span>.fixed_assignments = <span class="prelude-val">Some</span>(assignments);
+            }
+            <span class="prelude-val">Some</span>(<span class="kw">_</span>) =&gt; <span class="macro">panic!</span>(<span class="string">&quot;circuit cannot have more than one fixed generator&quot;</span>),
+        }
     }
 }
 
@@ -970,7 +986,7 @@
     }
 }
 
-<span class="attr">#[derive(Clone, Copy)]
+<span class="attr">#[derive(Clone, Copy, Debug)]
 </span><span class="kw">pub enum </span>ExposeOffset {
     First,
     Last,

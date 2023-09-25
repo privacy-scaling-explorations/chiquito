@@ -411,15 +411,27 @@
 <a href="#411" id="411">411</a>
 <a href="#412" id="412">412</a>
 <a href="#413" id="413">413</a>
+<a href="#414" id="414">414</a>
+<a href="#415" id="415">415</a>
+<a href="#416" id="416">416</a>
+<a href="#417" id="417">417</a>
+<a href="#418" id="418">418</a>
+<a href="#419" id="419">419</a>
+<a href="#420" id="420">420</a>
+<a href="#421" id="421">421</a>
+<a href="#422" id="422">422</a>
+<a href="#423" id="423">423</a>
+<a href="#424" id="424">424</a>
 </pre></div><pre class="rust"><code><span class="kw">use crate</span>::{
     ast::{query::Queriable, Circuit, ExposeOffset, StepType, StepTypeUUID},
+    field::Field,
     util::{uuid, UUID},
     wit_gen::{FixedGenContext, StepInstance, TraceContext},
 };
 
 <span class="kw">use </span>halo2_proofs::plonk::{Advice, Column <span class="kw">as </span>Halo2Column, Fixed};
 
-<span class="kw">use </span>core::fmt::Debug;
+<span class="kw">use </span>core::{fmt::Debug, hash::Hash};
 <span class="kw">use </span>std::marker::PhantomData;
 
 <span class="kw">use </span><span class="self">self</span>::{
@@ -546,17 +558,6 @@
         <span class="self">self</span>.circuit.set_trace(def);
     }
 
-    <span class="doccomment">/// Sets the fixed generation function for the circuit. The fixed generation function is
-    /// responsible for assigning fixed values to fixed columns. It is entirely left
-    /// for the user to implement and is Turing complete. Users typically generate cell values and
-    /// call the `assign` function to fill the fixed columns.
-    </span><span class="kw">pub fn </span>fixed_gen&lt;D&gt;(<span class="kw-2">&amp;mut </span><span class="self">self</span>, def: D)
-    <span class="kw">where
-        </span>D: Fn(<span class="kw-2">&amp;mut </span>FixedGenContext&lt;F&gt;) + <span class="lifetime">&#39;static</span>,
-    {
-        <span class="self">self</span>.circuit.set_fixed_gen(def);
-    }
-
     <span class="kw">pub fn </span>new_table(<span class="kw-2">&amp;</span><span class="self">self</span>, table: LookupTableStore&lt;F&gt;) -&gt; LookupTable {
         <span class="kw">let </span>uuid = table.uuid();
         <span class="self">self</span>.tables.add(table);
@@ -582,6 +583,27 @@
 
     <span class="kw">pub fn </span>pragma_disable_q_enable(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {
         <span class="self">self</span>.circuit.q_enable = <span class="bool-val">false</span>;
+    }
+}
+
+<span class="kw">impl</span>&lt;F: Field + Hash, TraceArgs&gt; CircuitContext&lt;F, TraceArgs&gt; {
+    <span class="doccomment">/// Executes the fixed generation function provided by the user and sets the fixed assignments
+    /// for the circuit. The fixed generation function is responsible for assigning fixed values to
+    /// fixed columns. It is entirely left for the user to implement and is Turing complete. Users
+    /// typically generate cell values and call the `assign` function to fill the fixed columns.
+    </span><span class="kw">pub fn </span>fixed_gen&lt;D&gt;(<span class="kw-2">&amp;mut </span><span class="self">self</span>, def: D)
+    <span class="kw">where
+        </span>D: Fn(<span class="kw-2">&amp;mut </span>FixedGenContext&lt;F&gt;) + <span class="lifetime">&#39;static</span>,
+    {
+        <span class="kw">if </span><span class="self">self</span>.circuit.num_steps == <span class="number">0 </span>{
+            <span class="macro">panic!</span>(<span class="string">&quot;circuit must call pragma_num_steps before calling fixed_gen&quot;</span>);
+        }
+        <span class="kw">let </span><span class="kw-2">mut </span>ctx = FixedGenContext::new(<span class="self">self</span>.circuit.num_steps);
+        (def)(<span class="kw-2">&amp;mut </span>ctx);
+
+        <span class="kw">let </span>assignments = ctx.get_assignments();
+
+        <span class="self">self</span>.circuit.set_fixed_assignments(assignments);
     }
 }
 
