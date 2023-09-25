@@ -231,14 +231,16 @@ impl CellManager for SingleRowCellManager {
 
 #[derive(Debug, Default, Clone)]
 pub struct MaxWidthCellManager {
-    max_width: usize,
+    max_width_advice: usize,
+    max_width_fixed: usize,
     same_height: bool,
 }
 
 impl MaxWidthCellManager {
-    pub fn new(max_width: usize, same_height: bool) -> Self {
+    pub fn new(max_width_advice: usize, max_width_fixed: usize, same_height: bool) -> Self {
         Self {
-            max_width,
+            max_width_advice,
+            max_width_fixed,
             same_height,
         }
     }
@@ -262,9 +264,10 @@ impl CellManager for MaxWidthCellManager {
 
         let mut forward_signal_column: usize = 0;
         let mut forward_signal_row: usize = 0;
+        let mut forward_columns: Vec<Column> = Vec::new();
 
         for forward_signal in unit.forward_signals.iter() {
-            let column = if placement.columns.len() <= forward_signal_column {
+            let column = if placement.forward.len() <= forward_signal_column {
                 let column = if let Some(annotation) = unit.annotations.get(&forward_signal.uuid())
                 {
                     Column::advice(format!("mwcm forward signal {}", annotation), 0)
@@ -272,10 +275,10 @@ impl CellManager for MaxWidthCellManager {
                     Column::advice("mwcm forward signal", 0)
                 };
 
-                placement.columns.push(column.clone());
+                forward_columns.push(column.clone());
                 column
             } else {
-                placement.columns[forward_signal_column].clone()
+                forward_columns[forward_signal_column].clone()
             };
 
             placement.forward.insert(
@@ -287,7 +290,7 @@ impl CellManager for MaxWidthCellManager {
             );
 
             forward_signal_column += 1;
-            if forward_signal_column >= self.max_width {
+            if forward_signal_column >= self.max_width_advice {
                 forward_signal_column = 0;
                 forward_signal_row += 1;
             }
@@ -298,6 +301,61 @@ impl CellManager for MaxWidthCellManager {
         } else {
             forward_signal_row
         } as u32;
+
+
+
+        let mut fixed_signal_column: usize = 0;
+        let mut fixed_signal_row: usize = 0;
+        let mut fixed_columns: Vec<Column> = Vec::new();
+
+
+        for fixed_signal in unit.fixed_signals.iter() {
+            let column = if placement.fixed.len() <= fixed_signal_column {
+                let column = if let Some(annotation) = unit.annotations.get(&fixed_signal.uuid())
+                {
+                    Column::fixed(format!("mwcm fixed signal {}", annotation))
+                } else {
+                    Column::fixed("mwcm fixed signal")
+                };
+
+                fixed_columns.push(column.clone());
+                column
+            } else {
+                fixed_columns[fixed_signal_column].clone()
+            };
+
+            placement.fixed.insert(
+                *fixed_signal,
+                SignalPlacement {
+                    column,
+                    rotation: fixed_signal_row as i32,
+                },
+            );
+
+            fixed_signal_column += 1;
+            if fixed_signal_column >= self.max_width_fixed {
+                fixed_signal_column = 0;
+                fixed_signal_row += 1;
+            }
+        }
+
+        placement.base_height = if fixed_signal_row > forward_signal_row {
+            if fixed_signal_column != 0 {
+                fixed_signal_row as u32 + 1
+            } else {
+                fixed_signal_row as u32
+            }
+        } else {
+            if forward_signal_column != 0 {
+                forward_signal_row as u32 + 1
+            } else {
+                forward_signal_row as u32
+            }
+        };
+
+        placement.columns.extend(forward_columns);
+        placement.columns.extend(fixed_columns);
+
 
         for step in unit.step_types.values() {
             let mut step_placement = StepPlacement {
@@ -337,7 +395,7 @@ impl CellManager for MaxWidthCellManager {
                 step_placement.height = (internal_signal_row + 1) as u32;
 
                 internal_signal_column += 1;
-                if internal_signal_column >= self.max_width {
+                if internal_signal_column >= self.max_width_advice {
                     internal_signal_column = 0;
                     internal_signal_row += 1;
                 }
@@ -372,6 +430,7 @@ mod tests {
     use crate::{
         ast::{ForwardSignal, StepType},
         plonkish::compiler::CompilationUnit,
+        plonkish::compiler::cell_manager::FixedSignal,
     };
 
     use super::{CellManager, MaxWidthCellManager};
@@ -402,7 +461,8 @@ mod tests {
         // forward signals: a, b; step1 internal: c1, d, e; step2 internal c2
 
         let cm = MaxWidthCellManager {
-            max_width: 2,
+            max_width_advice: 2,
+            max_width_fixed: 2,
             same_height: false,
         };
 
@@ -472,7 +532,8 @@ mod tests {
         // forward signals: a, b; step1 internal: c1, d, e; step2 internal c2
 
         let cm = MaxWidthCellManager {
-            max_width: 2,
+            max_width_advice: 2,
+            max_width_fixed: 2,
             same_height: true,
         };
 
@@ -514,5 +575,103 @@ mod tests {
                 .len(),
             1
         );
+    }
+
+    #[test]
+    fn test_max_width_cm_different_columns() {
+        let mut unit = CompilationUnit::<()> {
+            forward_signals: vec![
+                ForwardSignal::new_with_phase(0, "forward signal 1".to_string()),
+                ForwardSignal::new_with_phase(0, "forward signal 2".to_string()),
+            ],
+            fixed_signals: vec![
+                FixedSignal::new_with_id(0, "fixed signal 1".to_string()),
+                FixedSignal::new_with_id(0, "fixed signal 2".to_string()),
+                FixedSignal::new_with_id(0, "fixed signal 3".to_string()),
+            ],
+            ..Default::default()
+        };
+
+        let mut step1 = StepType::new(1500, "step1".to_string());
+        step1.add_signal("c1");
+        step1.add_signal("d");
+        step1.add_signal("e");
+        let mut step2 = StepType::new(1501, "step2".to_string());
+        step2.add_signal("c2");
+
+        let step1 = Rc::new(step1);
+        let step2 = Rc::new(step2);
+
+        unit.step_types.insert(1500, Rc::clone(&step1));
+        unit.step_types.insert(1501, Rc::clone(&step2));
+
+        // forward signals: a, b; step1 internal: c1, d, e; step2 internal c2
+
+        let cm = MaxWidthCellManager {
+            max_width_advice: 2,
+            max_width_fixed: 2,
+            same_height: true,
+        };
+
+        cm.place(&mut unit);
+
+        assert_eq!(unit.placement.forward.len(), 2);
+        assert_eq!(unit.placement.fixed.len(), 3);
+
+        // placement.columns contains both advice and fixed columns
+        assert_eq!(unit.placement.columns.len(), 4);
+        assert_eq!(unit.placement.base_height, 1);
+
+        assert_eq!(
+            unit.placement
+                .steps
+                .get(&step1.uuid())
+                .expect("should be there")
+                .height,
+            3
+        );
+        assert_eq!(
+            unit.placement
+                .steps
+                .get(&step1.uuid())
+                .expect("should be there")
+                .signals
+                .len(),
+            3
+        );
+        assert_eq!(
+            unit.placement
+                .steps
+                .get(&step2.uuid())
+                .expect("should be there")
+                .height,
+            3
+        );
+        assert_eq!(
+            unit.placement
+                .steps
+                .get(&step2.uuid())
+                .expect("should be there")
+                .signals
+                .len(),
+            1
+        );
+        assert_eq!(
+            unit.placement
+                .fixed
+                .get(&unit.fixed_signals[0])
+                .expect("should be there")
+                .column,
+            unit.placement.columns[2]
+        );
+        assert_eq!(
+            unit.placement
+                .fixed
+                .get(&unit.fixed_signals[1])
+                .expect("should be there")
+                .column,
+            unit.placement.columns[3]
+        );
+
     }
 }

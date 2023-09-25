@@ -676,7 +676,7 @@ fn poseidon_super_circuit<F: PrimeField + Eq + Hash>(
             matrix_table,
         };
         let maxwidth_config = config(
-            MaxWidthCellManager::new(2, true),
+            MaxWidthCellManager::new(2, 2, true),
             SimpleStepSelectorBuilder {},
         );
         let (poseidon, _) = ctx.sub_circuit(maxwidth_config, poseidon_circuit, params);
