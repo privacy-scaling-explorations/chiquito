@@ -1,6 +1,6 @@
 use std::{collections::HashMap, rc::Rc};
 
-use crate::{field::Field, util::UUID};
+use crate::{field::Field, util::UUID, wit_gen::TraceWitness};
 
 use super::{
     assignments::{AssignmentGenerator, Assignments},
@@ -65,7 +65,16 @@ impl<F: Field> MappingContext<F> {
         self.assignments.insert(gen.uuid(), gen.generate(args));
     }
 
-    fn get_super_assignments(self) -> SuperAssignments<F> {
+    pub fn map_with_witness<TraceArgs>(
+        &mut self,
+        gen: &AssignmentGenerator<F, TraceArgs>,
+        witness: TraceWitness<F>,
+    ) {
+        self.assignments
+            .insert(gen.uuid(), gen.generate_with_witness(witness));
+    }
+
+    pub fn get_super_assignments(self) -> SuperAssignments<F> {
         self.assignments
     }
 }

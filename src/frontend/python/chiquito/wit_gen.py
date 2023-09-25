@@ -1,6 +1,6 @@
 from __future__ import annotations
 from dataclasses import dataclass, field
-from typing import Dict, List, Callable, Any
+from typing import Dict, List
 import json
 
 from chiquito.query import Queriable, Fixed
@@ -94,29 +94,4 @@ class TraceWitness:
         return TraceWitness(new_step_instances)
 
 
-FixedAssigment = Dict[Queriable, List[F]]
-
-
-@dataclass
-class FixedGenContext:
-    assignments: FixedAssigment = field(default_factory=dict)
-    num_steps: int = 0
-
-    def new(num_steps: int) -> FixedGenContext:
-        return FixedGenContext({}, num_steps)
-
-    def assign(self: FixedGenContext, offset: int, lhs: Queriable, rhs: F):
-        if not FixedGenContext.is_fixed_queriable(lhs):
-            raise ValueError(f"Cannot assign to non-fixed signal.")
-        if lhs in self.assignments.keys():
-            self.assignments[lhs][offset] = rhs
-        else:
-            self.assignments[lhs] = [F.zero()] * self.num_steps
-            self.assignments[lhs][offset] = rhs
-
-    def is_fixed_queriable(q: Queriable) -> bool:
-        match q.enum:
-            case Fixed(_, _):
-                return True
-            case _:
-                return False
+FixedAssignment = Dict[Queriable, List[F]]
