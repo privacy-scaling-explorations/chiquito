@@ -24,43 +24,6 @@ class Mimc7Constants(Circuit):
             self.assign(i, self.lookup_c, F(round_key))
 
 
-class Mimc7Circuit(Circuit):
-    def setup(self):
-        self.x = self.forward("x")
-        self.k = self.forward("k")
-        self.c = self.forward("c")
-        self.row = self.forward("row")
-
-        self.mimc7_first_step = self.step_type(Mimc7FirstStep(self, "mimc7_first_step"))
-        self.mimc7_step = self.step_type(Mimc7Step(self, "mimc7_step"))
-        self.mimc7_last_step = self.step_type(Mimc7LastStep(self, "mimc7_last_step"))
-
-        self.pragma_first_step(self.mimc7_first_step)
-        self.pragma_last_step(self.mimc7_last_step)
-        self.pragma_num_steps(ROUNDS + 2 - 1)
-
-    def trace(self, x_in_value, k_value):
-        c_value = F(ROUND_KEYS[0])
-        x_value = F(x_in_value)
-        row_value = F(0)
-
-        self.add(self.mimc7_first_step, x_value, k_value, c_value, row_value)
-
-        for i in range(1, ROUNDS):
-            row_value += F(1)
-            x_value += F(k_value + c_value)
-            x_value = F(x_value**7)
-            c_value = F(ROUND_KEYS[i])
-
-            self.add(self.mimc7_step, x_value, k_value, c_value, row_value)
-
-        row_value += F(1)
-        x_value += F(k_value + c_value)
-        x_value = F(x_value**7)
-
-        self.add(self.mimc7_last_step, x_value, k_value, c_value, row_value)
-
-
 class Mimc7FirstStep(StepType):
     def setup(self):
         self.xkc = self.internal("xkc")
@@ -86,7 +49,7 @@ class Mimc7FirstStep(StepType):
         self.transition(eq(self.circuit.row + 1, self.circuit.row.next()))
 
         self.add_lookup(
-            self.circuit.imports.apply(self.circuit.row).apply(self.circuit.c)
+            self.circuit.constants_table.apply(self.circuit.row).apply(self.circuit.c)
         )
 
     def wg(self, x_value, k_value, c_value, row_value):
@@ -124,7 +87,7 @@ class Mimc7Step(StepType):
         self.transition(eq(self.circuit.row + 1, self.circuit.row.next()))
 
         self.add_lookup(
-            self.circuit.imports.apply(self.circuit.row).apply(self.circuit.c)
+            self.circuit.constants_table.apply(self.circuit.row).apply(self.circuit.c)
         )
 
     def wg(self, x_value, k_value, c_value, row_value):
@@ -151,11 +114,48 @@ class Mimc7LastStep(StepType):
         self.assign(self.out, F(x_value + k_value))
 
 
+class Mimc7Circuit(Circuit):
+    def setup(self):
+        self.x = self.forward("x")
+        self.k = self.forward("k")
+        self.c = self.forward("c")
+        self.row = self.forward("row")
+
+        self.mimc7_first_step = self.step_type(Mimc7FirstStep(self, "mimc7_first_step"))
+        self.mimc7_step = self.step_type(Mimc7Step(self, "mimc7_step"))
+        self.mimc7_last_step = self.step_type(Mimc7LastStep(self, "mimc7_last_step"))
+
+        self.pragma_first_step(self.mimc7_first_step)
+        self.pragma_last_step(self.mimc7_last_step)
+        self.pragma_num_steps(ROUNDS + 2 - 1)
+
+    def trace(self, x_in_value, k_value):
+        c_value = F(ROUND_KEYS[0])
+        x_value = F(x_in_value)
+        row_value = F(0)
+
+        self.add(self.mimc7_first_step, x_value, k_value, c_value, row_value)
+
+        for i in range(1, ROUNDS):
+            row_value += F(1)
+            x_value += F(k_value + c_value)
+            x_value = F(x_value**7)
+            c_value = F(ROUND_KEYS[i])
+
+            self.add(self.mimc7_step, x_value, k_value, c_value, row_value)
+
+        row_value += F(1)
+        x_value += F(k_value + c_value)
+        x_value = F(x_value**7)
+
+        self.add(self.mimc7_last_step, x_value, k_value, c_value, row_value)
+
+
 class Mimc7SuperCircuit(SuperCircuit):
     def setup(self):
-        self.mimc7_constants = self.sub_circuit(Mimc7Constants(self, imports=None))
+        self.mimc7_constants = self.sub_circuit(Mimc7Constants(self))
         self.mimc7_circuit = self.sub_circuit(
-            Mimc7Circuit(self, imports=self.mimc7_constants.lookup_table)
+            Mimc7Circuit(self, constants_table=self.mimc7_constants.lookup_table)
         )
 
     def mapping(self, x_in_value, k_value):

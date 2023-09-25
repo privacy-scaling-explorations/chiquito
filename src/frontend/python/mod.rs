@@ -34,7 +34,6 @@ type CircuitMapStore = (
     Circuit<Fr, ()>,
     ChiquitoHalo2<Fr>,
     Option<AssignmentGenerator<Fr, ()>>,
-    // Option<TraceWitness<Fr>>,
 );
 type CircuitMap = RefCell<HashMap<UUID, CircuitMapStore>>;
 
@@ -75,8 +74,6 @@ fn add_assignment_generator_to_rust_id(
         let circuit_map_store = circuit_map.get_mut(&rust_id).unwrap();
         circuit_map_store.2 = Some(assignment_generator);
     });
-
-    println!("Added AssignmentGenerator to rust_id: {:?}", rust_id);
 }
 
 /// Compile a `ChiquitoHalo2SuperCircuit` object from a list of `rust_ids`, each corresponding to a

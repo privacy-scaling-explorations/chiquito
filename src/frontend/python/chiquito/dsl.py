@@ -92,13 +92,16 @@ class CircuitMode(Enum):
 
 class Circuit:
     def __init__(
-        self: Circuit, super_circuit: SuperCircuit = None, imports: Any = None
+        self: Circuit,
+        super_circuit: SuperCircuit = None,
+        **kwargs,  # **kwargs is intended for arbitrary names for imports
     ):
         self.ast = ASTCircuit()
         self.witness = TraceWitness()
         self.rust_id = 0
         self.super_circuit = super_circuit
-        self.imports = imports
+        for key, value in kwargs.items():
+            setattr(self, key, value)
         self.mode = CircuitMode.SETUP
         self.setup()
         if hasattr(self, "fixed_gen") and callable(self.fixed_gen):

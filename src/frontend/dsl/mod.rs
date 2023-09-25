@@ -163,10 +163,10 @@ impl<F, TraceArgs> CircuitContext<F, TraceArgs> {
 }
 
 impl<F: Field + Hash, TraceArgs> CircuitContext<F, TraceArgs> {
-    /// Sets the fixed generation function for the circuit. The fixed generation function is
-    /// responsible for assigning fixed values to fixed columns. It is entirely left
-    /// for the user to implement and is Turing complete. Users typically generate cell values and
-    /// call the `assign` function to fill the fixed columns.
+    /// Executes the fixed generation function provided by the user and sets the fixed assignments
+    /// for the circuit. The fixed generation function is responsible for assigning fixed values to
+    /// fixed columns. It is entirely left for the user to implement and is Turing complete. Users
+    /// typically generate cell values and call the `assign` function to fill the fixed columns.
     pub fn fixed_gen<D>(&mut self, def: D)
     where
         D: Fn(&mut FixedGenContext<F>) + 'static,
