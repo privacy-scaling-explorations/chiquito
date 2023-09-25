@@ -264,6 +264,7 @@ impl CellManager for MaxWidthCellManager {
 
         let mut forward_signal_column: usize = 0;
         let mut forward_signal_row: usize = 0;
+        let mut forward_columns: Vec<Column> = Vec::new();
 
         for forward_signal in unit.forward_signals.iter() {
             let column = if placement.forward.len() <= forward_signal_column {
@@ -274,10 +275,10 @@ impl CellManager for MaxWidthCellManager {
                     Column::advice("mwcm forward signal", 0)
                 };
 
-                placement.columns.push(column.clone());
+                forward_columns.push(column.clone());
                 column
             } else {
-                placement.columns[forward_signal_column].clone()
+                forward_columns[forward_signal_column].clone()
             };
 
             placement.forward.insert(
@@ -305,7 +306,7 @@ impl CellManager for MaxWidthCellManager {
 
         let mut fixed_signal_column: usize = 0;
         let mut fixed_signal_row: usize = 0;
-        let mut column_pos = self.max_width_advice + fixed_signal_column;
+        let mut fixed_columns: Vec<Column> = Vec::new();
 
 
         for fixed_signal in unit.fixed_signals.iter() {
@@ -317,11 +318,10 @@ impl CellManager for MaxWidthCellManager {
                     Column::fixed("mwcm fixed signal")
                 };
 
-                placement.columns.push(column.clone());
+                fixed_columns.push(column.clone());
                 column
             } else {
-                column_pos += 1;
-                placement.columns[column_pos - 1].clone()
+                fixed_columns[fixed_signal_column].clone()
             };
 
             placement.fixed.insert(
@@ -352,6 +352,9 @@ impl CellManager for MaxWidthCellManager {
                 forward_signal_row as u32
             }
         };
+
+        placement.columns.extend(forward_columns);
+        placement.columns.extend(fixed_columns);
 
 
         for step in unit.step_types.values() {
