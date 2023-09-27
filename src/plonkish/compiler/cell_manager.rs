@@ -299,6 +299,40 @@ impl CellManager for MaxWidthCellManager {
             forward_signal_row
         } as u32;
 
+        let mut shared_signal_column: usize = 0;
+        let mut shared_signal_row: usize = 0;
+
+        for shared_signal in unit.shared_signals.iter() {
+            let column = if placement.columns.len() <= shared_signal_column {
+                let column = if let Some(annotation) = unit.annotations.get(&shared_signal.uuid()) {
+                    Column::advice(format!("mwcm shared signal {}", annotation), 0)
+                } else {
+                    Column::advice("mwcm shared signal", 0)
+                };
+
+                placement.columns.push(column.clone());
+                column
+            } else {
+                placement.columns[shared_signal_column].clone()
+            };
+
+            placement.columns.push(column.clone());
+
+            placement.shared.insert(
+                *shared_signal,
+                SignalPlacement {
+                    column,
+                    rotation: shared_signal_row as i32,
+                },
+            );
+
+            shared_signal_column += 1;
+            if shared_signal_column >= self.max_width {
+                shared_signal_column = 0;
+                shared_signal_row += 1;
+            }
+        }
+
         for step in unit.step_types.values() {
             let mut step_placement = StepPlacement {
                 height: if forward_signal_column > 0 {
