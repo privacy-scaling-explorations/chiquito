@@ -3,7 +3,7 @@ from chiquito.dsl import SuperCircuit, Circuit, StepType
 from chiquito.cb import eq, table
 from chiquito.util import F
 
-from mimc7_constants import ROUND_KEYS
+from mimc7_constants import ROUND_CONSTANTS
 
 ROUNDS = 91
 
@@ -19,7 +19,7 @@ class Mimc7Constants(Circuit):
         )
 
     def fixed_gen(self):
-        for i, round_key in enumerate(ROUND_KEYS):
+        for i, round_key in enumerate(ROUND_CONSTANTS):
             self.assign(i, self.lookup_row, F(i))
             self.assign(i, self.lookup_c, F(round_key))
 
@@ -28,8 +28,9 @@ class Mimc7FirstStep(StepType):
     def setup(self):
         self.xkc = self.internal("xkc")
         self.y = self.internal("y")
+        self.c = self.internal("c")
 
-        self.constr(eq(self.circuit.x + self.circuit.k + self.circuit.c, self.xkc))
+        self.constr(eq(self.circuit.x + self.circuit.k + self.c, self.xkc))
         self.constr(
             eq(
                 self.xkc
@@ -49,13 +50,13 @@ class Mimc7FirstStep(StepType):
         self.transition(eq(self.circuit.row + 1, self.circuit.row.next()))
 
         self.add_lookup(
-            self.circuit.constants_table.apply(self.circuit.row).apply(self.circuit.c)
+            self.circuit.constants_table.apply(self.circuit.row).apply(self.c)
         )
 
     def wg(self, x_value, k_value, c_value, row_value):
         self.assign(self.circuit.x, F(x_value))
         self.assign(self.circuit.k, F(k_value))
-        self.assign(self.circuit.c, F(c_value))
+        self.assign(self.c, F(c_value))
         self.assign(self.circuit.row, F(row_value))
 
         xkc_value = F(x_value + k_value + c_value)
@@ -67,8 +68,9 @@ class Mimc7Step(StepType):
     def setup(self):
         self.xkc = self.internal("xkc")
         self.y = self.internal("y")
+        self.c = self.internal("c")
 
-        self.constr(eq(self.circuit.x + self.circuit.k + self.circuit.c, self.xkc))
+        self.constr(eq(self.circuit.x + self.circuit.k + self.c, self.xkc))
         self.constr(
             eq(
                 self.xkc
@@ -87,13 +89,13 @@ class Mimc7Step(StepType):
         self.transition(eq(self.circuit.row + 1, self.circuit.row.next()))
 
         self.add_lookup(
-            self.circuit.constants_table.apply(self.circuit.row).apply(self.circuit.c)
+            self.circuit.constants_table.apply(self.circuit.row).apply(self.c)
         )
 
     def wg(self, x_value, k_value, c_value, row_value):
         self.assign(self.circuit.x, F(x_value))
         self.assign(self.circuit.k, F(k_value))
-        self.assign(self.circuit.c, F(c_value))
+        self.assign(self.c, F(c_value))
         self.assign(self.circuit.row, F(row_value))
 
         xkc_value = F(x_value + k_value + c_value)
@@ -118,7 +120,6 @@ class Mimc7Circuit(Circuit):
     def setup(self):
         self.x = self.forward("x")
         self.k = self.forward("k")
-        self.c = self.forward("c")
         self.row = self.forward("row")
 
         self.mimc7_first_step = self.step_type(Mimc7FirstStep(self, "mimc7_first_step"))
@@ -130,7 +131,7 @@ class Mimc7Circuit(Circuit):
         self.pragma_num_steps(ROUNDS + 2 - 1)
 
     def trace(self, x_in_value, k_value):
-        c_value = F(ROUND_KEYS[0])
+        c_value = F(ROUND_CONSTANTS[0])
         x_value = F(x_in_value)
         row_value = F(0)
 
@@ -140,7 +141,7 @@ class Mimc7Circuit(Circuit):
             row_value += F(1)
             x_value += F(k_value + c_value)
             x_value = F(x_value**7)
-            c_value = F(ROUND_KEYS[i])
+            c_value = F(ROUND_CONSTANTS[i])
 
             self.add(self.mimc7_step, x_value, k_value, c_value, row_value)
 

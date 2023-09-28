@@ -1,3 +1,10 @@
+from __future__ import annotations
+from chiquito.dsl import Circuit, StepType
+from chiquito.cb import eq
+from chiquito.util import F
+
+ROUNDS = 91
+
 ROUND_CONSTANTS = [
     0,
     20888961410941983456478427210666206549300505294776164667214940546594746570981,
@@ -91,3 +98,84 @@ ROUND_CONSTANTS = [
     18979889247746272055963929241596362599320706910852082477600815822482192194401,
     13602139229813231349386885113156901793661719180900395818909719758150455500533,
 ]
+
+
+class Mimc7Step(StepType):
+    def setup(self):
+        self.xkc = self.internal("xkc")
+        self.y = self.internal("y")
+        self.c = self.internal("c")
+
+        self.constr(eq(self.circuit.x + self.circuit.k + self.c, self.xkc))
+        self.constr(
+            eq(
+                self.xkc
+                * self.xkc
+                * self.xkc
+                * self.xkc
+                * self.xkc
+                * self.xkc
+                * self.xkc,
+                self.y,
+            )
+        )
+
+        self.transition(eq(self.y, self.circuit.x.next()))
+        self.transition(eq(self.circuit.k, self.circuit.k.next()))
+
+    def wg(self, x_value, k_value, c_value):
+        self.assign(self.circuit.x, F(x_value))
+        self.assign(self.circuit.k, F(k_value))
+        self.assign(self.c, F(c_value))
+
+        xkc_value = F(x_value + k_value + c_value)
+        self.assign(self.xkc, F(xkc_value))
+        self.assign(self.y, F(xkc_value**7))
+
+
+class Mimc7LastStep(StepType):
+    def setup(self):
+        self.out = self.internal("out")
+
+        self.constr(eq(self.circuit.x + self.circuit.k, self.out))
+
+    def wg(self, x_value, k_value, _):
+        self.assign(self.circuit.x, F(x_value))
+        self.assign(self.circuit.k, F(k_value))
+        self.assign(self.out, F(x_value + k_value))
+
+
+class Mimc7Circuit(Circuit):
+    def setup(self):
+        self.x = self.forward("x")
+        self.k = self.forward("k")
+
+        self.mimc7_step = self.step_type(Mimc7Step(self, "mimc7_step"))
+        self.mimc7_last_step = self.step_type(Mimc7LastStep(self, "mimc7_last_step"))
+
+        self.pragma_first_step(self.mimc7_step)
+        self.pragma_last_step(self.mimc7_last_step)
+        self.pragma_num_steps(ROUNDS + 1)
+
+    def trace(self, x_in_value, k_value):
+        c_value = F(ROUND_CONSTANTS[0])
+        x_value = F(x_in_value)
+
+        self.add(self.mimc7_step, x_value, k_value, c_value)
+
+        for i in range(1, ROUNDS):
+            x_value += F(k_value + c_value)
+            x_value = F(x_value**7)
+            c_value = F(ROUND_CONSTANTS[i])
+
+            self.add(self.mimc7_step, x_value, k_value, c_value)
+
+        x_value += F(k_value + c_value)
+        x_value = F(x_value**7)
+
+        self.add(self.mimc7_last_step, x_value, k_value, c_value)
+
+
+mimc7_circuit = Mimc7Circuit()
+mimc7_circuit_witness = mimc7_circuit.gen_witness(F(1), F(2))
+mimc7_circuit.halo2_mock_prover(mimc7_circuit_witness)
