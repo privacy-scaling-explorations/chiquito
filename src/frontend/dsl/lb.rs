@@ -201,3 +201,187 @@ impl<F: Clone + Debug> LookupBuilder<F> for LookupTableBuilder<F> {
         table.build(self.src, self.enable)
     }
 }
+
+#[cfg(test)]
+mod test {
+
+    use halo2_proofs::halo2curves::bn256::Fr;
+    use halo2curves::ff::Field;
+
+    use crate::ast::StepType;
+    use crate::ast::Expr;
+
+    use super::*;
+
+    #[test]
+    fn test_in_place_lookup_builder_build() {
+        let in_place_lookup_builder = InPlaceLookupBuilder::<Fr>::default();
+        let annotation = in_place_lookup_builder.lookup.annotation;
+        let exprs = in_place_lookup_builder.lookup.exprs;
+        let enable = in_place_lookup_builder.lookup.enable;
+        assert_eq!(annotation, "");
+        assert_eq!(format!("{:?}",exprs), "[]");
+        assert_eq!(format!("{:?}", enable), "None");
+    }
+
+    #[test]
+    fn test_in_place_lookup_builder_add() {
+        let mut in_place_lookup_builder = InPlaceLookupBuilder::<Fr>::default();
+        let constraint = Constraint::from(Expr::Const(Fr::ONE));
+        in_place_lookup_builder = in_place_lookup_builder.add(
+            constraint,
+            Expr::Const(Fr::ONE),
+        );
+        let annotation = &in_place_lookup_builder.lookup.annotation;
+        let exprs = &in_place_lookup_builder.lookup.exprs;
+        let enable = &in_place_lookup_builder.lookup.enable;
+        assert_eq!(annotation, "match(0x1 => 0x1) ");
+        assert_eq!(format!("{:?}",exprs), "[(Constraint { annotation: \"0x1\", expr: 0x1 }, 0x1)]");
+        assert_eq!(format!("{:?}", enable), "None");
+    }
+
+    #[test]
+    fn test_in_place_lookup_builder_enable() {
+        let mut in_place_lookup_builder = InPlaceLookupBuilder::<Fr>::default();
+        let constraint = Constraint::from(Expr::Const(Fr::ONE));
+        in_place_lookup_builder = in_place_lookup_builder.enable(
+            constraint
+        );
+        let annotation = &in_place_lookup_builder.lookup.annotation;
+        let exprs = &in_place_lookup_builder.lookup.exprs;
+        let enable = &in_place_lookup_builder.lookup.enable;
+        assert_eq!(annotation, "if 0x1, ");
+        assert_eq!(format!("{:?}",exprs), "[]");
+        assert_eq!(format!("{:?}", enable), "Some(Constraint { annotation: \"0x1\", expr: 0x1 })");
+    }
+
+    #[test]
+    fn test_lookup_table_store_add() {
+        let lookup_table_store = LookupTableStore::<Fr>::default();
+        let copied = lookup_table_store.add(Expr::Const(Fr::ONE)).clone();
+        assert_eq!(format!("{:?}", copied.dest[0]), "0x1");
+    }
+
+    #[test]
+    fn test_lookup_table_store_uuid() {
+        let lookup_table_store = LookupTableStore::<Fr>::default();
+        let copied = lookup_table_store.clone();
+        let uuid = lookup_table_store.uuid();
+        assert_eq!(uuid, copied.id);
+    }
+
+    #[test]
+    fn test_lookup_table_store_build_none_enable() {
+        let lookup_table_store = LookupTableStore::<Fr>::default();
+        let copied = lookup_table_store.add(Expr::Const(Fr::ONE)).clone();
+        let constraint = Constraint::from(Expr::Const(Fr::ONE));
+        let built_lookup = copied.build(vec!(constraint), None);
+        assert_eq!(built_lookup.annotation, "match(0x1 => 0x1) ");
+        assert_eq!(format!("{:?}", built_lookup.exprs), "[(Constraint { annotation: \"0x1\", expr: 0x1 }, 0x1)]");
+        assert_eq!(format!("{:?}", built_lookup.enable), "None");
+    }
+
+    #[test]
+    fn test_lookup_table_store_build_enalbed() {
+        let lookup_table_store = LookupTableStore::<Fr>::default();
+        let copied = lookup_table_store.add(Expr::Const(Fr::ONE)).clone();
+        let constraint = Constraint::from(Expr::Const(Fr::ONE));
+        let copied_constraint = constraint.clone();
+        let built_lookup = copied.build(vec!(constraint), Some(copied_constraint));
+        assert_eq!(built_lookup.annotation, "if 0x1, match(0x1 => 0x1) ");
+        assert_eq!(format!("{:?}", built_lookup.exprs), "[(Constraint { annotation: \"0x1\", expr: (0x1 * 0x1) }, 0x1)]");
+        assert_eq!(format!("{:?}", built_lookup.enable), "Some(Constraint { annotation: \"0x1\", expr: 0x1 })");
+    }
+
+    #[test]
+    fn test_lookup_table_registry_add() {
+        let lookup_table_store = LookupTableStore::<Fr>::default();
+        let stored_uuid = lookup_table_store.uuid();
+        let lookup_table_registry = LookupTableRegistry::<Fr>::default();
+        lookup_table_registry.add(lookup_table_store);
+        let stored_lookup_table = lookup_table_registry.get(stored_uuid);
+        assert!(format!("{:?}", stored_lookup_table).contains(&format!("LookupTableStore {{ id: {}, dest: [] }}", stored_uuid)));
+    }
+
+    #[test]
+    fn test_lookup_table_registry_clone() {
+        let lookup_table_store = LookupTableStore::<Fr>::default();
+        let stored_uuid = lookup_table_store.uuid();
+        let lookup_table_registry = LookupTableRegistry::<Fr>::default();
+        lookup_table_registry.add(lookup_table_store);
+        let copied_lookup_table = lookup_table_registry.clone();
+        let stored_lookup_table = lookup_table_registry.get(stored_uuid);
+        let stored_lookup_table_in_copy = copied_lookup_table.get(stored_uuid);
+        assert_eq!(format!("{:?}", stored_lookup_table), format!("{:?}", stored_lookup_table_in_copy));
+    }
+
+    #[test]
+    fn test_lookup_table_apply() {
+        let constraint = Constraint::from(Expr::Const(Fr::ONE));
+        let lookup_table = LookupTable { uuid: 1u128 };
+        let applied_lookup_table = lookup_table.apply(constraint);
+        let id = applied_lookup_table.id;
+        let src = applied_lookup_table.src;
+        let enable = applied_lookup_table.enable;
+        assert_eq!(format!("{:?}", id), "1");
+        assert_eq!(format!("{:?}", src), "[0x1]");
+        assert_eq!(format!("{:?}", enable), "None");
+    }
+
+    #[test]
+    fn test_lookup_table_when() {
+        let enable = Constraint::from(Expr::Const(Fr::ONE));
+        let lookup_table = LookupTable { uuid: 1u128 };
+        let applied_lookup_table = lookup_table.when(enable);
+        let id = applied_lookup_table.id;
+        let src = applied_lookup_table.src;
+        let enable = applied_lookup_table.enable;
+        assert_eq!(format!("{:?}", id), "1");
+        assert_eq!(format!("{:?}", src), "[]");
+        assert_eq!(format!("{:?}", enable), "Some(0x1)");
+    }
+
+    #[test]
+    fn test_lookup_table_builder_new() {
+        let mut lookup_table_builder = LookupTableBuilder::<Fr>::new(1u128);
+        let constraint = Constraint::from(Expr::Const(Fr::ONE));
+        let constraint2 = Constraint::from(Expr::Const(Fr::ZERO));
+        lookup_table_builder = lookup_table_builder.apply(constraint);
+        lookup_table_builder = lookup_table_builder.apply(constraint2);
+        let id = lookup_table_builder.id;
+        let src = lookup_table_builder.src;
+        assert_eq!(format!("{:?}", id), "1");
+        assert_eq!(format!("{:?}", src), "[0x1, 0x]");
+    }
+
+    #[test]
+    fn test_lookup_table_builder_when() {
+        let mut lookup_table_builder = LookupTableBuilder::<Fr>::new(1u128);
+        let constraint = Constraint::from(Expr::Const(Fr::ONE));
+        lookup_table_builder = lookup_table_builder.when(constraint);
+        let enable = lookup_table_builder.enable;
+        assert_eq!(format!("{:?}", enable), "Some(0x1)");
+    }
+
+    #[test]
+    fn test_lookup_table_builder_build() {
+        let lookup_table_store = LookupTableStore::<Fr>::default();
+        let stored_uuid = lookup_table_store.uuid();
+        let lookup_table_builder = LookupTableBuilder::<Fr>::new(stored_uuid);
+        let lookup_table_registry = LookupTableRegistry::<Fr>::default();
+        lookup_table_registry.add(lookup_table_store);
+        let mut step_type = StepType::<Fr>::new(0u128, "test step type".to_string());
+        let step_type_setup_context = StepTypeSetupContext { 
+            step_type: &mut step_type, 
+            tables: lookup_table_registry 
+        };
+        let result = lookup_table_builder.build(&step_type_setup_context);
+        let annotation = result.annotation.clone();
+        let exprs = result.exprs.clone();
+        let enable = result.enable.clone();
+        assert_eq!(annotation, "");
+        assert_eq!(format!("{:?}",exprs), "[]");
+        assert_eq!(format!("{:?}", enable), "None");
+    }
+
+}
