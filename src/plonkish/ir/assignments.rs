@@ -1,5 +1,6 @@
 use std::{
     collections::HashMap,
+    fmt,
     ops::{Deref, DerefMut},
 };
 
@@ -18,6 +19,29 @@ use super::{Column, PolyExpr};
 
 #[derive(Debug, Clone)]
 pub struct Assignments<F>(pub HashMap<Column, Vec<F>>);
+
+impl<F: fmt::Debug> fmt::Display for Assignments<F> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        // get the decimal width based on the step_instances size, add extra one leading zero
+        let decimal_width = self.0.len().checked_ilog10().unwrap_or(0) + 2;
+        // offset(col_uuid): value0, value1, value2,...
+        for (i, (col, vals)) in self.0.iter().enumerate() {
+            let vals = vals.iter().fold(String::new(), |mut acc, val| {
+                acc.push_str(&format!("{:?}, ", val));
+                acc
+            });
+            writeln!(
+                f,
+                "{:0>width$}({}): {}",
+                i,
+                col.id,
+                vals,
+                width = decimal_width as usize,
+            )?;
+        }
+        Ok(())
+    }
+}
 
 impl<F> Default for Assignments<F> {
     fn default() -> Self {
@@ -249,5 +273,22 @@ impl<F: Field, TraceArgs> AssignmentGenerator<F, TraceArgs> {
         }
 
         None
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn pretty_print_assignments() {
+        let display = format!(
+            "{}",
+            Assignments::<i32>(HashMap::from([
+                (Column::advice("a", 1), vec![1, 2, 3]),
+                (Column::fixed("a"), vec![4, 5, 6]),
+            ])),
+        );
+        println!("{}", display);
     }
 }
