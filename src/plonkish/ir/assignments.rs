@@ -1,4 +1,7 @@
-use std::collections::HashMap;
+use std::{
+    collections::HashMap,
+    ops::{Deref, DerefMut},
+};
 
 use crate::field::Field;
 
@@ -13,7 +16,28 @@ use crate::{
 
 use super::{Column, PolyExpr};
 
-pub type Assignments<F> = HashMap<Column, Vec<F>>;
+#[derive(Debug, Clone)]
+pub struct Assignments<F>(pub HashMap<Column, Vec<F>>);
+
+impl<F> Default for Assignments<F> {
+    fn default() -> Self {
+        Self(HashMap::default())
+    }
+}
+
+impl<F> Deref for Assignments<F> {
+    type Target = HashMap<Column, Vec<F>>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl<F> DerefMut for Assignments<F> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
+    }
+}
 
 pub struct AssignmentGenerator<F, TraceArgs> {
     columns: Vec<Column>,

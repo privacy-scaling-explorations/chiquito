@@ -188,7 +188,7 @@ impl<F: Field + From<u64> + Hash> ChiquitoHalo2<F> {
     }
 
     fn assign_advice(&self, region: &mut Region<F>, witness: &Assignments<F>) -> Result<(), Error> {
-        for (column, assignments) in witness {
+        for (column, assignments) in witness.iter() {
             let column = self.convert_advice_column(column);
 
             for (offset, value) in assignments.iter().enumerate() {
@@ -200,7 +200,7 @@ impl<F: Field + From<u64> + Hash> ChiquitoHalo2<F> {
     }
 
     fn assign_fixed(&self, region: &mut Region<F>, fixed: &Assignments<F>) -> Result<(), Error> {
-        for (column, values) in fixed {
+        for (column, values) in fixed.iter() {
             let column = self.convert_fixed_column(column);
 
             for (offset, value) in values.iter().enumerate() {
