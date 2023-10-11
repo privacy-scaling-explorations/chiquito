@@ -1,18 +1,15 @@
 use std::hash::Hash;
 
 use chiquito::{
-    ast::expr::*,
-    frontend::dsl::{
-        cb::*,   // functions for constraint building
-        circuit, // main function for constructing an AST circuit
-    },
+    field::Field,
+    frontend::dsl::circuit, // main function for constructing an AST circuit
     plonkish::backend::halo2::{chiquito2Halo2, ChiquitoHalo2Circuit}, /* compiles to
-                                                                       * Chiquito Halo2
-                                                                       * backend,
-                                                                       * which can be
-                                                                       * integrated into
-                                                                       * Halo2
-                                                                       * circuit */
+                             * Chiquito Halo2
+                             * backend,
+                             * which can be
+                             * integrated into
+                             * Halo2
+                             * circuit */
     plonkish::compiler::{
         cell_manager::SingleRowCellManager, // input for constructing the compiler
         compile,                            // input for constructing the compiler
@@ -20,8 +17,9 @@ use chiquito::{
         step_selector::SimpleStepSelectorBuilder,
     },
     plonkish::ir::{assignments::AssignmentGenerator, Circuit}, // compiled circuit type
+    poly::ToField,
 };
-use halo2_proofs::{arithmetic::Field, dev::MockProver, halo2curves::bn256::Fr};
+use halo2_proofs::{dev::MockProver, halo2curves::bn256::Fr};
 
 // the main circuit function: returns the compiled IR of a Chiquito circuit
 // Generic types F, (), (u64, 64) stand for:
@@ -36,6 +34,9 @@ fn fibo_circuit<F: Field + From<u64> + Hash>() -> (Circuit<F>, Option<Assignment
     // | 2 | 3 | 5 |
     // | 3 | 5 | 8 |
     // ...
+
+    use chiquito::frontend::dsl::cb::*; // functions for constraint building
+
     let fibo = circuit::<F, (), _>("fibonacci", |ctx| {
         // the following objects (forward signals, steptypes) are defined on the circuit-level
 
@@ -116,7 +117,7 @@ fn main() {
     let compiled = chiquito2Halo2(chiquito);
     let circuit = ChiquitoHalo2Circuit::new(compiled, wit_gen.map(|g| g.generate(())));
 
-    let prover = MockProver::<Fr>::run(7, &circuit, Vec::new()).unwrap();
+    let prover = MockProver::<Fr>::run(7, &circuit, circuit.instance()).unwrap();
 
     let result = prover.verify_par();
 
@@ -151,7 +152,7 @@ fn main() {
 
     let result_plaf = prover_plaf.verify_par();
 
-    println!("result = {:#?}", result);
+    println!("result = {:#?}", result_plaf);
 
     if let Err(failures) = &result_plaf {
         for failure in failures.iter() {

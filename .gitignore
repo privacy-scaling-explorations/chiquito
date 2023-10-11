@@ -1,3 +1,7 @@
 /target
 /Cargo.lock
 .vscode
+.env
+__pycache__
+*.so
+.ipynb_checkpoints

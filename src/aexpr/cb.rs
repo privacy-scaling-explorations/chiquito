@@ -1,3 +1,5 @@
+use crate::{ast::query::Queriable, field::Field};
+
 use super::AExpr;
 
 pub fn eq<F, V, LHS: Into<AExpr<F, V>>, RHS: Into<AExpr<F, V>>>(lhs: LHS, rhs: RHS) -> AExpr<F, V> {
@@ -66,6 +68,29 @@ pub fn select<F, V, SEL: Into<AExpr<F, V>>, WHENT: Into<AExpr<F, V>>, WHENF: Int
 
 pub trait ToAExpr<F, V> {
     fn to_aexpr(self) -> AExpr<F, V>;
+}
+
+impl<F> ToAExpr<F, Queriable<F>> for Queriable<F> {
+    fn to_aexpr(self) -> AExpr<F, Queriable<F>> {
+        AExpr::Query(self)
+    }
+}
+
+impl<F: Field, V> ToAExpr<F, V> for i32 {
+    fn to_aexpr(self) -> AExpr<F, V> {
+        AExpr::Const(
+            F::from(self.unsigned_abs() as u64) * if self.is_negative() { -F::ONE } else { F::ONE },
+        )
+    }
+}
+
+impl<F: Field + From<u64>, V> From<i32> for AExpr<F, V> {
+    fn from(value: i32) -> Self {
+        AExpr::Const(
+            F::from(value.unsigned_abs() as u64)
+                * if value.is_negative() { -F::ONE } else { F::ONE },
+        )
+    }
 }
 
 macro_rules! aexpr_build {
@@ -152,47 +177,30 @@ macro_rules! aexpr_build {
 
 #[cfg(test)]
 mod test {
-    use halo2curves::{bn256::Fr, ff::Field};
+    use halo2curves::bn256::Fr;
 
-    use crate::{aexpr::{compiler::compile, ir::CostConfig, poly}, ast::{InternalSignal, query::Queriable, ToField}};
+    use crate::{
+        aexpr::{compiler::compile, ir::CostConfig, poly},
+        ast::{query::Queriable, InternalSignal},
+        poly::ToExpr,
+    };
 
     use super::{super::AExpr, *};
 
     #[derive(Debug, Clone, Default, Copy)]
     struct TestSignal {}
 
-    impl<F> super::ToAExpr<F, TestSignal> for TestSignal {
+    impl<F> ToAExpr<F, TestSignal> for TestSignal {
         fn to_aexpr(self) -> AExpr<F, TestSignal> {
             AExpr::Query(self)
         }
     }
 
-    impl<F> super::ToAExpr<F, Queriable<F>> for Queriable<F> {
-        fn to_aexpr(self) -> AExpr<F, Queriable<F>> {
-            AExpr::Query(self)
-        }
-    }
-
-    impl<F: Field + From<u64>, V> ToAExpr<F, V> for i32 {
-        fn to_aexpr(self) -> AExpr<F, V> {
-            AExpr::Const(F::from(self.unsigned_abs() as u64) * if self.is_negative() { -F::ONE } else { F::ONE },)
-        }
-    }
-
-    impl<F: Field + From<u64>, V> From<i32> for AExpr<F, V> {
-        fn from(value: i32) -> Self {
-            AExpr::Const(
-                F::from(value.unsigned_abs() as u64)
-            * if value.is_negative() { -F::ONE } else { F::ONE },
-        )
-        }
-    }
-
     #[test]
     fn test_macro() {
-        //trace_macros!(true);
+        // trace_macros!(true);
         let a = Queriable::Internal(InternalSignal::new("a".to_string()));
-        
+
         let constr = aexpr_build!(2i32 + a);
 
         println!("{:#?}", constr);
@@ -201,10 +209,11 @@ mod test {
 
         println!("{:#?}", constr);
 
-        let constr = aexpr_build!(((1 + 2 + -a + 10) == 3i32) and a);
+        let constr = aexpr_build!(((1i32 + 2i32 + a + 10) == 3i32) and a);
         println!("{:#?}", constr);
 
-        let constr: AExpr<Fr, Queriable<Fr>> = aexpr_build!(ifx (not a) thenx { (((2 + a + 10) == 3i32) and a ) } );
+        let constr: AExpr<Fr, Queriable<Fr>> =
+            aexpr_build!(ifx (not a) thenx { (((2 + a + 10) == 3i32) and a ) } );
         println!("{:#?}", constr);
 
         let compiled = poly::compile(&compile(&constr, CostConfig::default()));

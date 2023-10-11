@@ -1,46 +1,47 @@
 use std::{
+    collections::HashMap,
     fmt::Debug,
-    ops::{Add, Mul, Neg, Sub},
     hash::Hash,
+    ops::{Add, Mul, Neg, Sub},
 };
 
-use halo2_proofs::{arithmetic::Field, plonk::Expression};
+use halo2_proofs::plonk::Expression;
 
-use crate::{frontend::dsl::cb::Constraint, wit_gen::StepInstanceAssignments};
+use crate::field::Field;
 
-use self::query::Queriable;
-
-pub mod query;
-
-pub trait ToExpr<F> {
-    fn expr(&self) -> Expr<F>;
+pub trait ToExpr<F, V> {
+    fn expr(&self) -> Expr<F, V>;
 }
 
 pub trait ToField<F> {
     fn field(&self) -> F;
 }
 
+pub type StepInstanceAssignments<F, V> = HashMap<V, F>;
+
 #[derive(Clone)]
-pub enum Expr<F> {
+pub enum Expr<F, V> {
     Const(F),
-    Sum(Vec<Expr<F>>),
-    Mul(Vec<Expr<F>>),
-    Neg(Box<Expr<F>>),
-    Pow(Box<Expr<F>>, u32),
-    Query(Queriable<F>),
+    Sum(Vec<Expr<F, V>>),
+    Mul(Vec<Expr<F, V>>),
+    Neg(Box<Expr<F, V>>),
+    Pow(Box<Expr<F, V>>, u32),
+    Query(V),
     Halo2Expr(Expression<F>),
 }
 
-impl<F: Field + Hash> Expr<F> {
-    pub fn eval(&self, assignments: &StepInstanceAssignments<F>) -> Option<F> {
+impl<F: Field + Hash, V: Eq + PartialEq + Hash> Expr<F, V> {
+    pub fn eval(&self, assignments: &StepInstanceAssignments<F, V>) -> Option<F> {
         match self {
             Expr::Const(v) => Some(v.clone()),
-            Expr::Sum(ses) => ses.iter().fold(Some(F::ZERO), |acc, se| Some(acc? + se.eval(assignments)?)),
-            Expr::Mul(ses) => ses.iter().fold(Some(F::ONE), |acc, se| Some(acc? * se.eval(assignments)?)),
+            Expr::Sum(ses) => ses
+                .iter()
+                .fold(Some(F::ZERO), |acc, se| Some(acc? + se.eval(assignments)?)),
+            Expr::Mul(ses) => ses
+                .iter()
+                .fold(Some(F::ONE), |acc, se| Some(acc? * se.eval(assignments)?)),
             Expr::Neg(se) => Some(F::ZERO - se.eval(assignments)?),
-            Expr::Pow(se, exp) => {
-                Some(se.eval(assignments)?.pow([*exp as u64]))
-            },
+            Expr::Pow(se, exp) => Some(se.eval(assignments)?.pow([*exp as u64])),
             Expr::Query(q) => assignments.get(q).map(|v| *v),
 
             // Not implemented, and not necessary for aexpr
@@ -49,7 +50,7 @@ impl<F: Field + Hash> Expr<F> {
     }
 }
 
-impl<F: Debug> Debug for Expr<F> {
+impl<F: Debug, V: Debug> Debug for Expr<F, V> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::Const(arg0) => {
@@ -80,7 +81,7 @@ impl<F: Debug> Debug for Expr<F> {
                     .collect::<Vec<String>>()
                     .join(" * ")
             ),
-            Self::Neg(arg0) => write!(f, "-{:?}", arg0),
+            Self::Neg(arg0) => write!(f, "(-{:?})", arg0),
             Self::Pow(arg0, arg1) => write!(f, "({:?})^{}", arg0, arg1),
             Self::Query(arg0) => write!(f, "{:?}", arg0),
             Self::Halo2Expr(arg0) => write!(f, "halo2({:?})", arg0),
@@ -88,25 +89,13 @@ impl<F: Debug> Debug for Expr<F> {
     }
 }
 
-impl<F: Clone> ToExpr<F> for Expr<F> {
-    fn expr(&self) -> Expr<F> {
+impl<F: Clone, V: Clone> ToExpr<F, V> for Expr<F, V> {
+    fn expr(&self) -> Expr<F, V> {
         self.clone()
     }
 }
 
-impl<F> From<Constraint<F>> for Expr<F> {
-    fn from(c: Constraint<F>) -> Self {
-        c.expr
-    }
-}
-
-impl<F> From<Queriable<F>> for Expr<F> {
-    fn from(value: Queriable<F>) -> Self {
-        Expr::Query(value)
-    }
-}
-
-impl<F, RHS: Into<Expr<F>>> Add<RHS> for Expr<F> {
+impl<F, V, RHS: Into<Expr<F, V>>> Add<RHS> for Expr<F, V> {
     type Output = Self;
     fn add(self, rhs: RHS) -> Self {
         use Expr::*;
@@ -120,7 +109,7 @@ impl<F, RHS: Into<Expr<F>>> Add<RHS> for Expr<F> {
     }
 }
 
-impl<F, RHS: Into<Expr<F>>> Sub<RHS> for Expr<F> {
+impl<F, V, RHS: Into<Expr<F, V>>> Sub<RHS> for Expr<F, V> {
     type Output = Self;
     fn sub(self, rhs: RHS) -> Self {
         use Expr::*;
@@ -134,7 +123,7 @@ impl<F, RHS: Into<Expr<F>>> Sub<RHS> for Expr<F> {
     }
 }
 
-impl<F, RHS: Into<Expr<F>>> Mul<RHS> for Expr<F> {
+impl<F, V, RHS: Into<Expr<F, V>>> Mul<RHS> for Expr<F, V> {
     type Output = Self;
     fn mul(self, rhs: RHS) -> Self {
         use Expr::*;
@@ -148,7 +137,7 @@ impl<F, RHS: Into<Expr<F>>> Mul<RHS> for Expr<F> {
     }
 }
 
-impl<F> Neg for Expr<F> {
+impl<F, V> Neg for Expr<F, V> {
     type Output = Self;
     fn neg(self) -> Self {
         match self {
@@ -160,21 +149,21 @@ impl<F> Neg for Expr<F> {
 
 macro_rules! impl_expr_like {
     ($type:ty) => {
-        impl<F: From<u64>> From<$type> for Expr<F> {
+        impl<F: From<u64>, V> From<$type> for Expr<F, V> {
             #[inline]
             fn from(value: $type) -> Self {
                 Expr::Const(F::from(value as u64))
             }
         }
 
-        impl<F: From<u64>> $crate::ast::ToExpr<F> for $type {
+        impl<F: From<u64>, V> $crate::poly::ToExpr<F, V> for $type {
             #[inline]
-            fn expr(&self) -> Expr<F> {
+            fn expr(&self) -> Expr<F, V> {
                 Expr::Const(F::from(*self as u64))
             }
         }
 
-        impl<F: From<u64>> $crate::ast::ToField<F> for $type {
+        impl<F: From<u64>> $crate::poly::ToField<F> for $type {
             #[inline]
             fn field(&self) -> F {
                 F::from(*self as u64)
@@ -189,7 +178,7 @@ impl_expr_like!(u32);
 impl_expr_like!(u64);
 impl_expr_like!(usize);
 
-impl<F: Field + From<u64>> From<i32> for Expr<F> {
+impl<F: Field + From<u64>, V> From<i32> for Expr<F, V> {
     #[inline]
     fn from(value: i32) -> Self {
         Expr::Const(
@@ -199,9 +188,9 @@ impl<F: Field + From<u64>> From<i32> for Expr<F> {
     }
 }
 
-impl<F: Field + From<u64>> ToExpr<F> for i32 {
+impl<F: Field + From<u64>, V> ToExpr<F, V> for i32 {
     #[inline]
-    fn expr(&self) -> Expr<F> {
+    fn expr(&self) -> Expr<F, V> {
         Expr::Const(
             F::from(self.unsigned_abs() as u64) * if self.is_negative() { -F::ONE } else { F::ONE },
         )
@@ -215,35 +204,9 @@ impl<F: Field + From<u64>> ToField<F> for i32 {
     }
 }
 
-impl<F> From<Expression<F>> for Expr<F> {
+impl<F, V> From<Expression<F>> for Expr<F, V> {
     #[inline]
     fn from(value: Expression<F>) -> Self {
         Expr::Halo2Expr(value)
-    }
-}
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use halo2_proofs::halo2curves::bn256::Fr;
-
-    #[test]
-    fn test_expr_fmt() {
-        let a: Fr = 10.into();
-        let b: Fr = 20.into();
-
-        let expr1 = Expr::Const(&a);
-        assert_eq!(format!("{:?}", expr1), "0xa");
-
-        let expr2 = Expr::Sum(vec![Expr::Const(&a), Expr::Const(&b)]);
-        assert_eq!(format!("{:?}", expr2), "(0xa + 0x14)");
-
-        let expr3 = Expr::Mul(vec![Expr::Const(&a), Expr::Const(&b)]);
-        assert_eq!(format!("{:?}", expr3), "(0xa * 0x14)");
-
-        let expr4 = Expr::Neg(Box::new(Expr::Const(&a)));
-        assert_eq!(format!("{:?}", expr4), "-0xa");
-
-        let expr5 = Expr::Pow(Box::new(Expr::Const(&a)), 2);
-        assert_eq!(format!("{:?}", expr5), "(0xa)^2");
     }
 }

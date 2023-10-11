@@ -235,6 +235,15 @@ pub struct MaxWidthCellManager {
     same_height: bool,
 }
 
+impl MaxWidthCellManager {
+    pub fn new(max_width: usize, same_height: bool) -> Self {
+        Self {
+            max_width,
+            same_height,
+        }
+    }
+}
+
 impl CellManager for MaxWidthCellManager {
     fn place<F>(&self, unit: &mut CompilationUnit<F>) {
         if (!unit.shared_signals.is_empty() || !unit.fixed_signals.is_empty()) && !self.same_height

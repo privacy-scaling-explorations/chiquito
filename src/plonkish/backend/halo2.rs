@@ -11,7 +11,7 @@ use halo2_proofs::{
 };
 
 use crate::{
-    ast::ToField,
+    field::Field as ChiquitoField,
     plonkish::ir::{
         assignments::Assignments,
         sc::{SuperAssignments, SuperCircuit},
@@ -19,8 +19,22 @@ use crate::{
         ColumnType::{Advice as cAdvice, Fixed as cFixed, Halo2Advice, Halo2Fixed},
         PolyExpr,
     },
+    poly::ToField,
     util::UUID,
 };
+
+impl<T: Field + From<u64>> ChiquitoField for T {
+    const ZERO: Self = <Self as Field>::ZERO;
+    const ONE: Self = <Self as Field>::ONE;
+
+    fn mi(&self) -> Self {
+        self.invert().unwrap_or(Self::ZERO)
+    }
+
+    fn pow<S: AsRef<[u64]>>(&self, exp: S) -> Self {
+        Field::pow(self, exp)
+    }
+}
 
 #[allow(non_snake_case)]
 pub fn chiquito2Halo2<F: Field + From<u64> + Hash>(circuit: Circuit<F>) -> ChiquitoHalo2<F> {
@@ -170,7 +184,7 @@ impl<F: Field + From<u64> + Hash> ChiquitoHalo2<F> {
                 halo2_column,
                 // For single row cell manager, forward signal rotation is always zero.
                 // For max width cell manager, rotation can be non-zero.
-                // Offset is 0 + rotation for the first step instance.
+                // Offset is absolute row index calculated in `compile_exposed`.
                 *rotation as usize,
             );
             let _ = layouter.constrain_instance(cell, self.instance_column.unwrap(), index);
@@ -199,6 +213,25 @@ impl<F: Field + From<u64> + Hash> ChiquitoHalo2<F> {
         }
 
         Ok(())
+    }
+
+    fn instance(&self, witness: &Assignments<F>) -> Vec<F> {
+        let mut instance_values = Vec::new();
+        for (column, rotation) in &self.circuit.exposed {
+            let values = witness
+                .get(column)
+                .unwrap_or_else(|| panic!("exposed column not found: {}", column.annotation));
+
+            if let Some(value) = values.get(*rotation as usize) {
+                instance_values.push(*value);
+            } else {
+                panic!(
+                    "assignment index out of bounds for column: {}",
+                    column.annotation
+                );
+            }
+        }
+        instance_values
     }
 
     fn annotate_circuit(&self, region: &mut Region<F>) {
@@ -247,7 +280,7 @@ impl<F: Field + From<u64> + Hash> ChiquitoHalo2<F> {
                 }
             }
             PolyExpr::Halo2Expr(e) => e.clone(),
-            PolyExpr::Query(column, rotation, _) => self.convert_query(meta, column, *rotation),
+            PolyExpr::Query((column, rotation, _)) => self.convert_query(meta, column, *rotation),
         }
     }
 
@@ -337,9 +370,18 @@ pub struct ChiquitoHalo2Circuit<F: Field + From<u64>> {
     witness: Option<Assignments<F>>,
 }
 
-impl<F: Field + From<u64>> ChiquitoHalo2Circuit<F> {
+impl<F: Field + From<u64> + Hash> ChiquitoHalo2Circuit<F> {
     pub fn new(compiled: ChiquitoHalo2<F>, witness: Option<Assignments<F>>) -> Self {
         Self { compiled, witness }
+    }
+
+    pub fn instance(&self) -> Vec<Vec<F>> {
+        if !self.compiled.circuit.exposed.is_empty() {
+            if let Some(witness) = &self.witness {
+                return vec![self.compiled.instance(witness)];
+            }
+        }
+        Vec::new()
     }
 }
 
@@ -388,12 +430,29 @@ pub struct ChiquitoHalo2SuperCircuit<F: Field + From<u64>> {
     witness: SuperAssignments<F>,
 }
 
-impl<F: Field + From<u64>> ChiquitoHalo2SuperCircuit<F> {
+impl<F: Field + From<u64> + Hash> ChiquitoHalo2SuperCircuit<F> {
     pub fn new(sub_circuits: Vec<ChiquitoHalo2<F>>, witness: SuperAssignments<F>) -> Self {
         Self {
             sub_circuits,
             witness,
         }
+    }
+
+    pub fn instance(&self) -> Vec<Vec<F>> {
+        let mut result = Vec::new();
+
+        for sub_circuit in &self.sub_circuits {
+            if !sub_circuit.circuit.exposed.is_empty() {
+                let instance_values = sub_circuit.instance(
+                    self.witness
+                        .get(&sub_circuit.ir_id)
+                        .expect("No matching witness found for given UUID."),
+                );
+                result.push(instance_values);
+            }
+        }
+
+        result
     }
 }
 

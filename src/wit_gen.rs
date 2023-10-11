@@ -1,9 +1,8 @@
 use std::{collections::HashMap, hash::Hash, rc::Rc};
 
-use halo2_proofs::arithmetic::Field;
-
 use crate::{
     ast::{query::Queriable, StepTypeUUID},
+    field::Field,
     frontend::dsl::StepTypeWGHandler,
 };
 
@@ -36,7 +35,7 @@ impl<F: Eq + Hash> StepInstance<F> {
 
 pub type Witness<F> = Vec<StepInstance<F>>;
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone)]
 pub struct TraceWitness<F> {
     pub step_instances: Witness<F>,
 }
@@ -169,7 +168,12 @@ impl<F: Field + Hash> FixedGenContext<F> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{frontend::dsl::StepTypeWGHandler, util::uuid};
+    use crate::{
+        ast::{query::Queriable, FixedSignal},
+        frontend::dsl::StepTypeWGHandler,
+        util::uuid,
+    };
+    use halo2_proofs::halo2curves::bn256::Fr;
 
     fn dummy_args_fn() {}
 
@@ -196,5 +200,34 @@ mod tests {
         ctx.padding(&step, dummy_args_fn);
 
         assert_eq!(ctx.witness.step_instances.len(), 5);
+    }
+
+    #[test]
+    fn test_fixed_gen_context() {
+        let mut ctx = FixedGenContext::new(3);
+        let fixed_signal = FixedSignal::new("dummy".to_owned());
+        let queriable = Queriable::Fixed(fixed_signal, 3);
+
+        ctx.assign(0, queriable, Fr::from(3));
+        let gt = vec![Fr::from(3), Fr::from(0), Fr::from(0)];
+        assert_eq!(*ctx.get_assignments().get_mut(&queriable).unwrap(), gt);
+    }
+
+    #[test]
+    fn test_fixed_gen_context_multiple() {
+        let mut ctx = FixedGenContext::new(3);
+        let fixed_signal = FixedSignal::new("dummy".to_owned());
+        let fixed_signal2 = FixedSignal::new("dummy2".to_owned());
+        let queriable = Queriable::Fixed(fixed_signal, 3);
+        let queriable2 = Queriable::Fixed(fixed_signal2, 3);
+
+        ctx.assign(0, queriable, Fr::from(3));
+        ctx.assign(2, queriable2, Fr::from(3));
+
+        let gt1 = vec![Fr::from(3), Fr::from(0), Fr::from(0)];
+        let gt2 = vec![Fr::from(0), Fr::from(0), Fr::from(3)];
+        let mut assignment = ctx.get_assignments();
+        assert_eq!(*assignment.get_mut(&queriable).unwrap(), gt1);
+        assert_eq!(*assignment.get_mut(&queriable2).unwrap(), gt2);
     }
 }
