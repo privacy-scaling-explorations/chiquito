@@ -17,7 +17,7 @@ use chiquito::{
     },
 };
 
-use mimc7_constants::ROUND_KEYS;
+use mimc7_constants::ROUND_CONSTANTS;
 
 // MiMC7 always has 91 rounds
 pub const ROUNDS: usize = 91;
@@ -39,7 +39,7 @@ fn mimc7_constants<F: PrimeField + Eq + Hash>(
 
     // populate the lookup columns
     ctx.fixed_gen(move |ctx| {
-        for (i, round_key) in ROUND_KEYS.iter().enumerate().take(ROUNDS) {
+        for (i, round_key) in ROUND_CONSTANTS.iter().enumerate().take(ROUNDS) {
             ctx.assign(i, lookup_row, F::from(i as u64));
             ctx.assign(i, lookup_c, F::from_str_vartime(round_key).unwrap());
         }
@@ -155,13 +155,13 @@ fn mimc7_circuit<F: PrimeField + Eq + Hash>(
     ctx.trace(move |ctx, (x_in_value, k_value)| {
         // step 0: calculate witness values from trace inputs, i.e. message x_in and secret key
         // k note that c_0 == 0
-        let mut c_value: F = F::from_str_vartime(ROUND_KEYS[0]).unwrap();
+        let mut c_value: F = F::from_str_vartime(ROUND_CONSTANTS[0]).unwrap();
         let mut x_value = x_in_value;
         let mut row_value = F::from(0);
         // step 0: assign witness values
         ctx.add(&mimc7_first_step, (x_in_value, k_value, c_value, row_value));
 
-        for round_key in ROUND_KEYS.iter().take(ROUNDS).skip(1) {
+        for round_key in ROUND_CONSTANTS.iter().take(ROUNDS).skip(1) {
             // step 1 through 90: calculate witness values from iteration results
             row_value += F::from(1);
             x_value += k_value + c_value;
@@ -222,7 +222,7 @@ fn main() {
 }
 
 mod mimc7_constants {
-    pub const ROUND_KEYS: &[&str] = &[
+    pub const ROUND_CONSTANTS: &[&str] = &[
         "0",
         "20888961410941983456478427210666206549300505294776164667214940546594746570981",
         "15265126113435022738560151911929040668591755459209400716467504685752745317193",

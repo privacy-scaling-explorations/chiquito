@@ -1,13 +1,14 @@
 use std::hash::Hash;
 
-use halo2_proofs::arithmetic::Field;
+use crate::field::Field;
 
 use crate::{
-    ast::{query::Queriable, ToExpr},
+    ast::query::Queriable,
     frontend::dsl::{
         cb::{Constraint, Typing},
         StepTypeContext,
     },
+    poly::ToExpr,
     wit_gen::StepInstance,
 };
 
@@ -46,6 +47,6 @@ impl<F: Field + From<u64>> IsZero<F> {
 
 impl<F: Field + Eq + Hash> IsZero<F> {
     pub fn wg<WGC>(&self, ctx: &mut StepInstance<F>, value: F) {
-        ctx.assign(self.value_inv, value.invert().unwrap_or(F::ZERO));
+        ctx.assign(self.value_inv, value.mi());
     }
 }

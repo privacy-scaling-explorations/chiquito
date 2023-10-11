@@ -1,6 +1,6 @@
 use std::{hash::Hash, rc::Rc};
 
-use halo2_proofs::arithmetic::Field;
+use crate::field::Field;
 
 use crate::{
     ast::Circuit,
@@ -21,7 +21,7 @@ use super::{lb::LookupTableRegistry, CircuitContext};
 pub struct SuperCircuitContext<F, MappingArgs> {
     super_circuit: SuperCircuit<F, MappingArgs>,
     sub_circuit_phase1: Vec<CompilationUnit<F>>,
-    tables: LookupTableRegistry<F>,
+    pub tables: LookupTableRegistry<F>,
 }
 
 impl<F, MappingArgs> Default for SuperCircuitContext<F, MappingArgs> {
@@ -48,8 +48,9 @@ impl<F: Field + Hash, MappingArgs> SuperCircuitContext<F, MappingArgs> {
             circuit: Circuit::default(),
             tables: self.tables.clone(),
         };
-
+        println!("super circuit table registry 2: {:?}", self.tables);
         let exports = sub_circuit_def(&mut sub_circuit_context, imports);
+        println!("super circuit table registry 3: {:?}", self.tables);
 
         let sub_circuit = sub_circuit_context.circuit;
 
@@ -61,11 +62,24 @@ impl<F: Field + Hash, MappingArgs> SuperCircuitContext<F, MappingArgs> {
         (assignment, exports)
     }
 
+    pub fn sub_circuit_with_ast<CM: CellManager, SSB: StepSelectorBuilder, TraceArgs>(
+        &mut self,
+        config: CompilerConfig<CM, SSB>,
+        sub_circuit: Circuit<F, TraceArgs>, // directly input ast
+    ) -> AssignmentGenerator<F, TraceArgs> {
+        let (unit, assignment) = compile_phase1(config, &sub_circuit);
+        let assignment = assignment.unwrap_or_else(|| AssignmentGenerator::empty(unit.uuid));
+
+        self.sub_circuit_phase1.push(unit);
+
+        assignment
+    }
+
     pub fn mapping<D: Fn(&mut MappingContext<F>, MappingArgs) + 'static>(&mut self, def: D) {
         self.super_circuit.set_mapping(def);
     }
 
-    fn compile(mut self) -> SuperCircuit<F, MappingArgs> {
+    pub fn compile(mut self) -> SuperCircuit<F, MappingArgs> {
         let other = Rc::new(self.sub_circuit_phase1.clone());
         // let columns = other
         // .iter()

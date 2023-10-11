@@ -1,9 +1,8 @@
 use std::collections::HashMap;
 
-use halo2_proofs::{
-    arithmetic::Field,
-    plonk::{Advice, Column as Halo2Column},
-};
+use crate::field::Field;
+
+use halo2_proofs::plonk::{Advice, Column as Halo2Column};
 
 use crate::{
     ast::{query::Queriable, ForwardSignal, SharedSignal, StepTypeUUID},
@@ -116,7 +115,7 @@ impl<F: Field, TraceArgs> AssignmentGenerator<F, TraceArgs> {
 
         for (expr, value) in selector_assignment.iter() {
             match expr {
-                PolyExpr::Query(column, rot, _) => {
+                PolyExpr::Query((column, rot, _)) => {
                     self.set_value(assignments, column.clone(), *offset + *rot as usize, value)
                 }
                 _ => panic!("wrong type of expresion is selector assignment"),
