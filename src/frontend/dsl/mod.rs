@@ -421,4 +421,19 @@ mod tests {
 
         assert!(!context.circuit.q_enable);
     }
+
+    #[test]
+    fn test_set_num_steps() {
+        let circuit: Circuit<i32, i32> = Circuit::default();
+        let mut context = CircuitContext {
+            circuit,
+            tables: Default::default(),
+        };
+
+        context.pragma_num_steps(3);
+        assert_eq!(context.circuit.num_steps, 3);
+
+        context.pragma_num_steps(0);
+        assert_eq!(context.circuit.num_steps, 0);
+    }
 }
