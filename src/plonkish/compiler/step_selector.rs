@@ -20,7 +20,26 @@ pub struct StepSelector<F> {
     pub columns: Vec<Column>,
 }
 
+#[derive(Debug, Clone)]
+pub struct BinaryStepSelector<F> {
+    pub selector_expr: HashMap<StepTypeUUID, Vec<PolyExpr<F>>>,
+    pub selector_expr_not: HashMap<StepTypeUUID, Vec<PolyExpr<F>>>,
+    pub selector_assignment: HashMap<StepTypeUUID, Vec<SelectorAssignment<F>>>,
+    pub columns: Vec<Column>,
+}
+
 impl<F> Default for StepSelector<F> {
+    fn default() -> Self {
+        Self {
+            selector_expr: Default::default(),
+            selector_expr_not: Default::default(),
+            selector_assignment: Default::default(),
+            columns: Default::default(),
+        }
+    }
+}
+
+impl<F> Default for BinaryStepSelector<F> {
     fn default() -> Self {
         Self {
             selector_expr: Default::default(),
@@ -83,6 +102,8 @@ impl StepSelectorBuilder for SimpleStepSelectorBuilder {
 
             let column = Column::advice(annotation.clone(), 0);
 
+            println!("STEP BUILDER Column: {:#?}", column);
+
             selector.columns.push(column.clone());
 
             selector
@@ -99,6 +120,7 @@ impl StepSelectorBuilder for SimpleStepSelectorBuilder {
                 vec![(column.query(0, annotation.clone()), F::ONE)],
             );
         }
+        println!("STEP BUILDER SELECTOR: {:#?}", selector);
 
         unit.columns.extend_from_slice(&selector.columns);
         unit.selector = selector;
@@ -186,6 +208,61 @@ impl StepSelectorBuilder for TwoStepsSelectorBuilder {
             vec![(column.query(0, "selector step one"), F::ONE)],
         );
     }
+}
+
+#[derive(Debug, Default, Clone)]
+pub struct LogNSelectorBuilder {}
+
+impl StepSelectorBuilder for LogNSelectorBuilder {
+    fn build<F: Field>(&self, unit: &mut CompilationUnit<F>) {
+        let mut selector: BinaryStepSelector<F> = BinaryStepSelector {
+            selector_expr: HashMap::new(),
+            selector_expr_not: HashMap::new(),
+            selector_assignment: HashMap::new(),
+            columns: Vec::new(),
+        };
+
+        // println!("COMPILATION UNIT: {:#?}", unit);
+
+        let mut annotation = "'step selector'".to_string();
+
+        // Calculate number of columns
+        let n_step_types = unit.step_types.len() as u64;
+        let n_cols = (n_step_types as f64).log2().ceil() as u64;
+
+        for index in 0..n_cols {
+            annotation = format!("'binary selector column {}'", index);
+
+            let column = Column::advice(annotation.clone(), 0);
+
+            println!("STEP BUILDER Column: {:#?}", column);
+
+            selector.columns.push(column.clone());
+        }
+
+        let mut step_value = 1;
+        for step in unit.step_types.values() {
+            for i in 0..n_cols {
+                let bit = (step_value >> i) & 1; // Extract the i-th bit of step_value
+
+                let column = &selector.columns[i as usize];
+
+                if bit == 1 {
+                    selector
+                        .selector_expr
+                        .entry(step.uuid())
+                        .or_insert_with(Vec::new)
+                        .push(column.query(0, annotation.clone()));
+                }
+            }
+            step_value += 1;
+        }
+        println!("STEP BUILDER SELECTOR: {:#?}", selector);
+    }
+    
+
+    // unit.columns.extend_from_slice(&selector.columns);
+    // unit.selector = selector;
 }
 
 fn other_step_type<F>(unit: &CompilationUnit<F>, uuid: UUID) -> Option<Rc<StepType<F>>> {
