@@ -95,6 +95,27 @@ class Factorial(Circuit):
             self.add(self.result_step, n, current_result)
 
 
-factorial = Factorial()
-factorial_witness = factorial.gen_witness(7)
-factorial.halo2_mock_prover(factorial_witness)
+class Examples:
+    def test_zero(self):
+        factorial = Factorial()
+        factorial_witness = factorial.gen_witness(0)
+        last_assignments = list(factorial_witness.step_instances[10].assignments.values())
+        assert last_assignments[0] == 0  # i
+        assert last_assignments[1] == 1  # x
+        factorial.halo2_mock_prover(factorial_witness)
+
+    def test_basic(self):
+        factorial = Factorial()
+        factorial_witness = factorial.gen_witness(7)
+        last_assignments = list(factorial_witness.step_instances[10].assignments.values())
+        assert last_assignments[0] == 7  # i
+        assert last_assignments[1] == 5040  # x
+        factorial.halo2_mock_prover(factorial_witness)
+
+
+if __name__ == "__main__":
+    x = Examples()
+    for method in [
+        method for method in dir(x) if callable(getattr(x, method)) if not method.startswith('_')
+    ]:
+        getattr(x, method)()
