@@ -442,7 +442,7 @@
             fixed.push(<span class="macro">vec!</span>[<span class="prelude-val">None</span>; plaf.info.num_rows]);
         }
 
-        <span class="kw">for </span>(column, values) <span class="kw">in </span><span class="self">self</span>.circuit.fixed_assignments.clone().into_iter() {
+        <span class="kw">for </span>(column, values) <span class="kw">in </span><span class="self">self</span>.circuit.fixed_assignments.clone().<span class="number">0</span>.into_iter() {
             <span class="kw">let </span>column = <span class="self">self
                 </span>.c_column_id_to_p_column_index
                 .get(<span class="kw-2">&amp;</span>column.uuid())
@@ -632,7 +632,7 @@
         };
 
         <span class="kw">if let </span><span class="prelude-val">Some</span>(witness) = <span class="kw-2">&amp;</span>witness {
-            <span class="kw">for </span>(column, assignments) <span class="kw">in </span>witness {
+            <span class="kw">for </span>(column, assignments) <span class="kw">in </span>witness.iter() {
                 <span class="kw">let </span>p_column_index = <span class="self">self
                     </span>.c_column_id_to_p_column_index
                     .get(<span class="kw-2">&amp;</span>column.uuid())

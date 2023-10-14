@@ -227,7 +227,76 @@
 <a href="#227" id="227">227</a>
 <a href="#228" id="228">228</a>
 <a href="#229" id="229">229</a>
-</pre></div><pre class="rust"><code><span class="kw">use </span>std::collections::HashMap;
+<a href="#230" id="230">230</a>
+<a href="#231" id="231">231</a>
+<a href="#232" id="232">232</a>
+<a href="#233" id="233">233</a>
+<a href="#234" id="234">234</a>
+<a href="#235" id="235">235</a>
+<a href="#236" id="236">236</a>
+<a href="#237" id="237">237</a>
+<a href="#238" id="238">238</a>
+<a href="#239" id="239">239</a>
+<a href="#240" id="240">240</a>
+<a href="#241" id="241">241</a>
+<a href="#242" id="242">242</a>
+<a href="#243" id="243">243</a>
+<a href="#244" id="244">244</a>
+<a href="#245" id="245">245</a>
+<a href="#246" id="246">246</a>
+<a href="#247" id="247">247</a>
+<a href="#248" id="248">248</a>
+<a href="#249" id="249">249</a>
+<a href="#250" id="250">250</a>
+<a href="#251" id="251">251</a>
+<a href="#252" id="252">252</a>
+<a href="#253" id="253">253</a>
+<a href="#254" id="254">254</a>
+<a href="#255" id="255">255</a>
+<a href="#256" id="256">256</a>
+<a href="#257" id="257">257</a>
+<a href="#258" id="258">258</a>
+<a href="#259" id="259">259</a>
+<a href="#260" id="260">260</a>
+<a href="#261" id="261">261</a>
+<a href="#262" id="262">262</a>
+<a href="#263" id="263">263</a>
+<a href="#264" id="264">264</a>
+<a href="#265" id="265">265</a>
+<a href="#266" id="266">266</a>
+<a href="#267" id="267">267</a>
+<a href="#268" id="268">268</a>
+<a href="#269" id="269">269</a>
+<a href="#270" id="270">270</a>
+<a href="#271" id="271">271</a>
+<a href="#272" id="272">272</a>
+<a href="#273" id="273">273</a>
+<a href="#274" id="274">274</a>
+<a href="#275" id="275">275</a>
+<a href="#276" id="276">276</a>
+<a href="#277" id="277">277</a>
+<a href="#278" id="278">278</a>
+<a href="#279" id="279">279</a>
+<a href="#280" id="280">280</a>
+<a href="#281" id="281">281</a>
+<a href="#282" id="282">282</a>
+<a href="#283" id="283">283</a>
+<a href="#284" id="284">284</a>
+<a href="#285" id="285">285</a>
+<a href="#286" id="286">286</a>
+<a href="#287" id="287">287</a>
+<a href="#288" id="288">288</a>
+<a href="#289" id="289">289</a>
+<a href="#290" id="290">290</a>
+<a href="#291" id="291">291</a>
+<a href="#292" id="292">292</a>
+<a href="#293" id="293">293</a>
+<a href="#294" id="294">294</a>
+</pre></div><pre class="rust"><code><span class="kw">use </span>std::{
+    collections::HashMap,
+    fmt,
+    ops::{Deref, DerefMut},
+};
 
 <span class="kw">use </span><span class="kw">crate</span>::field::Field;
 
@@ -242,7 +311,51 @@
 
 <span class="kw">use super</span>::{Column, PolyExpr};
 
-<span class="kw">pub type </span>Assignments&lt;F&gt; = HashMap&lt;Column, Vec&lt;F&gt;&gt;;
+<span class="attr">#[derive(Debug, Clone)]
+</span><span class="kw">pub struct </span>Assignments&lt;F&gt;(<span class="kw">pub </span>HashMap&lt;Column, Vec&lt;F&gt;&gt;);
+
+<span class="kw">impl</span>&lt;F: fmt::Debug&gt; fmt::Display <span class="kw">for </span>Assignments&lt;F&gt; {
+    <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>fmt::Formatter&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; fmt::Result {
+        <span class="comment">// get the decimal width based on the step_instances size, add extra one leading zero
+        </span><span class="kw">let </span>decimal_width = <span class="self">self</span>.<span class="number">0</span>.len().checked_ilog10().unwrap_or(<span class="number">0</span>) + <span class="number">2</span>;
+        <span class="comment">// offset(col_uuid): value0, value1, value2,...
+        </span><span class="kw">for </span>(i, (col, vals)) <span class="kw">in </span><span class="self">self</span>.<span class="number">0</span>.iter().enumerate() {
+            <span class="kw">let </span>vals = vals.iter().fold(String::new(), |<span class="kw-2">mut </span>acc, val| {
+                acc.push_str(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;{:?}, &quot;</span>, val));
+                acc
+            });
+            <span class="macro">writeln!</span>(
+                f,
+                <span class="string">&quot;{:0&gt;width$}({}): {}&quot;</span>,
+                i,
+                col.id,
+                vals,
+                width = decimal_width <span class="kw">as </span>usize,
+            )<span class="question-mark">?</span>;
+        }
+        <span class="prelude-val">Ok</span>(())
+    }
+}
+
+<span class="kw">impl</span>&lt;F&gt; Default <span class="kw">for </span>Assignments&lt;F&gt; {
+    <span class="kw">fn </span>default() -&gt; <span class="self">Self </span>{
+        <span class="self">Self</span>(HashMap::default())
+    }
+}
+
+<span class="kw">impl</span>&lt;F&gt; Deref <span class="kw">for </span>Assignments&lt;F&gt; {
+    <span class="kw">type </span>Target = HashMap&lt;Column, Vec&lt;F&gt;&gt;;
+
+    <span class="kw">fn </span>deref(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="self">Self</span>::Target {
+        <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="number">0
+    </span>}
+}
+
+<span class="kw">impl</span>&lt;F&gt; DerefMut <span class="kw">for </span>Assignments&lt;F&gt; {
+    <span class="kw">fn </span>deref_mut(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;mut </span><span class="self">Self</span>::Target {
+        <span class="kw-2">&amp;mut </span><span class="self">self</span>.<span class="number">0
+    </span>}
+}
 
 <span class="kw">pub struct </span>AssignmentGenerator&lt;F, TraceArgs&gt; {
     columns: Vec&lt;Column&gt;,
@@ -455,5 +568,22 @@
 
         <span class="prelude-val">None
     </span>}
+}
+
+<span class="attr">#[cfg(test)]
+</span><span class="kw">mod </span>tests {
+    <span class="kw">use super</span>::<span class="kw-2">*</span>;
+
+    <span class="attr">#[test]
+    </span><span class="kw">fn </span>pretty_print_assignments() {
+        <span class="kw">let </span>display = <span class="macro">format!</span>(
+            <span class="string">&quot;{}&quot;</span>,
+            Assignments::&lt;i32&gt;(HashMap::from([
+                (Column::advice(<span class="string">&quot;a&quot;</span>, <span class="number">1</span>), <span class="macro">vec!</span>[<span class="number">1</span>, <span class="number">2</span>, <span class="number">3</span>]),
+                (Column::fixed(<span class="string">&quot;a&quot;</span>), <span class="macro">vec!</span>[<span class="number">4</span>, <span class="number">5</span>, <span class="number">6</span>]),
+            ])),
+        );
+        <span class="macro">println!</span>(<span class="string">&quot;{}&quot;</span>, display);
+    }
 }
 </code></pre></div></section></main></body></html>
