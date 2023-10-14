@@ -43,7 +43,7 @@ impl<F: Eq + Hash> StepInstance<F> {
 
 pub type Witness<F> = Vec<StepInstance<F>>;
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone)]
 pub struct TraceWitness<F> {
     pub step_instances: Witness<F>,
 }

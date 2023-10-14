@@ -1,12 +1,13 @@
 use crate::{
     ast::{query::Queriable, Circuit, ExposeOffset, StepType, StepTypeUUID},
+    field::Field,
     util::{uuid, UUID},
     wit_gen::{FixedGenContext, StepInstance, TraceContext},
 };
 
 use halo2_proofs::plonk::{Advice, Column as Halo2Column, Fixed};
 
-use core::fmt::Debug;
+use core::{fmt::Debug, hash::Hash};
 use std::marker::PhantomData;
 
 use self::{
@@ -133,17 +134,6 @@ impl<F, TraceArgs> CircuitContext<F, TraceArgs> {
         self.circuit.set_trace(def);
     }
 
-    /// Sets the fixed generation function for the circuit. The fixed generation function is
-    /// responsible for assigning fixed values to fixed columns. It is entirely left
-    /// for the user to implement and is Turing complete. Users typically generate cell values and
-    /// call the `assign` function to fill the fixed columns.
-    pub fn fixed_gen<D>(&mut self, def: D)
-    where
-        D: Fn(&mut FixedGenContext<F>) + 'static,
-    {
-        self.circuit.set_fixed_gen(def);
-    }
-
     pub fn new_table(&self, table: LookupTableStore<F>) -> LookupTable {
         let uuid = table.uuid();
         self.tables.add(table);
@@ -169,6 +159,27 @@ impl<F, TraceArgs> CircuitContext<F, TraceArgs> {
 
     pub fn pragma_disable_q_enable(&mut self) {
         self.circuit.q_enable = false;
+    }
+}
+
+impl<F: Field + Hash, TraceArgs> CircuitContext<F, TraceArgs> {
+    /// Executes the fixed generation function provided by the user and sets the fixed assignments
+    /// for the circuit. The fixed generation function is responsible for assigning fixed values to
+    /// fixed columns. It is entirely left for the user to implement and is Turing complete. Users
+    /// typically generate cell values and call the `assign` function to fill the fixed columns.
+    pub fn fixed_gen<D>(&mut self, def: D)
+    where
+        D: Fn(&mut FixedGenContext<F>) + 'static,
+    {
+        if self.circuit.num_steps == 0 {
+            panic!("circuit must call pragma_num_steps before calling fixed_gen");
+        }
+        let mut ctx = FixedGenContext::new(self.circuit.num_steps);
+        (def)(&mut ctx);
+
+        let assignments = ctx.get_assignments();
+
+        self.circuit.set_fixed_assignments(assignments);
     }
 }
 
