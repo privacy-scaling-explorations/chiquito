@@ -24,7 +24,7 @@ pub struct StepSelector<F> {
 pub struct BinaryStepSelector<F> {
     pub selector_expr: HashMap<StepTypeUUID, Vec<PolyExpr<F>>>,
     pub selector_expr_not: HashMap<StepTypeUUID, Vec<PolyExpr<F>>>,
-    pub selector_assignment: HashMap<StepTypeUUID, Vec<SelectorAssignment<F>>>,
+    pub selector_assignment: HashMap<StepTypeUUID, Vec<Vec<SelectorAssignment<F>>>>,
     pub columns: Vec<Column>,
 }
 
@@ -120,7 +120,7 @@ impl StepSelectorBuilder for SimpleStepSelectorBuilder {
                 vec![(column.query(0, annotation.clone()), F::ONE)],
             );
         }
-        println!("STEP BUILDER SELECTOR: {:#?}", selector);
+        // println!("STEP BUILDER SELECTOR: {:#?}", selector);
 
         unit.columns.extend_from_slice(&selector.columns);
         unit.selector = selector;
@@ -253,13 +253,26 @@ impl StepSelectorBuilder for LogNSelectorBuilder {
                         .entry(step.uuid())
                         .or_insert_with(Vec::new)
                         .push(column.query(0, annotation.clone()));
+
+                    selector
+                        .selector_expr_not
+                        .entry(step.uuid())
+                        .or_insert_with(Vec::new)
+                        .push(PolyExpr::Const(F::ONE) + (-column.query(0, annotation.clone())));
+
+                    selector
+                        .selector_assignment
+                        .entry(step.uuid())
+                        .or_insert_with(Vec::new)
+                        .push(vec![(column.query(0, annotation.clone()), F::ONE)]);
                 }
             }
             step_value += 1;
         }
         println!("STEP BUILDER SELECTOR: {:#?}", selector);
+        unit.columns.extend_from_slice(&selector.columns);
+        // unit.selector = selector;
     }
-    
 
     // unit.columns.extend_from_slice(&selector.columns);
     // unit.selector = selector;
