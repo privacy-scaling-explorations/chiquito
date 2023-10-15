@@ -1,6 +1,6 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, hash::Hash};
 
-use crate::field::Field;
+use crate::{field::Field, wit_gen::AutoTraceGenerator};
 
 use halo2_proofs::plonk::{Advice, Column as Halo2Column};
 
@@ -20,6 +20,7 @@ pub struct AssignmentGenerator<F, TraceArgs> {
     placement: Placement,
     selector: StepSelector<F>,
     trace_gen: TraceGenerator<F, TraceArgs>,
+    auto_trace_gen: AutoTraceGenerator<F>,
 
     num_rows: usize,
 
@@ -33,6 +34,7 @@ impl<F: Clone, TraceArgs> Clone for AssignmentGenerator<F, TraceArgs> {
             placement: self.placement.clone(),
             selector: self.selector.clone(),
             trace_gen: self.trace_gen.clone(),
+            auto_trace_gen: self.auto_trace_gen.clone(),
             num_rows: self.num_rows,
             ir_id: self.ir_id,
         }
@@ -46,18 +48,20 @@ impl<F: Clone, TraceArgs> Default for AssignmentGenerator<F, TraceArgs> {
             placement: Default::default(),
             selector: Default::default(),
             trace_gen: Default::default(),
+            auto_trace_gen: Default::default(),
             num_rows: Default::default(),
             ir_id: Default::default(),
         }
     }
 }
 
-impl<F: Field, TraceArgs> AssignmentGenerator<F, TraceArgs> {
+impl<F: Field + Hash, TraceArgs> AssignmentGenerator<F, TraceArgs> {
     pub fn new(
         columns: Vec<Column>,
         placement: Placement,
         selector: StepSelector<F>,
         trace_gen: TraceGenerator<F, TraceArgs>,
+        auto_trace_gen: AutoTraceGenerator<F>,
         num_rows: usize,
         ir_id: UUID,
     ) -> Self {
@@ -66,6 +70,7 @@ impl<F: Field, TraceArgs> AssignmentGenerator<F, TraceArgs> {
             placement,
             selector,
             trace_gen,
+            auto_trace_gen,
             num_rows,
             ir_id,
         }
@@ -87,6 +92,8 @@ impl<F: Field, TraceArgs> AssignmentGenerator<F, TraceArgs> {
     pub fn generate_with_witness(&self, witness: TraceWitness<F>) -> Assignments<F> {
         let mut offset: usize = 0;
         let mut assignments: Assignments<F> = Default::default();
+
+        let witness = self.auto_trace_gen.generate(witness);
 
         for step_instance in witness.step_instances.into_iter() {
             self.assign_step(&mut offset, &mut assignments, &step_instance);

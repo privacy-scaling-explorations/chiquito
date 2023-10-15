@@ -6,7 +6,7 @@ use crate::{
         Circuit, Column, Poly, PolyExpr, PolyLookup,
     },
     poly::Expr,
-    wit_gen::{FixedAssignment, TraceGenerator},
+    wit_gen::{AutoTraceGenerator, FixedAssignment, TraceGenerator},
 };
 use std::{hash::Hash, rc::Rc};
 
@@ -89,6 +89,7 @@ pub fn compile_phase1<
             unit.placement.clone(),
             unit.selector.clone(),
             TraceGenerator::new(Rc::clone(v), ast.num_steps),
+            AutoTraceGenerator::from(ast),
             unit.num_rows,
             unit.uuid,
         )

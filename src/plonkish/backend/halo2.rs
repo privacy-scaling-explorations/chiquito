@@ -30,6 +30,10 @@ impl<T: Field + From<u64>> ChiquitoField for T {
     fn mi(&self) -> Self {
         self.invert().unwrap_or(Self::ZERO)
     }
+
+    fn pow<S: AsRef<[u64]>>(&self, exp: S) -> Self {
+        Field::pow(self, exp)
+    }
 }
 
 #[allow(non_snake_case)]

@@ -204,6 +204,9 @@ pub struct StepType<F> {
     pub constraints: Vec<Constraint<F>>,
     pub transition_constraints: Vec<TransitionConstraint<F>>,
     pub lookups: Vec<Lookup<F>>,
+
+    pub auto_signals: HashMap<Queriable<F>, ASTExpr<F>>,
+
     pub annotations: HashMap<UUID, String>,
 }
 
@@ -227,9 +230,11 @@ impl<F> StepType<F> {
             constraints: Default::default(),
             transition_constraints: Default::default(),
             lookups: Default::default(),
+            auto_signals: Default::default(),
             annotations: Default::default(),
         }
     }
+
     pub fn uuid(&self) -> StepTypeUUID {
         self.id
     }
