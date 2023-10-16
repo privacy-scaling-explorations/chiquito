@@ -10,10 +10,10 @@ use crate::{
     },
     frontend::dsl::{StepTypeHandler, SuperCircuitContext},
     plonkish::{
-        backend::halo2::{
+        backend::{halo2::{
             chiquito2Halo2, chiquitoSuperCircuit2Halo2, ChiquitoHalo2, ChiquitoHalo2Circuit,
             ChiquitoHalo2SuperCircuit,
-        },
+        }, powdr_pil::ChiquitoPil},
         compiler::{
             cell_manager::SingleRowCellManager, compile, config,
             step_selector::SimpleStepSelectorBuilder,
@@ -63,6 +63,17 @@ pub fn chiquito_ast_to_halo2(ast_json: &str) -> UUID {
     println!("{:?}", uuid);
 
     uuid
+}
+
+pub fn chiquito_ast_to_pil(witness_json: &str, rust_id: UUID) -> String {
+    let trace_witness: TraceWitness<Fr> =
+        serde_json::from_str(witness_json).expect("Json deserialization to TraceWitness failed.");
+    let (ast, _, _) = rust_id_to_halo2(rust_id);
+
+    let chiquito_pil = ChiquitoPil::new(ast, trace_witness);
+    let pil = chiquito_pil.to_pil();
+    println!("{}", pil);
+    pil
 }
 
 fn add_assignment_generator_to_rust_id(
@@ -135,6 +146,7 @@ fn rust_id_to_halo2(uuid: UUID) -> CircuitMapStore {
         circuit_map.get(&uuid).unwrap().clone()
     })
 }
+
 
 /// Runs `MockProver` for a single circuit given JSON of `TraceWitness` and `rust_id` of the
 /// circuit.
@@ -1827,6 +1839,16 @@ fn ast_to_halo2(json: &PyString) -> u128 {
 }
 
 #[pyfunction]
+fn to_pil(witness_json: &PyString, rust_id: &PyLong) -> String {
+    let pil = chiquito_ast_to_pil(
+        witness_json.to_str().expect("PyString convertion failed."), 
+        rust_id.extract().expect("PyLong convertion failed."),
+    );
+
+    pil
+}
+
+#[pyfunction]
 fn halo2_mock_prover(witness_json: &PyString, rust_id: &PyLong) {
     chiquito_halo2_mock_prover(
         witness_json.to_str().expect("PyString convertion failed."),
@@ -1872,6 +1894,7 @@ fn rust_chiquito(_py: Python, m: &PyModule) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(convert_and_print_ast, m)?)?;
     m.add_function(wrap_pyfunction!(convert_and_print_trace_witness, m)?)?;
     m.add_function(wrap_pyfunction!(ast_to_halo2, m)?)?;
+    m.add_function(wrap_pyfunction!(to_pil, m)?)?;
     m.add_function(wrap_pyfunction!(halo2_mock_prover, m)?)?;
     m.add_function(wrap_pyfunction!(super_circuit_halo2_mock_prover, m)?)?;
     Ok(())
