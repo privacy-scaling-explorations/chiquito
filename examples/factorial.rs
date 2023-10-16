@@ -28,7 +28,7 @@ fn generate<F: Field + From<u64> + Hash>() -> (Circuit<F>, Option<AssignmentGene
     // table for the circuit:
     // |    step_type      |  i  |  x   |
     // ----------------------------------
-    // |  setup_step       |  0  |  1   |
+    // |  first_step       |  0  |  1   |
     // |  operation_step   |  1  |  1   |
     // |  operation_step   |  2  |  2   |
     // |  operation_step   |  3  |  6   |
@@ -43,8 +43,8 @@ fn generate<F: Field + From<u64> + Hash>() -> (Circuit<F>, Option<AssignmentGene
         let i = ctx.shared("i");
         let x = ctx.forward("x");
 
-        // setup step will make sure the circuit is initialized correctly
-        let setup_step = ctx.step_type_def("setup_step", |ctx| {
+        // first step will make sure the circuit is initialized correctly
+        let first_step = ctx.step_type_def("first_step", |ctx| {
             // define the setup
             ctx.setup(move |ctx| {
                 // constrain `i` to zero
@@ -95,12 +95,12 @@ fn generate<F: Field + From<u64> + Hash>() -> (Circuit<F>, Option<AssignmentGene
             })
         });
 
-        ctx.pragma_first_step(&setup_step);
+        ctx.pragma_first_step(&first_step);
         ctx.pragma_last_step(&result_step);
         ctx.pragma_num_steps(MAX_FACTORIAL + 1);
 
         ctx.trace(move |ctx, n| {
-            ctx.add(&setup_step, ());
+            ctx.add(&first_step, ());
 
             let mut current_result = 1;
 

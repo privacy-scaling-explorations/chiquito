@@ -8,7 +8,7 @@ MAX_FACTORIAL = 10
 """
 |    step_type      |  i  |  x   |
 ----------------------------------
-|  setup_step       |  0  |  1   |
+|  first_step       |  0  |  1   |
 |  operation_step   |  1  |  1   |
 |  operation_step   |  2  |  2   |
 |  operation_step   |  3  |  6   |
@@ -19,7 +19,7 @@ MAX_FACTORIAL = 10
 """
 
 
-class SetupStep(StepType):
+class FirstStep(StepType):
     def setup(self):
         # constrain `i` to zero
         self.constr(eq(self.circuit.i, 0))
@@ -66,19 +66,19 @@ class Factorial(Circuit):
         # `x` holds the current total result
         self.x = self.forward("x")
 
-        self.setup_step = self.step_type(SetupStep(self, "setup_step"))
+        self.first_step = self.step_type(FirstStep(self, "first_step"))
         self.operation_step = self.step_type(OperationStep(self, "operation_step"))
         self.result_step = self.step_type(ResultStep(self, "result_step"))
 
         self.pragma_num_steps(MAX_FACTORIAL + 1)
-        self.pragma_first_step(self.setup_step)
+        self.pragma_first_step(self.first_step)
         self.pragma_last_step(self.result_step)
 
         self.expose(self.x, Last())
         self.expose(self.i, Last())
 
     def trace(self, n):
-        self.add(self.setup_step)
+        self.add(self.first_step)
         current_result = 1
 
         for i in range(1, n + 1):
