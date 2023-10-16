@@ -1,6 +1,7 @@
 use std::hash::Hash;
 
 use chiquito::{
+    ast::Circuit as ASTCircuit,
     field::Field,
     frontend::dsl::circuit, // main function for constructing an AST circuit
     plonkish::backend::halo2::{chiquito2Halo2, ChiquitoHalo2Circuit}, /* compiles to
@@ -26,7 +27,11 @@ use halo2_proofs::{dev::MockProver, halo2curves::bn256::Fr};
 // 1. type that implements a field trait
 // 2. empty trace arguments, i.e. (), because there are no external inputs to the Chiquito circuit
 // 3. two witness generation arguments both of u64 type, i.e. (u64, u64)
-fn fibo_circuit<F: Field + From<u64> + Hash>() -> (Circuit<F>, Option<AssignmentGenerator<F, ()>>) {
+fn fibo_circuit<F: Field + From<u64> + Hash>() -> (
+    Circuit<F>,
+    Option<AssignmentGenerator<F, ()>>,
+    ASTCircuit<F, ()>,
+) {
     // PLONKish table for the Fibonacci circuit:
     // | a | b | c |
     // | 1 | 1 | 2 |
@@ -71,7 +76,7 @@ fn fibo_circuit<F: Field + From<u64> + Hash>() -> (Circuit<F>, Option<Assignment
             // logics for assigning witness values wg function is defined here but no
             // witness value is assigned yet
             ctx.wg(move |ctx, (a_value, b_value): (u32, u32)| {
-                println!("fib line wg: {} {} {}", a_value, b_value, a_value + b_value);
+                // println!("fib line wg: {} {} {}", a_value, b_value, a_value + b_value);
                 // assign arbitrary input values from witness generation function to witnesses
                 ctx.assign(a, a_value.field());
                 ctx.assign(b, b_value.field());
@@ -102,10 +107,12 @@ fn fibo_circuit<F: Field + From<u64> + Hash>() -> (Circuit<F>, Option<Assignment
         })
     });
 
-    compile(
+    let compiled = compile(
         config(SingleRowCellManager {}, SimpleStepSelectorBuilder {}),
         &fibo,
-    )
+    );
+
+    (compiled.0, compiled.1, fibo)
 }
 
 // After compiling Chiquito AST to an IR, it is further parsed by a Chiquito Halo2 backend and
@@ -113,50 +120,65 @@ fn fibo_circuit<F: Field + From<u64> + Hash>() -> (Circuit<F>, Option<Assignment
 
 // standard main function for a Halo2 circuit
 fn main() {
-    let (chiquito, wit_gen) = fibo_circuit::<Fr>();
-    let compiled = chiquito2Halo2(chiquito);
-    let circuit = ChiquitoHalo2Circuit::new(compiled, wit_gen.map(|g| g.generate(())));
+    // let (chiquito, wit_gen, _) = fibo_circuit::<Fr>();
+    // let compiled = chiquito2Halo2(chiquito);
+    // let circuit = ChiquitoHalo2Circuit::new(compiled, wit_gen.map(|g| g.generate(())));
 
-    let prover = MockProver::<Fr>::run(7, &circuit, circuit.instance()).unwrap();
+    // let prover = MockProver::<Fr>::run(7, &circuit, circuit.instance()).unwrap();
 
-    let result = prover.verify_par();
+    // let result = prover.verify_par();
 
-    println!("{:#?}", result);
+    // println!("{:#?}", result);
 
-    if let Err(failures) = &result {
-        for failure in failures.iter() {
-            println!("{}", failure);
-        }
-    }
+    // if let Err(failures) = &result {
+    //     for failure in failures.iter() {
+    //         println!("{}", failure);
+    //     }
+    // }
 
-    // plaf boilerplate
-    use chiquito::plonkish::backend::plaf::chiquito2Plaf;
-    use polyexen::plaf::{backends::halo2::PlafH2Circuit, WitnessDisplayCSV};
+    // // plaf boilerplate
+    // use chiquito::plonkish::backend::plaf::chiquito2Plaf;
+    // use polyexen::plaf::{backends::halo2::PlafH2Circuit, WitnessDisplayCSV};
 
+    // // get Chiquito ir
+    // let (circuit, wit_gen) = fibo_circuit::<Fr>();
+    // // get Plaf
+    // let (plaf, plaf_wit_gen) = chiquito2Plaf(circuit, 8, false);
+    // let wit = plaf_wit_gen.generate(wit_gen.map(|v| v.generate(())));
+
+    // // debug only: print witness
+    // println!("{}", WitnessDisplayCSV(&wit));
+
+    // // get Plaf halo2 circuit from Plaf's halo2 backend
+    // // this is just a proof of concept, because Plaf only has backend for halo2
+    // // this is unnecessary because Chiquito has a halo2 backend already
+    // let plaf_circuit = PlafH2Circuit { plaf, wit };
+
+    // // same as halo2 boilerplate above
+    // let prover_plaf = MockProver::<Fr>::run(8, &plaf_circuit, Vec::new()).unwrap();
+
+    // let result_plaf = prover_plaf.verify_par();
+
+    // println!("result = {:#?}", result_plaf);
+
+    // if let Err(failures) = &result_plaf {
+    //     for failure in failures.iter() {
+    //         println!("{}", failure);
+    //     }
+    // }
+}
+
+// add a test module
+#[cfg(test)]
+// add a test function
+#[test]
+fn test_fibo() {
+    use chiquito::{
+        plonkish::backend::powdr_pil::{ChiquitoPil, *},
+        wit_gen::Witness,
+    };
     // get Chiquito ir
-    let (circuit, wit_gen) = fibo_circuit::<Fr>();
-    // get Plaf
-    let (plaf, plaf_wit_gen) = chiquito2Plaf(circuit, 8, false);
-    let wit = plaf_wit_gen.generate(wit_gen.map(|v| v.generate(())));
-
-    // debug only: print witness
-    println!("{}", WitnessDisplayCSV(&wit));
-
-    // get Plaf halo2 circuit from Plaf's halo2 backend
-    // this is just a proof of concept, because Plaf only has backend for halo2
-    // this is unnecessary because Chiquito has a halo2 backend already
-    let plaf_circuit = PlafH2Circuit { plaf, wit };
-
-    // same as halo2 boilerplate above
-    let prover_plaf = MockProver::<Fr>::run(8, &plaf_circuit, Vec::new()).unwrap();
-
-    let result_plaf = prover_plaf.verify_par();
-
-    println!("result = {:#?}", result_plaf);
-
-    if let Err(failures) = &result_plaf {
-        for failure in failures.iter() {
-            println!("{}", failure);
-        }
-    }
+    let (_, wit_gen, circuit) = fibo_circuit::<Fr>();
+    let chiquito_pil = ChiquitoPil::new(circuit, wit_gen.unwrap().generate_trace_witness(()));
+    print!("{}", chiquito_pil.to_pil());
 }

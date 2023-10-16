@@ -316,3 +316,14 @@ mod mimc7_constants {
         "13602139229813231349386885113156901793661719180900395818909719758150455500533",
     ];
 }
+
+// // add a test module
+// #[cfg(test)]
+// // add a test function
+// #[test]
+// fn test_mimc7() {
+//     use chiquito::plonkish::backend::powdr_pil::*;
+//     // get Chiquito ir
+//     let (_, _, circuit) = mimc7_circuit::<Fr>();
+//     print!("{}", circuit.to_pil());
+// }

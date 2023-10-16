@@ -78,6 +78,7 @@ class Fibonacci(Circuit):
 
 
 fibo = Fibonacci()
+print(fibo)
 fibo_witness = fibo.gen_witness(7)
 fibo.halo2_mock_prover(fibo_witness)
 another_fibo_witness = fibo.gen_witness(4)
