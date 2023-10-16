@@ -26,6 +26,7 @@ class Expr:
         return Sum([self, rhs])
 
     def __radd__(self: Expr, lhs: ToExpr) -> Sum:
+        lhs = to_expr(lhs)
         return Expr.__add__(lhs, self)
 
     def __sub__(self: Expr, rhs: ToExpr) -> Sum:
@@ -33,6 +34,7 @@ class Expr:
         return Sum([self, Neg(rhs)])
 
     def __rsub__(self: Expr, lhs: ToExpr) -> Sum:
+        lhs = to_expr(lhs)
         return Expr.__sub__(lhs, self)
 
     def __mul__(self: Expr, rhs: ToExpr) -> Mul:
@@ -40,6 +42,7 @@ class Expr:
         return Mul([self, rhs])
 
     def __rmul__(self: Expr, lhs: ToExpr) -> Mul:
+        lhs = to_expr(lhs)
         return Expr.__mul__(lhs, self)
 
     def __pow__(self: Expr, rhs: int) -> Pow:
