@@ -57,7 +57,7 @@ impl<F: Debug, TraceArgs> ChiquitoPil<F, TraceArgs> {
 
 pub struct ChiquitoPilSuperCircuit<F, TraceArgs> {
     super_ast: HashMap<UUID, Circuit<F, TraceArgs>>,
-    super_witness: HashMap<UUID, TraceWitness<F>>,
+    super_witness: HashMap<UUID, Option<TraceWitness<F>>>,
 }
 
 impl<F: Debug, TraceArgs> ChiquitoPilSuperCircuit<F, TraceArgs> {
@@ -68,10 +68,23 @@ impl<F: Debug, TraceArgs> ChiquitoPilSuperCircuit<F, TraceArgs> {
         }
     }
 
-    pub fn add(mut self: ChiquitoPilSuperCircuit<F, TraceArgs>, ast: Circuit<F, TraceArgs>, witness: TraceWitness<F>) {
+    pub fn add(mut self: ChiquitoPilSuperCircuit<F, TraceArgs>, ast: Circuit<F, TraceArgs>, witness: Option<TraceWitness<F>>) {
         let id = ast.id;
         self.super_ast.insert(id, ast);
         self.super_witness.insert(id, witness);
+    }
+}
+
+impl <F: Debug + Clone, TraceArgs: Clone> ChiquitoPilSuperCircuit<F, TraceArgs> {
+    pub fn to_pil(self: &ChiquitoPilSuperCircuit<F, TraceArgs>) -> String {
+        assert!(self.super_ast.len() == self.super_witness.len());
+        let mut pil = String::new();
+        for (id, ast) in &self.super_ast {
+            let witness = self.super_witness.get(id).unwrap();
+            let chiquito_pil = ChiquitoPil::new(ast.clone(), witness.clone().unwrap());
+            pil = pil + chiquito_pil.to_pil().as_str();
+        }
+        pil
     }
 }
 

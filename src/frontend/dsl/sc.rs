@@ -48,9 +48,7 @@ impl<F: Field + Hash, MappingArgs> SuperCircuitContext<F, MappingArgs> {
             circuit: Circuit::default(),
             tables: self.tables.clone(),
         };
-        println!("super circuit table registry 2: {:?}", self.tables);
         let exports = sub_circuit_def(&mut sub_circuit_context, imports);
-        println!("super circuit table registry 3: {:?}", self.tables);
 
         let sub_circuit = sub_circuit_context.circuit;
 
@@ -60,6 +58,32 @@ impl<F: Field + Hash, MappingArgs> SuperCircuitContext<F, MappingArgs> {
         self.sub_circuit_phase1.push(unit);
 
         (assignment, exports)
+    }
+
+    // Used by the PIL backend only
+    pub fn sub_circuit_output_ast<CM: CellManager, SSB: StepSelectorBuilder, TraceArgs, Imports, Exports, D>(
+        &mut self,
+        config: CompilerConfig<CM, SSB>,
+        sub_circuit_def: D,
+        imports: Imports,
+    ) -> (AssignmentGenerator<F, TraceArgs>, Exports, Circuit<F, TraceArgs>)
+    where
+        D: Fn(&mut CircuitContext<F, TraceArgs>, Imports) -> Exports,
+    {
+        let mut sub_circuit_context = CircuitContext {
+            circuit: Circuit::default(),
+            tables: self.tables.clone(),
+        };
+        let exports = sub_circuit_def(&mut sub_circuit_context, imports);
+
+        let sub_circuit = sub_circuit_context.circuit;
+
+        let (unit, assignment) = compile_phase1(config, &sub_circuit);
+        let assignment = assignment.unwrap_or_else(|| AssignmentGenerator::empty(unit.uuid));
+
+        self.sub_circuit_phase1.push(unit);
+
+        (assignment, exports, sub_circuit)
     }
 
     pub fn sub_circuit_with_ast<CM: CellManager, SSB: StepSelectorBuilder, TraceArgs>(
