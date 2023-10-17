@@ -55,6 +55,26 @@ impl<F: Debug, TraceArgs> ChiquitoPil<F, TraceArgs> {
     }
 }
 
+pub struct ChiquitoPilSuperCircuit<F, TraceArgs> {
+    super_ast: HashMap<UUID, Circuit<F, TraceArgs>>,
+    super_witness: HashMap<UUID, TraceWitness<F>>,
+}
+
+impl<F: Debug, TraceArgs> ChiquitoPilSuperCircuit<F, TraceArgs> {
+    pub fn default() -> Self {
+        Self {
+            super_ast: HashMap::new(),
+            super_witness: HashMap::new(),
+        }
+    }
+
+    pub fn add(mut self: ChiquitoPilSuperCircuit<F, TraceArgs>, ast: Circuit<F, TraceArgs>, witness: TraceWitness<F>) {
+        let id = ast.id;
+        self.super_ast.insert(id, ast);
+        self.super_witness.insert(id, witness);
+    }
+}
+
 impl<F: Debug, TraceArgs> ChiquitoPil<F, TraceArgs> {
     pub fn to_pil(self: &ChiquitoPil<F, TraceArgs>) -> String {
         // create new string buffer

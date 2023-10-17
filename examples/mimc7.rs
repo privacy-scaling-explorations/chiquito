@@ -221,6 +221,22 @@ fn main() {
     }
 }
 
+// add a test module
+#[cfg(test)]
+// add a test function
+#[test]
+fn test_mimc7() {
+    use chiquito::{
+        plonkish::backend::powdr_pil::{ChiquitoPil, *},
+        wit_gen::Witness,
+    };
+    // get Chiquito ir
+    let (_, wit_gen, circuit) = fibo_circuit::<Fr>();
+    let chiquito_pil = ChiquitoPil::new(circuit, wit_gen.unwrap().generate_trace_witness(()));
+    print!("{}", chiquito_pil.to_pil());
+}
+
+
 mod mimc7_constants {
     pub const ROUND_CONSTANTS: &[&str] = &[
         "0",

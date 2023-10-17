@@ -168,3 +168,5 @@ mimc7_super_witness = mimc7.gen_witness(F(1), F(2))
 # for key, value in mimc7_super_witness.items():
 #     print(f"{key}: {str(value)}")
 mimc7.halo2_mock_prover(mimc7_super_witness)
+print(mimc7.mimc7_constants)
+print(mimc7.mimc7_circuit)
