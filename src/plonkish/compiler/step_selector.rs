@@ -83,8 +83,6 @@ impl StepSelectorBuilder for SimpleStepSelectorBuilder {
 
             let column = Column::advice(annotation.clone(), 0);
 
-            println!("STEP BUILDER Column: {:#?}", column);
-
             selector.columns.push(column.clone());
 
             selector
@@ -103,8 +101,8 @@ impl StepSelectorBuilder for SimpleStepSelectorBuilder {
         }
         println!("STEP BUILDER SELECTOR: {:#?}", selector);
 
-        // unit.columns.extend_from_slice(&selector.columns);
-        // unit.selector = selector;
+        unit.columns.extend_from_slice(&selector.columns);
+        unit.selector = selector;
     }
 }
 
@@ -203,21 +201,14 @@ impl StepSelectorBuilder for LogNSelectorBuilder {
             columns: Vec::new(),
         };
 
-        // println!("COMPILATION UNIT: {:#?}", unit);
-
-        let mut annotation = "'step selector'".to_string();
-
-        // Calculate number of columns
         let n_step_types = unit.step_types.len() as u64;
         let n_cols = (n_step_types as f64).log2().ceil() as u64;
 
+        let mut annotation;
         for index in 0..n_cols {
             annotation = format!("'binary selector column {}'", index);
 
             let column = Column::advice(annotation.clone(), 0);
-
-            println!("STEP BUILDER Column: {:#?}", column);
-
             selector.columns.push(column.clone());
         }
 
@@ -232,11 +223,12 @@ impl StepSelectorBuilder for LogNSelectorBuilder {
                 let column = &selector.columns[i as usize];
 
                 if bit == 1 {
-                    combined_expr = combined_expr + column.query(0, format!("bit {} of {}", i, step.uuid()));
-                    combined_expr_not = combined_expr_not + PolyExpr::Const(F::ONE) + (-column.query(0, format!("bit {} of {}", i, step.uuid())));
+                    combined_expr = combined_expr * (PolyExpr::Const(F::ONE) - column.query(0, format!("bit {} of {}", i, step.uuid())));
+                    combined_expr_not = combined_expr_not * column.query(0, format!("bit {} of {}", i, step.uuid()));
                     assignments.push((column.query(0, format!("bit {} of {}", i, step.uuid())), F::ONE));
                 } else {
-                    combined_expr_not = combined_expr_not + column.query(0, format!("bit {} of {}", i, step.uuid()));
+                    combined_expr = combined_expr * column.query(0, format!("bit {} of {}", i, step.uuid()));
+                    combined_expr_not = combined_expr_not * (PolyExpr::Const(F::ONE) - column.query(0, format!("bit {} of {}", i, step.uuid())));
                 }
             }
 
@@ -245,7 +237,6 @@ impl StepSelectorBuilder for LogNSelectorBuilder {
             selector.selector_assignment.insert(step.uuid(), assignments);
             step_value += 1;
         }
-        println!("STEP BUILDER SELECTOR: {:#?}", selector);
         unit.columns.extend_from_slice(&selector.columns);
         unit.selector = selector;
     }
