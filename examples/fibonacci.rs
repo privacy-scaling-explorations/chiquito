@@ -179,6 +179,10 @@ fn test_fibo() {
     };
     // get Chiquito ir
     let (_, wit_gen, circuit) = fibo_circuit::<Fr>();
-    let chiquito_pil = ChiquitoPil::new(circuit, wit_gen.unwrap().generate_trace_witness(()));
+    let chiquito_pil = ChiquitoPil::new(
+        String::from("FiboCircuit"),
+        circuit,
+        Some(wit_gen.unwrap().generate_trace_witness(())),
+    );
     print!("{}", chiquito_pil.to_pil());
 }

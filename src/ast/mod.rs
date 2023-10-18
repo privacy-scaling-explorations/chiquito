@@ -191,6 +191,28 @@ impl<F, TraceArgs> Circuit<F, TraceArgs> {
     }
 }
 
+impl<F: Clone, TraceArgs> Circuit<F, TraceArgs> {
+    pub fn clone_without_trace(&self) -> Circuit<F, ()> {
+        Circuit {
+            step_types: self.step_types.clone(),
+            forward_signals: self.forward_signals.clone(),
+            shared_signals: self.shared_signals.clone(),
+            fixed_signals: self.fixed_signals.clone(),
+            halo2_advice: self.halo2_advice.clone(),
+            halo2_fixed: self.halo2_fixed.clone(),
+            exposed: self.exposed.clone(),
+            annotations: self.annotations.clone(),
+            trace: None, // Remove the trace
+            fixed_assignments: self.fixed_assignments.clone(),
+            first_step: self.first_step.clone(),
+            last_step: self.last_step.clone(),
+            num_steps: self.num_steps,
+            q_enable: self.q_enable,
+            id: self.id,
+        }
+    }
+}
+
 pub type FixedGen<F> = dyn Fn(&mut FixedGenContext<F>) + 'static;
 
 pub type StepTypeUUID = UUID;
@@ -398,6 +420,10 @@ impl ForwardSignal {
     pub fn phase(&self) -> usize {
         self.phase
     }
+
+    pub fn annotation(&self) -> &str {
+        self.annotation
+    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
@@ -431,6 +457,10 @@ impl SharedSignal {
     pub fn phase(&self) -> usize {
         self.phase
     }
+
+    pub fn annotation(&self) -> &str {
+        self.annotation
+    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
@@ -456,6 +486,10 @@ impl FixedSignal {
 
     pub fn uuid(&self) -> UUID {
         self.id
+    }
+
+    pub fn annotation(&self) -> &str {
+        self.annotation
     }
 }
 
@@ -488,6 +522,10 @@ impl InternalSignal {
 
     pub fn uuid(&self) -> UUID {
         self.id
+    }
+
+    pub fn annotation(&self) -> &str {
+        self.annotation
     }
 }
 

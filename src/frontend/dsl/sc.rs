@@ -34,6 +34,12 @@ impl<F, MappingArgs> Default for SuperCircuitContext<F, MappingArgs> {
     }
 }
 
+impl<F: Clone, MappingArgs> SuperCircuitContext<F, MappingArgs> {
+    fn add_sub_circuit_ast(&mut self, ast: Circuit<F, ()>) {
+        self.super_circuit.add_sub_circuit_ast(ast);
+    }
+}
+
 impl<F: Field + Hash, MappingArgs> SuperCircuitContext<F, MappingArgs> {
     pub fn sub_circuit<CM: CellManager, SSB: StepSelectorBuilder, TraceArgs, Imports, Exports, D>(
         &mut self,
@@ -52,6 +58,9 @@ impl<F: Field + Hash, MappingArgs> SuperCircuitContext<F, MappingArgs> {
 
         let sub_circuit = sub_circuit_context.circuit;
 
+        // ast is used for PIL backend
+        self.add_sub_circuit_ast(sub_circuit.clone_without_trace());
+
         let (unit, assignment) = compile_phase1(config, &sub_circuit);
         let assignment = assignment.unwrap_or_else(|| AssignmentGenerator::empty(unit.uuid));
 
@@ -61,12 +70,23 @@ impl<F: Field + Hash, MappingArgs> SuperCircuitContext<F, MappingArgs> {
     }
 
     // Used by the PIL backend only
-    pub fn sub_circuit_output_ast<CM: CellManager, SSB: StepSelectorBuilder, TraceArgs, Imports, Exports, D>(
+    pub fn sub_circuit_output_ast<
+        CM: CellManager,
+        SSB: StepSelectorBuilder,
+        TraceArgs,
+        Imports,
+        Exports,
+        D,
+    >(
         &mut self,
         config: CompilerConfig<CM, SSB>,
         sub_circuit_def: D,
         imports: Imports,
-    ) -> (AssignmentGenerator<F, TraceArgs>, Exports, Circuit<F, TraceArgs>)
+    ) -> (
+        AssignmentGenerator<F, TraceArgs>,
+        Exports,
+        Circuit<F, TraceArgs>,
+    )
     where
         D: Fn(&mut CircuitContext<F, TraceArgs>, Imports) -> Exports,
     {
