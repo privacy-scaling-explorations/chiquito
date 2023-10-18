@@ -79,6 +79,8 @@ class Fibonacci(Circuit):
 
 fibo = Fibonacci()
 fibo_witness = fibo.gen_witness(7)
-fibo.halo2_mock_prover(fibo_witness)
+fibo.halo2_mock_prover(
+    fibo_witness, k=7
+)  # 2^k specifies the number of PLONKish table rows in Halo2
 another_fibo_witness = fibo.gen_witness(4)
-fibo.halo2_mock_prover(another_fibo_witness)
+fibo.halo2_mock_prover(another_fibo_witness, k=7)
