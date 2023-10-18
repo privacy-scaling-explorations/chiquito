@@ -1876,6 +1876,12 @@
 <a href="#1876" id="1876">1876</a>
 <a href="#1877" id="1877">1877</a>
 <a href="#1878" id="1878">1878</a>
+<a href="#1879" id="1879">1879</a>
+<a href="#1880" id="1880">1880</a>
+<a href="#1881" id="1881">1881</a>
+<a href="#1882" id="1882">1882</a>
+<a href="#1883" id="1883">1883</a>
+<a href="#1884" id="1884">1884</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>pyo3::{
     prelude::<span class="kw-2">*</span>,
     types::{PyDict, PyList, PyLong, PyString},
@@ -1961,6 +1967,7 @@
 </span><span class="kw">pub fn </span>chiquito_super_circuit_halo2_mock_prover(
     rust_ids: Vec&lt;UUID&gt;,
     super_witness: HashMap&lt;UUID, <span class="kw-2">&amp;</span>str&gt;,
+    k: usize,
 ) {
     <span class="kw">let </span><span class="kw-2">mut </span>super_circuit_ctx = SuperCircuitContext::&lt;Fr, ()&gt;::default();
 
@@ -1992,7 +1999,7 @@
 
     <span class="kw">let </span>circuit = ChiquitoHalo2SuperCircuit::new(compiled, super_assignments);
 
-    <span class="kw">let </span>prover = MockProver::&lt;Fr&gt;::run(<span class="number">10</span>, <span class="kw-2">&amp;</span>circuit, circuit.instance()).unwrap();
+    <span class="kw">let </span>prover = MockProver::&lt;Fr&gt;::run(k <span class="kw">as </span>u32, <span class="kw-2">&amp;</span>circuit, circuit.instance()).unwrap();
 
     <span class="kw">let </span>result = prover.verify_par();
 
@@ -2016,7 +2023,7 @@
 
 <span class="doccomment">/// Runs `MockProver` for a single circuit given JSON of `TraceWitness` and `rust_id` of the
 /// circuit.
-</span><span class="kw">pub fn </span>chiquito_halo2_mock_prover(witness_json: <span class="kw-2">&amp;</span>str, rust_id: UUID) {
+</span><span class="kw">pub fn </span>chiquito_halo2_mock_prover(witness_json: <span class="kw-2">&amp;</span>str, rust_id: UUID, k: usize) {
     <span class="kw">let </span>trace_witness: TraceWitness&lt;Fr&gt; =
         serde_json::from_str(witness_json).expect(<span class="string">&quot;Json deserialization to TraceWitness failed.&quot;</span>);
     <span class="kw">let </span>(<span class="kw">_</span>, compiled, assignment_generator) = rust_id_to_halo2(rust_id);
@@ -2025,7 +2032,7 @@
         assignment_generator.map(|g| g.generate_with_witness(trace_witness)),
     );
 
-    <span class="kw">let </span>prover = MockProver::&lt;Fr&gt;::run(<span class="number">7</span>, <span class="kw-2">&amp;</span>circuit, circuit.instance()).unwrap();
+    <span class="kw">let </span>prover = MockProver::&lt;Fr&gt;::run(k <span class="kw">as </span>u32, <span class="kw-2">&amp;</span>circuit, circuit.instance()).unwrap();
 
     <span class="kw">let </span>result = prover.verify_par();
 
@@ -3705,15 +3712,16 @@
 }
 
 <span class="attr">#[pyfunction]
-</span><span class="kw">fn </span>halo2_mock_prover(witness_json: <span class="kw-2">&amp;</span>PyString, rust_id: <span class="kw-2">&amp;</span>PyLong) {
+</span><span class="kw">fn </span>halo2_mock_prover(witness_json: <span class="kw-2">&amp;</span>PyString, rust_id: <span class="kw-2">&amp;</span>PyLong, k: <span class="kw-2">&amp;</span>PyLong) {
     chiquito_halo2_mock_prover(
         witness_json.to_str().expect(<span class="string">&quot;PyString convertion failed.&quot;</span>),
         rust_id.extract().expect(<span class="string">&quot;PyLong convertion failed.&quot;</span>),
+        k.extract().expect(<span class="string">&quot;PyLong convertion failed.&quot;</span>),
     );
 }
 
 <span class="attr">#[pyfunction]
-</span><span class="kw">fn </span>super_circuit_halo2_mock_prover(rust_ids: <span class="kw-2">&amp;</span>PyList, super_witness: <span class="kw-2">&amp;</span>PyDict) {
+</span><span class="kw">fn </span>super_circuit_halo2_mock_prover(rust_ids: <span class="kw-2">&amp;</span>PyList, super_witness: <span class="kw-2">&amp;</span>PyDict, k: <span class="kw-2">&amp;</span>PyLong) {
     <span class="kw">let </span>uuids = rust_ids
         .iter()
         .map(|rust_id| {
@@ -3742,7 +3750,11 @@
         })
         .collect::&lt;HashMap&lt;u128, <span class="kw-2">&amp;</span>str&gt;&gt;();
 
-    chiquito_super_circuit_halo2_mock_prover(uuids, super_witness)
+    chiquito_super_circuit_halo2_mock_prover(
+        uuids,
+        super_witness,
+        k.extract().expect(<span class="string">&quot;PyLong convertion failed.&quot;</span>),
+    )
 }
 
 <span class="attr">#[pymodule]
