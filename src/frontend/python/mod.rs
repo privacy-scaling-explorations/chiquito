@@ -73,8 +73,8 @@ pub fn chiquito_ast_to_pil(witness_json: &str, rust_id: UUID) -> String {
         serde_json::from_str(witness_json).expect("Json deserialization to TraceWitness failed.");
     let (ast, _, _) = rust_id_to_halo2(rust_id);
 
-    let chiquito_pil = ChiquitoPil::new(String::from("Circuit"), ast, Some(trace_witness));
-    let pil = chiquito_pil.to_pil();
+    let chiquito_pil = ChiquitoPil::new(ast, Some(trace_witness));
+    let pil = chiquito_pil.to_pil(None);
     println!("{}", pil);
     pil
 }

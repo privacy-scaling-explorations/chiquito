@@ -33,11 +33,14 @@
 //     pub annotations: HashMap<UUID, String>,
 // }
 
+use halo2_proofs::plonk::Assignment;
+
 use crate::{
     ast::{query::Queriable, Circuit, StepType},
     field::Field,
-    plonkish::ir::sc::SuperCircuit,
-    poly::Expr,
+    frontend::dsl::cb::lookup,
+    plonkish::ir::{assignments, sc::SuperCircuit},
+    poly::{Expr, ToExpr},
     util::UUID,
     wit_gen::TraceWitness,
 };
@@ -48,20 +51,20 @@ use std::{
 extern crate regex;
 
 pub struct ChiquitoPil<F, TraceArgs> {
-    name: String,
     ast: Circuit<F, TraceArgs>,
     witness: Option<TraceWitness<F>>,
 }
 
 impl<F: Debug, TraceArgs> ChiquitoPil<F, TraceArgs> {
-    pub fn new(name: String, ast: Circuit<F, TraceArgs>, witness: Option<TraceWitness<F>>) -> Self {
-        Self { name, ast, witness }
+    pub fn new(ast: Circuit<F, TraceArgs>, witness: Option<TraceWitness<F>>) -> Self {
+        Self { ast, witness }
     }
 }
 
 pub struct ChiquitoPilSuperCircuit<F> {
     super_ast: HashMap<UUID, Circuit<F, ()>>,
     super_witness: HashMap<UUID, Option<TraceWitness<F>>>,
+    circuit_names: Vec<String>,
 }
 
 impl<F: Debug> ChiquitoPilSuperCircuit<F> {
@@ -69,29 +72,35 @@ impl<F: Debug> ChiquitoPilSuperCircuit<F> {
         Self {
             super_ast: HashMap::new(),
             super_witness: HashMap::new(),
+            circuit_names: Vec::new(),
         }
     }
 
-    pub fn add(&mut self, ast: Circuit<F, ()>, witness: Option<TraceWitness<F>>) {
+    pub fn add(
+        &mut self,
+        ast: Circuit<F, ()>,
+        witness: Option<TraceWitness<F>>,
+        circuit_name: String,
+    ) {
         let id = ast.id;
         self.super_ast.insert(id, ast);
         self.super_witness.insert(id, witness);
+        self.circuit_names.push(circuit_name);
     }
-
-    // pub fn to_pil(self: &ChiquitoPilSuperCircuit<F>) -> String {
-
-    // }
 }
 
 #[allow(non_snake_case)]
 pub fn chiquitoSuperCircuit2Pil<F: Debug + Field, MappingArgs>(
     super_circuit: SuperCircuit<F, MappingArgs>,
     args: MappingArgs,
+    circuit_names: Vec<String>,
 ) -> ChiquitoPilSuperCircuit<F> {
     let mut chiquito_pil_super_circuit = ChiquitoPilSuperCircuit::default();
 
     // trace witnesses have the same id as ast
     let super_asts = super_circuit.get_super_asts();
+    assert!(super_asts.len() == circuit_names.len());
+
     let ast_id_to_ir_id_mapping = super_circuit.get_ast_id_to_ir_id_mapping();
     // super_trace_witnesses have ir_id as key
     let super_trace_witnesses = super_circuit
@@ -101,11 +110,11 @@ pub fn chiquitoSuperCircuit2Pil<F: Debug + Field, MappingArgs>(
     // println!("{:?}", super_trace_witnesses);
     // println!("super_trace_witnesses keys:");
     // println!("{:?}", super_trace_witnesses.keys());
-    for (id, ast) in super_asts {
-        println!("{:?}", super_trace_witnesses.keys());
-        println!("ast_id: {}", id);
+    for ((id, ast), circuit_name) in super_asts.iter().zip(circuit_names.iter()) {
+        // println!("{:?}", super_trace_witnesses.keys());
+        // println!("ast_id: {}", id);
         let witness = super_trace_witnesses.get(ast_id_to_ir_id_mapping.get(&id).unwrap());
-        chiquito_pil_super_circuit.add(ast, witness.cloned());
+        chiquito_pil_super_circuit.add(ast.clone(), witness.cloned(), circuit_name.clone());
     }
 
     chiquito_pil_super_circuit
@@ -115,6 +124,30 @@ impl<F: Debug + Clone> ChiquitoPilSuperCircuit<F> {
     pub fn to_pil(self: &ChiquitoPilSuperCircuit<F>) -> String {
         assert!(self.super_ast.len() == self.super_witness.len());
         let mut pil = String::new();
+
+        // get annotations map for supercircuit, HashMap of object UUID to (ast UUID, annotation)
+        let mut super_annotations_map: HashMap<UUID, (UUID, String)> = HashMap::new();
+
+        for ((ast_id, ast), circuit_name) in self.super_ast.iter().zip(self.circuit_names.iter()) {
+            let mut annotations_map: HashMap<UUID, String> = HashMap::new();
+            annotations_map.insert(*ast_id, circuit_name.clone());
+            annotations_map.extend(ast.annotations.clone());
+            for (_, step_type) in &ast.step_types {
+                annotations_map.extend(step_type.annotations.clone());
+            }
+            super_annotations_map.extend(annotations_map.into_iter().map(|(uuid, annotation)| {
+                (
+                    uuid,
+                    (
+                        ast_id.clone(),
+                        format!("{}.{}", circuit_name, annotation.replace(" ", "_")),
+                    ),
+                )
+            }));
+            println!("SUPER ANNOTATIONS MAP:");
+            println!("{:?}", super_annotations_map.clone());
+        }
+
         for (index, (id, ast)) in self.super_ast.iter().enumerate() {
             let witness = self.super_witness.get(id).unwrap();
             // println!("witness is some: {}", witness.is_some());
@@ -123,9 +156,11 @@ impl<F: Debug + Clone> ChiquitoPilSuperCircuit<F> {
             // println!("ast id: {}", id);
             // currently name the circuits by their index in the super circuit
             // would ideally use a user supplied name
-            let chiquito_pil =
-                ChiquitoPil::new(format!("Circuit_{}", index), ast.clone(), witness.clone());
-            pil = pil + chiquito_pil.to_pil().as_str();
+            let chiquito_pil = ChiquitoPil::new(ast.clone(), witness.clone());
+            pil = pil
+                + chiquito_pil
+                    .to_pil(Some(super_annotations_map.clone()))
+                    .as_str();
         }
         println!("{}", pil);
         pil
@@ -133,20 +168,52 @@ impl<F: Debug + Clone> ChiquitoPilSuperCircuit<F> {
 }
 
 impl<F: Debug + Clone, TraceArgs> ChiquitoPil<F, TraceArgs> {
-    pub fn to_pil(self: &ChiquitoPil<F, TraceArgs>) -> String {
+    pub fn to_pil(
+        self: &ChiquitoPil<F, TraceArgs>,
+        mut annotations_map: Option<HashMap<UUID, (UUID, String)>>,
+    ) -> String {
         // create new string buffer
         let mut pil = String::new();
         writeln!(pil, "constant %NUM_STEPS = {};", self.ast.num_steps);
-        writeln!(pil, "namespace {}(%NUM_STEPS);", self.name);
+        if annotations_map.is_none() {
+            writeln!(pil, "namespace Circuit(%NUM_STEPS);",);
+        } else {
+            writeln!(
+                pil,
+                "namespace {}(%NUM_STEPS);",
+                annotations_map
+                    .as_ref()
+                    .unwrap()
+                    .get(&self.ast.id)
+                    .unwrap()
+                    .clone()
+                    .1
+            );
+        }
 
         // create annotation map for all signals and step types
         // categorize annotations for signals and step types in UUID vectors
         // note that internal signals defined in different step types will be duplicated
-        let mut annotations_map = self.ast.annotations.clone();
+        if annotations_map.is_none() {
+            let mut new_annotations_map = HashMap::new();
+
+            // Convert the original annotations map
+            for (key, value) in &self.ast.annotations {
+                new_annotations_map.insert(*key, (self.ast.id, value.replace(" ", "_")));
+            }
+
+            // Convert the step_types annotations
+            for (_, step_type) in &self.ast.step_types {
+                for (key, value) in &step_type.annotations {
+                    new_annotations_map.insert(*key, (self.ast.id, value.replace(" ", "_")));
+                }
+            }
+
+            annotations_map = Some(new_annotations_map);
+        }
 
         let mut col_witness_uuids: Vec<UUID> = Vec::new();
         for (_, step_type) in &self.ast.step_types {
-            annotations_map.extend(step_type.annotations.clone());
             col_witness_uuids.extend::<Vec<UUID>>(
                 step_type
                     .signals
@@ -154,9 +221,6 @@ impl<F: Debug + Clone, TraceArgs> ChiquitoPil<F, TraceArgs> {
                     .map(|signal| signal.uuid())
                     .collect(),
             );
-        }
-        for annotation in annotations_map.values_mut() {
-            *annotation = annotation.replace(" ", "_");
         }
 
         col_witness_uuids.extend::<Vec<UUID>>(
@@ -183,10 +247,12 @@ impl<F: Debug + Clone, TraceArgs> ChiquitoPil<F, TraceArgs> {
         let mut col_fixed_step_types_uuids: Vec<UUID> =
             self.ast.step_types.keys().cloned().collect();
 
-        assert!(
-            col_witness_uuids.len() + col_fixed_uuids.len() + col_fixed_step_types_uuids.len()
-                == annotations_map.len()
-        );
+        if annotations_map.is_none() {
+            assert!(
+                col_witness_uuids.len() + col_fixed_uuids.len() + col_fixed_step_types_uuids.len()
+                    == annotations_map.as_ref().unwrap().len()
+            );
+        }
 
         // declare witness columns
         if !col_witness_uuids.is_empty() {
@@ -194,7 +260,15 @@ impl<F: Debug + Clone, TraceArgs> ChiquitoPil<F, TraceArgs> {
             // get unique witness annotations
             let col_witness_vars = col_witness_uuids
                 .iter()
-                .map(|uuid| annotations_map.get(&uuid).unwrap().clone())
+                .map(|uuid| {
+                    annotations_map
+                        .as_ref()
+                        .unwrap()
+                        .get(&uuid)
+                        .unwrap()
+                        .clone()
+                        .1
+                })
                 .collect::<Vec<String>>();
             col_witness = col_witness + col_witness_vars.join(", ").as_str() + ";";
             writeln!(pil, "{}", col_witness);
@@ -206,7 +280,15 @@ impl<F: Debug + Clone, TraceArgs> ChiquitoPil<F, TraceArgs> {
             // get unique witness annotations
             let col_fixed_vars = col_fixed_uuids
                 .iter()
-                .map(|uuid| annotations_map.get(&uuid).unwrap().clone())
+                .map(|uuid| {
+                    annotations_map
+                        .as_ref()
+                        .unwrap()
+                        .get(&uuid)
+                        .unwrap()
+                        .clone()
+                        .1
+                })
                 .collect::<Vec<String>>();
             col_fixed = col_fixed + col_fixed_vars.join(", ").as_str() + ";";
             writeln!(pil, "{}", col_fixed);
@@ -223,11 +305,16 @@ impl<F: Debug + Clone, TraceArgs> ChiquitoPil<F, TraceArgs> {
         );
 
         // iterate over self.step_types
-        println!("self.witness.is_some() {}", self.witness.is_some());
-
+        // println!("self.witness.is_some() {}", self.witness.is_some());
         if !self.ast.step_types.is_empty() && self.witness.is_some() {
             for (_, step_type) in &self.ast.step_types {
-                let step_type_name = annotations_map.get(&step_type.uuid()).unwrap();
+                let step_type_name = annotations_map
+                    .as_ref()
+                    .unwrap()
+                    .get(&step_type.uuid())
+                    .unwrap()
+                    .clone()
+                    .1;
                 writeln!(pil, "// == step type {} start ==", step_type_name).unwrap();
                 let mut step_type_selector = String::new();
                 write!(step_type_selector, "col fixed {} = [", step_type_name);
@@ -265,22 +352,60 @@ impl<F: Debug + Clone, TraceArgs> ChiquitoPil<F, TraceArgs> {
                     pil,
                     "{}",
                     step_type
-                        .to_pil(&annotations_map, is_last_step_instance, self.name.clone())
+                        .to_pil(annotations_map.as_ref().unwrap(), is_last_step_instance)
                         .as_str()
                 );
+                println!("ANNOTATIONS MAP:");
+                println!("{:?}", annotations_map);
             }
         }
 
         // pragma_first_step
         if let Some(first_step) = self.ast.first_step {
-            let first_step_name = annotations_map.get(&first_step).unwrap();
+            let first_step_name = annotations_map
+                .as_ref()
+                .unwrap()
+                .get(&first_step)
+                .unwrap()
+                .clone()
+                .1;
             writeln!(pil, "ISFIRST * (1 - {}) = 0", first_step_name);
         }
 
         // pragma_last_step
         if let Some(last_step) = self.ast.last_step {
-            let last_step_name = annotations_map.get(&last_step).unwrap();
+            let last_step_name = annotations_map
+                .as_ref()
+                .unwrap()
+                .get(&last_step)
+                .unwrap()
+                .clone()
+                .1;
             writeln!(pil, "ISLAST * (1 - {}) = 0", last_step_name);
+        }
+
+        // declare fixed assignments
+        if let Some(fixed_assignments) = &self.ast.fixed_assignments {
+            for (queriable, assignments) in fixed_assignments.iter() {
+                let fixed_name = annotations_map
+                    .as_ref()
+                    .unwrap()
+                    .get(&queriable.uuid())
+                    .unwrap()
+                    .clone()
+                    .1;
+                let mut assignments_string = String::new();
+                let assignments_vec = assignments
+                    .iter()
+                    .map(|assignment| format!("{:?}", assignment))
+                    .collect::<Vec<String>>();
+                write!(
+                    assignments_string,
+                    "{}",
+                    assignments_vec.join(", ").as_str()
+                );
+                writeln!(pil, "col fixed {} = [{}];", fixed_name, assignments_string);
+            }
         }
 
         pil
@@ -290,26 +415,34 @@ impl<F: Debug + Clone, TraceArgs> ChiquitoPil<F, TraceArgs> {
 impl<F: Debug + Clone> StepType<F> {
     pub fn to_pil(
         self: &StepType<F>,
-        annotations_map: &HashMap<UUID, String>,
+        annotations_map: &HashMap<UUID, (UUID, String)>,
         is_last_step_instance: bool,
-        circuit_name: String,
     ) -> String {
         let mut pil = String::new();
-        let step_type_name = annotations_map.get(&self.uuid()).unwrap();
+        let step_type_name = annotations_map.get(&self.uuid()).unwrap().clone().1;
         for constraint in &self.constraints {
-            let expr = convert_to_pil_expr_string(constraint.expr.clone(), circuit_name.clone());
+            let expr = convert_to_pil_expr_string(constraint.expr.clone(), annotations_map);
 
             writeln!(pil, "{} * {} = 0;", step_type_name, expr);
         }
         for transition in &self.transition_constraints {
             // apply convert_to_pil_rotation to the Debug string of transition.expr
-            let expr = convert_to_pil_expr_string(transition.expr.clone(), circuit_name.clone());
+            let expr = convert_to_pil_expr_string(transition.expr.clone(), annotations_map);
             // disable transition constraint in the last step instance
             if (is_last_step_instance) {
                 writeln!(pil, "(1 - ISLAST) * {} * {} = 0;", step_type_name, expr);
             } else {
                 writeln!(pil, "{} * {} = 0;", step_type_name, expr);
             }
+        }
+        for lookup in &self.lookups {
+            let mut lookup_source: Vec<String> = Vec::new();
+            let mut lookup_destination: Vec<String> = Vec::new();
+            for(src, dest) in lookup.exprs.iter() {
+                lookup_source.push(convert_to_pil_expr_string(src.expr.clone(), annotations_map));
+                lookup_destination.push(convert_to_pil_expr_string(dest.clone(), annotations_map));
+            }
+            writeln!(pil, "{} {{ {} }} in {{ {} }} ", step_type_name, lookup_source.join(", "), lookup_destination.join(", "));
         }
         pil
     }
@@ -324,9 +457,9 @@ impl<F: Debug + Clone> StepType<F> {
 //     re.replace_all(expr, "$1'").into_owned() // 1st capture group w+ and append with '
 // }
 
-fn convert_to_pil_expr_string<F: Debug + Clone>(
+pub fn convert_to_pil_expr_string<F: Debug + Clone>(
     expr: Expr<F, Queriable<F>>,
-    circuit_name: String,
+    annotations_map: &HashMap<UUID, (UUID, String)>,
 ) -> String {
     match expr {
         Expr::Const(constant) => format!("{:?}", constant),
@@ -334,7 +467,7 @@ fn convert_to_pil_expr_string<F: Debug + Clone>(
             let mut expr_string = String::new();
             for (index, expr) in sum.iter().enumerate() {
                 expr_string = expr_string
-                    + convert_to_pil_expr_string(expr.clone(), circuit_name.clone()).as_str();
+                    + convert_to_pil_expr_string(expr.clone(), annotations_map).as_str();
                 if index != sum.len() - 1 {
                     expr_string = expr_string + " + ";
                 }
@@ -345,24 +478,24 @@ fn convert_to_pil_expr_string<F: Debug + Clone>(
             let mut expr_string = String::new();
             for (index, expr) in mul.iter().enumerate() {
                 expr_string = expr_string
-                    + convert_to_pil_expr_string(expr.clone(), circuit_name.clone()).as_str();
+                    + convert_to_pil_expr_string(expr.clone(), annotations_map).as_str();
                 if index != mul.len() - 1 {
                     expr_string = expr_string + " * ";
                 }
             }
             format!("({})", expr_string)
         }
-        Expr::Neg(neg) => format!("(-{})", convert_to_pil_expr_string(*neg, circuit_name)),
+        Expr::Neg(neg) => format!("(-{})", convert_to_pil_expr_string(*neg, annotations_map)),
         Expr::Pow(pow, power) => {
             format!(
                 "({})^{}",
-                convert_to_pil_expr_string(*pow, circuit_name),
+                convert_to_pil_expr_string(*pow, annotations_map),
                 power
             )
         }
         Expr::Query(queriable) => format!(
             "{}",
-            convert_to_pil_queriable_string(queriable, circuit_name)
+            convert_to_pil_queriable_string(queriable, annotations_map)
         ),
         Expr::Halo2Expr(expression) => {
             panic!("Halo2 native expression not supported by PIL backend.")
@@ -370,21 +503,26 @@ fn convert_to_pil_expr_string<F: Debug + Clone>(
     }
 }
 
-fn convert_to_pil_queriable_string<F>(query: Queriable<F>, circuit_name: String) -> String {
+fn convert_to_pil_queriable_string<F>(
+    query: Queriable<F>,
+    annotations_map: &HashMap<UUID, (UUID, String)>,
+) -> String {
     match query {
-        Queriable::Internal(s) => format!("{}.{}", circuit_name, s.annotation()),
+        Queriable::Internal(s) => format!("{}", annotations_map.get(&s.uuid()).unwrap().1),
         Queriable::Forward(s, rot) => {
+            let annotation = annotations_map.get(&s.uuid()).unwrap().clone().1;
             if !rot {
-                format!("{}.{}", circuit_name, s.annotation())
+                format!("{}", annotation)
             } else {
-                format!("{}.{}'", circuit_name, s.annotation())
+                format!("{}'", annotation)
             }
         }
         Queriable::Shared(s, rot) => {
+            let annotation = annotations_map.get(&s.uuid()).unwrap().clone().1;
             if rot == 0 {
-                format!("{}.{}", circuit_name, s.annotation())
+                format!("{}", annotation)
             } else if rot == 1 {
-                format!("{}.{}'", circuit_name, s.annotation())
+                format!("{}'", annotation)
             } else {
                 panic!(
                     "PIL backend does not support shared signal with rotation other than 0 or 1."
@@ -392,15 +530,16 @@ fn convert_to_pil_queriable_string<F>(query: Queriable<F>, circuit_name: String)
             }
         }
         Queriable::Fixed(s, rot) => {
+            let annotation = annotations_map.get(&s.uuid()).unwrap().clone().1;
             if rot == 0 {
-                format!("{}.{}", circuit_name, s.annotation())
+                format!("{}", annotation)
             } else if rot == 1 {
-                format!("{}.{}'", circuit_name, s.annotation())
+                format!("{}'", annotation)
             } else {
                 panic!("PIL backend does not support fixed signal with rotation other than 0 or 1.")
             }
         }
-        Queriable::StepTypeNext(s) => format!("{}'", s.annotation.to_string()),
+        Queriable::StepTypeNext(s) => format!("{}'", annotations_map.get(&s.uuid()).unwrap().1),
         Queriable::Halo2AdviceQuery(s, rot) => {
             panic!("Halo2 native advice query not supported by PIL backend.")
         }

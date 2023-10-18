@@ -175,7 +175,7 @@ fn mimc7_circuit<F: PrimeField + Eq + Hash>(
         row_value += F::from(1);
         x_value += k_value + c_value;
         x_value = x_value.pow_vartime([7_u64]);
-        // Step 90: output the hash result as x + k in witness generation
+        // Step 91: output the hash result as x + k in witness generation
         // output is not displayed as a public column, which will be implemented in the future
         ctx.add(&mimc7_last_step, (x_value, k_value, c_value, row_value)); // c_value is not
                                                                            // used here but
@@ -238,7 +238,11 @@ fn test_mimc7() {
 
     let super_circuit = mimc7_super_circuit::<Fr>();
 
-    let compiled = chiquitoSuperCircuit2Pil(super_circuit, (x_in_value, k_value));
+    let compiled = chiquitoSuperCircuit2Pil(
+        super_circuit,
+        (x_in_value, k_value),
+        vec![String::from("Mimc7Constant"), String::from("Mimc7Circuit")],
+    );
 
     compiled.to_pil();
     // let mut ctx = SuperCircuitContext::default();
