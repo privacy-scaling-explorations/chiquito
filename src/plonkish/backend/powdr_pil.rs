@@ -130,7 +130,7 @@ impl<F: Debug + Clone> ChiquitoPilSuperCircuit<F> {
 
         for ((ast_id, ast), circuit_name) in self.super_ast.iter().zip(self.circuit_names.iter()) {
             let mut annotations_map: HashMap<UUID, String> = HashMap::new();
-            annotations_map.insert(*ast_id, circuit_name.clone());
+            
             annotations_map.extend(ast.annotations.clone());
             for (_, step_type) in &ast.step_types {
                 annotations_map.extend(step_type.annotations.clone());
@@ -144,6 +144,7 @@ impl<F: Debug + Clone> ChiquitoPilSuperCircuit<F> {
                     ),
                 )
             }));
+            super_annotations_map.insert(*ast_id, (*ast_id, circuit_name.clone()));
             println!("SUPER ANNOTATIONS MAP:");
             println!("{:?}", super_annotations_map.clone());
         }
