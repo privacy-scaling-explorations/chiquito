@@ -18,12 +18,13 @@ use self::{
 pub use sc::*;
 
 #[derive(Debug)]
-/// A generic structure designed to handle the context of a circuit for generic types `F`,
-/// `TraceArgs` and `StepArgs`. The struct contains a `Circuit` instance and implements
-/// methods to build the circuit, add various components, and manipulate the circuit. `F` is a
-/// generic type representing the field of the circuit. `TraceArgs` is a generic type
-/// representing the arguments passed to the trace function. `StepArgs` is a generic type
-/// representing the arguments passed to the `step_type_def` function.
+/// A generic structure designed to handle the context of a circuit for generic types
+/// `F`, `TraceArgs` and `StepArgs`.
+/// The struct contains a `Circuit` instance and implements methods to build the circuit,
+/// add various components, and manipulate the circuit.
+/// `F` is a generic type representing the field of the circuit.
+/// `TraceArgs` is a generic type representing the arguments passed to the trace function.
+/// `StepArgs` is a generic type representing the arguments passed to the `step_type_def` function.
 pub struct CircuitContext<F, TraceArgs> {
     circuit: Circuit<F, TraceArgs>,
     tables: LookupTableRegistry<F>,
@@ -435,5 +436,93 @@ mod tests {
 
         context.pragma_num_steps(0);
         assert_eq!(context.circuit.num_steps, 0);
+    }
+
+    #[test]
+    fn test_forward() {
+        // create circuit context
+        let circuit: Circuit<i32, i32> = Circuit::default();
+        let mut context = CircuitContext {
+            circuit,
+            tables: Default::default(),
+        };
+
+        // set forward signals
+        let forward_a: Queriable<i32> = context.forward("forward_a");
+        let forward_b: Queriable<i32> = context.forward("forward_b");
+
+        // assert forward signals are correct
+        assert_eq!(context.circuit.forward_signals.len(), 2);
+        assert_eq!(context.circuit.forward_signals[0].uuid(), forward_a.uuid());
+        assert_eq!(context.circuit.forward_signals[1].uuid(), forward_b.uuid());
+    }
+
+    #[test]
+    fn test_forward_with_phase() {
+        // create circuit context
+        let circuit: Circuit<i32, i32> = Circuit::default();
+        let mut context = CircuitContext {
+            circuit,
+            tables: Default::default(),
+        };
+
+        // set forward signals with specified phase
+        context.forward_with_phase("forward_a", 1);
+        context.forward_with_phase("forward_b", 2);
+
+        // assert forward signals are correct
+        assert_eq!(context.circuit.forward_signals.len(), 2);
+        assert_eq!(context.circuit.forward_signals[0].phase(), 1);
+        assert_eq!(context.circuit.forward_signals[1].phase(), 2);
+    }
+
+    #[test]
+    fn test_shared() {
+        // create circuit context
+        let circuit: Circuit<i32, i32> = Circuit::default();
+        let mut context = CircuitContext {
+            circuit,
+            tables: Default::default(),
+        };
+
+        // set shared signal
+        let shared_a: Queriable<i32> = context.shared("shared_a");
+
+        // assert shared signal is correct
+        assert_eq!(context.circuit.shared_signals.len(), 1);
+        assert_eq!(context.circuit.shared_signals[0].uuid(), shared_a.uuid());
+    }
+
+    #[test]
+    fn test_shared_with_phase() {
+        // create circuit context
+        let circuit: Circuit<i32, i32> = Circuit::default();
+        let mut context = CircuitContext {
+            circuit,
+            tables: Default::default(),
+        };
+
+        // set shared signal with specified phase
+        context.shared_with_phase("shared_a", 2);
+
+        // assert shared signal is correct
+        assert_eq!(context.circuit.shared_signals.len(), 1);
+        assert_eq!(context.circuit.shared_signals[0].phase(), 2);
+    }
+
+    #[test]
+    fn test_fixed() {
+        // create circuit context
+        let circuit: Circuit<i32, i32> = Circuit::default();
+        let mut context = CircuitContext {
+            circuit,
+            tables: Default::default(),
+        };
+
+        // set fixed signal
+        context.fixed("fixed_a");
+
+        // assert fixed signal was added to the circuit
+        assert_eq!(context.circuit.fixed_signals.len(), 1);
     }
 }
