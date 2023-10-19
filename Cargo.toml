@@ -1,6 +1,6 @@
 [package]
 name = "chiquito"
-version = "0.1.2023092400"
+version = "0.1.2023101700"
 edition = "2021"
 license = "MIT OR Apache-2.0"
 authors = ["Leo Lara <leo@leolara.me>"]
@@ -15,7 +15,7 @@ halo2_proofs = { git = "https://github.com/privacy-scaling-explorations/halo2.gi
 halo2curves = { git = 'https://github.com/privacy-scaling-explorations/halo2curves', tag = "0.3.2", features = [
     "derive_serde",
 ] }
-polyexen = { git = "https://github.com/Dhole/polyexen.git", rev = "67148a8aabb000a61a169b2533b2526c5b76c42f" }
+polyexen = { git = "https://github.com/Dhole/polyexen.git", rev = "4d128ad2ebd0094160ea77e30fb9ce56abb854e0" }
 num-bigint = { version = "0.4", features = ["rand"] }
 uuid = { version = "1.4.0", features = ["v1", "rng"] }
 serde = { version = "1.0", features = ["derive"] }

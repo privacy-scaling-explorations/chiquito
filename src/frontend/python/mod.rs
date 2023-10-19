@@ -97,6 +97,7 @@ fn add_assignment_generator_to_rust_id(
 pub fn chiquito_super_circuit_halo2_mock_prover(
     rust_ids: Vec<UUID>,
     super_witness: HashMap<UUID, &str>,
+    k: usize,
 ) {
     let mut super_circuit_ctx = SuperCircuitContext::<Fr, ()>::default();
 
@@ -128,7 +129,7 @@ pub fn chiquito_super_circuit_halo2_mock_prover(
 
     let circuit = ChiquitoHalo2SuperCircuit::new(compiled, super_assignments);
 
-    let prover = MockProver::<Fr>::run(10, &circuit, circuit.instance()).unwrap();
+    let prover = MockProver::<Fr>::run(k as u32, &circuit, circuit.instance()).unwrap();
 
     let result = prover.verify_par();
 
@@ -152,7 +153,7 @@ fn rust_id_to_halo2(uuid: UUID) -> CircuitMapStore {
 
 /// Runs `MockProver` for a single circuit given JSON of `TraceWitness` and `rust_id` of the
 /// circuit.
-pub fn chiquito_halo2_mock_prover(witness_json: &str, rust_id: UUID) {
+pub fn chiquito_halo2_mock_prover(witness_json: &str, rust_id: UUID, k: usize) {
     let trace_witness: TraceWitness<Fr> =
         serde_json::from_str(witness_json).expect("Json deserialization to TraceWitness failed.");
     let (_, compiled, assignment_generator) = rust_id_to_halo2(rust_id);
@@ -161,7 +162,7 @@ pub fn chiquito_halo2_mock_prover(witness_json: &str, rust_id: UUID) {
         assignment_generator.map(|g| g.generate_with_witness(trace_witness)),
     );
 
-    let prover = MockProver::<Fr>::run(7, &circuit, circuit.instance()).unwrap();
+    let prover = MockProver::<Fr>::run(k as u32, &circuit, circuit.instance()).unwrap();
 
     let result = prover.verify_par();
 
@@ -1851,15 +1852,16 @@ fn to_pil(witness_json: &PyString, rust_id: &PyLong) -> String {
 }
 
 #[pyfunction]
-fn halo2_mock_prover(witness_json: &PyString, rust_id: &PyLong) {
+fn halo2_mock_prover(witness_json: &PyString, rust_id: &PyLong, k: &PyLong) {
     chiquito_halo2_mock_prover(
         witness_json.to_str().expect("PyString convertion failed."),
         rust_id.extract().expect("PyLong convertion failed."),
+        k.extract().expect("PyLong convertion failed."),
     );
 }
 
 #[pyfunction]
-fn super_circuit_halo2_mock_prover(rust_ids: &PyList, super_witness: &PyDict) {
+fn super_circuit_halo2_mock_prover(rust_ids: &PyList, super_witness: &PyDict, k: &PyLong) {
     let uuids = rust_ids
         .iter()
         .map(|rust_id| {
@@ -1888,7 +1890,11 @@ fn super_circuit_halo2_mock_prover(rust_ids: &PyList, super_witness: &PyDict) {
         })
         .collect::<HashMap<u128, &str>>();
 
-    chiquito_super_circuit_halo2_mock_prover(uuids, super_witness)
+    chiquito_super_circuit_halo2_mock_prover(
+        uuids,
+        super_witness,
+        k.extract().expect("PyLong convertion failed."),
+    )
 }
 
 #[pymodule]

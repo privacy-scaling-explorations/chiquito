@@ -1,4 +1,4 @@
-use std::{collections::HashMap, hash::Hash, rc::Rc};
+use std::{collections::HashMap, fmt, hash::Hash, rc::Rc};
 
 use crate::{
     ast::{query::Queriable, StepTypeUUID},
@@ -12,6 +12,16 @@ use crate::{
 pub struct StepInstance<F> {
     pub step_type_uuid: StepTypeUUID,
     pub assignments: HashMap<Queriable<F>, F>,
+}
+
+impl<F: fmt::Debug> fmt::Display for StepInstance<F> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "({}): ", self.step_type_uuid)?;
+        for (queriable, value) in self.assignments.iter() {
+            write!(f, "{:?} = {:?}, ", queriable, value)?;
+        }
+        Ok(())
+    }
 }
 
 impl<F> StepInstance<F> {
@@ -36,6 +46,24 @@ pub type Witness<F> = Vec<StepInstance<F>>;
 #[derive(Debug, Default, Clone)]
 pub struct TraceWitness<F> {
     pub step_instances: Witness<F>,
+}
+
+impl<F: fmt::Debug> fmt::Display for TraceWitness<F> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        // get the decimal width based on the step_instances size, add extra one leading zero
+        let decimal_width = self.step_instances.len().checked_ilog10().unwrap_or(0) + 2;
+        // offset(step_uuid): assignations
+        for (i, step_instance) in self.step_instances.iter().enumerate() {
+            writeln!(
+                f,
+                "{:0>width$}{}",
+                i,
+                step_instance,
+                width = decimal_width as usize,
+            )?;
+        }
+        Ok(())
+    }
 }
 
 #[derive(Debug)]
@@ -198,6 +226,32 @@ mod tests {
         ctx.padding(&step, dummy_args_fn);
 
         assert_eq!(ctx.witness.step_instances.len(), 5);
+    }
+
+    #[test]
+    fn test_trace_witness_display() {
+        let display = format!(
+            "{}",
+            TraceWitness::<i32> {
+                step_instances: vec![
+                    StepInstance {
+                        step_type_uuid: 9,
+                        assignments: HashMap::from([
+                            (Queriable::Fixed(FixedSignal::new("a".into()), 0), 1),
+                            (Queriable::Fixed(FixedSignal::new("b".into()), 0), 2)
+                        ]),
+                    },
+                    StepInstance {
+                        step_type_uuid: 10,
+                        assignments: HashMap::from([
+                            (Queriable::Fixed(FixedSignal::new("a".into()), 0), 1),
+                            (Queriable::Fixed(FixedSignal::new("b".into()), 0), 2)
+                        ]),
+                    }
+                ]
+            }
+        );
+        println!("{}", display);
     }
 
     #[test]
