@@ -221,11 +221,9 @@ fn main() {
     }
 }
 
-// add a test module
 #[cfg(test)]
-// add a test function
 #[test]
-fn test_mimc7() {
+fn test_pil_super_circuit_mimc7() {
     use chiquito::{
         frontend::dsl::sc::*,
         plonkish::backend::powdr_pil::{ChiquitoPil, ChiquitoPilSuperCircuit, *},
@@ -238,32 +236,14 @@ fn test_mimc7() {
 
     let super_circuit = mimc7_super_circuit::<Fr>();
 
-    let compiled = chiquitoSuperCircuit2Pil(
+    let chiquito_pil_super_circuit = chiquitoSuperCircuit2Pil(
         super_circuit,
         (x_in_value, k_value),
         vec![String::from("Mimc7Constant"), String::from("Mimc7Circuit")],
     );
 
-    compiled.to_pil();
-    // let mut ctx = SuperCircuitContext::default();
+    print!("{}", chiquito_pil_super_circuit.to_pil());
 
-    // let config = config(SingleRowCellManager {}, SimpleStepSelectorBuilder {});
-
-    // let (_, constants, mimc7_constants_ast) = ctx.sub_circuit_output_ast(config.clone(),
-    // mimc7_constants, ()); let (mimc7, _, mimc7_circuit_ast) =
-    // ctx.sub_circuit_output_ast(config, mimc7_circuit, constants);
-
-    // let x_in_value = Fr::from_str_vartime("1").expect("expected a number");
-    // let k_value = Fr::from_str_vartime("2").expect("expected a number");
-
-    // let mimc7_circuit_trace_witness = mimc7.generate_trace_witness((x_in_value, k_value));
-
-    // let mut chiquito_pil_super_circuit = ChiquitoPilSuperCircuit::default();
-
-    // chiquito_pil_super_circuit.add(mimc7_constants_ast, None);
-    // chiquito_pil_super_circuit.add(mimc7_circuit_ast, Some(mimc7_circuit_trace_witness));
-
-    // print!("{}", chiquito_pil_super_circuit.to_pil());
 }
 
 mod mimc7_constants {
@@ -361,14 +341,3 @@ mod mimc7_constants {
         "13602139229813231349386885113156901793661719180900395818909719758150455500533",
     ];
 }
-
-// // add a test module
-// #[cfg(test)]
-// // add a test function
-// #[test]
-// fn test_mimc7() {
-//     use chiquito::plonkish::backend::powdr_pil::*;
-//     // get Chiquito ir
-//     let (_, _, circuit) = mimc7_circuit::<Fr>();
-//     print!("{}", circuit.to_pil());
-// }
