@@ -537,10 +537,7 @@ fn convert_to_pil_expr_string<F: Debug + Clone>(
                 power
             )
         }
-        Expr::Query(queriable) => format!(
-            "{}",
-            convert_to_pil_queriable_string(queriable, annotations_map)
-        ),
+        Expr::Query(queriable) => convert_to_pil_queriable_string(queriable, annotations_map),
         Expr::Halo2Expr(_) => {
             panic!("Halo2 native expression not supported by PIL backend.")
         }
@@ -555,11 +552,11 @@ fn convert_to_pil_queriable_string<F>(
     annotations_map: &HashMap<UUID, (UUID, String)>,
 ) -> String {
     match query {
-        Queriable::Internal(s) => format!("{}", annotations_map.get(&s.uuid()).unwrap().1),
+        Queriable::Internal(s) => annotations_map.get(&s.uuid()).unwrap().clone().1,
         Queriable::Forward(s, rot) => {
             let annotation = annotations_map.get(&s.uuid()).unwrap().clone().1;
             if !rot {
-                format!("{}", annotation)
+                annotation
             } else {
                 format!("{}'", annotation)
             }
@@ -567,7 +564,7 @@ fn convert_to_pil_queriable_string<F>(
         Queriable::Shared(s, rot) => {
             let annotation = annotations_map.get(&s.uuid()).unwrap().clone().1;
             if rot == 0 {
-                format!("{}", annotation)
+                annotation
             } else if rot == 1 {
                 format!("{}'", annotation)
             } else {
@@ -579,7 +576,7 @@ fn convert_to_pil_queriable_string<F>(
         Queriable::Fixed(s, rot) => {
             let annotation = annotations_map.get(&s.uuid()).unwrap().clone().1;
             if rot == 0 {
-                format!("{}", annotation)
+                annotation
             } else if rot == 1 {
                 format!("{}'", annotation)
             } else {
