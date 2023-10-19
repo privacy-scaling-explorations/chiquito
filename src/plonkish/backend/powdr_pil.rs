@@ -79,13 +79,13 @@ impl<F: Debug + Clone, TraceArgs> ChiquitoPil<F, TraceArgs> {
             // from the AST. Replace space because they will break the constraints in
             // PIL.
             for (key, value) in &self.ast.annotations {
-                new_annotations_map.insert(*key, (self.ast.id, value.replace(" ", "_")));
+                new_annotations_map.insert(*key, (self.ast.id, value.replace(' ', "_")));
             }
 
             // Next, add all annotations from each step type.
-            for (_, step_type) in &self.ast.step_types {
+            for step_type in self.ast.step_types.values() {
                 for (key, value) in &step_type.annotations {
-                    new_annotations_map.insert(*key, (self.ast.id, value.replace(" ", "_")));
+                    new_annotations_map.insert(*key, (self.ast.id, value.replace(' ', "_")));
                 }
             }
 
@@ -100,7 +100,7 @@ impl<F: Debug + Clone, TraceArgs> ChiquitoPil<F, TraceArgs> {
         let mut col_witness_uuids: Vec<UUID> = Vec::new();
 
         // Collect UUIDs of internal signals stored at the step type level.
-        for (_, step_type) in &self.ast.step_types {
+        for step_type in self.ast.step_types.values() {
             col_witness_uuids.extend::<Vec<UUID>>(
                 step_type
                     .signals
@@ -161,7 +161,7 @@ impl<F: Debug + Clone, TraceArgs> ChiquitoPil<F, TraceArgs> {
                     annotations_map
                         .as_ref()
                         .unwrap()
-                        .get(&uuid)
+                        .get(uuid)
                         .unwrap()
                         .clone()
                         .1
@@ -185,7 +185,7 @@ impl<F: Debug + Clone, TraceArgs> ChiquitoPil<F, TraceArgs> {
                     annotations_map
                         .as_ref()
                         .unwrap()
-                        .get(&uuid)
+                        .get(uuid)
                         .unwrap()
                         .clone()
                         .1
@@ -211,7 +211,7 @@ impl<F: Debug + Clone, TraceArgs> ChiquitoPil<F, TraceArgs> {
         // Iterate over step types to create constraint statements, fixed columns for step type
         // selectors, and lookups.
         if !self.ast.step_types.is_empty() && self.witness.is_some() {
-            for (_, step_type) in &self.ast.step_types {
+            for step_type in self.ast.step_types.values() {
                 let step_type_name = annotations_map
                     .as_ref()
                     .unwrap()
@@ -316,8 +316,8 @@ impl<F: Debug + Clone, TraceArgs> ChiquitoPil<F, TraceArgs> {
                 writeln!(pil, "col fixed {} = [{}];", fixed_name, assignments_string).unwrap();
             }
         }
-        writeln!(pil, "").unwrap();
-        writeln!(pil, "").unwrap(); // Separator rows for the circuit.
+        writeln!(pil).unwrap();
+        writeln!(pil).unwrap(); // Separator rows for the circuit.
         pil
     }
 }
@@ -400,13 +400,13 @@ impl<F: Debug + Clone> ChiquitoPilSuperCircuit<F> {
         // Loop over each AST.
         for (ast_id, ast) in self.super_ast.iter() {
             let mut annotations_map: HashMap<UUID, String> = HashMap::new();
-            let circuit_name = self.circuit_names.get(&ast_id).unwrap().clone();
+            let circuit_name = self.circuit_names.get(ast_id).unwrap().clone();
 
             // First, get AST level annotations.
             annotations_map.extend(ast.annotations.clone());
 
             // Second, get step level annotations.
-            for (_, step_type) in &ast.step_types {
+            for step_type in ast.step_types.values() {
                 annotations_map.extend(step_type.annotations.clone());
             }
 
@@ -417,8 +417,8 @@ impl<F: Debug + Clone> ChiquitoPilSuperCircuit<F> {
                     (
                         uuid,
                         (
-                            ast_id.clone(),
-                            format!("{}.{}", circuit_name, annotation.replace(" ", "_")),
+                            *ast_id,
+                            format!("{}.{}", circuit_name, annotation.replace(' ', "_")),
                         ),
                     )
                 },
@@ -433,10 +433,9 @@ impl<F: Debug + Clone> ChiquitoPilSuperCircuit<F> {
         for (id, ast) in self.super_ast.iter() {
             let witness = self.super_witness.get(id).unwrap();
             let chiquito_pil = ChiquitoPil::new(ast.clone(), witness.clone());
-            pil = pil
-                + chiquito_pil
-                    .to_pil_single_circuit(Some(super_circuit_annotations_map.clone()))
-                    .as_str();
+            pil += chiquito_pil
+                .to_pil_single_circuit(Some(super_circuit_annotations_map.clone()))
+                .as_str();
         }
 
         pil
@@ -513,10 +512,9 @@ fn convert_to_pil_expr_string<F: Debug + Clone>(
         Expr::Sum(sum) => {
             let mut expr_string = String::new();
             for (index, expr) in sum.iter().enumerate() {
-                expr_string = expr_string
-                    + convert_to_pil_expr_string(expr.clone(), annotations_map).as_str();
+                expr_string += convert_to_pil_expr_string(expr.clone(), annotations_map).as_str();
                 if index != sum.len() - 1 {
-                    expr_string = expr_string + " + ";
+                    expr_string += " + ";
                 }
             }
             format!("({})", expr_string)
@@ -524,10 +522,9 @@ fn convert_to_pil_expr_string<F: Debug + Clone>(
         Expr::Mul(mul) => {
             let mut expr_string = String::new();
             for (index, expr) in mul.iter().enumerate() {
-                expr_string = expr_string
-                    + convert_to_pil_expr_string(expr.clone(), annotations_map).as_str();
+                expr_string += convert_to_pil_expr_string(expr.clone(), annotations_map).as_str();
                 if index != mul.len() - 1 {
-                    expr_string = expr_string + " * ";
+                    expr_string += " * ";
                 }
             }
             format!("({})", expr_string)

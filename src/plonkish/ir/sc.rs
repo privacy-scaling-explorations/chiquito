@@ -37,7 +37,8 @@ impl<F, MappingArgs> SuperCircuit<F, MappingArgs> {
         self.sub_circuit_asts.push(sub_circuit_ast);
     }
 
-    // Mapping from AST id to IR id is needed for the PIL backend to match TraceWitness, which has IR id, to AST.
+    // Mapping from AST id to IR id is needed for the PIL backend to match TraceWitness, which has
+    // IR id, to AST.
     pub fn get_ast_id_to_ir_id_mapping(&self) -> HashMap<UUID, UUID> {
         let mut ast_id_to_ir_id_mapping: HashMap<UUID, UUID> = HashMap::new();
         self.sub_circuits.iter().for_each(|circuit| {
@@ -149,7 +150,7 @@ impl<F: Field, MappingArgs> MappingGenerator<F, MappingArgs> {
 
         ctx.get_super_assignments()
     }
-    
+
     // Needed for the PIL backend.
     pub fn generate_super_trace_witnesses(&self, args: MappingArgs) -> SuperTraceWitness<F> {
         let mut ctx = MappingContext::default();

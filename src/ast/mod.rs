@@ -202,10 +202,10 @@ impl<F: Clone, TraceArgs> Circuit<F, TraceArgs> {
             halo2_fixed: self.halo2_fixed.clone(),
             exposed: self.exposed.clone(),
             annotations: self.annotations.clone(),
-            trace: None, // Remove the trace
+            trace: None, // Remove the trace.
             fixed_assignments: self.fixed_assignments.clone(),
-            first_step: self.first_step.clone(),
-            last_step: self.last_step.clone(),
+            first_step: self.first_step,
+            last_step: self.last_step,
             num_steps: self.num_steps,
             q_enable: self.q_enable,
             id: self.id,

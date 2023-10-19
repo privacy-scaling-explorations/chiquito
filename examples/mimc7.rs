@@ -243,7 +243,6 @@ fn test_pil_super_circuit_mimc7() {
     );
 
     print!("{}", chiquito_pil_super_circuit.to_pil());
-
 }
 
 mod mimc7_constants {
