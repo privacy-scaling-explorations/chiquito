@@ -19,13 +19,13 @@ pub struct PilProgram {
     pub col_witness: Vec<String>,
     pub col_fixed: Vec<String>,
     pub col_fixed_step_types: Vec<String>,
-    col_fixed_first_and_last_row: Vec<String>,
-    step_type_constraint_and_lookup: HashMap<UUID, Vec<String>>,
-    col_first_and_last_step: Vec<String>,
+    pub col_fixed_first_and_last_row: Vec<String>,
+    pub step_type_constraint_and_lookup: HashMap<UUID, Vec<String>>,
+    pub col_first_and_last_step: Vec<String>,
 }
 
 impl PilProgram {
-    
+
 }
 
 pub struct ChiquitoPil<F, TraceArgs> {
