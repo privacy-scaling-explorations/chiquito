@@ -57,6 +57,7 @@ impl<F: Field + Hash, MappingArgs> SuperCircuitContext<F, MappingArgs> {
         let exports = sub_circuit_def(&mut sub_circuit_context, imports);
 
         let sub_circuit = sub_circuit_context.circuit;
+        println!("sub_circuit ast id: {}", sub_circuit.id);
 
         // ast is used for PIL backend
         self.add_sub_circuit_ast(sub_circuit.clone_without_trace());

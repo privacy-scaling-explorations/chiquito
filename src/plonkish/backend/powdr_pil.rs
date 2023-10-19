@@ -1,44 +1,7 @@
-// #[derive(Clone)]
-// pub struct Circuit<F, TraceArgs> {
-//     pub step_types: HashMap<UUID, Rc<StepType<F>>>,
-
-//     pub forward_signals: Vec<ForwardSignal>,
-//     pub shared_signals: Vec<SharedSignal>,
-//     pub fixed_signals: Vec<FixedSignal>,
-//     pub halo2_advice: Vec<ImportedHalo2Advice>,
-//     pub halo2_fixed: Vec<ImportedHalo2Fixed>,
-//     pub exposed: Vec<(Queriable<F>, ExposeOffset)>,
-
-//     pub annotations: HashMap<UUID, String>,
-
-//     pub trace: Option<Rc<Trace<F, TraceArgs>>>,
-//     pub fixed_assignments: Option<FixedAssignment<F>>,
-
-//     pub first_step: Option<StepTypeUUID>,
-//     pub last_step: Option<StepTypeUUID>,
-//     pub num_steps: usize,
-//     pub q_enable: bool,
-
-//     pub id: UUID,
-// }
-
-// pub struct StepType<F> {
-//     id: StepTypeUUID,
-
-//     pub name: String,
-//     pub signals: Vec<InternalSignal>,
-//     pub constraints: Vec<Constraint<F>>,
-//     pub transition_constraints: Vec<TransitionConstraint<F>>,
-//     pub lookups: Vec<Lookup<F>>,
-//     pub annotations: HashMap<UUID, String>,
-// }
-
-use halo2_proofs::plonk::Assignment;
-
 use crate::{
     ast::{query::Queriable, Circuit, StepType},
     field::Field,
-    frontend::dsl::cb::lookup,
+    frontend::dsl::{cb::lookup, circuit},
     plonkish::ir::{assignments, sc::SuperCircuit},
     poly::{Expr, ToExpr},
     util::UUID,
@@ -49,6 +12,21 @@ use std::{
     fmt::{write, Debug, Write},
 };
 extern crate regex;
+
+pub struct PilProgram {
+    pub num_steps: usize,
+    pub namespace: String,
+    pub col_witness: Vec<String>,
+    pub col_fixed: Vec<String>,
+    pub col_fixed_step_types: Vec<String>,
+    col_fixed_first_and_last_row: Vec<String>,
+    step_type_constraint_and_lookup: HashMap<UUID, Vec<String>>,
+    col_first_and_last_step: Vec<String>,
+}
+
+impl PilProgram {
+    
+}
 
 pub struct ChiquitoPil<F, TraceArgs> {
     ast: Circuit<F, TraceArgs>,
@@ -64,7 +42,7 @@ impl<F: Debug, TraceArgs> ChiquitoPil<F, TraceArgs> {
 pub struct ChiquitoPilSuperCircuit<F> {
     super_ast: HashMap<UUID, Circuit<F, ()>>,
     super_witness: HashMap<UUID, Option<TraceWitness<F>>>,
-    circuit_names: Vec<String>,
+    circuit_names: HashMap<UUID, String>,
 }
 
 impl<F: Debug> ChiquitoPilSuperCircuit<F> {
@@ -72,7 +50,7 @@ impl<F: Debug> ChiquitoPilSuperCircuit<F> {
         Self {
             super_ast: HashMap::new(),
             super_witness: HashMap::new(),
-            circuit_names: Vec::new(),
+            circuit_names: HashMap::new(),
         }
     }
 
@@ -85,7 +63,7 @@ impl<F: Debug> ChiquitoPilSuperCircuit<F> {
         let id = ast.id;
         self.super_ast.insert(id, ast);
         self.super_witness.insert(id, witness);
-        self.circuit_names.push(circuit_name);
+        self.circuit_names.insert(id, circuit_name);
     }
 }
 
@@ -110,10 +88,11 @@ pub fn chiquitoSuperCircuit2Pil<F: Debug + Field, MappingArgs>(
     // println!("{:?}", super_trace_witnesses);
     // println!("super_trace_witnesses keys:");
     // println!("{:?}", super_trace_witnesses.keys());
-    for ((id, ast), circuit_name) in super_asts.iter().zip(circuit_names.iter()) {
+
+    for (ast, circuit_name) in super_asts.iter().zip(circuit_names.iter()) {
         // println!("{:?}", super_trace_witnesses.keys());
         // println!("ast_id: {}", id);
-        let witness = super_trace_witnesses.get(ast_id_to_ir_id_mapping.get(&id).unwrap());
+        let witness = super_trace_witnesses.get(ast_id_to_ir_id_mapping.get(&ast.id).unwrap());
         chiquito_pil_super_circuit.add(ast.clone(), witness.cloned(), circuit_name.clone());
     }
 
@@ -128,8 +107,9 @@ impl<F: Debug + Clone> ChiquitoPilSuperCircuit<F> {
         // get annotations map for supercircuit, HashMap of object UUID to (ast UUID, annotation)
         let mut super_circuit_annotations_map: HashMap<UUID, (UUID, String)> = HashMap::new();
 
-        for ((ast_id, ast), circuit_name) in self.super_ast.iter().zip(self.circuit_names.iter()) {
+        for (ast_id, ast) in self.super_ast.iter() {
             let mut annotations_map: HashMap<UUID, String> = HashMap::new();
+            let circuit_name = self.circuit_names.get(&ast_id).unwrap().clone();
 
             annotations_map.extend(ast.annotations.clone());
             for (_, step_type) in &ast.step_types {
@@ -146,7 +126,7 @@ impl<F: Debug + Clone> ChiquitoPilSuperCircuit<F> {
                     )
                 },
             ));
-            super_circuit_annotations_map.insert(*ast_id, (*ast_id, circuit_name.clone()));
+            super_circuit_annotations_map.insert(*ast_id, (*ast_id, circuit_name));
             println!("SUPER ANNOTATIONS MAP:");
             println!("{:?}", super_circuit_annotations_map.clone());
         }
@@ -177,20 +157,22 @@ impl<F: Debug + Clone, TraceArgs> ChiquitoPil<F, TraceArgs> {
     ) -> String {
         // create new string buffer
         let mut pil = String::new();
-        writeln!(pil, "constant %NUM_STEPS = {};", self.ast.num_steps);
         if annotations_map.is_none() {
+            writeln!(pil, "constant %NUM_STEPS = {};", self.ast.num_steps);
             writeln!(pil, "namespace Circuit(%NUM_STEPS);",);
         } else {
+            let circuit_name = annotations_map
+                .as_ref()
+                .unwrap()
+                .get(&self.ast.id)
+                .unwrap()
+                .clone()
+                .1;
+            writeln!(pil, "constant %NUM_STEPS_{} = {};", circuit_name, self.ast.num_steps);
             writeln!(
                 pil,
                 "namespace {}(%NUM_STEPS);",
-                annotations_map
-                    .as_ref()
-                    .unwrap()
-                    .get(&self.ast.id)
-                    .unwrap()
-                    .clone()
-                    .1
+                circuit_name
             );
         }
 
@@ -261,7 +243,7 @@ impl<F: Debug + Clone, TraceArgs> ChiquitoPil<F, TraceArgs> {
         if !col_witness_uuids.is_empty() {
             let mut col_witness = String::from("col witness ");
             // get unique witness annotations
-            let col_witness_vars = col_witness_uuids
+            let mut col_witness_vars = col_witness_uuids
                 .iter()
                 .map(|uuid| {
                     annotations_map
@@ -273,6 +255,8 @@ impl<F: Debug + Clone, TraceArgs> ChiquitoPil<F, TraceArgs> {
                         .1
                 })
                 .collect::<Vec<String>>();
+            col_witness_vars.sort();
+            col_witness_vars.dedup(); // internal signals might be duplicated
             col_witness = col_witness + col_witness_vars.join(", ").as_str() + ";";
             writeln!(pil, "{}", col_witness);
         }

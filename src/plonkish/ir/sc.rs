@@ -15,7 +15,7 @@ use super::{
 pub struct SuperCircuit<F, MappingArgs> {
     sub_circuits: Vec<Circuit<F>>,
     mapping: MappingGenerator<F, MappingArgs>,
-    sub_circuit_asts: HashMap<UUID, astCircuit<F, ()>>,
+    sub_circuit_asts: Vec<astCircuit<F, ()>>,
 }
 
 impl<F, MappingArgs> Default for SuperCircuit<F, MappingArgs> {
@@ -39,7 +39,7 @@ impl<F, MappingArgs> SuperCircuit<F, MappingArgs> {
 
     pub fn add_sub_circuit_ast(&mut self, sub_circuit_ast: astCircuit<F, ()>) {
         self.sub_circuit_asts
-            .insert(sub_circuit_ast.id, sub_circuit_ast);
+            .push(sub_circuit_ast);
     }
 
     pub fn get_ast_id_to_ir_id_mapping(&self) -> HashMap<UUID, UUID> {
@@ -57,7 +57,7 @@ impl<F, MappingArgs> SuperCircuit<F, MappingArgs> {
 }
 
 impl<F: Clone, MappingArgs> SuperCircuit<F, MappingArgs> {
-    pub fn get_super_asts(&self) -> HashMap<UUID, astCircuit<F, ()>> {
+    pub fn get_super_asts(&self) -> Vec<astCircuit<F, ()>> {
         self.sub_circuit_asts.clone()
     }
 }
