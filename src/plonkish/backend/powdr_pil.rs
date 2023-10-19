@@ -126,27 +126,29 @@ impl<F: Debug + Clone> ChiquitoPilSuperCircuit<F> {
         let mut pil = String::new();
 
         // get annotations map for supercircuit, HashMap of object UUID to (ast UUID, annotation)
-        let mut super_annotations_map: HashMap<UUID, (UUID, String)> = HashMap::new();
+        let mut super_circuit_annotations_map: HashMap<UUID, (UUID, String)> = HashMap::new();
 
         for ((ast_id, ast), circuit_name) in self.super_ast.iter().zip(self.circuit_names.iter()) {
             let mut annotations_map: HashMap<UUID, String> = HashMap::new();
-            
+
             annotations_map.extend(ast.annotations.clone());
             for (_, step_type) in &ast.step_types {
                 annotations_map.extend(step_type.annotations.clone());
             }
-            super_annotations_map.extend(annotations_map.into_iter().map(|(uuid, annotation)| {
-                (
-                    uuid,
+            super_circuit_annotations_map.extend(annotations_map.into_iter().map(
+                |(uuid, annotation)| {
                     (
-                        ast_id.clone(),
-                        format!("{}.{}", circuit_name, annotation.replace(" ", "_")),
-                    ),
-                )
-            }));
-            super_annotations_map.insert(*ast_id, (*ast_id, circuit_name.clone()));
+                        uuid,
+                        (
+                            ast_id.clone(),
+                            format!("{}.{}", circuit_name, annotation.replace(" ", "_")),
+                        ),
+                    )
+                },
+            ));
+            super_circuit_annotations_map.insert(*ast_id, (*ast_id, circuit_name.clone()));
             println!("SUPER ANNOTATIONS MAP:");
-            println!("{:?}", super_annotations_map.clone());
+            println!("{:?}", super_circuit_annotations_map.clone());
         }
 
         for (index, (id, ast)) in self.super_ast.iter().enumerate() {
@@ -160,7 +162,7 @@ impl<F: Debug + Clone> ChiquitoPilSuperCircuit<F> {
             let chiquito_pil = ChiquitoPil::new(ast.clone(), witness.clone());
             pil = pil
                 + chiquito_pil
-                    .to_pil(Some(super_annotations_map.clone()))
+                    .to_pil(Some(super_circuit_annotations_map.clone()))
                     .as_str();
         }
         println!("{}", pil);
@@ -439,11 +441,20 @@ impl<F: Debug + Clone> StepType<F> {
         for lookup in &self.lookups {
             let mut lookup_source: Vec<String> = Vec::new();
             let mut lookup_destination: Vec<String> = Vec::new();
-            for(src, dest) in lookup.exprs.iter() {
-                lookup_source.push(convert_to_pil_expr_string(src.expr.clone(), annotations_map));
+            for (src, dest) in lookup.exprs.iter() {
+                lookup_source.push(convert_to_pil_expr_string(
+                    src.expr.clone(),
+                    annotations_map,
+                ));
                 lookup_destination.push(convert_to_pil_expr_string(dest.clone(), annotations_map));
             }
-            writeln!(pil, "{} {{ {} }} in {{ {} }} ", step_type_name, lookup_source.join(", "), lookup_destination.join(", "));
+            writeln!(
+                pil,
+                "{} {{ {} }} in {{ {} }} ",
+                step_type_name,
+                lookup_source.join(", "),
+                lookup_destination.join(", ")
+            );
         }
         pil
     }
