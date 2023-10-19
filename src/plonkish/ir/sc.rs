@@ -1,11 +1,6 @@
 use std::{collections::HashMap, rc::Rc};
 
-use crate::{
-    ast::Circuit as astCircuit,
-    field::Field,
-    util::UUID,
-    wit_gen::{Trace, TraceWitness},
-};
+use crate::{ast::Circuit as astCircuit, field::Field, util::UUID, wit_gen::TraceWitness};
 
 use super::{
     assignments::{AssignmentGenerator, Assignments},
@@ -38,8 +33,7 @@ impl<F, MappingArgs> SuperCircuit<F, MappingArgs> {
     }
 
     pub fn add_sub_circuit_ast(&mut self, sub_circuit_ast: astCircuit<F, ()>) {
-        self.sub_circuit_asts
-            .push(sub_circuit_ast);
+        self.sub_circuit_asts.push(sub_circuit_ast);
     }
 
     pub fn get_ast_id_to_ir_id_mapping(&self) -> HashMap<UUID, UUID> {

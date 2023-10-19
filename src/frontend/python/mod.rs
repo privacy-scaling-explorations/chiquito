@@ -74,7 +74,7 @@ pub fn chiquito_ast_to_pil(witness_json: &str, rust_id: UUID) -> String {
     let (ast, _, _) = rust_id_to_halo2(rust_id);
 
     let chiquito_pil = ChiquitoPil::new(ast, Some(trace_witness));
-    let pil = chiquito_pil.to_pil(None);
+    let pil = chiquito_pil.to_pil_single_circuit(None);
     println!("{}", pil);
     pil
 }

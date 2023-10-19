@@ -120,65 +120,62 @@ fn fibo_circuit<F: Field + From<u64> + Hash>() -> (
 
 // standard main function for a Halo2 circuit
 fn main() {
-    // let (chiquito, wit_gen, _) = fibo_circuit::<Fr>();
-    // let compiled = chiquito2Halo2(chiquito);
-    // let circuit = ChiquitoHalo2Circuit::new(compiled, wit_gen.map(|g| g.generate(())));
+    let (chiquito, wit_gen, _) = fibo_circuit::<Fr>();
+    let compiled = chiquito2Halo2(chiquito);
+    let circuit = ChiquitoHalo2Circuit::new(compiled, wit_gen.map(|g| g.generate(())));
 
-    // let prover = MockProver::<Fr>::run(7, &circuit, circuit.instance()).unwrap();
+    let prover = MockProver::<Fr>::run(7, &circuit, circuit.instance()).unwrap();
 
-    // let result = prover.verify_par();
+    let result = prover.verify_par();
 
-    // println!("{:#?}", result);
+    println!("{:#?}", result);
 
-    // if let Err(failures) = &result {
-    //     for failure in failures.iter() {
-    //         println!("{}", failure);
-    //     }
-    // }
+    if let Err(failures) = &result {
+        for failure in failures.iter() {
+            println!("{}", failure);
+        }
+    }
 
-    // // plaf boilerplate
-    // use chiquito::plonkish::backend::plaf::chiquito2Plaf;
-    // use polyexen::plaf::{backends::halo2::PlafH2Circuit, WitnessDisplayCSV};
+    // plaf boilerplate
+    use chiquito::plonkish::backend::plaf::chiquito2Plaf;
+    use polyexen::plaf::{backends::halo2::PlafH2Circuit, WitnessDisplayCSV};
 
-    // // get Chiquito ir
-    // let (circuit, wit_gen) = fibo_circuit::<Fr>();
-    // // get Plaf
-    // let (plaf, plaf_wit_gen) = chiquito2Plaf(circuit, 8, false);
-    // let wit = plaf_wit_gen.generate(wit_gen.map(|v| v.generate(())));
+    // get Chiquito ir
+    let (circuit, wit_gen, _) = fibo_circuit::<Fr>();
+    // get Plaf
+    let (plaf, plaf_wit_gen) = chiquito2Plaf(circuit, 8, false);
+    let wit = plaf_wit_gen.generate(wit_gen.map(|v| v.generate(())));
 
-    // // debug only: print witness
-    // println!("{}", WitnessDisplayCSV(&wit));
+    // debug only: print witness
+    println!("{}", WitnessDisplayCSV(&wit));
 
-    // // get Plaf halo2 circuit from Plaf's halo2 backend
-    // // this is just a proof of concept, because Plaf only has backend for halo2
-    // // this is unnecessary because Chiquito has a halo2 backend already
-    // let plaf_circuit = PlafH2Circuit { plaf, wit };
+    // get Plaf halo2 circuit from Plaf's halo2 backend
+    // this is just a proof of concept, because Plaf only has backend for halo2
+    // this is unnecessary because Chiquito has a halo2 backend already
+    let plaf_circuit = PlafH2Circuit { plaf, wit };
 
-    // // same as halo2 boilerplate above
-    // let prover_plaf = MockProver::<Fr>::run(8, &plaf_circuit, Vec::new()).unwrap();
+    // same as halo2 boilerplate above
+    let prover_plaf = MockProver::<Fr>::run(8, &plaf_circuit, Vec::new()).unwrap();
 
-    // let result_plaf = prover_plaf.verify_par();
+    let result_plaf = prover_plaf.verify_par();
 
-    // println!("result = {:#?}", result_plaf);
+    println!("result = {:#?}", result_plaf);
 
-    // if let Err(failures) = &result_plaf {
-    //     for failure in failures.iter() {
-    //         println!("{}", failure);
-    //     }
-    // }
+    if let Err(failures) = &result_plaf {
+        for failure in failures.iter() {
+            println!("{}", failure);
+        }
+    }
 }
 
-// add a test module
 #[cfg(test)]
-// add a test function
 #[test]
 fn test_fibo() {
     use chiquito::{
         plonkish::backend::powdr_pil::{ChiquitoPil, *},
         wit_gen::Witness,
     };
-    // get Chiquito ir
     let (_, wit_gen, circuit) = fibo_circuit::<Fr>();
     let chiquito_pil = ChiquitoPil::new(circuit, Some(wit_gen.unwrap().generate_trace_witness(())));
-    print!("{}", chiquito_pil.to_pil(None));
+    print!("{}", chiquito_pil.to_pil());
 }
