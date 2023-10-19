@@ -420,10 +420,6 @@ impl ForwardSignal {
     pub fn phase(&self) -> usize {
         self.phase
     }
-
-    pub fn annotation(&self) -> &str {
-        self.annotation
-    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
@@ -457,10 +453,6 @@ impl SharedSignal {
     pub fn phase(&self) -> usize {
         self.phase
     }
-
-    pub fn annotation(&self) -> &str {
-        self.annotation
-    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
@@ -486,10 +478,6 @@ impl FixedSignal {
 
     pub fn uuid(&self) -> UUID {
         self.id
-    }
-
-    pub fn annotation(&self) -> &str {
-        self.annotation
     }
 }
 
@@ -522,10 +510,6 @@ impl InternalSignal {
 
     pub fn uuid(&self) -> UUID {
         self.id
-    }
-
-    pub fn annotation(&self) -> &str {
-        self.annotation
     }
 }
 

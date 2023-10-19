@@ -170,7 +170,7 @@ fn main() {
 
 #[cfg(test)]
 #[test]
-fn test_fibo() {
+fn test_pil_single_circuit_fibo() {
     use chiquito::{
         plonkish::backend::powdr_pil::{ChiquitoPil, *},
         wit_gen::Witness,
