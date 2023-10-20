@@ -24,7 +24,6 @@ use halo2_proofs::{dev::MockProver, halo2curves::bn256::Fr};
 const MAX_FACTORIAL: usize = 10;
 
 fn generate<F: Field + From<u64> + Hash>() -> (Circuit<F>, Option<AssignmentGenerator<F, u32>>) {
-    //
     // table for the circuit:
     // |    step_type      |  i  |  x   |
     // ----------------------------------
@@ -149,7 +148,7 @@ fn main() {
 
     // plaf boilerplate
     use chiquito::plonkish::backend::plaf::chiquito2Plaf;
-    use polyexen::plaf::{backends::halo2::PlafH2Circuit};
+    use polyexen::plaf::backends::halo2::PlafH2Circuit;
 
     // get Chiquito ir
     let (circuit, wit_gen) = generate::<Fr>();
