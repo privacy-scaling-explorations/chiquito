@@ -223,18 +223,27 @@ impl StepSelectorBuilder for LogNSelectorBuilder {
                 let column = &selector.columns[i as usize];
 
                 if bit == 1 {
-                    combined_expr = combined_expr * (PolyExpr::Const(F::ONE) - column.query(0, format!("bit {} of {}", i, step.uuid())));
-                    combined_expr_not = combined_expr_not * column.query(0, format!("bit {} of {}", i, step.uuid()));
-                    assignments.push((column.query(0, format!("bit {} of {}", i, step.uuid())), F::ONE));
+                    combined_expr = combined_expr * column.query(0, format!("Column {}", i));
+                    combined_expr_not = combined_expr_not
+                        * (PolyExpr::Const(F::ONE) - column.query(0, format!("Column {}", i)));
+                    assignments.push((column.query(0, format!("Column {}", i)), F::ONE));
                 } else {
-                    combined_expr = combined_expr * column.query(0, format!("bit {} of {}", i, step.uuid()));
-                    combined_expr_not = combined_expr_not * (PolyExpr::Const(F::ONE) - column.query(0, format!("bit {} of {}", i, step.uuid())));
+                    combined_expr = combined_expr
+                        * (PolyExpr::Const(F::ONE) - column.query(0, format!("Column {}", i)));
+                    combined_expr_not =
+                        combined_expr_not * column.query(0, format!("Column {}", i));
                 }
             }
 
-            selector.selector_expr.insert(step.uuid(), combined_expr);
-            selector.selector_expr_not.insert(step.uuid(), combined_expr_not);
-            selector.selector_assignment.insert(step.uuid(), assignments);
+            selector
+                .selector_expr
+                .insert(step.uuid(), combined_expr.clone());
+            selector
+                .selector_expr_not
+                .insert(step.uuid(), combined_expr_not.clone());
+            selector
+                .selector_assignment
+                .insert(step.uuid(), assignments);
             step_value += 1;
         }
         unit.columns.extend_from_slice(&selector.columns);
@@ -250,4 +259,56 @@ fn other_step_type<F>(unit: &CompilationUnit<F>, uuid: UUID) -> Option<Rc<StepTy
     }
 
     None
+}
+
+#[cfg(test)]
+mod tests {
+    use halo2curves::bn256::Fr;
+    use uuid::Uuid;
+
+    use super::*;
+
+    fn mock_compilation_unit<F>() -> CompilationUnit<F> {
+        CompilationUnit::default()
+    }
+
+    #[test]
+    fn test_log_n_selector_builder() {
+        // Setup
+        let builder = LogNSelectorBuilder {};
+        let mut unit = mock_compilation_unit::<Fr>();
+
+        // Assuming you have 3 step types for this test
+        unit.step_types.insert(
+            Uuid::now_v1(&[1, 2, 3, 4, 5, 6]).as_u128(),
+            Rc::new(StepType::new(
+                Uuid::now_v1(&[1, 2, 3, 4, 5, 6]).as_u128(),
+                "StepType1".to_owned(),
+            )),
+        );
+        unit.step_types.insert(
+            Uuid::now_v1(&[1, 2, 3, 4, 5, 6]).as_u128(),
+            Rc::new(StepType::new(
+                Uuid::now_v1(&[1, 2, 3, 4, 5, 6]).as_u128(),
+                "StepType2".to_owned(),
+            )),
+        );
+        unit.step_types.insert(
+            Uuid::now_v1(&[1, 2, 3, 4, 5, 6]).as_u128(),
+            Rc::new(StepType::new(
+                Uuid::now_v1(&[1, 2, 3, 4, 5, 6]).as_u128(),
+                "StepType3".to_owned(),
+            )),
+        );
+
+        // Exercise
+        builder.build(&mut unit);
+
+        // Verify
+        // For 3 step types, you'd expect log2(3) = 2 columns for binary representation
+        assert_eq!(unit.columns.len(), 2);
+        assert_eq!(unit.selector.columns.len(), 2);
+
+        // Assert other conditions or expectations as needed...
+    }
 }
