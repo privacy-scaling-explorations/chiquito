@@ -99,7 +99,6 @@ impl StepSelectorBuilder for SimpleStepSelectorBuilder {
                 vec![(column.query(0, annotation.clone()), F::ONE)],
             );
         }
-        println!("STEP BUILDER SELECTOR: {:#?}", selector);
 
         unit.columns.extend_from_slice(&selector.columns);
         unit.selector = selector;
