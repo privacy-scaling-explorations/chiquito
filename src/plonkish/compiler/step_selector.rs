@@ -273,7 +273,7 @@ mod tests {
     }
 
     #[test]
-    fn test_log_n_selector_builder() {
+    fn test_log_n_selector_builder_3_step_types() {
         // Setup
         let builder = LogNSelectorBuilder {};
         let mut unit = mock_compilation_unit::<Fr>();
@@ -301,14 +301,47 @@ mod tests {
             )),
         );
 
-        // Exercise
         builder.build(&mut unit);
 
-        // Verify
-        // For 3 step types, you'd expect log2(3) = 2 columns for binary representation
+        // Assert number of columns
         assert_eq!(unit.columns.len(), 2);
         assert_eq!(unit.selector.columns.len(), 2);
 
-        // Assert other conditions or expectations as needed...
+        // TODO: Assert expressions
+
+        // TODO: Assert assignments
+        
+    }
+
+    #[test]
+    fn test_log_n_selector_builder_10_step_types() {
+        // Setup
+        let builder = LogNSelectorBuilder {};
+        let mut unit = mock_compilation_unit::<Fr>();
+
+        // Assuming you have 10 step types for this test
+        let n_step_types = 10;
+
+        for i in 1..n_step_types {
+            unit.step_types.insert(
+                Uuid::now_v1(&[1, 2, 3, 4, 5, 6]).as_u128(),
+                Rc::new(StepType::new(
+                    Uuid::now_v1(&[1, 2, 3, 4, 5, 6]).as_u128(),
+                    format!("StepType{}", i),
+                )),
+            );
+        }
+
+        builder.build(&mut unit);
+
+        // Assert number of columns
+        let n_cols = (n_step_types as f64).log2().ceil() as usize;
+        assert_eq!(unit.columns.len(), n_cols);
+        assert_eq!(unit.selector.columns.len(), n_cols);
+
+        // TODO: Assert expressions
+
+        // TODO: Assert assignments
+        
     }
 }
