@@ -15,7 +15,12 @@ use std::hash::Hash;
 
 use halo2_proofs::{
     dev::MockProver,
-    halo2curves::{bn256::Fr, group::ff::PrimeField},
+    halo2curves::{bn256::Fr, group::ff::PrimeField}, circuit,
+};
+
+use std::{
+    fs::File,
+    io::{self, Write},
 };
 
 const BIT_COUNT: usize = 3;
@@ -786,6 +791,7 @@ fn keccak_circuit<F: PrimeField<Repr = [u8; 32]> + Eq + Hash>(
     let keccak_f_split_xor_vec: Vec<StepTypeWGHandler<F, KeccakFSplitStepArgs<F>, _>> = (0
         ..NUM_WORDS_TO_ABSORB)
         .map(|s| {
+            
             ctx.step_type_def("keccak_f_split_xor_step", |ctx| {
                 let s_vec = s_vec.clone();
                 let setup_s_vec = s_vec.clone();
@@ -1407,7 +1413,7 @@ fn keccak_circuit<F: PrimeField<Repr = [u8; 32]> + Eq + Hash>(
                         sum_rows[i * PART_SIZE + j].2,
                     );
                     ctx.add(
-                        &keccak_f_split_xor_vec[i + j * PART_SIZE],
+                        &keccak_f_split_xor_vec[t],
                         KeccakFSplitStepArgs {
                             absorb_rows: sum_rows.clone(),
                             xor_rows,
@@ -1676,6 +1682,86 @@ fn keccak_super_circuit<F: PrimeField<Repr = [u8; 32]> + Eq + Hash>(
     })
 }
 
+use chiquito::plonkish::ir::Circuit;
+use chiquito::plonkish::backend::plaf::chiquito2Plaf;
+use polyexen::plaf::{Witness, Plaf, PlafDisplayBaseTOML, PlafDisplayFixedCSV, backends::halo2::PlafH2Circuit, WitnessDisplayCSV};
+
+fn write_files(name: &str, plaf: &Plaf, wit: &Witness) -> Result<(), io::Error> {
+    let mut base_file = File::create(format!("{}.toml", name))?;
+    let mut fixed_file = File::create(format!("{}_fixed.csv", name))?;
+    let mut witness_file = File::create(format!("{}_witness.csv", name))?;
+
+    write!(base_file, "{}", PlafDisplayBaseTOML(plaf))?;
+    write!(fixed_file, "{}", PlafDisplayFixedCSV(plaf))?;
+    write!(witness_file, "{}", WitnessDisplayCSV(wit))?;
+    Ok(())
+}
+
+fn keccak_run(circuit_param: KeccakCircuit, k: u32){
+
+    let super_circuit =
+        keccak_super_circuit::<Fr>(circuit_param.bits.len(), circuit_param.output_len);
+    let compiled = chiquitoSuperCircuit2Halo2(&super_circuit);
+
+    let circuit = ChiquitoHalo2SuperCircuit::new(
+        compiled,
+        super_circuit.get_mapping().generate(circuit_param),
+    );
+
+    let prover = MockProver::<Fr>::run(k, &circuit, Vec::new()).unwrap();
+    let result = prover.verify_par();
+
+    println!("result = {:#?}", result);
+
+    if let Err(failures) = &result {
+        for failure in failures.iter() {
+            println!("{}", failure);
+        }
+    }
+
+}
+
+fn keccak_plaf(circuit_param: KeccakCircuit, k: u32) {
+    let super_circuit =
+        keccak_super_circuit::<Fr>(circuit_param.bits.len(), circuit_param.output_len);
+    let witness = super_circuit.get_mapping().generate(circuit_param);
+    
+    for wit_gen in witness.values(){
+        let wit_gen = wit_gen.clone();
+
+        let mut circuit = super_circuit.get_sub_circuits()[3].clone();
+        circuit.columns.append(&mut super_circuit.get_sub_circuits()[0].columns);
+        circuit.columns.append(&mut super_circuit.get_sub_circuits()[1].columns);
+        circuit.columns.append(&mut super_circuit.get_sub_circuits()[2].columns);
+
+        for (key, value) in super_circuit.get_sub_circuits()[0].fixed_assignments.iter(){
+            circuit.fixed_assignments.insert(key.clone(), value.clone());
+        }
+        for (key, value) in super_circuit.get_sub_circuits()[1].fixed_assignments.iter(){
+            circuit.fixed_assignments.insert(key.clone(), value.clone());
+        }
+        for (key, value) in super_circuit.get_sub_circuits()[2].fixed_assignments.iter(){
+            circuit.fixed_assignments.insert(key.clone(), value.clone());
+        }
+
+        let (plaf, plaf_wit_gen) = chiquito2Plaf(circuit, k, false);
+        
+        let mut plaf = plaf;
+        plaf.set_challange_alias(0, "r_keccak".to_string());
+        let wit = plaf_wit_gen.generate(Some(wit_gen));
+        write_files("keccak", &plaf, &wit).unwrap();
+        
+        // write_files("keccak_witness", &wit).unwrap();
+
+        // debug only: print witness
+        // println!("{}", WitnessDisplayCSV(&wit));
+        // let plaf_circuit = PlafH2Circuit { plaf, wit };
+        // let prover_plaf = MockProver::<Fr>::run(8, &plaf_circuit, Vec::new()).unwrap();
+
+        // let result_plaf = prover_plaf.verify_par();
+    }
+}
+
 fn main() {
     let circuit_param = KeccakCircuit {
         bits: vec![0, 0, 0, 0, 0, 0, 0, 0],
@@ -1766,61 +1852,8 @@ fn main() {
         // output_len: 20,
     };
 
-    let super_circuit =
-        keccak_super_circuit::<Fr>(circuit_param.bits.len(), circuit_param.output_len);
-    let compiled = chiquitoSuperCircuit2Halo2(&super_circuit);
+    // keccak_run(circuit_param, 11);
+    keccak_plaf(circuit_param, 11);
 
-    let circuit = ChiquitoHalo2SuperCircuit::new(
-        compiled,
-        super_circuit.get_mapping().generate(circuit_param),
-    );
 
-    let prover = MockProver::<Fr>::run(12, &circuit, Vec::new()).unwrap();
-    let result = prover.verify_par();
-
-    println!("result = {:#?}", result);
-
-    if let Err(failures) = &result {
-        for failure in failures.iter() {
-            println!("{}", failure);
-        }
-    }
-}
-
-#[cfg(test)]
-mod test {
-    use super::{keccak_super_circuit, KeccakCircuit};
-    use chiquito::plonkish::backend::halo2::{
-        chiquitoSuperCircuit2Halo2, ChiquitoHalo2SuperCircuit,
-    };
-    use halo2_proofs::{dev::MockProver, halo2curves::bn256::Fr};
-
-    #[cfg_attr(feature = "benches", ignore)]
-    #[test]
-    fn bench_keccak_circuit_mocker_prover() {
-        let circuit_param = KeccakCircuit {
-            bits: vec![0, 0, 0, 0, 0, 0, 0, 0],
-            output_len: 256,
-        };
-
-        let super_circuit =
-            keccak_super_circuit::<Fr>(circuit_param.bits.len(), circuit_param.output_len);
-        let compiled = chiquitoSuperCircuit2Halo2(&super_circuit);
-        let circuit = ChiquitoHalo2SuperCircuit::new(
-            compiled,
-            super_circuit.get_mapping().generate(circuit_param),
-        );
-
-        let prover = MockProver::<Fr>::run(11, &circuit, Vec::new()).unwrap();
-
-        let result = prover.verify_par();
-
-        println!("result = {:#?}", result);
-
-        if let Err(failures) = &result {
-            for failure in failures.iter() {
-                println!("{}", failure);
-            }
-        }
-    }
 }
