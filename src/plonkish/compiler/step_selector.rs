@@ -201,7 +201,7 @@ impl StepSelectorBuilder for LogNSelectorBuilder {
         };
 
         let n_step_types = unit.step_types.len() as u64;
-        let n_cols = (n_step_types as f64).log2().ceil() as u64;
+        let n_cols = (n_step_types as f64 + 1.0).log2().ceil() as u64;
 
         let mut annotation;
         for index in 0..n_cols {
@@ -313,6 +313,55 @@ mod tests {
     }
 
     #[test]
+    fn test_log_n_selector_builder_4_step_types() {
+        // Setup
+        let builder = LogNSelectorBuilder {};
+        let mut unit = mock_compilation_unit::<Fr>();
+
+        // Assuming you have 4 step types for this test
+        // Assuming you have 3 step types for this test
+        unit.step_types.insert(
+            Uuid::now_v1(&[1, 2, 3, 4, 5, 6]).as_u128(),
+            Rc::new(StepType::new(
+                Uuid::now_v1(&[1, 2, 3, 4, 5, 6]).as_u128(),
+                "StepType1".to_owned(),
+            )),
+        );
+        unit.step_types.insert(
+            Uuid::now_v1(&[1, 2, 3, 4, 5, 6]).as_u128(),
+            Rc::new(StepType::new(
+                Uuid::now_v1(&[1, 2, 3, 4, 5, 6]).as_u128(),
+                "StepType2".to_owned(),
+            )),
+        );
+        unit.step_types.insert(
+            Uuid::now_v1(&[1, 2, 3, 4, 5, 6]).as_u128(),
+            Rc::new(StepType::new(
+                Uuid::now_v1(&[1, 2, 3, 4, 5, 6]).as_u128(),
+                "StepType3".to_owned(),
+            )),
+        );
+        unit.step_types.insert(
+            Uuid::now_v1(&[1, 2, 3, 4, 5, 6]).as_u128(),
+            Rc::new(StepType::new(
+                Uuid::now_v1(&[1, 2, 3, 4, 5, 6]).as_u128(),
+                "StepType43".to_owned(),
+            )),
+        );
+
+        builder.build(&mut unit);
+
+        // Assert number of columns
+        assert_eq!(unit.columns.len(), 3);
+        assert_eq!(unit.selector.columns.len(), 3);
+
+        // TODO: Assert expressions
+
+        // TODO: Assert assignments
+        
+    }
+
+    #[test]
     fn test_log_n_selector_builder_10_step_types() {
         // Setup
         let builder = LogNSelectorBuilder {};
@@ -321,7 +370,7 @@ mod tests {
         // Assuming you have 10 step types for this test
         let n_step_types = 10;
 
-        for i in 1..n_step_types {
+        for i in 0..n_step_types {
             unit.step_types.insert(
                 Uuid::now_v1(&[1, 2, 3, 4, 5, 6]).as_u128(),
                 Rc::new(StepType::new(
