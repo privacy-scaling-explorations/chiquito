@@ -10,6 +10,7 @@ parts:
     - file: part1_chapter2
     - file: part1_chapter3
     - file: part1_chapter4
+    - file: part1_chapter5
   - caption: Part 2 - Fibonacci Example
     chapters:
     - file: part2_chapter1
