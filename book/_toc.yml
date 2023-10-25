@@ -25,7 +25,5 @@ parts:
     - file: part3_chapter4
   - caption: Appendix
     chapters:
-    - file: part3_chapter1
-    - file: part3_chapter2
-    - file: part3_chapter3
-    - file: part3_chapter4
+    - file: appendix_chapter1
+    - file: appendix_chapter2

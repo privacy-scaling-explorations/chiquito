@@ -98,7 +98,16 @@ There is a special type of signal called **fixed**, that is not part of the witn
 | Fixed    | All step types   | Any       | Setup   |
 
 ## Putting everything together
-
-TODO: Diagram
-
-
+- Circuit
+    - Setup
+		- Forward signals
+		- Shared signals
+		- Fixed signals
+    	- Step types
+			- Setup
+				- Internal signals
+        		- Constraints
+        		- Transition constraints
+				- Lookup
+        	- Witness generation
+    - Trace

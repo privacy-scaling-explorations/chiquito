@@ -1,4 +1,4 @@
-# Python syntax
+# Python Syntax
 
 ## Constraint builder
 
