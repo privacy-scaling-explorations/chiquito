@@ -1,6 +1,6 @@
 # Meet Chiquito
 
-Chiquito is a high-level structured language for implementing zero knowledge proof applications, currently being implemented in the DSL Working Group of PSE, Ethereum Foundation. It is a step-based zkDSL (zero knowledge domain specific language) that provides better syntax and abstraction for features like constraint building and column placement when writing PLONKish circuits, which supports custom gates and lookup arguments. Chiquito has a Halo2 backend, which is a low level zkDSL that writes circuits using the PLONKish arithemtization. Chiquito is working on supporting additional backends.
+Chiquito is a high-level structured language for implementing zero knowledge proof applications, currently being implemented in the DSL Working Group of PSE, Ethereum Foundation. It is a step-based zkDSL (zero knowledge domain specific language) that provides better syntax and abstraction for features like constraint building and column placement. Chiquito has a Halo2 backend, which is a low level zkDSL that writes circuits using the PLONKish arithemtization and is working on supporting additional backends.
 
 Chiquito can be written in both Python and Rust. This tutorial focuses on Python.
 
