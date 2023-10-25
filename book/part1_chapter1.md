@@ -1,4 +1,4 @@
-# What is Zero Knowledge Proof (developer POV)?
+# What is Zero Knowledge Proof (Developer POV)?
 
 Zero Knowledge proofs (or ZKP) allow developers to create mathematical proofs that a computation have been executed correctly, while not having to reveal all the data of this computation.
 

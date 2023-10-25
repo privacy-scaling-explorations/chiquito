@@ -1,4 +1,4 @@
-# What is chiquito?
+# What is Chiquito?
 
 Chiquito is a high-level structured language for implementing zero knowledge proof applications.
 

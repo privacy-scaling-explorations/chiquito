@@ -9,7 +9,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="generator" content="Docutils 0.18.1: http://docutils.sourceforge.net/" />
 
-    <title>Part 2: Fibonacci Example &#8212; Introduction to Chiquito</title>
+    <title>Chapter 5: Padding and Exposing Signals &#8212; Introduction to Chiquito</title>
   
   
   
@@ -65,8 +65,8 @@ const thebe_selector_output = ".output, .cell_output"
     <script>DOCUMENTATION_OPTIONS.pagename = 'part2_chapter5';</script>
     <link rel="index" title="Index" href="genindex.html" />
     <link rel="search" title="Search" href="search.html" />
-    <link rel="next" title="Part 3: MiMC7 Example" href="part3_chapter1.html" />
-    <link rel="prev" title="Part 2: Fibonacci Example" href="part2_chapter4.html" />
+    <link rel="next" title="Chapter 1: MiMC7 Concepts" href="part3_chapter1.html" />
+    <link rel="prev" title="Chapter 4: Multiple StepTypes" href="part2_chapter4.html" />
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="docsearch:language" content="en"/>
   </head>
@@ -163,40 +163,31 @@ const thebe_selector_output = ".output, .cell_output"
         <ul class="nav bd-sidenav bd-sidenav__home-link">
             <li class="toctree-l1">
                 <a class="reference internal" href="landing_page.html">
-                    What is chiquito?
+                    Meet Chiquito
                 </a>
             </li>
         </ul>
         <p aria-level="2" class="caption" role="heading"><span class="caption-text">Part 1 - Intro to Chiquito</span></p>
 <ul class="nav bd-sidenav">
-<li class="toctree-l1"><a class="reference internal" href="what_is_zkp.html">What is Zero Knowledge Proof (developer POV)?</a></li>
-<li class="toctree-l1"><a class="reference internal" href="what_is_chiquito.html">What is chiquito?</a></li>
-<li class="toctree-l1"><a class="reference internal" href="chiquito_programming_model.html">Chiquito programming model</a></li>
-<li class="toctree-l1"><a class="reference internal" href="python_syntax.html">Python syntax</a></li>
+<li class="toctree-l1"><a class="reference internal" href="part1_chapter1.html">What is Zero Knowledge Proof (Developer POV)?</a></li>
+<li class="toctree-l1"><a class="reference internal" href="part1_chapter2.html">What is Chiquito?</a></li>
+<li class="toctree-l1"><a class="reference internal" href="part1_chapter3.html">Chiquito Programming Model</a></li>
+<li class="toctree-l1"><a class="reference internal" href="part1_chapter4.html">Python syntax</a></li>
 </ul>
 <p aria-level="2" class="caption" role="heading"><span class="caption-text">Part 2 - Fibonacci Example</span></p>
 <ul class="current nav bd-sidenav">
-<li class="toctree-l1"><a class="reference internal" href="part2_chapter1.html">Part 2: Fibonacci Example</a></li>
-
-<li class="toctree-l1"><a class="reference internal" href="part2_chapter2.html">Part 2: Fibonacci Example</a></li>
-
-<li class="toctree-l1"><a class="reference internal" href="part2_chapter3.html">Part 2: Fibonacci Example</a></li>
-
-<li class="toctree-l1"><a class="reference internal" href="part2_chapter4.html">Part 2: Fibonacci Example</a></li>
-
-<li class="toctree-l1 current active"><a class="current reference internal" href="#">Part 2: Fibonacci Example</a></li>
-
+<li class="toctree-l1"><a class="reference internal" href="part2_chapter1.html">Chapter 1: Fibonacci and Chiquito Concepts</a></li>
+<li class="toctree-l1"><a class="reference internal" href="part2_chapter2.html">Chapter 2: StepType and Circuit</a></li>
+<li class="toctree-l1"><a class="reference internal" href="part2_chapter3.html">Chapter 3: Witness</a></li>
+<li class="toctree-l1"><a class="reference internal" href="part2_chapter4.html">Chapter 4: Multiple StepTypes</a></li>
+<li class="toctree-l1 current active"><a class="current reference internal" href="#">Chapter 5: Padding and Exposing Signals</a></li>
 </ul>
 <p aria-level="2" class="caption" role="heading"><span class="caption-text">Part 3 - MiMC7 Example</span></p>
 <ul class="nav bd-sidenav">
-<li class="toctree-l1"><a class="reference internal" href="part3_chapter1.html">Part 3: MiMC7 Example</a></li>
-
-<li class="toctree-l1"><a class="reference internal" href="part3_chapter2.html">Part 3: MiMC7 Example</a></li>
-
-<li class="toctree-l1"><a class="reference internal" href="part3_chapter3.html">Part 3: MiMC7 Example</a></li>
-
-<li class="toctree-l1"><a class="reference internal" href="part3_chapter4.html">Part 3: MiMC7 Example</a></li>
-
+<li class="toctree-l1"><a class="reference internal" href="part3_chapter1.html">Chapter 1: MiMC7 Concepts</a></li>
+<li class="toctree-l1"><a class="reference internal" href="part3_chapter2.html">Chapter 2: First Attempt</a></li>
+<li class="toctree-l1"><a class="reference internal" href="part3_chapter3.html">Chapter 3: Witness</a></li>
+<li class="toctree-l1"><a class="reference internal" href="part3_chapter4.html">Chapter 4: Fixed Signals, Lookup Tables, and Super Circuit</a></li>
 </ul>
 
     </div>
@@ -380,7 +371,7 @@ document.write(`
               
 
 <div id="jb-print-docs-body" class="onlyprint">
-    <h1>Part 2: Fibonacci Example</h1>
+    <h1>Chapter 5: Padding and Exposing Signals</h1>
     <!-- Table of contents -->
     <div id="print-main-content">
         <div id="jb-print-toc">
@@ -390,16 +381,11 @@ document.write(`
             </div>
             <nav aria-label="Page">
                 <ul class="visible nav section-nav flex-column">
-<li class="toc-h1 nav-item toc-entry"><a class="reference internal nav-link" href="#">Part 2: Fibonacci Example</a></li>
-<li class="toc-h1 nav-item toc-entry"><a class="reference internal nav-link" href="#chapter-5-padding-and-exposing-signals">Chapter 5: Padding and Exposing Signals</a><ul class="visible nav section-nav flex-column">
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#padding">Padding</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#exposing-signals">Exposing Signals</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#coding-up-the-concepts">Coding up the Concepts</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#putting-everything-together">Putting Everything Together</a></li>
 </ul>
-</li>
-</ul>
-
             </nav>
         </div>
     </div>
@@ -410,10 +396,7 @@ document.write(`
 <div id="searchbox"></div>
                 <article class="bd-article" role="main">
                   
-  <section class="tex2jax_ignore mathjax_ignore" id="part-2-fibonacci-example">
-<h1>Part 2: Fibonacci Example<a class="headerlink" href="#part-2-fibonacci-example" title="Permalink to this heading">#</a></h1>
-</section>
-<section class="tex2jax_ignore mathjax_ignore" id="chapter-5-padding-and-exposing-signals">
+  <section class="tex2jax_ignore mathjax_ignore" id="chapter-5-padding-and-exposing-signals">
 <h1>Chapter 5: Padding and Exposing Signals<a class="headerlink" href="#chapter-5-padding-and-exposing-signals" title="Permalink to this heading">#</a></h1>
 <p>In prior examples, all Fibonacci circuit witnesses have the same number of step instances. According to our analogy where a circuit is considered a piece of hardware and its witnesses compatible softwares, it’s natural to think that we’d allow for more flexibility for our witnesses. Most immediately, and we shouldn’t limit all Fibonacci circuit witnesses to have the same number of step instances.</p>
 <p>However, you might wonder, doesn’t <code class="docutils literal notranslate"><span class="pre">self.pragma_num_steps(4)</span></code> limit the number of step instances to 4? Besides, doesn’t this function guarantee the Fibonacci circuit’s security, such that we have a fixed circuit setup with a specific number of step instances, thereby making the circuit a piece of “hardware” that cannot be tampered with? How can we allow for BOTH a fixed circuit setup AND flexible witnesses? This problem is frequently encountered in projects like PSE’s zkEVM, where witnesses with very different sizes are passed into the same circuit.</p>
@@ -1075,7 +1058,7 @@ document.write(`
 <div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>TraceWitness(
 	step_instances={
 		StepInstance(
-			step_type_uuid=301458533854660943141067253808485763594,
+			step_type_uuid=92744822685430175918506673056602786314,
 			assignments={
 				a = 1,
 				b = 1,
@@ -1084,7 +1067,7 @@ document.write(`
 			},
 		),
 		StepInstance(
-			step_type_uuid=301458563169081073419758246646432533002,
+			step_type_uuid=92744851999850306199861545074139204106,
 			assignments={
 				a = 1,
 				b = 2,
@@ -1093,7 +1076,7 @@ document.write(`
 			},
 		),
 		StepInstance(
-			step_type_uuid=301458563169081073419758246646432533002,
+			step_type_uuid=92744851999850306199861545074139204106,
 			assignments={
 				a = 2,
 				b = 3,
@@ -1102,7 +1085,7 @@ document.write(`
 			},
 		),
 		StepInstance(
-			step_type_uuid=301458563169081073419758246646432533002,
+			step_type_uuid=92744851999850306199861545074139204106,
 			assignments={
 				a = 3,
 				b = 5,
@@ -1111,7 +1094,7 @@ document.write(`
 			},
 		),
 		StepInstance(
-			step_type_uuid=301458563169081073419758246646432533002,
+			step_type_uuid=92744851999850306199861545074139204106,
 			assignments={
 				a = 5,
 				b = 8,
@@ -1120,7 +1103,7 @@ document.write(`
 			},
 		),
 		StepInstance(
-			step_type_uuid=301458563169081073419758246646432533002,
+			step_type_uuid=92744851999850306199861545074139204106,
 			assignments={
 				a = 8,
 				b = 13,
@@ -1129,7 +1112,7 @@ document.write(`
 			},
 		),
 		StepInstance(
-			step_type_uuid=301458563169081073419758246646432533002,
+			step_type_uuid=92744851999850306199861545074139204106,
 			assignments={
 				a = 13,
 				b = 21,
@@ -1138,7 +1121,7 @@ document.write(`
 			},
 		),
 		StepInstance(
-			step_type_uuid=301458580599276826557928842774750824970,
+			step_type_uuid=92744868637764434194266524534872607242,
 			assignments={
 				a = 21,
 				b = 34,
@@ -1146,7 +1129,7 @@ document.write(`
 			},
 		),
 		StepInstance(
-			step_type_uuid=301458580599276826557928842774750824970,
+			step_type_uuid=92744868637764434194266524534872607242,
 			assignments={
 				a = 21,
 				b = 34,
@@ -1154,7 +1137,7 @@ document.write(`
 			},
 		),
 		StepInstance(
-			step_type_uuid=301458580599276826557928842774750824970,
+			step_type_uuid=92744868637764434194266524534872607242,
 			assignments={
 				a = 21,
 				b = 34,
@@ -1175,10 +1158,8 @@ document.write(`
 </div>
 </div>
 <div class="cell_output docutils container">
-<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>301461925612298178795083063813363862026
-</pre></div>
-</div>
-<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>Ok(
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>92748322985650056118221422547431983626
+Ok(
     (),
 )
 </pre></div>
@@ -1241,7 +1222,7 @@ document.write(`
       <i class="fa-solid fa-angle-left"></i>
       <div class="prev-next-info">
         <p class="prev-next-subtitle">previous</p>
-        <p class="prev-next-title">Part 2: Fibonacci Example</p>
+        <p class="prev-next-title">Chapter 4: Multiple StepTypes</p>
       </div>
     </a>
     <a class="right-next"
@@ -1249,7 +1230,7 @@ document.write(`
        title="next page">
       <div class="prev-next-info">
         <p class="prev-next-subtitle">next</p>
-        <p class="prev-next-title">Part 3: MiMC7 Example</p>
+        <p class="prev-next-title">Chapter 1: MiMC7 Concepts</p>
       </div>
       <i class="fa-solid fa-angle-right"></i>
     </a>
@@ -1268,16 +1249,11 @@ document.write(`
   </div>
   <nav class="bd-toc-nav page-toc">
     <ul class="visible nav section-nav flex-column">
-<li class="toc-h1 nav-item toc-entry"><a class="reference internal nav-link" href="#">Part 2: Fibonacci Example</a></li>
-<li class="toc-h1 nav-item toc-entry"><a class="reference internal nav-link" href="#chapter-5-padding-and-exposing-signals">Chapter 5: Padding and Exposing Signals</a><ul class="visible nav section-nav flex-column">
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#padding">Padding</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#exposing-signals">Exposing Signals</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#coding-up-the-concepts">Coding up the Concepts</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#putting-everything-together">Putting Everything Together</a></li>
 </ul>
-</li>
-</ul>
-
   </nav></div>
 
 </div></div>

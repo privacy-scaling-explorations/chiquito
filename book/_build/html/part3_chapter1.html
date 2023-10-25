@@ -9,7 +9,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="generator" content="Docutils 0.18.1: http://docutils.sourceforge.net/" />
 
-    <title>Part 3: MiMC7 Example &#8212; Introduction to Chiquito</title>
+    <title>Chapter 1: MiMC7 Concepts &#8212; Introduction to Chiquito</title>
   
   
   
@@ -67,8 +67,8 @@ const thebe_selector_output = ".output, .cell_output"
     <script>DOCUMENTATION_OPTIONS.pagename = 'part3_chapter1';</script>
     <link rel="index" title="Index" href="genindex.html" />
     <link rel="search" title="Search" href="search.html" />
-    <link rel="next" title="Part 3: MiMC7 Example" href="part3_chapter2.html" />
-    <link rel="prev" title="Part 2: Fibonacci Example" href="part2_chapter5.html" />
+    <link rel="next" title="Chapter 2: First Attempt" href="part3_chapter2.html" />
+    <link rel="prev" title="Chapter 5: Padding and Exposing Signals" href="part2_chapter5.html" />
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="docsearch:language" content="en"/>
   </head>
@@ -165,40 +165,31 @@ const thebe_selector_output = ".output, .cell_output"
         <ul class="nav bd-sidenav bd-sidenav__home-link">
             <li class="toctree-l1">
                 <a class="reference internal" href="landing_page.html">
-                    What is chiquito?
+                    Meet Chiquito
                 </a>
             </li>
         </ul>
         <p aria-level="2" class="caption" role="heading"><span class="caption-text">Part 1 - Intro to Chiquito</span></p>
 <ul class="nav bd-sidenav">
-<li class="toctree-l1"><a class="reference internal" href="what_is_zkp.html">What is Zero Knowledge Proof (developer POV)?</a></li>
-<li class="toctree-l1"><a class="reference internal" href="what_is_chiquito.html">What is chiquito?</a></li>
-<li class="toctree-l1"><a class="reference internal" href="chiquito_programming_model.html">Chiquito programming model</a></li>
-<li class="toctree-l1"><a class="reference internal" href="python_syntax.html">Python syntax</a></li>
+<li class="toctree-l1"><a class="reference internal" href="part1_chapter1.html">What is Zero Knowledge Proof (Developer POV)?</a></li>
+<li class="toctree-l1"><a class="reference internal" href="part1_chapter2.html">What is Chiquito?</a></li>
+<li class="toctree-l1"><a class="reference internal" href="part1_chapter3.html">Chiquito Programming Model</a></li>
+<li class="toctree-l1"><a class="reference internal" href="part1_chapter4.html">Python syntax</a></li>
 </ul>
 <p aria-level="2" class="caption" role="heading"><span class="caption-text">Part 2 - Fibonacci Example</span></p>
 <ul class="nav bd-sidenav">
-<li class="toctree-l1"><a class="reference internal" href="part2_chapter1.html">Part 2: Fibonacci Example</a></li>
-
-<li class="toctree-l1"><a class="reference internal" href="part2_chapter2.html">Part 2: Fibonacci Example</a></li>
-
-<li class="toctree-l1"><a class="reference internal" href="part2_chapter3.html">Part 2: Fibonacci Example</a></li>
-
-<li class="toctree-l1"><a class="reference internal" href="part2_chapter4.html">Part 2: Fibonacci Example</a></li>
-
-<li class="toctree-l1"><a class="reference internal" href="part2_chapter5.html">Part 2: Fibonacci Example</a></li>
-
+<li class="toctree-l1"><a class="reference internal" href="part2_chapter1.html">Chapter 1: Fibonacci and Chiquito Concepts</a></li>
+<li class="toctree-l1"><a class="reference internal" href="part2_chapter2.html">Chapter 2: StepType and Circuit</a></li>
+<li class="toctree-l1"><a class="reference internal" href="part2_chapter3.html">Chapter 3: Witness</a></li>
+<li class="toctree-l1"><a class="reference internal" href="part2_chapter4.html">Chapter 4: Multiple StepTypes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="part2_chapter5.html">Chapter 5: Padding and Exposing Signals</a></li>
 </ul>
 <p aria-level="2" class="caption" role="heading"><span class="caption-text">Part 3 - MiMC7 Example</span></p>
 <ul class="current nav bd-sidenav">
-<li class="toctree-l1 current active"><a class="current reference internal" href="#">Part 3: MiMC7 Example</a></li>
-
-<li class="toctree-l1"><a class="reference internal" href="part3_chapter2.html">Part 3: MiMC7 Example</a></li>
-
-<li class="toctree-l1"><a class="reference internal" href="part3_chapter3.html">Part 3: MiMC7 Example</a></li>
-
-<li class="toctree-l1"><a class="reference internal" href="part3_chapter4.html">Part 3: MiMC7 Example</a></li>
-
+<li class="toctree-l1 current active"><a class="current reference internal" href="#">Chapter 1: MiMC7 Concepts</a></li>
+<li class="toctree-l1"><a class="reference internal" href="part3_chapter2.html">Chapter 2: First Attempt</a></li>
+<li class="toctree-l1"><a class="reference internal" href="part3_chapter3.html">Chapter 3: Witness</a></li>
+<li class="toctree-l1"><a class="reference internal" href="part3_chapter4.html">Chapter 4: Fixed Signals, Lookup Tables, and Super Circuit</a></li>
 </ul>
 
     </div>
@@ -369,9 +360,7 @@ document.write(`
   </button>
 `);
 </script>
-<label class="sidebar-toggle secondary-toggle btn btn-sm" for="__secondary"title="Toggle secondary sidebar" data-bs-placement="bottom" data-bs-toggle="tooltip">
-    <span class="fa-solid fa-list"></span>
-</label>
+
 </div></div>
       
     </div>
@@ -382,21 +371,11 @@ document.write(`
               
 
 <div id="jb-print-docs-body" class="onlyprint">
-    <h1>Part 3: MiMC7 Example</h1>
+    <h1>Chapter 1: MiMC7 Concepts</h1>
     <!-- Table of contents -->
     <div id="print-main-content">
         <div id="jb-print-toc">
             
-            <div>
-                <h2> Contents </h2>
-            </div>
-            <nav aria-label="Page">
-                <ul class="visible nav section-nav flex-column">
-<li class="toc-h1 nav-item toc-entry"><a class="reference internal nav-link" href="#">Part 3: MiMC7 Example</a></li>
-<li class="toc-h1 nav-item toc-entry"><a class="reference internal nav-link" href="#chapter-1-mimc7-concepts">Chapter 1: MiMC7 Concepts</a></li>
-</ul>
-
-            </nav>
         </div>
     </div>
 </div>
@@ -406,10 +385,7 @@ document.write(`
 <div id="searchbox"></div>
                 <article class="bd-article" role="main">
                   
-  <section class="tex2jax_ignore mathjax_ignore" id="part-3-mimc7-example">
-<h1>Part 3: MiMC7 Example<a class="headerlink" href="#part-3-mimc7-example" title="Permalink to this heading">#</a></h1>
-<p>In this Chapter, we will walk through the [<a class="reference external" href="http://mimc7.py">mimc7.py</a>] (<a class="github reference external" href="https://github.com/privacy-scaling-explorations/chiquito/blob/main/examples/mimc7.py">privacy-scaling-explorations/chiquito</a>) example.</p>
-</section>
+  <p>In this Part, we will walk through the <a class="reference external" href="https://github.com/privacy-scaling-explorations/chiquito/blob/main/examples/mimc7.py">mimc7.py</a> example.</p>
 <section class="tex2jax_ignore mathjax_ignore" id="chapter-1-mimc7-concepts">
 <h1>Chapter 1: MiMC7 Concepts<a class="headerlink" href="#chapter-1-mimc7-concepts" title="Permalink to this heading">#</a></h1>
 <p>MiMC7 is a zk-friendly hash function. By “zk-friendly” we mean that the function is designed to minimize circuit size for zero knowledge proofs by using only additions and multiplications. Other common non-zk-friendly hash functions such as SHA256 requires many bit operations and therefore can be very costly in terms of circuit size.</p>
@@ -699,7 +675,7 @@ $Output = F_{91}(x) + k$
       <i class="fa-solid fa-angle-left"></i>
       <div class="prev-next-info">
         <p class="prev-next-subtitle">previous</p>
-        <p class="prev-next-title">Part 2: Fibonacci Example</p>
+        <p class="prev-next-title">Chapter 5: Padding and Exposing Signals</p>
       </div>
     </a>
     <a class="right-next"
@@ -707,7 +683,7 @@ $Output = F_{91}(x) + k$
        title="next page">
       <div class="prev-next-info">
         <p class="prev-next-subtitle">next</p>
-        <p class="prev-next-title">Part 3: MiMC7 Example</p>
+        <p class="prev-next-title">Chapter 2: First Attempt</p>
       </div>
       <i class="fa-solid fa-angle-right"></i>
     </a>
@@ -717,22 +693,6 @@ $Output = F_{91}(x) + k$
             </div>
             
             
-              
-                <div class="bd-sidebar-secondary bd-toc"><div class="sidebar-secondary-items sidebar-secondary__inner">
-
-  <div class="sidebar-secondary-item">
-  <div class="page-toc tocsection onthispage">
-    <i class="fa-solid fa-list"></i> Contents
-  </div>
-  <nav class="bd-toc-nav page-toc">
-    <ul class="visible nav section-nav flex-column">
-<li class="toc-h1 nav-item toc-entry"><a class="reference internal nav-link" href="#">Part 3: MiMC7 Example</a></li>
-<li class="toc-h1 nav-item toc-entry"><a class="reference internal nav-link" href="#chapter-1-mimc7-concepts">Chapter 1: MiMC7 Concepts</a></li>
-</ul>
-
-  </nav></div>
-
-</div></div>
               
             
           </div>

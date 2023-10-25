@@ -9,7 +9,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="generator" content="Docutils 0.18.1: http://docutils.sourceforge.net/" />
 
-    <title>What is chiquito? &#8212; Introduction to Chiquito</title>
+    <title>Meet Chiquito &#8212; Introduction to Chiquito</title>
   
   
   
@@ -65,7 +65,7 @@ const thebe_selector_output = ".output, .cell_output"
     <script>DOCUMENTATION_OPTIONS.pagename = 'landing_page';</script>
     <link rel="index" title="Index" href="genindex.html" />
     <link rel="search" title="Search" href="search.html" />
-    <link rel="next" title="What is Zero Knowledge Proof (developer POV)?" href="what_is_zkp.html" />
+    <link rel="next" title="What is Zero Knowledge Proof (Developer POV)?" href="part1_chapter1.html" />
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="docsearch:language" content="en"/>
   </head>
@@ -162,40 +162,31 @@ const thebe_selector_output = ".output, .cell_output"
         <ul class="nav bd-sidenav bd-sidenav__home-link">
             <li class="toctree-l1 current active">
                 <a class="reference internal" href="#">
-                    What is chiquito?
+                    Meet Chiquito
                 </a>
             </li>
         </ul>
         <p aria-level="2" class="caption" role="heading"><span class="caption-text">Part 1 - Intro to Chiquito</span></p>
 <ul class="nav bd-sidenav">
-<li class="toctree-l1"><a class="reference internal" href="what_is_zkp.html">What is Zero Knowledge Proof (developer POV)?</a></li>
-<li class="toctree-l1"><a class="reference internal" href="what_is_chiquito.html">What is chiquito?</a></li>
-<li class="toctree-l1"><a class="reference internal" href="chiquito_programming_model.html">Chiquito programming model</a></li>
-<li class="toctree-l1"><a class="reference internal" href="python_syntax.html">Python syntax</a></li>
+<li class="toctree-l1"><a class="reference internal" href="part1_chapter1.html">What is Zero Knowledge Proof (Developer POV)?</a></li>
+<li class="toctree-l1"><a class="reference internal" href="part1_chapter2.html">What is Chiquito?</a></li>
+<li class="toctree-l1"><a class="reference internal" href="part1_chapter3.html">Chiquito Programming Model</a></li>
+<li class="toctree-l1"><a class="reference internal" href="part1_chapter4.html">Python syntax</a></li>
 </ul>
 <p aria-level="2" class="caption" role="heading"><span class="caption-text">Part 2 - Fibonacci Example</span></p>
 <ul class="nav bd-sidenav">
-<li class="toctree-l1"><a class="reference internal" href="part2_chapter1.html">Part 2: Fibonacci Example</a></li>
-
-<li class="toctree-l1"><a class="reference internal" href="part2_chapter2.html">Part 2: Fibonacci Example</a></li>
-
-<li class="toctree-l1"><a class="reference internal" href="part2_chapter3.html">Part 2: Fibonacci Example</a></li>
-
-<li class="toctree-l1"><a class="reference internal" href="part2_chapter4.html">Part 2: Fibonacci Example</a></li>
-
-<li class="toctree-l1"><a class="reference internal" href="part2_chapter5.html">Part 2: Fibonacci Example</a></li>
-
+<li class="toctree-l1"><a class="reference internal" href="part2_chapter1.html">Chapter 1: Fibonacci and Chiquito Concepts</a></li>
+<li class="toctree-l1"><a class="reference internal" href="part2_chapter2.html">Chapter 2: StepType and Circuit</a></li>
+<li class="toctree-l1"><a class="reference internal" href="part2_chapter3.html">Chapter 3: Witness</a></li>
+<li class="toctree-l1"><a class="reference internal" href="part2_chapter4.html">Chapter 4: Multiple StepTypes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="part2_chapter5.html">Chapter 5: Padding and Exposing Signals</a></li>
 </ul>
 <p aria-level="2" class="caption" role="heading"><span class="caption-text">Part 3 - MiMC7 Example</span></p>
 <ul class="nav bd-sidenav">
-<li class="toctree-l1"><a class="reference internal" href="part3_chapter1.html">Part 3: MiMC7 Example</a></li>
-
-<li class="toctree-l1"><a class="reference internal" href="part3_chapter2.html">Part 3: MiMC7 Example</a></li>
-
-<li class="toctree-l1"><a class="reference internal" href="part3_chapter3.html">Part 3: MiMC7 Example</a></li>
-
-<li class="toctree-l1"><a class="reference internal" href="part3_chapter4.html">Part 3: MiMC7 Example</a></li>
-
+<li class="toctree-l1"><a class="reference internal" href="part3_chapter1.html">Chapter 1: MiMC7 Concepts</a></li>
+<li class="toctree-l1"><a class="reference internal" href="part3_chapter2.html">Chapter 2: First Attempt</a></li>
+<li class="toctree-l1"><a class="reference internal" href="part3_chapter3.html">Chapter 3: Witness</a></li>
+<li class="toctree-l1"><a class="reference internal" href="part3_chapter4.html">Chapter 4: Fixed Signals, Lookup Tables, and Super Circuit</a></li>
 </ul>
 
     </div>
@@ -377,7 +368,7 @@ document.write(`
               
 
 <div id="jb-print-docs-body" class="onlyprint">
-    <h1>What is chiquito?</h1>
+    <h1>Meet Chiquito</h1>
     <!-- Table of contents -->
     <div id="print-main-content">
         <div id="jb-print-toc">
@@ -391,10 +382,17 @@ document.write(`
 <div id="searchbox"></div>
                 <article class="bd-article" role="main">
                   
-  <section class="tex2jax_ignore mathjax_ignore" id="what-is-chiquito">
-<h1>What is chiquito?<a class="headerlink" href="#what-is-chiquito" title="Permalink to this heading">#</a></h1>
-<p>Chiquito is a high-level structured language for implementing zero knowledge proof applications.</p>
-<p>Chiquito is being implemented in the DSL Working Group of PSE, Ethereum Foundation.</p>
+  <section class="tex2jax_ignore mathjax_ignore" id="meet-chiquito">
+<h1>Meet Chiquito<a class="headerlink" href="#meet-chiquito" title="Permalink to this heading">#</a></h1>
+<p>Chiquito is a high-level structured language for implementing zero knowledge proof applications, currently being implemented in the DSL Working Group of PSE, Ethereum Foundation. It is a step-based zkDSL (zero knowledge domain specific language) that provides better syntax and abstraction for features like constraint building and column placement when writing PLONKish circuits, which supports custom gates and lookup arguments. Chiquito has a Halo2 backend, which is a low level zkDSL that writes circuits using the PLONKish arithemtization. Chiquito is working on supporting additional backends.</p>
+<p>Chiquito can be written in both Python and Rust. This tutorial focuses on Python.</p>
+<p>The key advantages of Chiquito include:</p>
+<ul class="simple">
+<li><p>Abstraction and simplification on the readability and learnability of Halo2 circuits.</p></li>
+<li><p>Composabiity with other Halo2 circuits.</p></li>
+<li><p>Modularity of using multiple frontends (Python and Rust) and backends (Halo2 and beyond).</p></li>
+<li><p>Smooth user experience with a dynamically typed language (Python).</p></li>
+</ul>
 <p align="center">
   <img src="https://hackmd.io/_uploads/HyuEr1cB2.png" width="180" height="80" alt="Image 2">
   &nbsp; &nbsp; &nbsp;
@@ -439,11 +437,11 @@ document.write(`
                   <!-- Previous / next buttons -->
 <div class="prev-next-area">
     <a class="right-next"
-       href="what_is_zkp.html"
+       href="part1_chapter1.html"
        title="next page">
       <div class="prev-next-info">
         <p class="prev-next-subtitle">next</p>
-        <p class="prev-next-title">What is Zero Knowledge Proof (developer POV)?</p>
+        <p class="prev-next-title">What is Zero Knowledge Proof (Developer POV)?</p>
       </div>
       <i class="fa-solid fa-angle-right"></i>
     </a>

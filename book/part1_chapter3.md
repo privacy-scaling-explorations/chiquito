@@ -1,4 +1,4 @@
-# Chiquito programming model
+# Chiquito Programming Model
 
 ## ZKP as trace
 

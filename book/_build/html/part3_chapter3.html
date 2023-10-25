@@ -9,7 +9,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="generator" content="Docutils 0.18.1: http://docutils.sourceforge.net/" />
 
-    <title>Part 3: MiMC7 Example &#8212; Introduction to Chiquito</title>
+    <title>Chapter 3: Witness &#8212; Introduction to Chiquito</title>
   
   
   
@@ -67,8 +67,8 @@ const thebe_selector_output = ".output, .cell_output"
     <script>DOCUMENTATION_OPTIONS.pagename = 'part3_chapter3';</script>
     <link rel="index" title="Index" href="genindex.html" />
     <link rel="search" title="Search" href="search.html" />
-    <link rel="next" title="Part 3: MiMC7 Example" href="part3_chapter4.html" />
-    <link rel="prev" title="Part 3: MiMC7 Example" href="part3_chapter2.html" />
+    <link rel="next" title="Chapter 4: Fixed Signals, Lookup Tables, and Super Circuit" href="part3_chapter4.html" />
+    <link rel="prev" title="Chapter 2: First Attempt" href="part3_chapter2.html" />
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="docsearch:language" content="en"/>
   </head>
@@ -165,40 +165,31 @@ const thebe_selector_output = ".output, .cell_output"
         <ul class="nav bd-sidenav bd-sidenav__home-link">
             <li class="toctree-l1">
                 <a class="reference internal" href="landing_page.html">
-                    What is chiquito?
+                    Meet Chiquito
                 </a>
             </li>
         </ul>
         <p aria-level="2" class="caption" role="heading"><span class="caption-text">Part 1 - Intro to Chiquito</span></p>
 <ul class="nav bd-sidenav">
-<li class="toctree-l1"><a class="reference internal" href="what_is_zkp.html">What is Zero Knowledge Proof (developer POV)?</a></li>
-<li class="toctree-l1"><a class="reference internal" href="what_is_chiquito.html">What is chiquito?</a></li>
-<li class="toctree-l1"><a class="reference internal" href="chiquito_programming_model.html">Chiquito programming model</a></li>
-<li class="toctree-l1"><a class="reference internal" href="python_syntax.html">Python syntax</a></li>
+<li class="toctree-l1"><a class="reference internal" href="part1_chapter1.html">What is Zero Knowledge Proof (Developer POV)?</a></li>
+<li class="toctree-l1"><a class="reference internal" href="part1_chapter2.html">What is Chiquito?</a></li>
+<li class="toctree-l1"><a class="reference internal" href="part1_chapter3.html">Chiquito Programming Model</a></li>
+<li class="toctree-l1"><a class="reference internal" href="part1_chapter4.html">Python syntax</a></li>
 </ul>
 <p aria-level="2" class="caption" role="heading"><span class="caption-text">Part 2 - Fibonacci Example</span></p>
 <ul class="nav bd-sidenav">
-<li class="toctree-l1"><a class="reference internal" href="part2_chapter1.html">Part 2: Fibonacci Example</a></li>
-
-<li class="toctree-l1"><a class="reference internal" href="part2_chapter2.html">Part 2: Fibonacci Example</a></li>
-
-<li class="toctree-l1"><a class="reference internal" href="part2_chapter3.html">Part 2: Fibonacci Example</a></li>
-
-<li class="toctree-l1"><a class="reference internal" href="part2_chapter4.html">Part 2: Fibonacci Example</a></li>
-
-<li class="toctree-l1"><a class="reference internal" href="part2_chapter5.html">Part 2: Fibonacci Example</a></li>
-
+<li class="toctree-l1"><a class="reference internal" href="part2_chapter1.html">Chapter 1: Fibonacci and Chiquito Concepts</a></li>
+<li class="toctree-l1"><a class="reference internal" href="part2_chapter2.html">Chapter 2: StepType and Circuit</a></li>
+<li class="toctree-l1"><a class="reference internal" href="part2_chapter3.html">Chapter 3: Witness</a></li>
+<li class="toctree-l1"><a class="reference internal" href="part2_chapter4.html">Chapter 4: Multiple StepTypes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="part2_chapter5.html">Chapter 5: Padding and Exposing Signals</a></li>
 </ul>
 <p aria-level="2" class="caption" role="heading"><span class="caption-text">Part 3 - MiMC7 Example</span></p>
 <ul class="current nav bd-sidenav">
-<li class="toctree-l1"><a class="reference internal" href="part3_chapter1.html">Part 3: MiMC7 Example</a></li>
-
-<li class="toctree-l1"><a class="reference internal" href="part3_chapter2.html">Part 3: MiMC7 Example</a></li>
-
-<li class="toctree-l1 current active"><a class="current reference internal" href="#">Part 3: MiMC7 Example</a></li>
-
-<li class="toctree-l1"><a class="reference internal" href="part3_chapter4.html">Part 3: MiMC7 Example</a></li>
-
+<li class="toctree-l1"><a class="reference internal" href="part3_chapter1.html">Chapter 1: MiMC7 Concepts</a></li>
+<li class="toctree-l1"><a class="reference internal" href="part3_chapter2.html">Chapter 2: First Attempt</a></li>
+<li class="toctree-l1 current active"><a class="current reference internal" href="#">Chapter 3: Witness</a></li>
+<li class="toctree-l1"><a class="reference internal" href="part3_chapter4.html">Chapter 4: Fixed Signals, Lookup Tables, and Super Circuit</a></li>
 </ul>
 
     </div>
@@ -382,7 +373,7 @@ document.write(`
               
 
 <div id="jb-print-docs-body" class="onlyprint">
-    <h1>Part 3: MiMC7 Example</h1>
+    <h1>Chapter 3: Witness</h1>
     <!-- Table of contents -->
     <div id="print-main-content">
         <div id="jb-print-toc">
@@ -392,13 +383,8 @@ document.write(`
             </div>
             <nav aria-label="Page">
                 <ul class="visible nav section-nav flex-column">
-<li class="toc-h1 nav-item toc-entry"><a class="reference internal nav-link" href="#">Part 3: MiMC7 Example</a></li>
-<li class="toc-h1 nav-item toc-entry"><a class="reference internal nav-link" href="#chapter-2-witness">Chapter 2: Witness</a><ul class="visible nav section-nav flex-column">
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#setup">Setup</a></li>
 </ul>
-</li>
-</ul>
-
             </nav>
         </div>
     </div>
@@ -409,11 +395,8 @@ document.write(`
 <div id="searchbox"></div>
                 <article class="bd-article" role="main">
                   
-  <section class="tex2jax_ignore mathjax_ignore" id="part-3-mimc7-example">
-<h1>Part 3: MiMC7 Example<a class="headerlink" href="#part-3-mimc7-example" title="Permalink to this heading">#</a></h1>
-</section>
-<section class="tex2jax_ignore mathjax_ignore" id="chapter-2-witness">
-<h1>Chapter 2: Witness<a class="headerlink" href="#chapter-2-witness" title="Permalink to this heading">#</a></h1>
+  <section class="tex2jax_ignore mathjax_ignore" id="chapter-3-witness">
+<h1>Chapter 3: Witness<a class="headerlink" href="#chapter-3-witness" title="Permalink to this heading">#</a></h1>
 <p>As is the best practice with circuit building, we will generate evil witnesses to test the soundness of our circuit constraints. It’s always helpful to review the circuit table again:</p>
 <table class="table">
 <thead>
@@ -728,7 +711,7 @@ document.write(`
 </div>
 </div>
 <div class="cell_output docutils container">
-<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>304005900711986699261519250379443407370
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>95161420291399638177998071294147037706
 Ok(
     (),
 )
@@ -748,7 +731,7 @@ Ok(
 </div>
 <div class="cell_output docutils container">
 <div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>StepInstance(
-			step_type_uuid=304004380323548050526459301046394685962,
+			step_type_uuid=95159879303638735739786648403286034954,
 			assignments={
 				x = 19772642601925508232386889125207430697825779573800034433688041678604067403935,
 				k = 2,
@@ -758,7 +741,7 @@ Ok(
 			},
 		)
 StepInstance(
-			step_type_uuid=304004412014813056232468776566267709962,
+			step_type_uuid=95159910994903741443715742370290600458,
 			assignments={
 				x = 10594780656576967754230020536574539122676596303354946869887184401991294982662,
 				k = 2,
@@ -799,7 +782,7 @@ StepInstance(
 </div>
 <div class="cell_output docutils container">
 <div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>StepInstance(
-			step_type_uuid=304004380323548050526459301046394685962,
+			step_type_uuid=95159879303638735739786648403286034954,
 			assignments={
 				x = 19772642601925508232386889125207430697825779573800034433688041678604067403935,
 				k = 2,
@@ -809,7 +792,7 @@ StepInstance(
 			},
 		)
 StepInstance(
-			step_type_uuid=304004412014813056232468776566267709962,
+			step_type_uuid=95159910994903741443715742370290600458,
 			assignments={
 				x = 2038891600805023480257114900259151954044463841564468389732305079234997849132,
 				k = 2,
@@ -877,7 +860,7 @@ StepInstance(
       <i class="fa-solid fa-angle-left"></i>
       <div class="prev-next-info">
         <p class="prev-next-subtitle">previous</p>
-        <p class="prev-next-title">Part 3: MiMC7 Example</p>
+        <p class="prev-next-title">Chapter 2: First Attempt</p>
       </div>
     </a>
     <a class="right-next"
@@ -885,7 +868,7 @@ StepInstance(
        title="next page">
       <div class="prev-next-info">
         <p class="prev-next-subtitle">next</p>
-        <p class="prev-next-title">Part 3: MiMC7 Example</p>
+        <p class="prev-next-title">Chapter 4: Fixed Signals, Lookup Tables, and Super Circuit</p>
       </div>
       <i class="fa-solid fa-angle-right"></i>
     </a>
@@ -904,13 +887,8 @@ StepInstance(
   </div>
   <nav class="bd-toc-nav page-toc">
     <ul class="visible nav section-nav flex-column">
-<li class="toc-h1 nav-item toc-entry"><a class="reference internal nav-link" href="#">Part 3: MiMC7 Example</a></li>
-<li class="toc-h1 nav-item toc-entry"><a class="reference internal nav-link" href="#chapter-2-witness">Chapter 2: Witness</a><ul class="visible nav section-nav flex-column">
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#setup">Setup</a></li>
 </ul>
-</li>
-</ul>
-
   </nav></div>
 
 </div></div>

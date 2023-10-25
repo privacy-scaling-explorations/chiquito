@@ -9,7 +9,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="generator" content="Docutils 0.18.1: http://docutils.sourceforge.net/" />
 
-    <title>Part 2: Fibonacci Example &#8212; Introduction to Chiquito</title>
+    <title>Chapter 2: StepType and Circuit &#8212; Introduction to Chiquito</title>
   
   
   
@@ -65,8 +65,8 @@ const thebe_selector_output = ".output, .cell_output"
     <script>DOCUMENTATION_OPTIONS.pagename = 'part2_chapter2';</script>
     <link rel="index" title="Index" href="genindex.html" />
     <link rel="search" title="Search" href="search.html" />
-    <link rel="next" title="Part 2: Fibonacci Example" href="part2_chapter3.html" />
-    <link rel="prev" title="Part 2: Fibonacci Example" href="part2_chapter1.html" />
+    <link rel="next" title="Chapter 3: Witness" href="part2_chapter3.html" />
+    <link rel="prev" title="Chapter 1: Fibonacci and Chiquito Concepts" href="part2_chapter1.html" />
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="docsearch:language" content="en"/>
   </head>
@@ -163,40 +163,31 @@ const thebe_selector_output = ".output, .cell_output"
         <ul class="nav bd-sidenav bd-sidenav__home-link">
             <li class="toctree-l1">
                 <a class="reference internal" href="landing_page.html">
-                    What is chiquito?
+                    Meet Chiquito
                 </a>
             </li>
         </ul>
         <p aria-level="2" class="caption" role="heading"><span class="caption-text">Part 1 - Intro to Chiquito</span></p>
 <ul class="nav bd-sidenav">
-<li class="toctree-l1"><a class="reference internal" href="what_is_zkp.html">What is Zero Knowledge Proof (developer POV)?</a></li>
-<li class="toctree-l1"><a class="reference internal" href="what_is_chiquito.html">What is chiquito?</a></li>
-<li class="toctree-l1"><a class="reference internal" href="chiquito_programming_model.html">Chiquito programming model</a></li>
-<li class="toctree-l1"><a class="reference internal" href="python_syntax.html">Python syntax</a></li>
+<li class="toctree-l1"><a class="reference internal" href="part1_chapter1.html">What is Zero Knowledge Proof (Developer POV)?</a></li>
+<li class="toctree-l1"><a class="reference internal" href="part1_chapter2.html">What is Chiquito?</a></li>
+<li class="toctree-l1"><a class="reference internal" href="part1_chapter3.html">Chiquito Programming Model</a></li>
+<li class="toctree-l1"><a class="reference internal" href="part1_chapter4.html">Python syntax</a></li>
 </ul>
 <p aria-level="2" class="caption" role="heading"><span class="caption-text">Part 2 - Fibonacci Example</span></p>
 <ul class="current nav bd-sidenav">
-<li class="toctree-l1"><a class="reference internal" href="part2_chapter1.html">Part 2: Fibonacci Example</a></li>
-
-<li class="toctree-l1 current active"><a class="current reference internal" href="#">Part 2: Fibonacci Example</a></li>
-
-<li class="toctree-l1"><a class="reference internal" href="part2_chapter3.html">Part 2: Fibonacci Example</a></li>
-
-<li class="toctree-l1"><a class="reference internal" href="part2_chapter4.html">Part 2: Fibonacci Example</a></li>
-
-<li class="toctree-l1"><a class="reference internal" href="part2_chapter5.html">Part 2: Fibonacci Example</a></li>
-
+<li class="toctree-l1"><a class="reference internal" href="part2_chapter1.html">Chapter 1: Fibonacci and Chiquito Concepts</a></li>
+<li class="toctree-l1 current active"><a class="current reference internal" href="#">Chapter 2: StepType and Circuit</a></li>
+<li class="toctree-l1"><a class="reference internal" href="part2_chapter3.html">Chapter 3: Witness</a></li>
+<li class="toctree-l1"><a class="reference internal" href="part2_chapter4.html">Chapter 4: Multiple StepTypes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="part2_chapter5.html">Chapter 5: Padding and Exposing Signals</a></li>
 </ul>
 <p aria-level="2" class="caption" role="heading"><span class="caption-text">Part 3 - MiMC7 Example</span></p>
 <ul class="nav bd-sidenav">
-<li class="toctree-l1"><a class="reference internal" href="part3_chapter1.html">Part 3: MiMC7 Example</a></li>
-
-<li class="toctree-l1"><a class="reference internal" href="part3_chapter2.html">Part 3: MiMC7 Example</a></li>
-
-<li class="toctree-l1"><a class="reference internal" href="part3_chapter3.html">Part 3: MiMC7 Example</a></li>
-
-<li class="toctree-l1"><a class="reference internal" href="part3_chapter4.html">Part 3: MiMC7 Example</a></li>
-
+<li class="toctree-l1"><a class="reference internal" href="part3_chapter1.html">Chapter 1: MiMC7 Concepts</a></li>
+<li class="toctree-l1"><a class="reference internal" href="part3_chapter2.html">Chapter 2: First Attempt</a></li>
+<li class="toctree-l1"><a class="reference internal" href="part3_chapter3.html">Chapter 3: Witness</a></li>
+<li class="toctree-l1"><a class="reference internal" href="part3_chapter4.html">Chapter 4: Fixed Signals, Lookup Tables, and Super Circuit</a></li>
 </ul>
 
     </div>
@@ -380,7 +371,7 @@ document.write(`
               
 
 <div id="jb-print-docs-body" class="onlyprint">
-    <h1>Part 2: Fibonacci Example</h1>
+    <h1>Chapter 2: StepType and Circuit</h1>
     <!-- Table of contents -->
     <div id="print-main-content">
         <div id="jb-print-toc">
@@ -390,8 +381,6 @@ document.write(`
             </div>
             <nav aria-label="Page">
                 <ul class="visible nav section-nav flex-column">
-<li class="toc-h1 nav-item toc-entry"><a class="reference internal nav-link" href="#">Part 2: Fibonacci Example</a></li>
-<li class="toc-h1 nav-item toc-entry"><a class="reference internal nav-link" href="#chapter-2-steptype-and-circuit">Chapter 2: StepType and Circuit</a><ul class="visible nav section-nav flex-column">
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#imports">Imports</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#steptype">StepType</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#signal-types">Signal Types</a></li>
@@ -402,9 +391,6 @@ document.write(`
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#circuit-trace">Circuit Trace</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#putting-everything-together">Putting Everything Together</a></li>
 </ul>
-</li>
-</ul>
-
             </nav>
         </div>
     </div>
@@ -415,10 +401,7 @@ document.write(`
 <div id="searchbox"></div>
                 <article class="bd-article" role="main">
                   
-  <section class="tex2jax_ignore mathjax_ignore" id="part-2-fibonacci-example">
-<h1>Part 2: Fibonacci Example<a class="headerlink" href="#part-2-fibonacci-example" title="Permalink to this heading">#</a></h1>
-</section>
-<section class="tex2jax_ignore mathjax_ignore" id="chapter-2-steptype-and-circuit">
+  <section class="tex2jax_ignore mathjax_ignore" id="chapter-2-steptype-and-circuit">
 <h1>Chapter 2: StepType and Circuit<a class="headerlink" href="#chapter-2-steptype-and-circuit" title="Permalink to this heading">#</a></h1>
 <p>In this Chapter, we code out the concepts learned in Chapter 1 in PyChiquito, but before that, let’s import the dependencies first.</p>
 <section id="imports">
@@ -681,11 +664,11 @@ document.write(`
 <div class="cell_output docutils container">
 <div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>ASTCircuit(
 	step_types={
-		298834737965802551641194350442317482506: ASTStepType(
-			id=298834737965802551641194350442317482506,
+		89919142346542686895738973962493364746: ASTStepType(
+			id=89919142346542686895738973962493364746,
 			name=&#39;fibo_step&#39;,
 			signals=[
-				InternalSignal(id=298834741927210677355539944776124729866, annotation=&#39;c&#39;)
+				InternalSignal(id=89919146307950812605858784470943533578, annotation=&#39;c&#39;)
 			],
 			constraints=[
 				Constraint(
@@ -699,21 +682,21 @@ document.write(`
 			],
 			lookups=[],
 			annotations={
-				298834741927210677355539944776124729866: c
+				89919146307950812605858784470943533578: c
 			}
 		)
 	},
 	forward_signals=[
-		ForwardSignal(id=298834724497014924216531397642138814986, phase=0, annotation=&#39;a&#39;),
-		ForwardSignal(id=298834731627549550501778977015525411338, phase=0, annotation=&#39;b&#39;)
+		ForwardSignal(id=89919126500910184042461627687612582410, phase=0, annotation=&#39;a&#39;),
+		ForwardSignal(id=89919133631444810326278469754378914314, phase=0, annotation=&#39;b&#39;)
 	],
 	shared_signals=[],
 	fixed_signals=[],
 	exposed=[],
 	annotations={
-		298834724497014924216531397642138814986: a,
-		298834731627549550501778977015525411338: b,
-		298834737965802551641194350442317482506: fibo_step
+		89919126500910184042461627687612582410: a,
+		89919133631444810326278469754378914314: b,
+		89919142346542686895738973962493364746: fibo_step
 	},
 	fixed_assignments=None,
 	first_step=None,
@@ -744,7 +727,7 @@ document.write(`
 <div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>TraceWitness(
 	step_instances={
 		StepInstance(
-			step_type_uuid=298834737965802551641194350442317482506,
+			step_type_uuid=89919142346542686895738973962493364746,
 			assignments={
 				a = 1,
 				b = 1,
@@ -752,7 +735,7 @@ document.write(`
 			},
 		),
 		StepInstance(
-			step_type_uuid=298834737965802551641194350442317482506,
+			step_type_uuid=89919142346542686895738973962493364746,
 			assignments={
 				a = 1,
 				b = 2,
@@ -760,7 +743,7 @@ document.write(`
 			},
 		),
 		StepInstance(
-			step_type_uuid=298834737965802551641194350442317482506,
+			step_type_uuid=89919142346542686895738973962493364746,
 			assignments={
 				a = 2,
 				b = 3,
@@ -768,7 +751,7 @@ document.write(`
 			},
 		),
 		StepInstance(
-			step_type_uuid=298834737965802551641194350442317482506,
+			step_type_uuid=89919142346542686895738973962493364746,
 			assignments={
 				a = 3,
 				b = 5,
@@ -789,7 +772,7 @@ document.write(`
 </div>
 </div>
 <div class="cell_output docutils container">
-<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>298846441549969158771602634151205407242
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>89931541553976169263261534624179423754
 Ok(
     (),
 )
@@ -838,7 +821,7 @@ Ok(
       <i class="fa-solid fa-angle-left"></i>
       <div class="prev-next-info">
         <p class="prev-next-subtitle">previous</p>
-        <p class="prev-next-title">Part 2: Fibonacci Example</p>
+        <p class="prev-next-title">Chapter 1: Fibonacci and Chiquito Concepts</p>
       </div>
     </a>
     <a class="right-next"
@@ -846,7 +829,7 @@ Ok(
        title="next page">
       <div class="prev-next-info">
         <p class="prev-next-subtitle">next</p>
-        <p class="prev-next-title">Part 2: Fibonacci Example</p>
+        <p class="prev-next-title">Chapter 3: Witness</p>
       </div>
       <i class="fa-solid fa-angle-right"></i>
     </a>
@@ -865,8 +848,6 @@ Ok(
   </div>
   <nav class="bd-toc-nav page-toc">
     <ul class="visible nav section-nav flex-column">
-<li class="toc-h1 nav-item toc-entry"><a class="reference internal nav-link" href="#">Part 2: Fibonacci Example</a></li>
-<li class="toc-h1 nav-item toc-entry"><a class="reference internal nav-link" href="#chapter-2-steptype-and-circuit">Chapter 2: StepType and Circuit</a><ul class="visible nav section-nav flex-column">
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#imports">Imports</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#steptype">StepType</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#signal-types">Signal Types</a></li>
@@ -877,9 +858,6 @@ Ok(
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#circuit-trace">Circuit Trace</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#putting-everything-together">Putting Everything Together</a></li>
 </ul>
-</li>
-</ul>
-
   </nav></div>
 
 </div></div>
