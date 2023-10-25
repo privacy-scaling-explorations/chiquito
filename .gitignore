@@ -5,4 +5,4 @@
 __pycache__
 *.so
 .ipynb_checkpoints
-/_build
+_build
