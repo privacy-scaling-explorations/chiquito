@@ -271,125 +271,59 @@ mod tests {
         CompilationUnit::default()
     }
 
+    // Helper function to add step types to the CompilationUnit
+    fn add_step_types_to_unit<F>(unit: &mut CompilationUnit<F>, n_step_types: usize) {
+        for i in 0..n_step_types {
+            let uuid_value = Uuid::now_v1(&[1, 2, 3, 4, 5, 6]).as_u128();
+            unit.step_types.insert(
+                uuid_value,
+                Rc::new(StepType::new(uuid_value, format!("StepType{}", i))),
+            );
+        }
+    }
+
+    // Helper function to run common test assertions
+    fn assert_common_tests<F>(unit: &CompilationUnit<F>, expected_cols: usize) {
+        assert_eq!(unit.columns.len(), expected_cols);
+        assert_eq!(unit.selector.columns.len(), expected_cols);
+    }
+
     #[test]
     fn test_log_n_selector_builder_3_step_types() {
-        // Setup
         let builder = LogNSelectorBuilder {};
         let mut unit = mock_compilation_unit::<Fr>();
 
-        // Assuming you have 3 step types for this test
-        unit.step_types.insert(
-            Uuid::now_v1(&[1, 2, 3, 4, 5, 6]).as_u128(),
-            Rc::new(StepType::new(
-                Uuid::now_v1(&[1, 2, 3, 4, 5, 6]).as_u128(),
-                "StepType1".to_owned(),
-            )),
-        );
-        unit.step_types.insert(
-            Uuid::now_v1(&[1, 2, 3, 4, 5, 6]).as_u128(),
-            Rc::new(StepType::new(
-                Uuid::now_v1(&[1, 2, 3, 4, 5, 6]).as_u128(),
-                "StepType2".to_owned(),
-            )),
-        );
-        unit.step_types.insert(
-            Uuid::now_v1(&[1, 2, 3, 4, 5, 6]).as_u128(),
-            Rc::new(StepType::new(
-                Uuid::now_v1(&[1, 2, 3, 4, 5, 6]).as_u128(),
-                "StepType3".to_owned(),
-            )),
-        );
-
+        add_step_types_to_unit(&mut unit, 3);
         builder.build(&mut unit);
+        assert_common_tests(&unit, 2);
 
-        // Assert number of columns
-        assert_eq!(unit.columns.len(), 2);
-        assert_eq!(unit.selector.columns.len(), 2);
-
-        // TODO: Assert expressions
-
-        // TODO: Assert assignments
+        // TODO: Additional specific assertions for this test
         
     }
 
     #[test]
     fn test_log_n_selector_builder_4_step_types() {
-        // Setup
         let builder = LogNSelectorBuilder {};
         let mut unit = mock_compilation_unit::<Fr>();
 
-        // Assuming you have 4 step types for this test
-        // Assuming you have 3 step types for this test
-        unit.step_types.insert(
-            Uuid::now_v1(&[1, 2, 3, 4, 5, 6]).as_u128(),
-            Rc::new(StepType::new(
-                Uuid::now_v1(&[1, 2, 3, 4, 5, 6]).as_u128(),
-                "StepType1".to_owned(),
-            )),
-        );
-        unit.step_types.insert(
-            Uuid::now_v1(&[1, 2, 3, 4, 5, 6]).as_u128(),
-            Rc::new(StepType::new(
-                Uuid::now_v1(&[1, 2, 3, 4, 5, 6]).as_u128(),
-                "StepType2".to_owned(),
-            )),
-        );
-        unit.step_types.insert(
-            Uuid::now_v1(&[1, 2, 3, 4, 5, 6]).as_u128(),
-            Rc::new(StepType::new(
-                Uuid::now_v1(&[1, 2, 3, 4, 5, 6]).as_u128(),
-                "StepType3".to_owned(),
-            )),
-        );
-        unit.step_types.insert(
-            Uuid::now_v1(&[1, 2, 3, 4, 5, 6]).as_u128(),
-            Rc::new(StepType::new(
-                Uuid::now_v1(&[1, 2, 3, 4, 5, 6]).as_u128(),
-                "StepType43".to_owned(),
-            )),
-        );
-
+        add_step_types_to_unit(&mut unit, 4);
         builder.build(&mut unit);
+        assert_common_tests(&unit, 3);
 
-        // Assert number of columns
-        assert_eq!(unit.columns.len(), 3);
-        assert_eq!(unit.selector.columns.len(), 3);
-
-        // TODO: Assert expressions
-
-        // TODO: Assert assignments
-        
+        // TODO: Additional specific assertions for this test
     }
 
     #[test]
     fn test_log_n_selector_builder_10_step_types() {
-        // Setup
         let builder = LogNSelectorBuilder {};
         let mut unit = mock_compilation_unit::<Fr>();
 
-        // Assuming you have 10 step types for this test
-        let n_step_types = 10;
-
-        for i in 0..n_step_types {
-            unit.step_types.insert(
-                Uuid::now_v1(&[1, 2, 3, 4, 5, 6]).as_u128(),
-                Rc::new(StepType::new(
-                    Uuid::now_v1(&[1, 2, 3, 4, 5, 6]).as_u128(),
-                    format!("StepType{}", i),
-                )),
-            );
-        }
-
+        add_step_types_to_unit(&mut unit, 10);
         builder.build(&mut unit);
 
-        // Assert number of columns
-        let n_cols = (n_step_types as f64).log2().ceil() as usize;
-        assert_eq!(unit.columns.len(), n_cols);
-        assert_eq!(unit.selector.columns.len(), n_cols);
+        let expected_cols = (10 as f64 + 1.0).log2().ceil() as usize;
+        assert_common_tests(&unit, expected_cols);
 
-        // TODO: Assert expressions
-
-        // TODO: Assert assignments
-        
+        // TODO: Additional specific assertions for this test
     }
 }
