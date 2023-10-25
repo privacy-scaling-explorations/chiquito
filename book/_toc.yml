@@ -2,8 +2,25 @@
 # Learn more at https://jupyterbook.org/customize/toc.html
 
 format: jb-book
-root: intro
-chapters:
-- file: markdown
-- file: notebooks
-- file: markdown-notebooks
+root: landing_page
+parts:
+  - caption: Part 1 - Intro to Chiquito
+    chapters:
+    - file: what_is_zkp
+      title: test
+    - file: what_is_chiquito
+    - file: chiquito_programming_model
+    - file: python_syntax
+  - caption: Part 2 - Fibonacci Example
+    chapters:
+    - file: part2_chapter1
+    - file: part2_chapter2
+    - file: part2_chapter3
+    - file: part2_chapter4
+    - file: part2_chapter5
+  - caption: Part 3 - MiMC7 Example
+    chapters:
+    - file: part3_chapter1
+    - file: part3_chapter2
+    - file: part3_chapter3
+    - file: part3_chapter4
