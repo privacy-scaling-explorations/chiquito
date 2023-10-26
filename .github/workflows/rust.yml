@@ -33,9 +33,10 @@ jobs:
     - name: Run tests
       run: make test
     - name: Upload coverage report to Codecov
-      uses: codecov/codecov-action@v3
-      with:
-        files: ./target/test_coverage/*.lcov
+      run: |
+        curl -o target/test_coverage/codecov -Os https://uploader.codecov.io/latest/linux/codecov
+        chmod +x target/test_coverage/codecov
+        ./target/test_coverage/codecov -t ${CODECOV_TOKEN}
 
   clippy_check:
     needs: [skip_check]
