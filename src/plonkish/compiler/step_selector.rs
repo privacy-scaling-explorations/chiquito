@@ -213,8 +213,8 @@ impl StepSelectorBuilder for LogNSelectorBuilder {
 
         let mut step_value = 1;
         for step in unit.step_types.values() {
-            let mut combined_expr = PolyExpr::Const(F::ZERO);
-            let mut combined_expr_not = PolyExpr::Const(F::ZERO);
+            let mut combined_expr = PolyExpr::Const(F::ONE);
+            let mut combined_expr_not = PolyExpr::Const(F::ONE);
             let mut assignments = Vec::new();
 
             for i in 0..n_cols {
@@ -245,6 +245,7 @@ impl StepSelectorBuilder for LogNSelectorBuilder {
                 .insert(step.uuid(), assignments);
             step_value += 1;
         }
+
         unit.columns.extend_from_slice(&selector.columns);
         unit.selector = selector;
     }
@@ -267,11 +268,11 @@ mod tests {
 
     use super::*;
 
+    // ------- Helper Functions --------
     fn mock_compilation_unit<F>() -> CompilationUnit<F> {
         CompilationUnit::default()
     }
 
-    // Helper function to add step types to the CompilationUnit
     fn add_step_types_to_unit<F>(unit: &mut CompilationUnit<F>, n_step_types: usize) {
         for i in 0..n_step_types {
             let uuid_value = Uuid::now_v1(&[1, 2, 3, 4, 5, 6]).as_u128();
@@ -286,6 +287,10 @@ mod tests {
     fn assert_common_tests<F>(unit: &CompilationUnit<F>, expected_cols: usize) {
         assert_eq!(unit.columns.len(), expected_cols);
         assert_eq!(unit.selector.columns.len(), expected_cols);
+        for step_type in unit.step_types.values() {
+            assert!(unit.selector.selector_assignment.contains_key(&step_type.uuid()));
+            assert!(unit.selector.selector_expr.contains_key(&step_type.uuid()));
+        }
     }
 
     #[test]
@@ -296,9 +301,6 @@ mod tests {
         add_step_types_to_unit(&mut unit, 3);
         builder.build(&mut unit);
         assert_common_tests(&unit, 2);
-
-        // TODO: Additional specific assertions for this test
-        
     }
 
     #[test]
@@ -309,8 +311,6 @@ mod tests {
         add_step_types_to_unit(&mut unit, 4);
         builder.build(&mut unit);
         assert_common_tests(&unit, 3);
-
-        // TODO: Additional specific assertions for this test
     }
 
     #[test]
@@ -323,7 +323,5 @@ mod tests {
 
         let expected_cols = (10 as f64 + 1.0).log2().ceil() as usize;
         assert_common_tests(&unit, expected_cols);
-
-        // TODO: Additional specific assertions for this test
     }
 }
