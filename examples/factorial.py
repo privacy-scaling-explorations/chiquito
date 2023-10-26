@@ -40,7 +40,9 @@ class OperationStep(StepType):
         # constrain i + 1 == i.next()
         self.transition(eq(self.circuit.i + 1, self.circuit.i.next()))
         # constrain the next `x` to be the product of the current `x` and the next `i`
-        self.transition(eq(self.circuit.x * (self.circuit.i + 1), self.circuit.x.next()))
+        self.transition(
+            eq(self.circuit.x * (self.circuit.i + 1), self.circuit.x.next())
+        )
 
     def wg(self, i_value, x_value):
         self.assign(self.circuit.i, F(i_value))
@@ -99,7 +101,9 @@ class Examples:
     def test_zero(self):
         factorial = Factorial()
         factorial_witness = factorial.gen_witness(0)
-        last_assignments = list(factorial_witness.step_instances[10].assignments.values())
+        last_assignments = list(
+            factorial_witness.step_instances[10].assignments.values()
+        )
         assert last_assignments[0] == 0  # i
         assert last_assignments[1] == 1  # x
         factorial.halo2_mock_prover(factorial_witness)
@@ -107,7 +111,9 @@ class Examples:
     def test_basic(self):
         factorial = Factorial()
         factorial_witness = factorial.gen_witness(7)
-        last_assignments = list(factorial_witness.step_instances[10].assignments.values())
+        last_assignments = list(
+            factorial_witness.step_instances[10].assignments.values()
+        )
         assert last_assignments[0] == 7  # i
         assert last_assignments[1] == 5040  # x
         factorial.halo2_mock_prover(factorial_witness)
@@ -116,6 +122,9 @@ class Examples:
 if __name__ == "__main__":
     x = Examples()
     for method in [
-        method for method in dir(x) if callable(getattr(x, method)) if not method.startswith('_')
+        method
+        for method in dir(x)
+        if callable(getattr(x, method))
+        if not method.startswith("_")
     ]:
         getattr(x, method)()
