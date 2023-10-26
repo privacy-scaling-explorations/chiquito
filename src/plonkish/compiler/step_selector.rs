@@ -286,7 +286,10 @@ mod tests {
         assert_eq!(unit.columns.len(), expected_cols);
         assert_eq!(unit.selector.columns.len(), expected_cols);
         for step_type in unit.step_types.values() {
-            assert!(unit.selector.selector_assignment.contains_key(&step_type.uuid()));
+            assert!(unit
+                .selector
+                .selector_assignment
+                .contains_key(&step_type.uuid()));
             assert!(unit.selector.selector_expr.contains_key(&step_type.uuid()));
         }
     }
