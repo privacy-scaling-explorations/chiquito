@@ -1,0 +1,30 @@
+# Table of contents
+# Learn more at https://jupyterbook.org/customize/toc.html
+
+format: jb-book
+root: landing_page
+parts:
+  - caption: Part 1 - Intro to Chiquito
+    chapters:
+    - file: part1_chapter1
+    - file: part1_chapter2
+    - file: part1_chapter3
+    - file: part1_chapter4
+    - file: part1_chapter5
+  - caption: Part 2 - Fibonacci Example
+    chapters:
+    - file: part2_chapter1
+    - file: part2_chapter2
+    - file: part2_chapter3
+    - file: part2_chapter4
+    - file: part2_chapter5
+  - caption: Part 3 - MiMC7 Example
+    chapters:
+    - file: part3_chapter1
+    - file: part3_chapter2
+    - file: part3_chapter3
+    - file: part3_chapter4
+  - caption: Appendix
+    chapters:
+    - file: appendix_chapter1
+    - file: appendix_chapter2
