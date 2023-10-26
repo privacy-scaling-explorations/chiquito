@@ -268,7 +268,6 @@ mod tests {
 
     use super::*;
 
-    // ------- Helper Functions --------
     fn mock_compilation_unit<F>() -> CompilationUnit<F> {
         CompilationUnit::default()
     }
@@ -283,7 +282,6 @@ mod tests {
         }
     }
 
-    // Helper function to run common test assertions
     fn assert_common_tests<F>(unit: &CompilationUnit<F>, expected_cols: usize) {
         assert_eq!(unit.columns.len(), expected_cols);
         assert_eq!(unit.selector.columns.len(), expected_cols);
