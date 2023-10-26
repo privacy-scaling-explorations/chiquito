@@ -32,7 +32,7 @@ jobs:
       run: cargo build --verbose
     - name: Run tests
       run: make test
-    - name: Upload coverage report to Codecov
+    - name: Upload coverage reports to Codecov
       run: |
         curl -o target/test_coverage/codecov -Os https://uploader.codecov.io/latest/linux/codecov
         chmod +x target/test_coverage/codecov
