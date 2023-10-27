@@ -38,7 +38,7 @@ If we include the states indented:
 ```
 	arr = [64, 34, 25, 12, 22, 11, 90]
 	n = ?, i = ?, j = ?
-set n to lenght of arr which is 7
+set n to length of arr which is 7
 	arr = [64, 34, 25, 12, 22, 11, 90]
 	n = 7, i = ?, j = ?
 set i to 1
