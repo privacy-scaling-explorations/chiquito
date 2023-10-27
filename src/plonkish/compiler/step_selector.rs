@@ -16,7 +16,7 @@ pub type SelectorAssignment<F> = (PolyExpr<F>, F);
 pub struct StepSelector<F> {
     pub selector_expr: HashMap<StepTypeUUID, PolyExpr<F>>,
     pub selector_expr_not: HashMap<StepTypeUUID, PolyExpr<F>>,
-    pub selector_assignment: HashMap<StepTypeUUID, Vec<SelectorAssignment<F>>>,
+    pub selector_assignment: HashMap<StepTypeUUID, Option<Vec<SelectorAssignment<F>>>>,
     pub columns: Vec<Column>,
 }
 
@@ -50,7 +50,10 @@ impl<F: Clone> StepSelector<F> {
             .clone()
     }
 
-    pub fn get_selector_assignment(&self, step_uuid: StepTypeUUID) -> Vec<SelectorAssignment<F>> {
+    pub fn get_selector_assignment(
+        &self,
+        step_uuid: StepTypeUUID,
+    ) -> Option<Vec<SelectorAssignment<F>>> {
         self.selector_assignment
             .get(&step_uuid)
             .expect("selector assignment for step not found")
@@ -74,6 +77,25 @@ impl StepSelectorBuilder for SimpleStepSelectorBuilder {
             columns: Vec::new(),
         };
 
+        // don't add a column for a single step type
+        if unit.step_types.len() == 1 {
+            let step = unit.step_types.values().next().expect("step not found");
+
+            // use F::ONE for selector constantly on, F::ZERO for off
+            selector
+                .selector_expr
+                .insert(step.uuid(), PolyExpr::Const(F::ONE));
+
+            selector
+                .selector_expr_not
+                .insert(step.uuid(), PolyExpr::Const(F::ZERO));
+
+            selector.selector_assignment.insert(step.uuid(), None);
+
+            unit.selector = selector;
+            return;
+        }
+
         for step in unit.step_types.values() {
             let annotation = if let Some(annotation) = unit.annotations.get(&step.uuid()) {
                 format!("'step selector for {}'", annotation)
@@ -96,7 +118,7 @@ impl StepSelectorBuilder for SimpleStepSelectorBuilder {
 
             selector.selector_assignment.insert(
                 step.uuid(),
-                vec![(column.query(0, annotation.clone()), F::ONE)],
+                Some(vec![(column.query(0, annotation.clone()), F::ONE)]),
             );
         }
 
@@ -168,7 +190,7 @@ impl StepSelectorBuilder for TwoStepsSelectorBuilder {
 
         unit.selector.selector_assignment.insert(
             step_zero.uuid(),
-            vec![(column.query(0, "selector step zero"), F::ZERO)],
+            Some(vec![(column.query(0, "selector step zero"), F::ZERO)]),
         );
 
         // One
@@ -183,7 +205,7 @@ impl StepSelectorBuilder for TwoStepsSelectorBuilder {
 
         unit.selector.selector_assignment.insert(
             step_one.uuid(),
-            vec![(column.query(0, "selector step one"), F::ONE)],
+            Some(vec![(column.query(0, "selector step one"), F::ONE)]),
         );
     }
 }
@@ -196,4 +218,57 @@ fn other_step_type<F>(unit: &CompilationUnit<F>, uuid: UUID) -> Option<Rc<StepTy
     }
 
     None
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::{
+        ast::Constraint,
+        frontend::dsl::cb::eq,
+        plonkish::compiler::{transform_expr, CompilationUnit},
+        poly::ToExpr,
+    };
+    use halo2_proofs::halo2curves::bn256::Fr;
+
+    #[test]
+    fn test_ssb_single_step() {
+        // unit test for SSB with only one step type
+        let mut unit = CompilationUnit::<Fr>::default();
+        let step = StepType::<Fr>::new(UUID::default(), "single step".to_string());
+        let uuid = step.uuid();
+        unit.annotations.insert(uuid, step.name.clone());
+        unit.step_types.insert(uuid, Rc::new(step));
+
+        let ssb = SimpleStepSelectorBuilder {};
+        ssb.build(&mut unit);
+
+        let constraint = Constraint::<Fr> {
+            annotation: "test constraint".to_string(),
+            expr: eq(1.expr() - 1.expr(), 0.expr()).into(),
+        };
+        let constraint = transform_expr(
+            &unit,
+            unit.step_types.get(&uuid).expect("step not found {}"),
+            &constraint.expr,
+        );
+
+        // selector.select should return constraint switched on
+        assert_eq!(
+            format!("{:?}", unit.selector.select(uuid, &constraint)),
+            format!(
+                "{:?}",
+                PolyExpr::Mul(vec![PolyExpr::Const(Fr::ONE), constraint])
+            )
+        );
+        assert_eq!(
+            format!("{:?}", unit.selector.unselect(uuid)),
+            format!("{:?}", PolyExpr::Const(Fr::ZERO))
+        );
+        assert_eq!(
+            format!("{:?}", unit.selector.next_expr(uuid, 1)),
+            format!("{:?}", PolyExpr::Const(Fr::ONE))
+        );
+        assert!(unit.selector.get_selector_assignment(uuid).is_none());
+    }
 }
