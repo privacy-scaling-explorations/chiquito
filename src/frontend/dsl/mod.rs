@@ -525,4 +525,28 @@ mod tests {
         // assert fixed signal was added to the circuit
         assert_eq!(context.circuit.fixed_signals.len(), 1);
     }
+
+    #[test]
+    fn test_expose() {
+        // create circuit context
+        let circuit: Circuit<i32, i32> = Circuit::default();
+        let mut context = CircuitContext {
+            circuit,
+            tables: Default::default(),
+        };
+
+        // set forward signal and step to expose
+        let forward_a: Queriable<i32> = context.forward("forward_a");
+        let step_offset: ExposeOffset = ExposeOffset::Last;
+
+        // expose the forward signal of the final step 
+        context.expose(forward_a, step_offset);
+
+        // assert the signal is exposed
+        assert_eq!(context.circuit.exposed[0].0, forward_a);
+        assert_eq!(
+            std::mem::discriminant(&context.circuit.exposed[0].1),
+            std::mem::discriminant(&step_offset)
+        );
+    }
 }
