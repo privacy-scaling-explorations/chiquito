@@ -27,11 +27,14 @@ use halo2_proofs::{dev::MockProver, halo2curves::bn256::Fr};
 // 1. type that implements a field trait
 // 2. empty trace arguments, i.e. (), because there are no external inputs to the Chiquito circuit
 // 3. two witness generation arguments both of u64 type, i.e. (u64, u64)
-fn fibo_circuit<F: Field + From<u64> + Hash>() -> (
+
+type FiboReturn<F> = (
     Circuit<F>,
     Option<AssignmentGenerator<F, ()>>,
     ASTCircuit<F, ()>,
-) {
+);
+
+fn fibo_circuit<F: Field + From<u64> + Hash>() -> FiboReturn<F> {
     // PLONKish table for the Fibonacci circuit:
     // | a | b | c |
     // | 1 | 1 | 2 |
@@ -171,11 +174,13 @@ fn main() {
 #[cfg(test)]
 #[test]
 fn test_pil_single_circuit_fibo() {
-    use chiquito::{
-        plonkish::backend::powdr_pil::{ChiquitoPil, *},
-        wit_gen::Witness,
-    };
+    use chiquito::plonkish::backend::powdr_pil::chiquito2Pil;
+
     let (_, wit_gen, circuit) = fibo_circuit::<Fr>();
-    let chiquito_pil = ChiquitoPil::new(circuit, Some(wit_gen.unwrap().generate_trace_witness(())));
-    print!("{}", chiquito_pil.to_pil());
+    let pil = chiquito2Pil(
+        circuit,
+        Some(wit_gen.unwrap().generate_trace_witness(())),
+        String::from("FiboCircuit"),
+    );
+    print!("{}", pil);
 }

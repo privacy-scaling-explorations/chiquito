@@ -225,8 +225,7 @@ fn main() {
 #[test]
 fn test_pil_super_circuit_mimc7() {
     use chiquito::{
-        frontend::dsl::sc::*,
-        plonkish::backend::powdr_pil::{ChiquitoPil, ChiquitoPilSuperCircuit, *},
+        frontend::dsl::sc::*, plonkish::backend::powdr_pil::chiquitoSuperCircuit2Pil,
         wit_gen::Witness,
     };
     use halo2_proofs::poly::commitment::Params;
@@ -236,13 +235,19 @@ fn test_pil_super_circuit_mimc7() {
 
     let super_circuit = mimc7_super_circuit::<Fr>();
 
-    let chiquito_pil_super_circuit = chiquitoSuperCircuit2Pil(
+    // `super_trace_witnesses` is a mapping from IR id to TraceWitness. However, not all ASTs have a
+    // corresponding TraceWitness.
+    let super_trace_witnesses = super_circuit
+        .get_mapping()
+        .generate_super_trace_witnesses((x_in_value, k_value));
+
+    let pil = chiquitoSuperCircuit2Pil(
         super_circuit,
-        (x_in_value, k_value),
+        super_trace_witnesses,
         vec![String::from("Mimc7Constant"), String::from("Mimc7Circuit")],
     );
 
-    print!("{}", chiquito_pil_super_circuit.to_pil());
+    print!("{}", pil);
 }
 
 mod mimc7_constants {

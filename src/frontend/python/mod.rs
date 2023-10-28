@@ -15,7 +15,7 @@ use crate::{
                 chiquito2Halo2, chiquitoSuperCircuit2Halo2, ChiquitoHalo2, ChiquitoHalo2Circuit,
                 ChiquitoHalo2SuperCircuit,
             },
-            powdr_pil::ChiquitoPil,
+            powdr_pil::chiquito2Pil,
         },
         compiler::{
             cell_manager::SingleRowCellManager, compile, config,
@@ -68,15 +68,12 @@ pub fn chiquito_ast_to_halo2(ast_json: &str) -> UUID {
     uuid
 }
 
-pub fn chiquito_ast_to_pil(witness_json: &str, rust_id: UUID) -> String {
+pub fn chiquito_ast_to_pil(witness_json: &str, rust_id: UUID, circuit_name: &str) -> String {
     let trace_witness: TraceWitness<Fr> =
         serde_json::from_str(witness_json).expect("Json deserialization to TraceWitness failed.");
     let (ast, _, _) = rust_id_to_halo2(rust_id);
 
-    let chiquito_pil = ChiquitoPil::new(ast, Some(trace_witness));
-    let pil = chiquito_pil.to_pil_single_circuit(None);
-    println!("{}", pil);
-    pil
+    chiquito2Pil(ast, Some(trace_witness), circuit_name.to_string())
 }
 
 fn add_assignment_generator_to_rust_id(
@@ -1842,12 +1839,14 @@ fn ast_to_halo2(json: &PyString) -> u128 {
 }
 
 #[pyfunction]
-fn to_pil(witness_json: &PyString, rust_id: &PyLong) -> String {
+fn to_pil(witness_json: &PyString, rust_id: &PyLong, circuit_name: &PyString) -> String {
     let pil = chiquito_ast_to_pil(
         witness_json.to_str().expect("PyString convertion failed."),
         rust_id.extract().expect("PyLong convertion failed."),
+        circuit_name.to_str().expect("PyString convertion failed."),
     );
 
+    println!("{}", pil);
     pil
 }
 
