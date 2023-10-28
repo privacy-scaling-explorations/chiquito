@@ -302,6 +302,33 @@ mod tests {
         add_step_types_to_unit(&mut unit, 3);
         builder.build(&mut unit);
         assert_common_tests(&unit, 2);
+
+        // Asserts expressions for 3 step types
+        let expr10_temp = format!(
+            "(0x1 * {:#?} * (0x1 + (-{:#?})))",
+            &unit.selector.columns[0].query::<i32, &str>(0, "Column 0"),
+            &unit.selector.columns[1].query::<i32, &str>(0, "Column 1")
+        );
+        let expr01_temp = format!(
+            "(0x1 * (0x1 + (-{:#?})) * {:#?})",
+            &unit.selector.columns[0].query::<i32, &str>(0, "Column 0"),
+            &unit.selector.columns[1].query::<i32, &str>(0, "Column 1")
+        );
+        let expr11_temp = format!(
+            "(0x1 * {:#?} * {:#?})",
+            &unit.selector.columns[0].query::<i32, &str>(0, "Column 0"),
+            &unit.selector.columns[1].query::<i32, &str>(0, "Column 1")
+        );
+        let expected_exprs = [expr01_temp.trim(), expr10_temp.trim(), expr11_temp.trim()];
+
+        for expr in unit.selector.selector_expr.values() {
+            let expr_str = format!("{:#?}", expr);
+            assert!(
+                expected_exprs.contains(&expr_str.trim()),
+                "Unexpected expression: {}",
+                expr_str
+            );
+        }
     }
 
     #[test]
