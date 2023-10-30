@@ -188,6 +188,64 @@ impl StepSelectorBuilder for TwoStepsSelectorBuilder {
     }
 }
 
+#[derive(Debug, Default, Clone)]
+pub struct LogNSelectorBuilder {}
+
+impl StepSelectorBuilder for LogNSelectorBuilder {
+    fn build<F: Field>(&self, unit: &mut CompilationUnit<F>) {
+        let mut selector: StepSelector<F> = StepSelector {
+            selector_expr: HashMap::new(),
+            selector_expr_not: HashMap::new(),
+            selector_assignment: HashMap::new(),
+            columns: Vec::new(),
+        };
+
+        let n_step_types = unit.step_types.len() as u64;
+        let n_cols = (n_step_types as f64 + 1.0).log2().ceil() as u64;
+
+        let mut annotation;
+        for index in 0..n_cols {
+            annotation = format!("'binary selector column {}'", index);
+
+            let column = Column::advice(annotation.clone(), 0);
+            selector.columns.push(column.clone());
+        }
+
+        let mut step_value = 1;
+        for step in unit.step_types.values() {
+            let mut combined_expr = PolyExpr::Const(F::ONE);
+            let mut assignments = Vec::new();
+
+            for i in 0..n_cols {
+                let bit = (step_value >> i) & 1; // Extract the i-th bit of step_value
+                let column = &selector.columns[i as usize];
+
+                if bit == 1 {
+                    combined_expr = combined_expr * column.query(0, format!("Column {}", i));
+                    assignments.push((column.query(0, format!("Column {}", i)), F::ONE));
+                } else {
+                    combined_expr = combined_expr
+                        * (PolyExpr::Const(F::ONE) - column.query(0, format!("Column {}", i)));
+                }
+            }
+
+            selector
+                .selector_expr
+                .insert(step.uuid(), combined_expr.clone());
+            selector
+                .selector_expr_not
+                .insert(step.uuid(), PolyExpr::Const(F::ONE) - combined_expr.clone());
+            selector
+                .selector_assignment
+                .insert(step.uuid(), assignments);
+            step_value += 1;
+        }
+
+        unit.columns.extend_from_slice(&selector.columns);
+        unit.selector = selector;
+    }
+}
+
 fn other_step_type<F>(unit: &CompilationUnit<F>, uuid: UUID) -> Option<Rc<StepType<F>>> {
     for step_type in unit.step_types.values() {
         if step_type.uuid() != uuid {
@@ -196,4 +254,97 @@ fn other_step_type<F>(unit: &CompilationUnit<F>, uuid: UUID) -> Option<Rc<StepTy
     }
 
     None
+}
+
+#[cfg(test)]
+mod tests {
+    use halo2curves::bn256::Fr;
+    use uuid::Uuid;
+
+    use super::*;
+
+    fn mock_compilation_unit<F>() -> CompilationUnit<F> {
+        CompilationUnit::default()
+    }
+
+    fn add_step_types_to_unit<F>(unit: &mut CompilationUnit<F>, n_step_types: usize) {
+        for i in 0..n_step_types {
+            let uuid_value = Uuid::now_v1(&[1, 2, 3, 4, 5, 6]).as_u128();
+            unit.step_types.insert(
+                uuid_value,
+                Rc::new(StepType::new(uuid_value, format!("StepType{}", i))),
+            );
+        }
+    }
+
+    fn assert_common_tests<F>(unit: &CompilationUnit<F>, expected_cols: usize) {
+        assert_eq!(unit.columns.len(), expected_cols);
+        assert_eq!(unit.selector.columns.len(), expected_cols);
+        for step_type in unit.step_types.values() {
+            assert!(unit
+                .selector
+                .selector_assignment
+                .contains_key(&step_type.uuid()));
+            assert!(unit.selector.selector_expr.contains_key(&step_type.uuid()));
+        }
+    }
+
+    #[test]
+    fn test_log_n_selector_builder_3_step_types() {
+        let builder = LogNSelectorBuilder {};
+        let mut unit = mock_compilation_unit::<Fr>();
+
+        add_step_types_to_unit(&mut unit, 3);
+        builder.build(&mut unit);
+        assert_common_tests(&unit, 2);
+
+        // Asserts expressions for 3 step types
+        let expr10_temp = format!(
+            "(0x1 * {:#?} * (0x1 + (-{:#?})))",
+            &unit.selector.columns[0].query::<i32, &str>(0, "Column 0"),
+            &unit.selector.columns[1].query::<i32, &str>(0, "Column 1")
+        );
+        let expr01_temp = format!(
+            "(0x1 * (0x1 + (-{:#?})) * {:#?})",
+            &unit.selector.columns[0].query::<i32, &str>(0, "Column 0"),
+            &unit.selector.columns[1].query::<i32, &str>(0, "Column 1")
+        );
+        let expr11_temp = format!(
+            "(0x1 * {:#?} * {:#?})",
+            &unit.selector.columns[0].query::<i32, &str>(0, "Column 0"),
+            &unit.selector.columns[1].query::<i32, &str>(0, "Column 1")
+        );
+        let expected_exprs = [expr01_temp.trim(), expr10_temp.trim(), expr11_temp.trim()];
+
+        for expr in unit.selector.selector_expr.values() {
+            let expr_str = format!("{:#?}", expr);
+            assert!(
+                expected_exprs.contains(&expr_str.trim()),
+                "Unexpected expression: {}",
+                expr_str
+            );
+        }
+    }
+
+    #[test]
+    fn test_log_n_selector_builder_4_step_types() {
+        let builder = LogNSelectorBuilder {};
+        let mut unit = mock_compilation_unit::<Fr>();
+
+        add_step_types_to_unit(&mut unit, 4);
+        builder.build(&mut unit);
+        assert_common_tests(&unit, 3);
+    }
+
+    #[test]
+    fn test_log_n_selector_builder_10_step_types() {
+        let builder = LogNSelectorBuilder {};
+        let mut unit = mock_compilation_unit::<Fr>();
+
+        add_step_types_to_unit(&mut unit, 10);
+        builder.build(&mut unit);
+
+        let expected_cols = (10_f64 + 1.0).log2().ceil() as usize;
+        assert_common_tests(&unit, expected_cols);
+    }
 }
