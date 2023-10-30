@@ -408,7 +408,7 @@ mod tests {
 
         let witness = generator.generate(witness);
         assert_eq!(
-            witness.step_instances[1].assignments.get(&b),
+            witness.step_instances[0].assignments.get(&b),
             Some(&Fr::from(2))
         );
         assert_eq!(
