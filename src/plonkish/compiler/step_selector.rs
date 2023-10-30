@@ -214,7 +214,6 @@ impl StepSelectorBuilder for LogNSelectorBuilder {
         let mut step_value = 1;
         for step in unit.step_types.values() {
             let mut combined_expr = PolyExpr::Const(F::ONE);
-            let mut combined_expr_not = PolyExpr::Const(F::ONE);
             let mut assignments = Vec::new();
 
             for i in 0..n_cols {
@@ -223,14 +222,10 @@ impl StepSelectorBuilder for LogNSelectorBuilder {
 
                 if bit == 1 {
                     combined_expr = combined_expr * column.query(0, format!("Column {}", i));
-                    combined_expr_not = combined_expr_not
-                        * (PolyExpr::Const(F::ONE) - column.query(0, format!("Column {}", i)));
                     assignments.push((column.query(0, format!("Column {}", i)), F::ONE));
                 } else {
                     combined_expr = combined_expr
                         * (PolyExpr::Const(F::ONE) - column.query(0, format!("Column {}", i)));
-                    combined_expr_not =
-                        combined_expr_not * column.query(0, format!("Column {}", i));
                 }
             }
 
@@ -239,7 +234,7 @@ impl StepSelectorBuilder for LogNSelectorBuilder {
                 .insert(step.uuid(), combined_expr.clone());
             selector
                 .selector_expr_not
-                .insert(step.uuid(), combined_expr_not.clone());
+                .insert(step.uuid(), PolyExpr::Const(F::ONE) - combined_expr.clone());
             selector
                 .selector_assignment
                 .insert(step.uuid(), assignments);
