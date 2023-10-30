@@ -1,0 +1,54 @@
+// each step instance is a row
+
+constant %NUM_STEPS = 10; // pragma_num_steps
+
+// each circuit is a namespace
+namespace Fibonacci(%NUM_STEPS); // apply num_steps to the circuit
+    // declare internal and forward signals
+    col witness a, b, c, n;
+
+    // convert TraceWitness StepInstance to the following fixed columns
+    col fixed fibo_first_step = [1, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+    col fixed fibo_step = [0, 1, 1, 1, 1, 1, 1, 0, 0, 0];
+    col fixed padding = [0, 0, 0, 0, 0, 0, 0, 1, 1, 1];
+
+    // need this fixed column in all circuits to disable next in the last row, because they rotate to the first row
+    // also need it for pragma_last_step
+    col fixed ISLAST(i) { match i {
+        %NUM_STEPS - 1 => 1,
+        _ => 0,
+    } };
+    
+    // need this fixed column for pragma_first_step
+    col fixed ISFIRST(i) { match i { 
+        0 => 1, 
+        _ => 0,
+    } };
+
+    // fibo_first_step setup
+    fibo_first_step * (a - 1) = 0;
+    fibo_first_step * (b - 1) = 0;
+    fibo_first_step * (a + b - c) = 0;
+    fibo_first_step * (b - a') = 0;
+    fibo_first_step * (c - b') = 0;
+    fibo_first_step * (n - n') = 0;
+
+    // fibo_step setup
+    fibo_step * (a + b - c) = 0;
+    fibo_step * (b - a') = 0;
+    fibo_step * (c - b') = 0;
+    fibo_step * (n - n') = 0;
+
+    // padding setup
+    // Note that (1 - ISLAST) is multiplied to the step type of the last step instance for transition constraints only
+    (1 - ISLAST) * padding * (b - b') = 0;
+    (1 - ISLAST) * padding * (n - n') = 0;
+
+    // circuit setup
+    // pragma_num_steps is already applied at the top
+    ISFIRST * (1 - fibo_first_step) = 0; // pragma_first_step
+    ISLAST * (1 - padding) = 0; // pragma_last_step
+    public out = b(%NUM_STEPS-1); // expose last
+
+    // trace input for first step instance
+    ISFIRST * (n - 7) = 0;
