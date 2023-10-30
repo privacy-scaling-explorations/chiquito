@@ -344,7 +344,7 @@ mod tests {
         add_step_types_to_unit(&mut unit, 10);
         builder.build(&mut unit);
 
-        let expected_cols = (10 as f64 + 1.0).log2().ceil() as usize;
+        let expected_cols = (10_f64 + 1.0).log2().ceil() as usize;
         assert_common_tests(&unit, expected_cols);
     }
 }
