@@ -234,9 +234,8 @@ fn main() {
     // this is unnecessary because Chiquito has a halo2 backend already
     let plaf_circuit = PlafH2Circuit { plaf, wit };
 
-    let plaf_instance = vec![vec![34.field(), 7.field()]];
     // same as halo2 boilerplate above
-    let prover_plaf = MockProver::<Fr>::run(8, &plaf_circuit, plaf_instance).unwrap();
+    let prover_plaf = MockProver::<Fr>::run(8, &plaf_circuit, plaf_circuit.instance()).unwrap();
 
     let result_plaf = prover_plaf.verify_par();
 

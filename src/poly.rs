@@ -72,7 +72,7 @@ pub type VarAssignments<F, V> = HashMap<V, F>;
 impl<F: Field + Hash, V: Eq + PartialEq + Hash> Expr<F, V> {
     pub fn eval(&self, assignments: &VarAssignments<F, V>) -> Option<F> {
         match self {
-            Expr::Const(v) => Some(v.clone()),
+            Expr::Const(v) => Some(*v),
             Expr::Sum(ses) => ses
                 .iter()
                 .fold(Some(F::ZERO), |acc, se| Some(acc? + se.eval(assignments)?)),
@@ -81,7 +81,7 @@ impl<F: Field + Hash, V: Eq + PartialEq + Hash> Expr<F, V> {
                 .fold(Some(F::ONE), |acc, se| Some(acc? * se.eval(assignments)?)),
             Expr::Neg(se) => Some(F::ZERO - se.eval(assignments)?),
             Expr::Pow(se, exp) => Some(se.eval(assignments)?.pow([*exp as u64])),
-            Expr::Query(q) => assignments.get(q).map(|v| *v),
+            Expr::Query(q) => assignments.get(q).copied(),
 
             // Not implemented, and not necessary for aexpr
             Expr::Halo2Expr(_) => None,
