@@ -292,13 +292,22 @@
 <a href="#292" id="292">292</a>
 <a href="#293" id="293">293</a>
 <a href="#294" id="294">294</a>
+<a href="#295" id="295">295</a>
+<a href="#296" id="296">296</a>
+<a href="#297" id="297">297</a>
+<a href="#298" id="298">298</a>
+<a href="#299" id="299">299</a>
+<a href="#300" id="300">300</a>
+<a href="#301" id="301">301</a>
+<a href="#302" id="302">302</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{
     collections::HashMap,
     fmt,
+    hash::Hash,
     ops::{Deref, DerefMut},
 };
 
-<span class="kw">use </span><span class="kw">crate</span>::field::Field;
+<span class="kw">use crate</span>::{field::Field, wit_gen::AutoTraceGenerator};
 
 <span class="kw">use </span>halo2_proofs::plonk::{Advice, Column <span class="kw">as </span>Halo2Column};
 
@@ -362,6 +371,7 @@
     placement: Placement,
     selector: StepSelector&lt;F&gt;,
     trace_gen: TraceGenerator&lt;F, TraceArgs&gt;,
+    auto_trace_gen: AutoTraceGenerator&lt;F&gt;,
 
     num_rows: usize,
 
@@ -375,6 +385,7 @@
             placement: <span class="self">self</span>.placement.clone(),
             selector: <span class="self">self</span>.selector.clone(),
             trace_gen: <span class="self">self</span>.trace_gen.clone(),
+            auto_trace_gen: <span class="self">self</span>.auto_trace_gen.clone(),
             num_rows: <span class="self">self</span>.num_rows,
             ir_id: <span class="self">self</span>.ir_id,
         }
@@ -388,18 +399,20 @@
             placement: Default::default(),
             selector: Default::default(),
             trace_gen: Default::default(),
+            auto_trace_gen: Default::default(),
             num_rows: Default::default(),
             ir_id: Default::default(),
         }
     }
 }
 
-<span class="kw">impl</span>&lt;F: Field, TraceArgs&gt; AssignmentGenerator&lt;F, TraceArgs&gt; {
+<span class="kw">impl</span>&lt;F: Field + Hash, TraceArgs&gt; AssignmentGenerator&lt;F, TraceArgs&gt; {
     <span class="kw">pub fn </span>new(
         columns: Vec&lt;Column&gt;,
         placement: Placement,
         selector: StepSelector&lt;F&gt;,
         trace_gen: TraceGenerator&lt;F, TraceArgs&gt;,
+        auto_trace_gen: AutoTraceGenerator&lt;F&gt;,
         num_rows: usize,
         ir_id: UUID,
     ) -&gt; <span class="self">Self </span>{
@@ -408,6 +421,7 @@
             placement,
             selector,
             trace_gen,
+            auto_trace_gen,
             num_rows,
             ir_id,
         }
@@ -429,6 +443,8 @@
     <span class="kw">pub fn </span>generate_with_witness(<span class="kw-2">&amp;</span><span class="self">self</span>, witness: TraceWitness&lt;F&gt;) -&gt; Assignments&lt;F&gt; {
         <span class="kw">let </span><span class="kw-2">mut </span>offset: usize = <span class="number">0</span>;
         <span class="kw">let </span><span class="kw-2">mut </span>assignments: Assignments&lt;F&gt; = Default::default();
+
+        <span class="kw">let </span>witness = <span class="self">self</span>.auto_trace_gen.generate(witness);
 
         <span class="kw">for </span>step_instance <span class="kw">in </span>witness.step_instances.into_iter() {
             <span class="self">self</span>.assign_step(<span class="kw-2">&amp;mut </span>offset, <span class="kw-2">&amp;mut </span>assignments, <span class="kw-2">&amp;</span>step_instance);

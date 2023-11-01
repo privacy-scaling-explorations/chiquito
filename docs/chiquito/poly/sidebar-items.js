@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"enum":["Expr"],"trait":["ToExpr","ToField"]};
+window.SIDEBAR_ITEMS = {"enum":["Expr"],"trait":["ToExpr","ToField"],"type":["VarAssignments"]};

@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"struct":["FixedGenContext","StepInstance","TraceContext","TraceGenerator","TraceWitness"],"type":["FixedAssignment","Trace","Witness"]};
+window.SIDEBAR_ITEMS = {"struct":["AutoTraceGenerator","FixedGenContext","StepInstance","TraceContext","TraceGenerator","TraceWitness"],"type":["FixedAssignment","Trace","Witness"]};

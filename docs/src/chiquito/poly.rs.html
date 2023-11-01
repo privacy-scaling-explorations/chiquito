@@ -186,8 +186,90 @@
 <a href="#186" id="186">186</a>
 <a href="#187" id="187">187</a>
 <a href="#188" id="188">188</a>
+<a href="#189" id="189">189</a>
+<a href="#190" id="190">190</a>
+<a href="#191" id="191">191</a>
+<a href="#192" id="192">192</a>
+<a href="#193" id="193">193</a>
+<a href="#194" id="194">194</a>
+<a href="#195" id="195">195</a>
+<a href="#196" id="196">196</a>
+<a href="#197" id="197">197</a>
+<a href="#198" id="198">198</a>
+<a href="#199" id="199">199</a>
+<a href="#200" id="200">200</a>
+<a href="#201" id="201">201</a>
+<a href="#202" id="202">202</a>
+<a href="#203" id="203">203</a>
+<a href="#204" id="204">204</a>
+<a href="#205" id="205">205</a>
+<a href="#206" id="206">206</a>
+<a href="#207" id="207">207</a>
+<a href="#208" id="208">208</a>
+<a href="#209" id="209">209</a>
+<a href="#210" id="210">210</a>
+<a href="#211" id="211">211</a>
+<a href="#212" id="212">212</a>
+<a href="#213" id="213">213</a>
+<a href="#214" id="214">214</a>
+<a href="#215" id="215">215</a>
+<a href="#216" id="216">216</a>
+<a href="#217" id="217">217</a>
+<a href="#218" id="218">218</a>
+<a href="#219" id="219">219</a>
+<a href="#220" id="220">220</a>
+<a href="#221" id="221">221</a>
+<a href="#222" id="222">222</a>
+<a href="#223" id="223">223</a>
+<a href="#224" id="224">224</a>
+<a href="#225" id="225">225</a>
+<a href="#226" id="226">226</a>
+<a href="#227" id="227">227</a>
+<a href="#228" id="228">228</a>
+<a href="#229" id="229">229</a>
+<a href="#230" id="230">230</a>
+<a href="#231" id="231">231</a>
+<a href="#232" id="232">232</a>
+<a href="#233" id="233">233</a>
+<a href="#234" id="234">234</a>
+<a href="#235" id="235">235</a>
+<a href="#236" id="236">236</a>
+<a href="#237" id="237">237</a>
+<a href="#238" id="238">238</a>
+<a href="#239" id="239">239</a>
+<a href="#240" id="240">240</a>
+<a href="#241" id="241">241</a>
+<a href="#242" id="242">242</a>
+<a href="#243" id="243">243</a>
+<a href="#244" id="244">244</a>
+<a href="#245" id="245">245</a>
+<a href="#246" id="246">246</a>
+<a href="#247" id="247">247</a>
+<a href="#248" id="248">248</a>
+<a href="#249" id="249">249</a>
+<a href="#250" id="250">250</a>
+<a href="#251" id="251">251</a>
+<a href="#252" id="252">252</a>
+<a href="#253" id="253">253</a>
+<a href="#254" id="254">254</a>
+<a href="#255" id="255">255</a>
+<a href="#256" id="256">256</a>
+<a href="#257" id="257">257</a>
+<a href="#258" id="258">258</a>
+<a href="#259" id="259">259</a>
+<a href="#260" id="260">260</a>
+<a href="#261" id="261">261</a>
+<a href="#262" id="262">262</a>
+<a href="#263" id="263">263</a>
+<a href="#264" id="264">264</a>
+<a href="#265" id="265">265</a>
+<a href="#266" id="266">266</a>
+<a href="#267" id="267">267</a>
+<a href="#268" id="268">268</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{
+    collections::HashMap,
     fmt::Debug,
+    hash::Hash,
     ops::{Add, Mul, Neg, Sub},
 };
 
@@ -249,6 +331,28 @@
             <span class="self">Self</span>::Pow(arg0, arg1) =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;({:?})^{}&quot;</span>, arg0, arg1),
             <span class="self">Self</span>::Query(arg0) =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;{:?}&quot;</span>, arg0),
             <span class="self">Self</span>::Halo2Expr(arg0) =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;halo2({:?})&quot;</span>, arg0),
+        }
+    }
+}
+
+<span class="kw">pub type </span>VarAssignments&lt;F, V&gt; = HashMap&lt;V, F&gt;;
+
+<span class="kw">impl</span>&lt;F: Field + Hash, V: Eq + PartialEq + Hash&gt; Expr&lt;F, V&gt; {
+    <span class="kw">pub fn </span>eval(<span class="kw-2">&amp;</span><span class="self">self</span>, assignments: <span class="kw-2">&amp;</span>VarAssignments&lt;F, V&gt;) -&gt; <span class="prelude-ty">Option</span>&lt;F&gt; {
+        <span class="kw">match </span><span class="self">self </span>{
+            Expr::Const(v) =&gt; <span class="prelude-val">Some</span>(<span class="kw-2">*</span>v),
+            Expr::Sum(ses) =&gt; ses
+                .iter()
+                .fold(<span class="prelude-val">Some</span>(F::ZERO), |acc, se| <span class="prelude-val">Some</span>(acc<span class="question-mark">? </span>+ se.eval(assignments)<span class="question-mark">?</span>)),
+            Expr::Mul(ses) =&gt; ses
+                .iter()
+                .fold(<span class="prelude-val">Some</span>(F::ONE), |acc, se| <span class="prelude-val">Some</span>(acc<span class="question-mark">? </span>* se.eval(assignments)<span class="question-mark">?</span>)),
+            Expr::Neg(se) =&gt; <span class="prelude-val">Some</span>(F::ZERO - se.eval(assignments)<span class="question-mark">?</span>),
+            Expr::Pow(se, exp) =&gt; <span class="prelude-val">Some</span>(se.eval(assignments)<span class="question-mark">?</span>.pow([<span class="kw-2">*</span>exp <span class="kw">as </span>u64])),
+            Expr::Query(q) =&gt; assignments.get(q).copied(),
+
+            <span class="comment">// Not implemented, and not necessary for aexpr
+            </span>Expr::Halo2Expr(<span class="kw">_</span>) =&gt; <span class="prelude-val">None</span>,
         }
     }
 }
@@ -372,6 +476,62 @@
     <span class="attr">#[inline]
     </span><span class="kw">fn </span>from(value: Expression&lt;F&gt;) -&gt; <span class="self">Self </span>{
         Expr::Halo2Expr(value)
+    }
+}
+
+<span class="attr">#[cfg(test)]
+</span><span class="kw">mod </span>test {
+    <span class="kw">use </span>halo2curves::bn256::Fr;
+
+    <span class="kw">use crate</span>::{field::Field, poly::VarAssignments};
+
+    <span class="kw">use </span><span class="kw">super</span>::Expr;
+
+    <span class="attr">#[test]
+    </span><span class="kw">fn </span>eval_const() {
+        <span class="kw">use </span><span class="kw">super</span>::Expr::<span class="kw-2">*</span>;
+
+        <span class="kw">let </span>experiment: Expr&lt;Fr, String&gt; = Const(Fr::ONE);
+        <span class="kw">let </span>assignments: VarAssignments&lt;Fr, String&gt; = VarAssignments::default();
+
+        <span class="macro">assert_eq!</span>(experiment.eval(<span class="kw-2">&amp;</span>assignments), <span class="prelude-val">Some</span>(Fr::ONE))
+    }
+
+    <span class="attr">#[test]
+    </span><span class="kw">fn </span>eval_var() {
+        <span class="kw">use </span><span class="kw">super</span>::Expr::<span class="kw-2">*</span>;
+
+        <span class="kw">let </span>experiment: Expr&lt;Fr, <span class="kw-2">&amp;</span>str&gt; = Query(<span class="string">&quot;a&quot;</span>);
+        <span class="kw">let </span><span class="kw-2">mut </span>assignments: VarAssignments&lt;Fr, <span class="kw-2">&amp;</span>str&gt; = VarAssignments::default();
+        assignments.insert(<span class="string">&quot;a&quot;</span>, Fr::ONE);
+
+        <span class="macro">assert_eq!</span>(experiment.eval(<span class="kw-2">&amp;</span>assignments), <span class="prelude-val">Some</span>(Fr::ONE))
+    }
+
+    <span class="attr">#[test]
+    </span><span class="kw">fn </span>eval_expr() {
+        <span class="kw">use </span><span class="kw">super</span>::Expr::<span class="kw-2">*</span>;
+
+        <span class="kw">let </span>experiment: Expr&lt;Fr, <span class="kw-2">&amp;</span>str&gt; = (Query(<span class="string">&quot;a&quot;</span>) * Query(<span class="string">&quot;b&quot;</span>)) + Query(<span class="string">&quot;c&quot;</span>) - Const(Fr::ONE);
+        <span class="kw">let </span><span class="kw-2">mut </span>assignments: VarAssignments&lt;Fr, <span class="kw-2">&amp;</span>str&gt; = VarAssignments::default();
+        assignments.insert(<span class="string">&quot;a&quot;</span>, Fr::from(<span class="number">2</span>));
+        assignments.insert(<span class="string">&quot;b&quot;</span>, Fr::from(<span class="number">3</span>));
+        assignments.insert(<span class="string">&quot;c&quot;</span>, Fr::from(<span class="number">4</span>));
+
+        <span class="macro">assert_eq!</span>(experiment.eval(<span class="kw-2">&amp;</span>assignments), <span class="prelude-val">Some</span>(Fr::from(<span class="number">9</span>)))
+    }
+
+    <span class="attr">#[test]
+    </span><span class="kw">fn </span>eval_expr_missing_var() {
+        <span class="kw">use </span><span class="kw">super</span>::Expr::<span class="kw-2">*</span>;
+
+        <span class="kw">let </span>experiment: Expr&lt;Fr, <span class="kw-2">&amp;</span>str&gt; = (Query(<span class="string">&quot;a&quot;</span>) * Query(<span class="string">&quot;b&quot;</span>)) + Query(<span class="string">&quot;c&quot;</span>) - Const(Fr::ONE);
+        <span class="kw">let </span><span class="kw-2">mut </span>assignments: VarAssignments&lt;Fr, <span class="kw-2">&amp;</span>str&gt; = VarAssignments::default();
+        assignments.insert(<span class="string">&quot;a&quot;</span>, Fr::from(<span class="number">2</span>));
+        <span class="comment">// REMOVE assignments.insert(&quot;b&quot;, Fr::from(3));
+        </span>assignments.insert(<span class="string">&quot;c&quot;</span>, Fr::from(<span class="number">4</span>));
+
+        <span class="macro">assert_eq!</span>(experiment.eval(<span class="kw-2">&amp;</span>assignments), <span class="prelude-val">None</span>)
     }
 }
 </code></pre></div></section></main></body></html>

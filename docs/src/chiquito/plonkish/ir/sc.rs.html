@@ -114,7 +114,7 @@
 <a href="#114" id="114">114</a>
 <a href="#115" id="115">115</a>
 <a href="#116" id="116">116</a>
-</pre></div><pre class="rust"><code><span class="kw">use </span>std::{collections::HashMap, rc::Rc};
+</pre></div><pre class="rust"><code><span class="kw">use </span>std::{collections::HashMap, hash::Hash, rc::Rc};
 
 <span class="kw">use crate</span>::{field::Field, util::UUID, wit_gen::TraceWitness};
 
@@ -147,7 +147,7 @@
     }
 }
 
-<span class="kw">impl</span>&lt;F: Field, MappingArgs&gt; SuperCircuit&lt;F, MappingArgs&gt; {
+<span class="kw">impl</span>&lt;F: Field + Hash, MappingArgs&gt; SuperCircuit&lt;F, MappingArgs&gt; {
     <span class="kw">pub fn </span>set_mapping&lt;M: Fn(<span class="kw-2">&amp;mut </span>MappingContext&lt;F&gt;, MappingArgs) + <span class="lifetime">&#39;static</span>&gt;(
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
         mapping: M,
@@ -176,7 +176,7 @@
     }
 }
 
-<span class="kw">impl</span>&lt;F: Field&gt; MappingContext&lt;F&gt; {
+<span class="kw">impl</span>&lt;F: Field + Hash&gt; MappingContext&lt;F&gt; {
     <span class="kw">pub fn </span>map&lt;TraceArgs&gt;(<span class="kw-2">&amp;mut </span><span class="self">self</span>, gen: <span class="kw-2">&amp;</span>AssignmentGenerator&lt;F, TraceArgs&gt;, args: TraceArgs) {
         <span class="self">self</span>.assignments.insert(gen.uuid(), gen.generate(args));
     }
@@ -217,7 +217,7 @@
     }
 }
 
-<span class="kw">impl</span>&lt;F: Field, MappingArgs&gt; MappingGenerator&lt;F, MappingArgs&gt; {
+<span class="kw">impl</span>&lt;F: Field + Hash, MappingArgs&gt; MappingGenerator&lt;F, MappingArgs&gt; {
     <span class="kw">pub fn </span>new(mapping: Rc&lt;Mapping&lt;F, MappingArgs&gt;&gt;) -&gt; <span class="self">Self </span>{
         <span class="self">Self </span>{ mapping }
     }
