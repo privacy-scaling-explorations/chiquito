@@ -1,7 +1,7 @@
 use crate::{
     ast::{query::Queriable, Circuit},
     field::Field,
-    plonkish::ir::sc::SuperCircuit,
+    plonkish::ir::{pil::PilCircuit, sc::SuperCircuit},
     poly::Expr,
     util::UUID,
     wit_gen::TraceWitness,
@@ -11,385 +11,6 @@ use std::{
     fmt::{Debug, Write},
 };
 extern crate regex;
-
-// PIL circuit IR
-pub struct PilCircuit<F> {
-    // circuit level
-    pub circuit_name: String,
-    pub num_steps: usize,
-
-    // circuit level - col witness
-    pub col_witness: Vec<UUID>, // internal signal NOT dedupped
-
-    // circuit level - col fixed
-    pub fixed_signals: HashMap<UUID, Vec<F>>, // fixed signal UUID -> fixed assignments vector
-    pub step_types_instantiations: HashMap<UUID, Vec<usize>>, /* step type UUID -> step
-                                               * instances
-                                               * vector {0, 1}^num_steps */
-    pub first_step: Option<UUID>,
-    pub last_step: Option<UUID>,
-
-    // step type level
-    pub step_types: Vec<UUID>,
-    pub constraints: HashMap<UUID, Vec<Expr<F, Queriable<F>>>>, // step type UUID -> constraints
-    pub transitions: HashMap<UUID, Vec<Expr<F, Queriable<F>>>>,
-    pub lookups: HashMap<UUID, Vec<PilLookup<F>>>, // step type UUID -> lookups vector
-}
-
-type PilLookup<F> = Vec<(Expr<F, Queriable<F>>, Expr<F, Queriable<F>>)>;
-
-impl<F: Clone + Debug> PilCircuit<F> {
-    pub fn from_ast_and_witness<TraceArgs>(
-        ast: Circuit<F, TraceArgs>,
-        witness: Option<TraceWitness<F>>,
-        circuit_name: String,
-    ) -> PilCircuit<F> {
-        // Create a Vec<UUID> for witness columns in PIL, corresponding to internal signals, forward
-        // signals, and shared signals in Chiquito. This vector will be used later for
-        // witness column declaration in PIL.
-        let mut col_witness = Vec::new();
-
-        // Collect UUIDs of internal signals stored at the step type level. These internal signals
-        // are not dedupped, meaning that some of them might have different UUIDs across different
-        // step types but are have the same annotation and are the same signal. Internal signals
-        // with the same annotation in the same circuit will be dedupped when converting PilCircuit
-        // to PIL code.
-        col_witness.extend(
-            ast.step_types
-                .values()
-                .flat_map(|step_type| {
-                    step_type
-                        .signals
-                        .iter()
-                        .map(|signal| signal.uuid())
-                        .collect::<Vec<UUID>>()
-                })
-                .collect::<Vec<UUID>>(),
-        );
-
-        // Collect UUIDs of forward signals stored at the circuit level.
-        col_witness.extend(
-            ast.forward_signals
-                .iter()
-                .map(|forward_signal| forward_signal.uuid())
-                .collect::<Vec<UUID>>(),
-        );
-
-        // Collect UUIDs of shared signals stored at the circuit level.
-        col_witness.extend(
-            ast.shared_signals
-                .iter()
-                .map(|shared_signal| shared_signal.uuid())
-                .collect::<Vec<UUID>>(),
-        );
-
-        // Create HashMap of fixed signal UUID to vector of fixed assignments.
-        let mut fixed_signals = HashMap::new();
-
-        if let Some(fixed_assignments) = &ast.fixed_assignments {
-            fixed_assignments
-                .iter()
-                .for_each(|(queriable, assignments)| {
-                    fixed_signals.insert(queriable.uuid(), assignments.clone());
-                });
-        }
-
-        // Create HashMap of step type UUID to vector of {0, 1} where 1 means the step type is
-        // instantiated whereas 0 not. Each vector should have the same length as the number of
-        // steps.
-        let mut step_types_instantiations = HashMap::new();
-
-        if !ast.step_types.is_empty() && witness.is_some() {
-            let step_instances = witness.as_ref().unwrap().step_instances.iter();
-
-            for step_type in ast.step_types.values() {
-                let step_type_instantiation: Vec<usize> = step_instances
-                    .clone()
-                    .map(|step_instance| {
-                        if step_instance.step_type_uuid == step_type.uuid() {
-                            1
-                        } else {
-                            0
-                        }
-                    })
-                    .collect();
-                assert_eq!(step_type_instantiation.len(), ast.num_steps);
-                step_types_instantiations.insert(step_type.uuid(), step_type_instantiation);
-            }
-        }
-
-        // Group constraints, transitions, and lookups by step type UUID using HashMaps.
-        let mut constraints: HashMap<UUID, Vec<Expr<F, Queriable<F>>>> = HashMap::new();
-        let mut transitions: HashMap<UUID, Vec<Expr<F, Queriable<F>>>> = HashMap::new();
-
-        let mut lookups: HashMap<UUID, Vec<PilLookup<F>>> = HashMap::new();
-
-        if !ast.step_types.is_empty() {
-            ast.step_types.values().for_each(|step_type| {
-                // Create constraint statements.
-                constraints.insert(
-                    step_type.uuid(),
-                    step_type
-                        .constraints
-                        .iter()
-                        .map(|constraint| constraint.expr.clone())
-                        .collect::<Vec<Expr<F, Queriable<F>>>>(),
-                );
-
-                transitions.insert(
-                    step_type.uuid(),
-                    step_type
-                        .transition_constraints
-                        .iter()
-                        .map(|transition| transition.expr.clone())
-                        .collect::<Vec<Expr<F, Queriable<F>>>>(),
-                );
-
-                // Note that there's no lookup table in PIL, so we only need to convert lookups.
-                lookups.insert(
-                    step_type.uuid(),
-                    step_type
-                        .lookups
-                        .iter()
-                        .map(|lookup| {
-                            lookup
-                                .exprs
-                                .iter()
-                                .map(|(lhs, rhs)| (lhs.expr.clone(), rhs.clone()))
-                                .collect::<Vec<(Expr<F, Queriable<F>>, Expr<F, Queriable<F>>)>>()
-                        })
-                        .collect::<Vec<PilLookup<F>>>(),
-                );
-            });
-        }
-
-        PilCircuit {
-            circuit_name,
-            num_steps: ast.num_steps,
-
-            col_witness,
-
-            fixed_signals,
-            step_types_instantiations,
-            first_step: ast.first_step,
-            last_step: ast.last_step,
-
-            step_types: ast.step_types.keys().cloned().collect(), /* returns empty if
-                                                                   * `step_types` is empty
-                                                                   * HashMap */
-            constraints,
-            transitions,
-            lookups,
-        }
-    }
-
-    // Generate PIL code given the IR of a single PIL circuit. Need to supply `annotations_map`,
-    // which only need to contain annotations for the circuit's own components if we are converting
-    // a standalone circuit. If we are converting a super circuit, `annotations_map` also needs to
-    // contain annotations for components outside the circuit.
-    pub fn generate_pil_given_annotations(
-        self: &PilCircuit<F>,
-        annotations_map: &HashMap<UUID, String>,
-    ) -> String {
-        let mut pil = String::new(); // The string to return.
-
-        writeln!(
-            pil,
-            "// ===== START OF CIRCUIT: {} =====",
-            self.circuit_name
-        )
-        .unwrap();
-
-        // Namespace is equivalent to a circuit in PIL. Note that we default `circuit_name` to
-        // "Circuit" unless supplied.
-        writeln!(
-            pil,
-            "constant %NUM_STEPS_{} = {};",
-            self.circuit_name.to_uppercase(),
-            self.num_steps
-        )
-        .unwrap();
-        writeln!(
-            pil,
-            "namespace {}(%NUM_STEPS_{});",
-            self.circuit_name.to_uppercase(),
-            self.circuit_name.to_uppercase()
-        )
-        .unwrap();
-
-        // Declare witness columns in PIL.
-        if !self.col_witness.is_empty() {
-            writeln!(pil, "// === Witness Columns for Signals ===").unwrap();
-            let mut col_witness = String::from("col witness ");
-
-            let mut col_witness_vars = self
-                .col_witness
-                .iter()
-                .map(|uuid| annotations_map.get(uuid).unwrap().clone())
-                .collect::<Vec<String>>();
-
-            // Get unique witness column annotations, because the same internal signal across
-            // different step types have different UUIDs and therefore appear multiple times.
-            col_witness_vars.sort();
-            col_witness_vars.dedup();
-            col_witness = col_witness + col_witness_vars.join(", ").as_str() + ";";
-            writeln!(pil, "{}", col_witness).unwrap();
-        }
-
-        // Convert fixed signals and their assignments in Chiquito to fixed columns in PIL.
-        if !self.fixed_signals.is_empty() {
-            writeln!(pil, "// === Fixed Columns for Signals ===").unwrap();
-            for (fixed_signal_id, assignments) in self.fixed_signals.iter() {
-                let fixed_name = annotations_map.get(fixed_signal_id).unwrap().clone();
-                let mut assignments_string = String::new();
-                let assignments_vec = assignments
-                    .iter()
-                    .map(|assignment| format!("{:?}", assignment))
-                    .collect::<Vec<String>>();
-                write!(
-                    assignments_string,
-                    "{}",
-                    assignments_vec.join(", ").as_str()
-                )
-                .unwrap();
-                writeln!(pil, "col fixed {} = [{}];", fixed_name, assignments_string).unwrap();
-            }
-        }
-
-        // Create a step selector fixed column in PIL for each step type.
-        if !self.step_types_instantiations.is_empty() {
-            writeln!(pil, "// === Fixed Columns for Step Type Selectors ===").unwrap();
-            for (step_type_id, step_type_instantiation) in self.step_types_instantiations.iter() {
-                let step_type_name = annotations_map.get(step_type_id).unwrap().clone();
-                let mut step_type_selector = String::new();
-                write!(step_type_selector, "col fixed {} = [", step_type_name).unwrap();
-
-                for (index, step_instance) in step_type_instantiation.iter().enumerate() {
-                    write!(step_type_selector, "{}", step_instance).unwrap();
-                    if index == self.num_steps - 1 {
-                        write!(step_type_selector, "]").unwrap();
-                    } else {
-                        write!(step_type_selector, ", ").unwrap();
-                    }
-                }
-                writeln!(pil, "{}", step_type_selector).unwrap();
-            }
-        }
-
-        // Create fixed columns ISFIRST and ISLAST needed for pragma_first_step and
-        // pragma_last_step.
-        writeln!(
-            pil,
-            "col fixed ISFIRST(i) {{ match i {{ 0 => 1, _ => 0 }} }};"
-        )
-        .unwrap();
-        writeln!(
-            pil,
-            "col fixed ISLAST(i) {{ match i {{ %NUM_STEPS_{} - 1 => 1, _ => 0 }} }};",
-            self.circuit_name.to_uppercase()
-        )
-        .unwrap();
-
-        // Iterate over step types to create constraint statements and lookups.
-        if !self.step_types.is_empty() {
-            for step_type in &self.step_types {
-                let step_type_name = annotations_map.get(step_type).unwrap().clone();
-                writeln!(pil, "// === Step Type {} Setup ===", step_type_name).unwrap(); // Separator comment.
-
-                let is_last_step_instance = 1
-                    == *self
-                        .step_types_instantiations
-                        .get(step_type)
-                        .unwrap()
-                        .last()
-                        .unwrap();
-
-                let step_type_name = annotations_map.get(step_type).unwrap().clone();
-
-                // Create constraint statements.
-                if let Some(constraints) = self.constraints.get(step_type) {
-                    for expr in constraints {
-                        // `convert_to_pil_expr_string` recursively converts expressions to PIL
-                        // strings, using standardized variable names from
-                        // `annotations_map`.
-                        let expr_string = convert_to_pil_expr_string(expr.clone(), annotations_map);
-                        // Each constraint is in the format of `step_type * constraint = 0`, where
-                        // `step_type` is a fixed step selector column and
-                        // `constraint` the actual constraint expression.
-                        writeln!(pil, "{} * {} = 0;", step_type_name, expr_string).unwrap();
-                    }
-                }
-
-                // Create transition constraint statements, which have the same formats as regular
-                // constraints.
-                if let Some(transitions) = self.transitions.get(step_type) {
-                    for expr in transitions {
-                        let expr_string = convert_to_pil_expr_string(expr.clone(), annotations_map);
-                        // Disable transition constraint in the last step instance.
-                        if is_last_step_instance {
-                            writeln!(
-                                pil,
-                                "(1 - ISLAST) * {} * {} = 0;",
-                                step_type_name, expr_string
-                            )
-                            .unwrap();
-                        } else {
-                            writeln!(pil, "{} * {} = 0;", step_type_name, expr_string).unwrap();
-                        }
-                    }
-                }
-
-                // Create lookup statements. Note that there's no lookup table in PIL, so we only
-                // need to convert lookups.
-                if let Some(lookups) = self.lookups.get(step_type) {
-                    for lookup in lookups {
-                        let mut lookup_source: Vec<String> = Vec::new();
-                        let mut lookup_destination: Vec<String> = Vec::new();
-                        for (src, dest) in lookup {
-                            lookup_source
-                                .push(convert_to_pil_expr_string(src.clone(), annotations_map));
-                            lookup_destination
-                                .push(convert_to_pil_expr_string(dest.clone(), annotations_map));
-                        }
-                        // PIL lookups have the format of `step_type { lookup_sources } in {
-                        // lookup_destinations }`.
-                        writeln!(
-                            pil,
-                            "{} {{{}}} in {{{}}} ",
-                            step_type_name,
-                            lookup_source.join(", "),
-                            lookup_destination.join(", ")
-                        )
-                        .unwrap();
-                    }
-                }
-            }
-        }
-
-        if self.first_step.is_some() || self.last_step.is_some() {
-            writeln!(pil, "// === Circuit Setup ===").unwrap();
-        }
-
-        // Create constraint for `pragma_first_step`, i.e. constraining step type of the first step
-        // instance.
-        if let Some(first_step) = self.first_step {
-            let first_step_name = annotations_map.get(&first_step).unwrap().clone();
-            writeln!(pil, "ISFIRST * (1 - {}) = 0", first_step_name).unwrap();
-        }
-
-        // // Create constraint for `pragma_last_step`, i.e. constraining step type of the last step
-        // instance.
-        if let Some(last_step) = self.last_step {
-            let last_step_name = annotations_map.get(&last_step).unwrap().clone();
-            writeln!(pil, "ISLAST * (1 - {}) = 0", last_step_name).unwrap();
-        }
-
-        writeln!(pil, "// ===== END OF CIRCUIT: {} =====", self.circuit_name).unwrap();
-        writeln!(pil).unwrap(); // Separator row for the circuit.
-
-        pil
-    }
-}
 
 #[allow(non_snake_case)]
 /// User generate PIL code using this function. User needs to supply AST, TraceWitness, and a name
@@ -420,7 +41,7 @@ pub fn chiquito2Pil<F: Clone + Debug, TraceArgs>(
     let pil_ir = PilCircuit::from_ast_and_witness(ast, witness, circuit_name);
 
     // Finally, generate PIL code given the IR and annotations map.
-    pil_ir.generate_pil_given_annotations(&annotations_map)
+    generate_pil_given_annotations(&pil_ir, &annotations_map)
 }
 
 #[allow(non_snake_case)]
@@ -484,9 +105,221 @@ pub fn chiquitoSuperCircuit2Pil<F: Debug + Field, MappingArgs>(
             PilCircuit::from_ast_and_witness(ast.clone(), witness.cloned(), circuit_name.clone());
 
         // Generate PIL code given the IR and annotations map.
-        let pil_circuit = pil_ir.generate_pil_given_annotations(&super_circuit_annotations_map);
+        let pil_circuit = generate_pil_given_annotations(&pil_ir, &super_circuit_annotations_map);
         writeln!(pil, "{}", pil_circuit).unwrap();
     }
+
+    pil
+}
+
+// Generate PIL code given the IR of a single PIL circuit. Need to supply `annotations_map`,
+// which only need to contain annotations for the circuit's own components if we are converting
+// a standalone circuit. If we are converting a super circuit, `annotations_map` also needs to
+// contain annotations for components outside the circuit.
+fn generate_pil_given_annotations<F: Clone + Debug>(
+    pil_ir: &PilCircuit<F>,
+    annotations_map: &HashMap<UUID, String>,
+) -> String {
+    let mut pil = String::new(); // The string to return.
+
+    writeln!(
+        pil,
+        "// ===== START OF CIRCUIT: {} =====",
+        pil_ir.circuit_name
+    )
+    .unwrap();
+
+    // Namespace is equivalent to a circuit in PIL. Note that we default `circuit_name` to
+    // "Circuit" unless supplied.
+    writeln!(
+        pil,
+        "constant %NUM_STEPS_{} = {};",
+        pil_ir.circuit_name.to_uppercase(),
+        pil_ir.num_steps
+    )
+    .unwrap();
+    writeln!(
+        pil,
+        "namespace {}(%NUM_STEPS_{});",
+        pil_ir.circuit_name.to_uppercase(),
+        pil_ir.circuit_name.to_uppercase()
+    )
+    .unwrap();
+
+    // Declare witness columns in PIL.
+    if !pil_ir.col_witness.is_empty() {
+        writeln!(pil, "// === Witness Columns for Signals ===").unwrap();
+        let mut col_witness = String::from("col witness ");
+
+        let mut col_witness_vars = pil_ir
+            .col_witness
+            .iter()
+            .map(|uuid| annotations_map.get(uuid).unwrap().clone())
+            .collect::<Vec<String>>();
+
+        // Get unique witness column annotations, because the same internal signal across
+        // different step types have different UUIDs and therefore appear multiple times.
+        col_witness_vars.sort();
+        col_witness_vars.dedup();
+        col_witness = col_witness + col_witness_vars.join(", ").as_str() + ";";
+        writeln!(pil, "{}", col_witness).unwrap();
+    }
+
+    // Convert fixed signals and their assignments in Chiquito to fixed columns in PIL.
+    if !pil_ir.fixed_signals.is_empty() {
+        writeln!(pil, "// === Fixed Columns for Signals ===").unwrap();
+        for (fixed_signal_id, assignments) in pil_ir.fixed_signals.iter() {
+            let fixed_name = annotations_map.get(fixed_signal_id).unwrap().clone();
+            let mut assignments_string = String::new();
+            let assignments_vec = assignments
+                .iter()
+                .map(|assignment| format!("{:?}", assignment))
+                .collect::<Vec<String>>();
+            write!(
+                assignments_string,
+                "{}",
+                assignments_vec.join(", ").as_str()
+            )
+            .unwrap();
+            writeln!(pil, "col fixed {} = [{}];", fixed_name, assignments_string).unwrap();
+        }
+    }
+
+    // Create a step selector fixed column in PIL for each step type.
+    if !pil_ir.step_types_instantiations.is_empty() {
+        writeln!(pil, "// === Fixed Columns for Step Type Selectors ===").unwrap();
+        for (step_type_id, step_type_instantiation) in pil_ir.step_types_instantiations.iter() {
+            let step_type_name = annotations_map.get(step_type_id).unwrap().clone();
+            let mut step_type_selector = String::new();
+            write!(step_type_selector, "col fixed {} = [", step_type_name).unwrap();
+
+            for (index, step_instance) in step_type_instantiation.iter().enumerate() {
+                write!(step_type_selector, "{}", step_instance).unwrap();
+                if index == pil_ir.num_steps - 1 {
+                    write!(step_type_selector, "]").unwrap();
+                } else {
+                    write!(step_type_selector, ", ").unwrap();
+                }
+            }
+            writeln!(pil, "{}", step_type_selector).unwrap();
+        }
+    }
+
+    // Create fixed columns ISFIRST and ISLAST needed for pragma_first_step and
+    // pragma_last_step.
+    writeln!(
+        pil,
+        "col fixed ISFIRST(i) {{ match i {{ 0 => 1, _ => 0 }} }};"
+    )
+    .unwrap();
+    writeln!(
+        pil,
+        "col fixed ISLAST(i) {{ match i {{ %NUM_STEPS_{} - 1 => 1, _ => 0 }} }};",
+        pil_ir.circuit_name.to_uppercase()
+    )
+    .unwrap();
+
+    // Iterate over step types to create constraint statements and lookups.
+    if !pil_ir.step_types.is_empty() {
+        for step_type in &pil_ir.step_types {
+            let step_type_name = annotations_map.get(step_type).unwrap().clone();
+            writeln!(pil, "// === Step Type {} Setup ===", step_type_name).unwrap(); // Separator comment.
+
+            let is_last_step_instance = 1
+                == *pil_ir
+                    .step_types_instantiations
+                    .get(step_type)
+                    .unwrap()
+                    .last()
+                    .unwrap();
+
+            let step_type_name = annotations_map.get(step_type).unwrap().clone();
+
+            // Create constraint statements.
+            if let Some(constraints) = pil_ir.constraints.get(step_type) {
+                for expr in constraints {
+                    // `convert_to_pil_expr_string` recursively converts expressions to PIL
+                    // strings, using standardized variable names from
+                    // `annotations_map`.
+                    let expr_string = convert_to_pil_expr_string(expr.clone(), annotations_map);
+                    // Each constraint is in the format of `step_type * constraint = 0`, where
+                    // `step_type` is a fixed step selector column and
+                    // `constraint` the actual constraint expression.
+                    writeln!(pil, "{} * {} = 0;", step_type_name, expr_string).unwrap();
+                }
+            }
+
+            // Create transition constraint statements, which have the same formats as regular
+            // constraints.
+            if let Some(transitions) = pil_ir.transitions.get(step_type) {
+                for expr in transitions {
+                    let expr_string = convert_to_pil_expr_string(expr.clone(), annotations_map);
+                    // Disable transition constraint in the last step instance.
+                    if is_last_step_instance {
+                        writeln!(
+                            pil,
+                            "(1 - ISLAST) * {} * {} = 0;",
+                            step_type_name, expr_string
+                        )
+                        .unwrap();
+                    } else {
+                        writeln!(pil, "{} * {} = 0;", step_type_name, expr_string).unwrap();
+                    }
+                }
+            }
+
+            // Create lookup statements. Note that there's no lookup table in PIL, so we only
+            // need to convert lookups.
+            if let Some(lookups) = pil_ir.lookups.get(step_type) {
+                for lookup in lookups {
+                    let mut lookup_source: Vec<String> = Vec::new();
+                    let mut lookup_destination: Vec<String> = Vec::new();
+                    for (src, dest) in lookup {
+                        lookup_source
+                            .push(convert_to_pil_expr_string(src.clone(), annotations_map));
+                        lookup_destination
+                            .push(convert_to_pil_expr_string(dest.clone(), annotations_map));
+                    }
+                    // PIL lookups have the format of `step_type { lookup_sources } in {
+                    // lookup_destinations }`.
+                    writeln!(
+                        pil,
+                        "{} {{{}}} in {{{}}} ",
+                        step_type_name,
+                        lookup_source.join(", "),
+                        lookup_destination.join(", ")
+                    )
+                    .unwrap();
+                }
+            }
+        }
+    }
+
+    if pil_ir.first_step.is_some() || pil_ir.last_step.is_some() {
+        writeln!(pil, "// === Circuit Setup ===").unwrap();
+    }
+
+    // Create constraint for `pragma_first_step`, i.e. constraining step type of the first step
+    // instance.
+    if let Some(first_step) = pil_ir.first_step {
+        let first_step_name = annotations_map.get(&first_step).unwrap().clone();
+        writeln!(pil, "ISFIRST * (1 - {}) = 0", first_step_name).unwrap();
+    }
+
+    // // Create constraint for `pragma_last_step`, i.e. constraining step type of the last step
+    // instance.
+    if let Some(last_step) = pil_ir.last_step {
+        let last_step_name = annotations_map.get(&last_step).unwrap().clone();
+        writeln!(pil, "ISLAST * (1 - {}) = 0", last_step_name).unwrap();
+    }
+
+    writeln!(
+        pil,
+        "// ===== END OF CIRCUIT: {} =====",
+        pil_ir.circuit_name
+    )
+    .unwrap();
+    writeln!(pil).unwrap(); // Separator row for the circuit.
 
     pil
 }
