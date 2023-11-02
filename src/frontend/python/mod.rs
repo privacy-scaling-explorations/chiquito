@@ -1648,6 +1648,7 @@ mod tests {
                     }
                 }
             ],
+            "lookups":[],
             "annotations":{
                 "5":"a",
                 "6":"b",
