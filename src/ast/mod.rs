@@ -217,6 +217,7 @@ impl<F: Debug> Debug for StepType<F> {
             .field("signals", &self.signals)
             .field("constraints", &self.constraints)
             .field("transition_constraints", &self.transition_constraints)
+            .field("lookups", &self.lookups)
             .finish()
     }
 }
@@ -292,7 +293,7 @@ pub struct TransitionConstraint<F> {
     pub expr: ASTExpr<F>,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct Lookup<F> {
     pub annotation: String,
     pub exprs: Vec<(Constraint<F>, ASTExpr<F>)>,
