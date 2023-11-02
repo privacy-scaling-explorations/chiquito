@@ -93,6 +93,7 @@ impl<F: Field + Hash, MappingArgs> SuperCircuitContext<F, MappingArgs> {
         // .map(|unit| unit.columns.clone())
         // .collect::<Vec<Vec<ir::Column>>>()
         // .concat();
+        println!("OTHER SUB CIRCUIT COUNT: {:?}", other.len());
 
         for mut unit in self.sub_circuit_phase1 {
             unit.other_sub_circuits = Rc::clone(&other);

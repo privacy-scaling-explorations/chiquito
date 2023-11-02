@@ -176,6 +176,12 @@ impl<F> CompilationUnit<F> {
             return placement;
         }
 
+        println!("OTHER SUB CIRCUITS: ");
+        for sub_circuit in self.other_sub_circuits.iter() {
+            println!("  {:?}", sub_circuit.ast_id);
+        }
+        println!("END OF OTHER SUB CIRCUITS: ");
+
         for sub_circuit in self.other_sub_circuits.iter() {
             if let Some(signal) = sub_circuit.placement.get_fixed_placement(fixed) {
                 return signal;

@@ -42,7 +42,7 @@ class SuperCircuit:
                 "SuperCircuit: sub_circuit() cannot be called twice on the same circuit."
             )
         ast_json: str = sub_circuit.get_ast_json()
-        sub_circuit.rust_id: int = rust_chiquito.ast_to_halo2(ast_json)
+        sub_circuit.rust_id: int = rust_chiquito.ast_map_store(ast_json)
         self.ast.sub_circuits[sub_circuit.rust_id] = sub_circuit.ast
         return sub_circuit
 
@@ -286,7 +286,9 @@ class StepType:
         self.step_instance.assign(lhs, F(rhs))
 
     def add_lookup(self: StepType, lookup_builder: LookupBuilder):
-        self.step_type.lookups.append(lookup_builder.build())
+        lookup = lookup_builder.build()
+        # print(lookup.__json__())
+        self.step_type.lookups.append(lookup)
 
 
 LookupBuilder = LookupTableBuilder | InPlaceLookupBuilder

@@ -52,7 +52,7 @@ pub fn chiquito_ast_to_halo2(ast_json: &str) -> UUID {
     let circuit: Circuit<Fr, ()> =
         serde_json::from_str(ast_json).expect("Json deserialization to Circuit failed.");
 
-    let config = config(SingleRowCellManager {}, SimpleStepSelectorBuilder {});
+    let config: crate::plonkish::compiler::CompilerConfig<SingleRowCellManager, SimpleStepSelectorBuilder> = config(SingleRowCellManager {}, SimpleStepSelectorBuilder {});
     let (chiquito, assignment_generator) = compile(config, &circuit);
     let chiquito_halo2 = chiquito2Halo2(chiquito);
     let uuid = uuid();
@@ -61,6 +61,26 @@ pub fn chiquito_ast_to_halo2(ast_json: &str) -> UUID {
         circuit_map
             .borrow_mut()
             .insert(uuid, (circuit, chiquito_halo2, assignment_generator));
+    });
+
+    println!("{:?}", uuid);
+
+    uuid
+}
+
+pub fn chiquito_ast_map_store(ast_json: &str) -> UUID {
+    let circuit: Circuit<Fr, ()> =
+        serde_json::from_str(ast_json).expect("Json deserialization to Circuit failed.");
+
+    // let config: crate::plonkish::compiler::CompilerConfig<SingleRowCellManager, SimpleStepSelectorBuilder> = config(SingleRowCellManager {}, SimpleStepSelectorBuilder {});
+    // let (chiquito, assignment_generator) = compile(config, &circuit);
+    // let chiquito_halo2 = chiquito2Halo2(chiquito);
+    let uuid = uuid();
+
+    CIRCUIT_MAP.with(|circuit_map| {
+        circuit_map
+            .borrow_mut()
+            .insert(uuid, (circuit, ChiquitoHalo2::default(), None));
     });
 
     println!("{:?}", uuid);
@@ -103,6 +123,15 @@ pub fn chiquito_super_circuit_halo2_mock_prover(
     for rust_id in rust_ids.clone() {
         let circuit_map_store = rust_id_to_halo2(rust_id);
         let (circuit, _, _) = circuit_map_store;
+        println!("this was runnn");
+        println!("{:?}", circuit);
+        // circuit.step_types.values().map(|s| {
+        //     println!("this was run");
+        //     if s.lookups.is_empty() {
+        //         println!("{} has no lookups", s.name)
+        //     }
+        //     println!("{:?}", s.lookups)
+        // });
         let assignment = super_circuit_ctx.sub_circuit_with_ast(config.clone(), circuit);
         add_assignment_generator_to_rust_id(assignment, rust_id);
     }
@@ -394,6 +423,8 @@ impl<'de> Visitor<'de> for StepTypeVisitor {
                         return Err(de::Error::duplicate_field("lookups"));
                     }
                     lookups = Some(map.next_value::<Vec<Lookup<Fr>>>()?);
+                    println!("LOOKUP DESERIALIZED:");
+                    println!("{:?}", lookups);
                 }
                 "annotations" => {
                     if annotations.is_some() {
@@ -423,13 +454,14 @@ impl<'de> Visitor<'de> for StepTypeVisitor {
         let constraints = constraints.ok_or_else(|| de::Error::missing_field("constraints"))?;
         let transition_constraints = transition_constraints
             .ok_or_else(|| de::Error::missing_field("transition_constraints"))?;
+        let lookups = lookups.ok_or_else(|| de::Error::missing_field("lookups"))?;
         let annotations = annotations.ok_or_else(|| de::Error::missing_field("annotations"))?;
 
         let mut step_type = StepType::<Fr>::new(id, name);
         step_type.signals = signals;
         step_type.constraints = constraints;
         step_type.transition_constraints = transition_constraints;
-        step_type.lookups = Default::default();
+        step_type.lookups = lookups;
         step_type.annotations = annotations;
 
         Ok(step_type)
@@ -1839,6 +1871,13 @@ fn ast_to_halo2(json: &PyString) -> u128 {
 }
 
 #[pyfunction]
+fn ast_map_store(json: &PyString) -> u128 {
+    let uuid = chiquito_ast_map_store(json.to_str().expect("PyString convertion failed."));
+
+    uuid
+}
+
+#[pyfunction]
 fn to_pil(witness_json: &PyString, rust_id: &PyLong, circuit_name: &PyString) -> String {
     let pil = chiquito_ast_to_pil(
         witness_json.to_str().expect("PyString convertion failed."),
@@ -1901,6 +1940,7 @@ fn rust_chiquito(_py: Python, m: &PyModule) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(convert_and_print_ast, m)?)?;
     m.add_function(wrap_pyfunction!(convert_and_print_trace_witness, m)?)?;
     m.add_function(wrap_pyfunction!(ast_to_halo2, m)?)?;
+    m.add_function(wrap_pyfunction!(ast_map_store, m)?)?;
     m.add_function(wrap_pyfunction!(to_pil, m)?)?;
     m.add_function(wrap_pyfunction!(halo2_mock_prover, m)?)?;
     m.add_function(wrap_pyfunction!(super_circuit_halo2_mock_prover, m)?)?;
