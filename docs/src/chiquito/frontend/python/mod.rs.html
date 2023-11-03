@@ -1882,6 +1882,32 @@
 <a href="#1882" id="1882">1882</a>
 <a href="#1883" id="1883">1883</a>
 <a href="#1884" id="1884">1884</a>
+<a href="#1885" id="1885">1885</a>
+<a href="#1886" id="1886">1886</a>
+<a href="#1887" id="1887">1887</a>
+<a href="#1888" id="1888">1888</a>
+<a href="#1889" id="1889">1889</a>
+<a href="#1890" id="1890">1890</a>
+<a href="#1891" id="1891">1891</a>
+<a href="#1892" id="1892">1892</a>
+<a href="#1893" id="1893">1893</a>
+<a href="#1894" id="1894">1894</a>
+<a href="#1895" id="1895">1895</a>
+<a href="#1896" id="1896">1896</a>
+<a href="#1897" id="1897">1897</a>
+<a href="#1898" id="1898">1898</a>
+<a href="#1899" id="1899">1899</a>
+<a href="#1900" id="1900">1900</a>
+<a href="#1901" id="1901">1901</a>
+<a href="#1902" id="1902">1902</a>
+<a href="#1903" id="1903">1903</a>
+<a href="#1904" id="1904">1904</a>
+<a href="#1905" id="1905">1905</a>
+<a href="#1906" id="1906">1906</a>
+<a href="#1907" id="1907">1907</a>
+<a href="#1908" id="1908">1908</a>
+<a href="#1909" id="1909">1909</a>
+<a href="#1910" id="1910">1910</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>pyo3::{
     prelude::<span class="kw-2">*</span>,
     types::{PyDict, PyList, PyLong, PyString},
@@ -1944,7 +1970,23 @@
             .insert(uuid, (circuit, chiquito_halo2, assignment_generator));
     });
 
-    <span class="macro">println!</span>(<span class="string">&quot;{:?}&quot;</span>, uuid);
+    uuid
+}
+
+<span class="comment">// Internal function called by `sub_circuit` function in Python frontend. Used in conjunction with
+// the super circuit only. Parses AST JSON and stores AST in `CIRCUIT_MAP` without compiling it.
+// Compilation is done by `chiquito_super_circuit_halo2_mock_prover`.
+</span><span class="kw">pub fn </span>chiquito_ast_map_store(ast_json: <span class="kw-2">&amp;</span>str) -&gt; UUID {
+    <span class="kw">let </span>circuit: Circuit&lt;Fr, ()&gt; =
+        serde_json::from_str(ast_json).expect(<span class="string">&quot;Json deserialization to Circuit failed.&quot;</span>);
+
+    <span class="kw">let </span>uuid = uuid();
+
+    CIRCUIT_MAP.with(|circuit_map| {
+        circuit_map
+            .borrow_mut()
+            .insert(uuid, (circuit, ChiquitoHalo2::default(), <span class="prelude-val">None</span>));
+    });
 
     uuid
 }
@@ -2296,13 +2338,14 @@
         <span class="kw">let </span>constraints = constraints.ok_or_else(|| de::Error::missing_field(<span class="string">&quot;constraints&quot;</span>))<span class="question-mark">?</span>;
         <span class="kw">let </span>transition_constraints = transition_constraints
             .ok_or_else(|| de::Error::missing_field(<span class="string">&quot;transition_constraints&quot;</span>))<span class="question-mark">?</span>;
+        <span class="kw">let </span>lookups = lookups.ok_or_else(|| de::Error::missing_field(<span class="string">&quot;lookups&quot;</span>))<span class="question-mark">?</span>;
         <span class="kw">let </span>annotations = annotations.ok_or_else(|| de::Error::missing_field(<span class="string">&quot;annotations&quot;</span>))<span class="question-mark">?</span>;
 
         <span class="kw">let </span><span class="kw-2">mut </span>step_type = StepType::&lt;Fr&gt;::new(id, name);
         step_type.signals = signals;
         step_type.constraints = constraints;
         step_type.transition_constraints = transition_constraints;
-        step_type.lookups = Default::default();
+        step_type.lookups = lookups;
         step_type.annotations = annotations;
 
         <span class="prelude-val">Ok</span>(step_type)
@@ -3515,6 +3558,7 @@
                     }
                 }
             ],
+            &quot;lookups&quot;:[],
             &quot;annotations&quot;:{
                 &quot;5&quot;:&quot;a&quot;,
                 &quot;6&quot;:&quot;b&quot;,
@@ -3712,6 +3756,13 @@
 }
 
 <span class="attr">#[pyfunction]
+</span><span class="kw">fn </span>ast_map_store(json: <span class="kw-2">&amp;</span>PyString) -&gt; u128 {
+    <span class="kw">let </span>uuid = chiquito_ast_map_store(json.to_str().expect(<span class="string">&quot;PyString convertion failed.&quot;</span>));
+
+    uuid
+}
+
+<span class="attr">#[pyfunction]
 </span><span class="kw">fn </span>halo2_mock_prover(witness_json: <span class="kw-2">&amp;</span>PyString, rust_id: <span class="kw-2">&amp;</span>PyLong, k: <span class="kw-2">&amp;</span>PyLong) {
     chiquito_halo2_mock_prover(
         witness_json.to_str().expect(<span class="string">&quot;PyString convertion failed.&quot;</span>),
@@ -3762,6 +3813,7 @@
     m.add_function(<span class="macro">wrap_pyfunction!</span>(convert_and_print_ast, m)<span class="question-mark">?</span>)<span class="question-mark">?</span>;
     m.add_function(<span class="macro">wrap_pyfunction!</span>(convert_and_print_trace_witness, m)<span class="question-mark">?</span>)<span class="question-mark">?</span>;
     m.add_function(<span class="macro">wrap_pyfunction!</span>(ast_to_halo2, m)<span class="question-mark">?</span>)<span class="question-mark">?</span>;
+    m.add_function(<span class="macro">wrap_pyfunction!</span>(ast_map_store, m)<span class="question-mark">?</span>)<span class="question-mark">?</span>;
     m.add_function(<span class="macro">wrap_pyfunction!</span>(halo2_mock_prover, m)<span class="question-mark">?</span>)<span class="question-mark">?</span>;
     m.add_function(<span class="macro">wrap_pyfunction!</span>(super_circuit_halo2_mock_prover, m)<span class="question-mark">?</span>)<span class="question-mark">?</span>;
     <span class="prelude-val">Ok</span>(())

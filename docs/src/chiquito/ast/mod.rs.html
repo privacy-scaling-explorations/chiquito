@@ -530,6 +530,7 @@
 <a href="#530" id="530">530</a>
 <a href="#531" id="531">531</a>
 <a href="#532" id="532">532</a>
+<a href="#533" id="533">533</a>
 </pre></div><pre class="rust"><code><span class="kw">pub mod </span>query;
 
 <span class="kw">use </span>std::{collections::HashMap, fmt::Debug, hash::Hash, rc::Rc};
@@ -749,6 +750,7 @@
             .field(<span class="string">&quot;signals&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.signals)
             .field(<span class="string">&quot;constraints&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.constraints)
             .field(<span class="string">&quot;transition_constraints&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.transition_constraints)
+            .field(<span class="string">&quot;lookups&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.lookups)
             .finish()
     }
 }
@@ -824,7 +826,7 @@
     <span class="kw">pub </span>expr: ASTExpr&lt;F&gt;,
 }
 
-<span class="attr">#[derive(Clone)]
+<span class="attr">#[derive(Clone, Debug)]
 </span><span class="kw">pub struct </span>Lookup&lt;F&gt; {
     <span class="kw">pub </span>annotation: String,
     <span class="kw">pub </span>exprs: Vec&lt;(Constraint&lt;F&gt;, ASTExpr&lt;F&gt;)&gt;,
