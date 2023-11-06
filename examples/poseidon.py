@@ -57,26 +57,33 @@ class PoseidonStepFirstRound(StepType):
     def setup(self):
         param_t = self.circuit.param_t
 
+        matrix = self.circuit.matrix
+        constants = self.circuit.constants
+        inputs = self.circuit.inputs
+        outs = self.circuit.outs
+        sboxs = self.circuit.sboxs
+        x_vec = self.circuit.x_vec
+
         for i in range(0, param_t):
             if i == 0:
-                self.constr(eq(setup_constants[i], setup_x_vec[i]))
+                self.constr(eq(constants[i], x_vec[i]))
             else:
-                self.constr(eq(setup_inputs[i - 1] + setup_constants[i], setup_x_vec[i]))
+                self.constr(eq(inputs[i - 1] + constants[i], x_vec[i]))
 
             self.add_lookup(
                 self.circuit.constants_table
                 .apply(i)
-                .apply(setup_constants[i])
+                .apply(constants[i])
             )
 
             self.constr(
                 eq(
-                    setup_x_vec[i]
-                    * setup_x_vec[i]
-                    * setup_x_vec[i]
-                    * setup_x_vec[i]
-                    * setup_x_vec[i],
-                    setup_sboxs[i],
+                    x_vec[i]
+                    * x_vec[i]
+                    * x_vec[i]
+                    * x_vec[i]
+                    * x_vec[i],
+                    sboxs[i],
                 )
             )
 
@@ -86,49 +93,243 @@ class PoseidonStepFirstRound(StepType):
                 self.add_lookup(
                     self.circuit.params.matrix_table
                     .apply(m_offset + j)
-                    .apply(setup_matrix[m_offset + j])
+                    .apply(matrix[m_offset + j])
                 )
 
-            lc = setup_sboxs[0] * setup_matrix[m_offset]
+            lc = sboxs[0] * matrix[m_offset]
 
             for s in range(1, param_t):
-                lc = lc + setup_sboxs[s] * setup_matrix[m_offset + s]
+                lc = lc + sboxs[s] * matrix[m_offset + s]
 
             for k in range(param_t, self.circuit.params.lens.n_inputs):
-                lc = lc + setup_inputs[k] * setup_matrix[m_offset + k]
+                lc = lc + inputs[k] * matrix[m_offset + k]
 
-            self.constr(eq(lc, setup_outs[i]))
-            self.transition(eq(setup_outs[i], setup_inputs[i].next()))
+            self.constr(eq(lc, outs[i]))
+            self.transition(eq(outs[i], inputs[i].next()))
 
         self.constr(eq(self.circuit.round, 0))
         self.transition(eq(self.circuit.round + 1, self.circuit.round.next()))
 
-    def wg(self):
-        pass
+    def wg(self, round_values):
+        for signal, value in zip(self.circuit.matrix, round_values.matrix_values):
+            self.assign(signal, F(value))
+
+        for i in range(0, self.circuit.param_t):
+            self.assign(self.circuit.round, round_values.round)
+            self.assign(self.circuit.constants[i], round_values.constant_values[i])
+            self.assign(self.circuit.x_vec[i], round_values.x_values[i])
+            self.assign(self.circuit.sboxs[i], round_values.sbox_values[i])
+            self.assign(self.circuit.outs[i], round_values.out_values[i])
+            if i < len(round_values.matrix_values):
+                self.assign(self.circuit.inputs[i], round_values.input_values[i])
+            else:
+                self.assign(self.circuit.inputs[i], F(0))
 
 
 class PoseidonStepFullRound(StepType):
     def setup(self):
-        pass
+        param_t = self.circuit.param_t
 
-    def wg(self):
-        pass
+        matrix = self.circuit.matrix
+        constants = self.circuit.constants
+        inputs = self.circuit.inputs
+        outs = self.circuit.outs
+        sboxs = self.circuit.sboxs
+        x_vec = self.circuit.x_vec
+
+        for i in range(0, param_t):
+            self.constr(eq(inputs[i] + constants[i], x_vec[i]))
+            self.constr(eq(
+                x_vec[i]
+                * x_vec[i]
+                * x_vec[i]
+                * x_vec[i]
+                * x_vec[i],
+                sboxs[i],
+            ))
+            self.add_lookup(
+                self.circuit.params.constants_table
+                .apply(self.circuit.round * param_t + i)
+                .apply(constants[i]),
+            )
+
+        for i in range(0, param_t):
+            m_offset = i * param_t
+            for j in range(0, param_t):
+                self.add_lookup(
+                    self.circuit.params.matrix_table
+                    .apply(m_offset * j)
+                    .apply(matrix[m_offset + j]),
+                )
+
+            lc = sboxs[0] * matrix[m_offset]
+            for s in range(1, param_t):
+                lc = lc + sboxs[s] * matrix[m_offset + s]
+
+            self.constr(eq(lc, outs[i]))
+            self.transition(eq(outs[i], inputs[i].next()))
+
+        self.transition(
+            eq(self.circuit.round + 1, self.circuit.round.next())
+        )
+
+    def wg(self, round_values):
+        for signal, value in zip(
+                self.circuit.matrix,
+                round_values.matrix_values
+        ):
+            self.assign(signal, F(value))
+
+        for i in range(0, self.circuit.param_t):
+            self.assign(self.circuit.constants[i], round_values.constant_values[i])
+            self.assign(self.circuit.inputs[i], round_values.input_values[i])
+            self.assign(self.circuit.x_vec[i], round_values.x_values[i])
+            self.assign(self.circuit.sboxs[i], round_values.sbox_values[i])
+            self.assign(self.circuit.outs[i], round_values.out_values[i])
+
+        self.assign(self.circuit.round, round_values.round)
 
 
 class PoseidonStepPartialRound(StepType):
     def setup(self):
-        pass
+        param_t = self.circuit.param_t
+        param_c = self.circuit.param_c
 
-    def wg(self):
-        pass
+        matrix = self.circuit.matrix
+        constants = self.circuit.constants
+        inputs = self.circuit.inputs
+        outs = self.circuit.outs
+        sboxs = self.circuit.sboxs
+        x_vec = self.circuit.x_vec
+
+        for i in range(0, param_t):
+            self.constr(eq(inputs[i] + constants[i], x_vec[i]))
+            self.add_lookup(
+                self.circuit.params.constants_table
+                .apply(self.circuit.round * param_t + i)
+                .apply(constants[i]),
+            )
+
+        for i in range(0, param_c):
+            self.constr(
+                eq(
+                    x_vec[i]
+                    * x_vec[i]
+                    * x_vec[i]
+                    * x_vec[i]
+                    * x_vec[i],
+                    sboxs[i],
+                )
+            )
+
+        for i in range(0, param_t):
+            m_offset = i * param_t
+            for j in range(0, param_t):
+                self.add_lookup(
+                    self.circuit.params.matrix_table
+                    .apply(m_offset + j)
+                    .apply(matrix[m_offset + j]),
+                )
+
+            lc = sboxs[0] * matrix[m_offset]
+            for s in range(1, param_c):
+                lc = lc + sboxs[s] * matrix[m_offset + s]
+            for k in range(param_c, param_t):
+                lc = lc + x_vec[k] * matrix[m_offset + k]
+
+            self.constr(eq(lc, outs[i]))
+            self.transition(eq(outs[i], inputs[i].next()))
+
+        self.transition(
+            eq(self.circuit.round + 1, self.circuit.round.next())
+        )
+
+    def wg(self, round_values):
+        for signal, value in zip(
+                self.circuit.matrix,
+                round_values.matrix_values
+        ):
+            self.assign(signal, F(value))
+
+        for i in range(0, self.circuit.param_t):
+            self.assign(self.circuit.constants[i], round_values.constant_values[i])
+            self.assign(self.circuit.inputs[i], round_values.input_values[i])
+            self.assign(self.circuit.outs[i], round_values.out_values[i])
+            self.assign(self.circuit.x_vec[i], round_values.x_values[i])
+
+        for i, sbox in zip(
+                self.circuit.sboxs,
+                self.circuit.param_c,
+
+        ):
+            self.assign(sbox, F(round_values.sbox_values[i]))
+
+        self.assign(self.circuit.round, round_values.round)
 
 
 class PoseidonStepLastRound(StepType):
     def setup(self):
-        pass
+        param_t = self.circuit.param_t
 
-    def wg(self):
-        pass
+        matrix = self.circuit.matrix
+        constants = self.circuit.constants
+        inputs = self.circuit.inputs
+        outs = self.circuit.outs
+        sboxs = self.circuit.sboxs
+        x_vec = self.circuit.x_vec
+
+        for i in range(0, param_t):
+            self.constr(eq(inputs[i] + constants[i], x_vec[i]))
+            self.constr(eq(
+                x_vec[i]
+                * x_vec[i]
+                * x_vec[i]
+                * x_vec[i]
+                * x_vec[i],
+                sboxs[i],
+            ))
+            self.add_lookup(
+                self.circuit.params.constants_table
+                .apply(self.circuit.round * param_t + i)
+                .apply(constants[i]),
+            )
+
+        for i in range(0, param_t):
+            m_offset = i * param_t
+            for j in range(0, param_t):
+                self.add_lookup(
+                    self.circuit.params.matrix_table
+                    .apply(m_offset + j)
+                    .apply(matrix[m_offset + j])
+                )
+
+        for i, out in enumerate(outs[0:self.circuit.params.lens.n_outputs]):
+            m_offset = i * param_t
+            lc = sboxs[0] * matrix[m_offset]
+            for s in range(1, param_t):
+                lc = lc + sboxs[s] + matrix[m_offset + s]
+            self.constr(eq(lc, out))
+
+    def wg(self, round_values):
+        for signal, value in zip(
+                self.circuit.matrix,
+                round_values.matrix_values
+        ):
+            self.assign(signal, F(value))
+
+        for i in range(0, self.circuit.param_t):
+            self.assign(self.circuit.constants[i], round_values.constant_values[i])
+            self.assign(self.circuit.inputs[i], round_values.input_values[i])
+            self.assign(self.circuit.x_vec[i], round_values.x_values[i])
+            self.assign(self.circuit.sboxs[i], round_values.sbox_values[i])
+
+        for signal, value in zip(
+                self.circuit.outs,
+                round_values.out_values
+        ):
+            self.assign(signal, F(value))
+
+        self.assign(self.circuit.round, round_values.round)
 
 
 class PoseidonCircuit(Circuit):
@@ -142,6 +343,13 @@ class PoseidonCircuit(Circuit):
 
         assert self.circuit.params.lens.n_inputs < self.param_t
         assert self.circuit.params.lens.n_outputs < self.param_t
+
+        self.matrix = [self.forward("matrix_" + str(i)) for i in range(0, self.param_t)]
+        self.constants = [self.forward("constant_" + str(i)) for i in range(0, self.param_t)]
+        self.inputs = [self.forward("input_" + str(i)) for i in range(0, self.param_t)]
+        self.outs = [self.forward("output_" + str(i)) for i in range(0, self.param_t)]
+        self.sboxs = [self.forward("sbox_" + str(i)) for i in range(0, self.param_t)]
+        self.x_vec = [self.forward("x_" + str(i)) for i in range(0, self.param_t)]
 
         self.round = self.forward("round")
 
