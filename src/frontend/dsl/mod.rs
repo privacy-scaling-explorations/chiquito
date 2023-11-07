@@ -578,6 +578,61 @@ mod tests {
         assert_eq!(
             context.circuit.annotations[&handler.uuid()],
             "fibo_first_step"
-        )
+        );
+    }
+
+    #[test]
+    fn test_step_type_def() {
+        // create circuit context
+        let circuit: Circuit<i32, i32> = Circuit::default();
+        let mut context = CircuitContext {
+            circuit,
+            tables: Default::default(),
+        };
+
+        // create a step type including its definition
+        let simple_step = context.step_type_def("simple_step", |context| {
+            context.setup(|_| {});
+            context.wg(|_, _: u32| {})
+        });
+
+        // assert step type was created and added to the circuit
+        assert_eq!(
+            context.circuit.annotations[&simple_step.uuid()],
+            "simple_step"
+        );
+        assert_eq!(
+            simple_step.uuid(),
+            context.circuit.step_types[&simple_step.uuid()].uuid()
+        );
+    }
+
+    #[test]
+    fn test_step_type_def_pass_handler() {
+        // create circuit context
+        let circuit: Circuit<i32, i32> = Circuit::default();
+        let mut context = CircuitContext {
+            circuit,
+            tables: Default::default(),
+        };
+
+        // create a step type handler
+        let handler: StepTypeHandler = context.step_type("simple_step");
+
+        // create a step type including its definition
+        let simple_step = context.step_type_def(handler, |context| {
+            context.setup(|_| {});
+            context.wg(|_, _: u32| {})
+        });
+
+        // assert step type was created and added to the circuit
+        assert_eq!(
+            context.circuit.annotations[&simple_step.uuid()],
+            "simple_step"
+        );
+        assert_eq!(
+            simple_step.uuid(),
+            context.circuit.step_types[&simple_step.uuid()].uuid()
+        );
     }
 }
