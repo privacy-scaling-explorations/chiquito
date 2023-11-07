@@ -551,7 +551,7 @@ mod tests {
         let forward_a: Queriable<i32> = context.forward("forward_a");
         let step_offset: ExposeOffset = ExposeOffset::Last;
 
-        // expose the forward signal of the final step 
+        // expose the forward signal of the final step
         context.expose(forward_a, step_offset);
 
         // assert the signal is exposed
@@ -560,5 +560,24 @@ mod tests {
             std::mem::discriminant(&context.circuit.exposed[0].1),
             std::mem::discriminant(&step_offset)
         );
+    }
+
+    #[test]
+    fn test_step_type() {
+        // create circuit context
+        let circuit: Circuit<i32, i32> = Circuit::default();
+        let mut context = CircuitContext {
+            circuit,
+            tables: Default::default(),
+        };
+
+        // create a step type
+        let handler: StepTypeHandler = context.step_type("fibo_first_step");
+
+        // assert that the created step type was added to the circuit annotations
+        assert_eq!(
+            context.circuit.annotations[&handler.uuid()],
+            "fibo_first_step"
+        )
     }
 }
