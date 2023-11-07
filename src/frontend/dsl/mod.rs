@@ -1,5 +1,5 @@
 use crate::{
-    ast::{query::Queriable, Circuit, ExposeOffset, StepType, StepTypeUUID},
+    ast::{query::Queriable, ASTExpr, Circuit, ExposeOffset, StepType, StepTypeUUID},
     field::Field,
     util::{uuid, UUID},
     wit_gen::{FixedGenContext, StepInstance, TraceContext},
@@ -11,7 +11,7 @@ use core::{fmt::Debug, hash::Hash};
 use std::marker::PhantomData;
 
 use self::{
-    cb::{Constraint, Typing},
+    cb::{eq, Constraint, Typing},
     lb::{LookupBuilder, LookupTable, LookupTableRegistry, LookupTableStore},
 };
 
@@ -308,6 +308,18 @@ impl<'a, F> StepTypeSetupContext<'a, F> {
                 constraint.typing, constraint.annotation
             );
         }
+    }
+}
+
+impl<'a, F: Eq + PartialEq + Hash + Debug + Clone> StepTypeSetupContext<'a, F> {
+    pub fn auto(&mut self, signal: Queriable<F>, expr: ASTExpr<F>) {
+        self.step_type.auto_signals.insert(signal, expr);
+    }
+
+    pub fn auto_eq(&mut self, signal: Queriable<F>, expr: ASTExpr<F>) {
+        self.auto(signal.clone(), expr.clone());
+
+        self.constr(eq(signal, expr));
     }
 }
 
