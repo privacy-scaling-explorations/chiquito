@@ -28,7 +28,12 @@ class SuperCircuitMode(Enum):
 
 
 class SuperCircuit:
-    def __init__(self: SuperCircuit):
+    def __init__(
+        self: SuperCircuit,
+        **kwargs,  # **kwargs is intended for arbitrary names for imports
+    ):
+        for key, value in kwargs.items():
+            setattr(self, key, value)
         self.ast = ASTSuperCircuit()
         self.mode = SuperCircuitMode.SETUP
         self.setup()
