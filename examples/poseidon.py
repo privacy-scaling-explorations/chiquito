@@ -27,8 +27,7 @@ class PoseidonConstants(Circuit):
     def fixed_gen(self):
         for i, round_key in enumerate(self.constants[0:self.lens]):
             self.assign(i, self.row, F(i))
-            print(round_key)
-            self.assign(i, self.value, F(int(round_key)))
+            self.assign(i, self.value, F(round_key))
 
 
 class PoseidonMatrix(Circuit):
@@ -51,7 +50,7 @@ class PoseidonMatrix(Circuit):
     def fixed_gen(self):
         for i, round_key in enumerate(self.matrix[0:self.lens]):
             self.assign(i, self.row, F(i))
-            self.assign(i, self.value, F(int(round_key)))
+            self.assign(i, self.value, F(round_key))
 
 
 class PoseidonStepFirstRound(StepType):
@@ -88,15 +87,9 @@ class PoseidonStepFirstRound(StepType):
                 )
             )
 
-        print(matrix)
-        print(param_t)
-
         for i in range(0, param_t):
             m_offset = i * param_t
             for j in range(0, param_t):
-                print(m_offset)
-                print(j)
-                print("--")
                 self.add_lookup(
                     self.circuit.matrix_table
                     .apply(m_offset + j)
@@ -127,7 +120,7 @@ class PoseidonStepFirstRound(StepType):
             self.assign(self.circuit.x_vec[i], round_values["x_values"][i])
             self.assign(self.circuit.sboxs[i], round_values["sbox_values"][i])
             self.assign(self.circuit.outs[i], round_values["out_values"][i])
-            if i < len(round_values["matrix_values"]):
+            if i < len(round_values["input_values"]):
                 self.assign(self.circuit.inputs[i], round_values["input_values"][i])
             else:
                 self.assign(self.circuit.inputs[i], F(0))
@@ -264,11 +257,7 @@ class PoseidonStepPartialRound(StepType):
             self.assign(self.circuit.outs[i], round_values["out_values"][i])
             self.assign(self.circuit.x_vec[i], round_values["x_values"][i])
 
-        for i, sbox in zip(
-                self.circuit.sboxs,
-                self.circuit.param_c,
-
-        ):
+        for i, sbox in enumerate(self.circuit.sboxs[0:self.circuit.param_c]):
             self.assign(sbox, F(round_values["sbox_values"][i]))
 
         self.assign(self.circuit.round, round_values["round"])
@@ -314,7 +303,7 @@ class PoseidonStepLastRound(StepType):
             m_offset = i * param_t
             lc = sboxs[0] * matrix[m_offset]
             for s in range(1, param_t):
-                lc = lc + sboxs[s] + matrix[m_offset + s]
+                lc = lc + sboxs[s] * matrix[m_offset + s]
             self.constr(eq(lc, out))
 
     def wg(self, round_values):
@@ -351,7 +340,7 @@ class PoseidonCircuit(Circuit):
         assert self.lens["n_inputs"] < self.param_t
         assert self.lens["n_outputs"] < self.param_t
 
-        self.matrix = [self.forward("matrix_" + str(i)) for i in range(0, self.param_t)]
+        self.matrix = [self.forward("matrix_" + str(i)) for i in range(0, self.param_t * self.param_t)]
         self.constants = [self.forward("constant_" + str(i)) for i in range(0, self.param_t)]
         self.inputs = [self.forward("input_" + str(i)) for i in range(0, self.param_t)]
         self.outs = [self.forward("output_" + str(i)) for i in range(0, self.param_t)]
@@ -414,11 +403,10 @@ class PoseidonCircuit(Circuit):
             "out_values": outputs,
             "round": F(0),
         }
-
         self.add(self.step_first_round, round_values)
         inputs = outputs
 
-        for i in range(1, param_t / 2):
+        for i in range(1, int(param_t / 2) + 1):
             x_values = [
                 inputs[j] + constant_values[i * param_t + j]
                 for j in range(0, param_t)
@@ -449,7 +437,7 @@ class PoseidonCircuit(Circuit):
 
         for i in range(0, param_p):
             x_values = [
-                inputs[j] + constant_values[j + (i + param_f / 2) * param_t]
+                inputs[j] + constant_values[j + int(i + param_f / 2) * param_t]
                 for j in range(0, param_t)
             ]
             sbox_values = [x_value ** 5 for x_value in x_values]
@@ -469,20 +457,19 @@ class PoseidonCircuit(Circuit):
 
             round_values = {
                 "input_values": inputs,
-                "constant_values": constant_values[(i + param_f / 2) * param_t:(i + param_f / 2 + 1) * param_t],
+                "constant_values": constant_values[int(i + param_f / 2) * param_t:int(i + param_f / 2 + 1) * param_t],
                 "matrix_values": matrix_values,
                 "x_values": x_values,
                 "sbox_values": sbox_values,
                 "out_values": outputs,
                 "round": F(int(i + param_f / 2)),
             }
-
             self.add(self.step_partial_round, round_values)
             inputs = outputs
 
-        for i in range(1, param_t / 2 - 1):
+        for i in range(0, int(param_f / 2) - 1):
             x_values = [
-                inputs[j] + constant_values[(i + param_f / 2 + param_p) * param_t + j]
+                inputs[j] + constant_values[(i + int(param_f / 2) + param_p) * param_t + j]
                 for j in range(0, param_t)
             ]
             sbox_values = [x_value ** 5 for x_value in x_values]
@@ -499,13 +486,12 @@ class PoseidonCircuit(Circuit):
             ]
             round_values = {
                 "input_values": inputs,
-                "constant_values": constant_values[
-                                   (i + param_f / 2 + param_p) * param_t:(i + param_f / 2 + param_p + 1) * param_t],
+                "constant_values": constant_values[(i + int(param_f / 2) + param_p) * param_t:(i + int(param_f / 2) + param_p + 1) * param_t],
                 "matrix_values": matrix_values,
                 "x_values": x_values,
                 "sbox_values": sbox_values,
                 "out_values": outputs,
-                "round": F(int(i + param_f / 2 + param_p)),
+                "round": F(i + int(param_f / 2) + param_p),
             }
             self.add(self.step_full_round, round_values)
             inputs = outputs
@@ -527,6 +513,7 @@ class PoseidonCircuit(Circuit):
             method(i)
             for i in range(0, values["n_outputs"])
         ]
+        print("[poseidon hash] outputs = ", outputs)
 
         round_values = {
             "input_values": inputs,
@@ -535,7 +522,7 @@ class PoseidonCircuit(Circuit):
             "x_values": x_values,
             "sbox_values": sbox_values,
             "out_values": outputs,
-            "round": F(int(param_p + param_f - 1)),
+            "round": F(param_p + param_f - 1),
         }
         self.add(self.step_last_round, round_values)
 
@@ -543,7 +530,7 @@ class PoseidonCircuit(Circuit):
 class PoseidonSuperCircuit(SuperCircuit):
     def setup(self):
         lens = {
-            "n_inputs": 2,
+            "n_inputs": 6,
             "n_outputs": 1,
         }
         n_inputs = lens["n_inputs"]
@@ -571,12 +558,12 @@ class Examples:
         # Arrange
         values = {
             "inputs": [
-                1, 1
+                1, 1, 1, 1, 1, 1
             ],
             "n_outputs": 1,
         }
         lens = {
-            "n_inputs": 2,
+            "n_inputs": 6,
             "n_outputs": 1,
         }
 
@@ -584,6 +571,7 @@ class Examples:
         poseidon = PoseidonSuperCircuit()
         witness = poseidon.gen_witness(values)
 
+        # print(list(witness.values())[0])
         # Assert
         poseidon.halo2_mock_prover(witness)
 
