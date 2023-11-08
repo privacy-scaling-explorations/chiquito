@@ -28,7 +28,12 @@ class SuperCircuitMode(Enum):
 
 
 class SuperCircuit:
-    def __init__(self: SuperCircuit):
+    def __init__(
+            self: SuperCircuit,
+            **kwargs,  # **kwargs is intended for arbitrary names for imports
+    ):
+        for key, value in kwargs.items():
+            setattr(self, key, value)
         self.ast = ASTSuperCircuit()
         self.mode = SuperCircuitMode.SETUP
         self.setup()
@@ -71,7 +76,7 @@ class SuperCircuit:
         return super_witness
 
     def halo2_mock_prover(
-        self: SuperCircuit, super_witness: Dict[int, TraceWitness], k: int = 16
+            self: SuperCircuit, super_witness: Dict[int, TraceWitness], k: int = 16
     ):
         witness_json = {}
         for rust_id, witness in super_witness.items():
@@ -94,9 +99,9 @@ class CircuitMode(Enum):
 
 class Circuit:
     def __init__(
-        self: Circuit,
-        super_circuit: SuperCircuit = None,
-        **kwargs,  # **kwargs is intended for arbitrary names for imports
+            self: Circuit,
+            super_circuit: SuperCircuit = None,
+            **kwargs,  # **kwargs is intended for arbitrary names for imports
     ):
         self.ast = ASTCircuit()
         self.witness = TraceWitness()
