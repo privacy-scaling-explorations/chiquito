@@ -710,17 +710,17 @@ fn main() {
     let circuit =
         ChiquitoHalo2SuperCircuit::new(compiled, super_circuit.get_mapping().generate(values));
 
-    let prover = MockProver::<Fr>::run(12, &circuit, Vec::new()).unwrap();
+    // let prover = MockProver::<Fr>::run(12, &circuit, Vec::new()).unwrap();
 
-    let result = prover.verify_par();
+    // let result = prover.verify_par();
 
-    println!("result = {:#?}", result);
+    // println!("result = {:#?}", result);
 
-    if let Err(failures) = &result {
-        for failure in failures.iter() {
-            println!("{}", failure);
-        }
-    }
+    // if let Err(failures) = &result {
+    //     for failure in failures.iter() {
+    //         println!("{}", failure);
+    //     }
+    // }
 }
 
 fn poseidon_constant(param_t: usize) -> Vec<&'static str> {

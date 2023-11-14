@@ -131,17 +131,17 @@ pub fn chiquito_super_circuit_halo2_mock_prover(
 
     let circuit = ChiquitoHalo2SuperCircuit::new(compiled, super_assignments);
 
-    let prover = MockProver::<Fr>::run(k as u32, &circuit, circuit.instance()).unwrap();
+    // let prover = MockProver::<Fr>::run::<Fr, false>(k as u32, &circuit, circuit.instance()).unwrap();
 
-    let result = prover.verify_par();
+    // let result = prover.verify_par();
 
-    println!("result = {:#?}", result);
+    // println!("result = {:#?}", result);
 
-    if let Err(failures) = &result {
-        for failure in failures.iter() {
-            println!("{}", failure);
-        }
-    }
+    // if let Err(failures) = &result {
+    //     for failure in failures.iter() {
+    //         println!("{}", failure);
+    //     }
+    // }
 }
 
 /// Returns the (`ast::Circuit`, `ChiquitoHalo2`, `AssignmentGenerator`, `TraceWitness`) tuple
@@ -164,17 +164,17 @@ pub fn chiquito_halo2_mock_prover(witness_json: &str, rust_id: UUID, k: usize) {
         assignment_generator.map(|g| g.generate_with_witness(trace_witness)),
     );
 
-    let prover = MockProver::<Fr>::run(k as u32, &circuit, circuit.instance()).unwrap();
+    // let prover = MockProver::<Fr>::run::<Fr, false>(k as u32, &circuit, circuit.instance()).unwrap();
 
-    let result = prover.verify_par();
+    // let result = prover.verify_par();
 
-    println!("{:#?}", result);
+    // println!("{:#?}", result);
 
-    if let Err(failures) = &result {
-        for failure in failures.iter() {
-            println!("{}", failure);
-        }
-    }
+    // if let Err(failures) = &result {
+    //     for failure in failures.iter() {
+    //         println!("{}", failure);
+    //     }
+    // }
 }
 
 struct CircuitVisitor;

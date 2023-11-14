@@ -9,6 +9,7 @@ use halo2_proofs::{
     },
     poly::Rotation,
 };
+use plonkish_backend::frontend::halo2::CircuitExt;
 
 use crate::{
     field::Field as ChiquitoField,
@@ -376,6 +377,17 @@ impl<F: Field + From<u64> + Hash> ChiquitoHalo2Circuit<F> {
     }
 
     pub fn instance(&self) -> Vec<Vec<F>> {
+        if !self.compiled.circuit.exposed.is_empty() {
+            if let Some(witness) = &self.witness {
+                return vec![self.compiled.instance(witness)];
+            }
+        }
+        Vec::new()
+    }
+}
+
+impl<F: Field + From<u64> + Hash> CircuitExt<F> for ChiquitoHalo2Circuit<F>{
+    fn instances(&self) -> Vec<Vec<F>> {
         if !self.compiled.circuit.exposed.is_empty() {
             if let Some(witness) = &self.witness {
                 return vec![self.compiled.instance(witness)];

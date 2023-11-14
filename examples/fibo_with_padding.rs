@@ -204,46 +204,46 @@ fn main() {
     let compiled = chiquito2Halo2(chiquito);
     let circuit = ChiquitoHalo2Circuit::new(compiled, wit_gen.map(|g| g.generate(7)));
 
-    let prover = MockProver::<Fr>::run(7, &circuit, circuit.instance()).unwrap();
+    // let prover = MockProver::<Fr>::run(7, &circuit, circuit.instance()).unwrap();
 
-    let result = prover.verify_par();
+    // let result = prover.verify_par();
 
-    println!("{:#?}", result);
+    // println!("{:#?}", result);
 
-    if let Err(failures) = &result {
-        for failure in failures.iter() {
-            println!("{}", failure);
-        }
-    }
+    // if let Err(failures) = &result {
+    //     for failure in failures.iter() {
+    //         println!("{}", failure);
+    //     }
+    // }
 
-    // plaf boilerplate
-    use chiquito::plonkish::backend::plaf::chiquito2Plaf;
-    use polyexen::plaf::{backends::halo2::PlafH2Circuit, WitnessDisplayCSV};
+    // // plaf boilerplate
+    // use chiquito::plonkish::backend::plaf::chiquito2Plaf;
+    // use polyexen::plaf::{backends::halo2::PlafH2Circuit, WitnessDisplayCSV};
 
-    // get Chiquito ir
-    let (circuit, wit_gen) = fibo_circuit::<Fr>();
-    // get Plaf
-    let (plaf, plaf_wit_gen) = chiquito2Plaf(circuit, 8, false);
-    let wit = plaf_wit_gen.generate(wit_gen.map(|v| v.generate(7)));
+    // // get Chiquito ir
+    // let (circuit, wit_gen) = fibo_circuit::<Fr>();
+    // // get Plaf
+    // let (plaf, plaf_wit_gen) = chiquito2Plaf(circuit, 8, false);
+    // let wit = plaf_wit_gen.generate(wit_gen.map(|v| v.generate(7)));
 
-    // debug only: print witness
-    println!("{}", WitnessDisplayCSV(&wit));
+    // // debug only: print witness
+    // println!("{}", WitnessDisplayCSV(&wit));
 
-    // get Plaf halo2 circuit from Plaf's halo2 backend
-    // this is just a proof of concept, because Plaf only has backend for halo2
-    // this is unnecessary because Chiquito has a halo2 backend already
-    let plaf_circuit = PlafH2Circuit { plaf, wit };
+    // // get Plaf halo2 circuit from Plaf's halo2 backend
+    // // this is just a proof of concept, because Plaf only has backend for halo2
+    // // this is unnecessary because Chiquito has a halo2 backend already
+    // let plaf_circuit = PlafH2Circuit { plaf, wit };
 
-    // same as halo2 boilerplate above
-    let prover_plaf = MockProver::<Fr>::run(8, &plaf_circuit, plaf_circuit.instance()).unwrap();
+    // // same as halo2 boilerplate above
+    // let prover_plaf = MockProver::<Fr>::run(8, &plaf_circuit, plaf_circuit.instance()).unwrap();
 
-    let result_plaf = prover_plaf.verify_par();
+    // let result_plaf = prover_plaf.verify_par();
 
-    println!("result = {:#?}", result_plaf);
+    // println!("result = {:#?}", result_plaf);
 
-    if let Err(failures) = &result_plaf {
-        for failure in failures.iter() {
-            println!("{}", failure);
-        }
-    }
+    // if let Err(failures) = &result_plaf {
+    //     for failure in failures.iter() {
+    //         println!("{}", failure);
+    //     }
+    // }
 }

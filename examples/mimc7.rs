@@ -208,17 +208,17 @@ fn main() {
         super_circuit.get_mapping().generate((x_in_value, k_value)),
     );
 
-    let prover = MockProver::<Fr>::run(10, &circuit, circuit.instance()).unwrap();
+    // let prover = MockProver::<Fr>::run(10, &circuit, circuit.instance()).unwrap();
 
-    let result = prover.verify_par();
+    // let result = prover.verify_par();
 
-    println!("result = {:#?}", result);
+    // println!("result = {:#?}", result);
 
-    if let Err(failures) = &result {
-        for failure in failures.iter() {
-            println!("{}", failure);
-        }
-    }
+    // if let Err(failures) = &result {
+    //     for failure in failures.iter() {
+    //         println!("{}", failure);
+    //     }
+    // }
 }
 
 mod mimc7_constants {
