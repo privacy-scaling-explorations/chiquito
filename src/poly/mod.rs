@@ -28,6 +28,20 @@ pub enum Expr<F, V> {
     Halo2Expr(Expression<F>),
 }
 
+impl<F, V> Expr<F, V> {
+    pub fn degree(&self) -> usize {
+        match self {
+            Expr::Const(_) => 0,
+            Expr::Sum(ses) => ses.into_iter().map(|se| se.degree()).max().unwrap(),
+            Expr::Mul(ses) => ses.into_iter().fold(0, |acc, se| acc + se.degree()),
+            Expr::Neg(se) => se.degree(),
+            Expr::Pow(se, exp) => se.degree() * (*exp as usize),
+            Expr::Query(_) => 1,
+            Expr::Halo2Expr(_) => panic!("not implemented"),
+        }
+    }
+}
+
 impl<F: Debug, V: Debug> Debug for Expr<F, V> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
