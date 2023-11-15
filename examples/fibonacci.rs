@@ -131,8 +131,14 @@ fn main() {
         util::transcript::Keccak256Transcript,
     };
     use halo2_proofs::halo2curves::bn256::Fr;
-    let hyperplonk_halo2_circuit = Halo2Circuit::new::<HyperPlonk<()>>(7, circuit);
-    
+    let circuit = Halo2Circuit::new::<HyperPlonk<()>>(7, circuit);
+    let circuit_info = circuit.circuit_info().unwrap();
+
+    // type Pb = HyperPlonk<MultilinearKzg<Bn256>>;
+    // run_plonkish_backend::<_, Pb, Keccak256Transcript<_>, _>(3..16, |num_vars| {
+    //     let circuit = Halo2Circuit::new::<Pb>(num_vars, VanillaPlonk::rand(num_vars, OsRng));
+    //     (circuit.circuit_info().unwrap(), circuit)
+    // });
 
     // let prover = MockProver::<Fr>::run(7, &circuit, circuit.instance()).unwrap();
 
