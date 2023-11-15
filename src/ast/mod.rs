@@ -478,10 +478,10 @@ pub struct InternalSignal {
 }
 
 impl InternalSignal {
-    pub fn new(annotation: String) -> InternalSignal {
+    pub fn new<S: Into<String>>(annotation: S) -> InternalSignal {
         InternalSignal {
             id: uuid(),
-            annotation: Box::leak(annotation.into_boxed_str()),
+            annotation: Box::leak(annotation.into().into_boxed_str()),
         }
     }
 

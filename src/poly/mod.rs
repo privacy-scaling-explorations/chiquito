@@ -9,6 +9,9 @@ use halo2_proofs::plonk::Expression;
 
 use crate::field::Field;
 
+pub mod reduce;
+pub mod simplify;
+
 pub trait ToExpr<F, V> {
     fn expr(&self) -> Expr<F, V>;
 }
@@ -222,6 +225,72 @@ impl<F, V> From<Expression<F>> for Expr<F, V> {
     #[inline]
     fn from(value: Expression<F>) -> Self {
         Expr::Halo2Expr(value)
+    }
+}
+
+pub trait SignalFactory<V> {
+    fn new<S: Into<String>>(&mut self, annotation: S) -> V;
+}
+
+#[derive(Debug, Clone)]
+pub struct ExprDecomp<F, V> {
+    root_expr: Expr<F, V>,
+    exprs: Vec<Expr<F, V>>,
+    auto_signals: HashMap<V, Expr<F, V>>,
+}
+
+impl<F, V> From<Expr<F, V>> for ExprDecomp<F, V> {
+    fn from(value: Expr<F, V>) -> Self {
+        ExprDecomp {
+            root_expr: value,
+            exprs: Default::default(),
+            auto_signals: Default::default(),
+        }
+    }
+}
+
+impl<F: Clone, V: Clone + Eq + PartialEq + Hash> ExprDecomp<F, V> {
+    fn merge(root_expr: Expr<F, V>, reductions: Vec<ExprDecomp<F, V>>) -> Self {
+        let mut result = ExprDecomp::from(root_expr);
+        result.expand(reductions);
+
+        result
+    }
+
+    fn expand(&mut self, reductions: Vec<ExprDecomp<F, V>>) {
+        self.exprs.extend(
+            reductions
+                .iter()
+                .map(|se| se.exprs.clone())
+                .collect::<Vec<_>>()
+                .concat(),
+        );
+
+        let mut auto_signals: HashMap<V, Expr<F, V>> = Default::default();
+        reductions.iter().for_each(|se| {
+            se.auto_signals.iter().for_each(|(k, v)| {
+                auto_signals.insert(k.clone(), v.clone());
+            })
+        });
+
+        self.auto_signals.extend(auto_signals);
+    }
+
+    fn auto_eq(&mut self, signal: V, expr: Expr<F, V>) {
+        self.exprs.push(Expr::Sum(vec![
+            expr.clone(),
+            Expr::Neg(Box::new(Expr::Query(signal.clone()))),
+        ]));
+
+        self.auto_signals.insert(signal, expr);
+    }
+
+    fn inherit(root_expr: Expr<F, V>, signal: V, mut from: ExprDecomp<F, V>) -> ExprDecomp<F, V> {
+        from.auto_eq(signal.clone(), from.root_expr.clone());
+
+        from.root_expr = root_expr;
+
+        from
     }
 }
 
