@@ -65,7 +65,7 @@ fn reduce_degree_mul<F: Field, V: Clone + Eq + PartialEq + Hash + Debug, SF: Sig
 ) -> ExprDecomp<F, V> {
     if partial_max_degree == 1 {
         let reduction = reduce_degree_mul(ses, total_max_degree, total_max_degree, signal_factory);
-        let signal = signal_factory.new("virtual signal");
+        let signal = signal_factory.create("virtual signal");
 
         return ExprDecomp::inherit(Expr::Query(signal.clone()), signal, reduction);
     }
@@ -105,7 +105,7 @@ fn reduce_degree_mul<F: Field, V: Clone + Eq + PartialEq + Hash + Debug, SF: Sig
     assert!(!for_root.is_empty());
     assert!(!to_simplify.is_empty());
 
-    let rest_signal = signal_factory.new("rest expr");
+    let rest_signal = signal_factory.create("rest expr");
     let mut root_exprs: Vec<_> = for_root.iter().map(|se| se.root_expr.clone()).collect();
     root_exprs.push(Expr::Query(rest_signal.clone()));
     let root_expr = Expr::Mul(root_exprs);
@@ -136,7 +136,7 @@ mod test {
 
     use crate::{
         ast::{query::Queriable, InternalSignal},
-        poly::{Expr::*, ToExpr},
+        poly::ToExpr,
     };
 
     use super::{reduce_degree_mul, SignalFactory};
@@ -147,7 +147,7 @@ mod test {
     }
 
     impl SignalFactory<Queriable<Fr>> for TestSignalFactory {
-        fn new<S: Into<String>>(&mut self, _annotation: S) -> Queriable<Fr> {
+        fn create<S: Into<String>>(&mut self, _annotation: S) -> Queriable<Fr> {
             self.counter += 1;
 
             Queriable::Internal(InternalSignal::new(format!("v{}", self.counter)))
@@ -173,8 +173,7 @@ mod test {
         assert!(result
             .auto_signals
             .iter()
-            .find(|(s, expr)| format!("{:#?}: {:#?}", s, expr) == "v1: (b * c)")
-            .is_some());
+            .any(|(s, expr)| format!("{:#?}: {:#?}", s, expr) == "v1: (b * c)"));
         assert_eq!(result.auto_signals.len(), 1);
 
         let result = reduce_degree_mul(
@@ -193,8 +192,7 @@ mod test {
         assert!(result
             .auto_signals
             .iter()
-            .find(|(s, expr)| format!("{:#?}: {:#?}", s, expr) == "v1: ((b + c) * (a + c))")
-            .is_some());
+            .any(|(s, expr)| format!("{:#?}: {:#?}", s, expr) == "v1: ((b + c) * (a + c))"));
         assert_eq!(result.auto_signals.len(), 1);
     }
 }

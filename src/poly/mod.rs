@@ -35,8 +35,8 @@ impl<F, V> Expr<F, V> {
     pub fn degree(&self) -> usize {
         match self {
             Expr::Const(_) => 0,
-            Expr::Sum(ses) => ses.into_iter().map(|se| se.degree()).max().unwrap(),
-            Expr::Mul(ses) => ses.into_iter().fold(0, |acc, se| acc + se.degree()),
+            Expr::Sum(ses) => ses.iter().map(|se| se.degree()).max().unwrap(),
+            Expr::Mul(ses) => ses.iter().fold(0, |acc, se| acc + se.degree()),
             Expr::Neg(se) => se.degree(),
             Expr::Pow(se, exp) => se.degree() * (*exp as usize),
             Expr::Query(_) => 1,
@@ -229,7 +229,7 @@ impl<F, V> From<Expression<F>> for Expr<F, V> {
 }
 
 pub trait SignalFactory<V> {
-    fn new<S: Into<String>>(&mut self, annotation: S) -> V;
+    fn create<S: Into<String>>(&mut self, annotation: S) -> V;
 }
 
 #[derive(Debug, Clone)]
@@ -286,7 +286,7 @@ impl<F: Clone, V: Clone + Eq + PartialEq + Hash> ExprDecomp<F, V> {
     }
 
     fn inherit(root_expr: Expr<F, V>, signal: V, mut from: ExprDecomp<F, V>) -> ExprDecomp<F, V> {
-        from.auto_eq(signal.clone(), from.root_expr.clone());
+        from.auto_eq(signal, from.root_expr.clone());
 
         from.root_expr = root_expr;
 

@@ -1,4 +1,4 @@
-use std::{fmt::Debug, hash::Hash};
+use std::hash::Hash;
 
 use crate::field::Field;
 
