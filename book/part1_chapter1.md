@@ -25,7 +25,7 @@ The main elements are:
 
 It is important to note that if the prover and validator have agreed on the setup will have the same proving and validation keys, and will not have to trust each other.
 
-![](../images/zkp-process-diagram.png)
+![](images/zkp-process-diagram.png)
 
 ## What is a ZKP arithmetization?
 

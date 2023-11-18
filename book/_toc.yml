@@ -28,3 +28,4 @@ parts:
     chapters:
     - file: appendix_chapter1
     - file: appendix_chapter2
+    - file: appendix_chapter3
