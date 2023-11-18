@@ -529,11 +529,7 @@ class PoseidonCircuit(Circuit):
 
 class PoseidonSuperCircuit(SuperCircuit):
     def setup(self):
-        lens = {
-            "n_inputs": 6,
-            "n_outputs": 1,
-        }
-        n_inputs = lens["n_inputs"] + 1
+        n_inputs = self.lens["n_inputs"] + 1
         self.constants_circuit = self.sub_circuit(
             PoseidonConstants(self, n_inputs=n_inputs)
         )
@@ -543,7 +539,7 @@ class PoseidonSuperCircuit(SuperCircuit):
         self.poseidon_circuit = self.sub_circuit(
             PoseidonCircuit(
                 self,
-                lens=lens,
+                lens=self.lens,
                 constants_table=self.constants_circuit.table,
                 matrix_table=self.matrix_circuit.table,
             )
@@ -568,11 +564,11 @@ class Examples:
         }
 
         # Act
-        poseidon = PoseidonSuperCircuit()
+        poseidon = PoseidonSuperCircuit(lens=lens)
         witness = poseidon.gen_witness(values)
 
-        # print(list(witness.values())[0])
         # Assert
+        # print(list(witness.values())[0])
         poseidon.halo2_mock_prover(witness)
 
 
