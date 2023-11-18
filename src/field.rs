@@ -43,4 +43,8 @@ pub trait Field:
     /// return zero if the element is zero. This is different from
     /// FF invert that returns None if the element is zero.
     fn mi(&self) -> Self;
+
+    /// Exponentiates `self` by `exp`, where `exp` is a little-endian order integer
+    /// exponent.
+    fn pow<S: AsRef<[u64]>>(&self, exp: S) -> Self;
 }
