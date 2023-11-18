@@ -22,14 +22,24 @@ jobs:
           mkdir -p ./target/doc
           echo '<meta http-equiv="refresh" content="0; url=chiquito">' > ./target/doc/index.html
 
+      - name: Build book
+        run: pip install jupyter-book && make book
+
       - name: Add CNAME file to docs root
         run: |
           mkdir -p ./target/doc
           echo 'apidocs.pecadorplonkish.xyz' > ./target/doc/CNAME
 
-      - name: Deploy to GitHub Pages
+      - name: Deploy book
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./book/_build/html
+          destination_dir: ./docs
+
+      - name: Deploy Api docs
         uses: peaceiris/actions-gh-pages@v3
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: ./target/doc
-          destination_dir: ./docs
+          destination_dir: ./docs/apidocs
