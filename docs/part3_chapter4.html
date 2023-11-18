@@ -1,0 +1,1156 @@
+
+
+<!DOCTYPE html>
+
+
+<html lang="en" >
+
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="generator" content="Docutils 0.18.1: http://docutils.sourceforge.net/" />
+
+    <title>Chapter 4: Fixed Signals, Lookup Tables, and Super Circuit &#8212; Introduction to Chiquito</title>
+  
+  
+  
+  <script data-cfasync="false">
+    document.documentElement.dataset.mode = localStorage.getItem("mode") || "";
+    document.documentElement.dataset.theme = localStorage.getItem("theme") || "light";
+  </script>
+  
+  <!-- Loaded before other Sphinx assets -->
+  <link href="_static/styles/theme.css?digest=365ca57ee442770a23c6" rel="stylesheet" />
+<link href="_static/styles/bootstrap.css?digest=365ca57ee442770a23c6" rel="stylesheet" />
+<link href="_static/styles/pydata-sphinx-theme.css?digest=365ca57ee442770a23c6" rel="stylesheet" />
+
+  
+  <link href="_static/vendor/fontawesome/6.1.2/css/all.min.css?digest=365ca57ee442770a23c6" rel="stylesheet" />
+  <link rel="preload" as="font" type="font/woff2" crossorigin href="_static/vendor/fontawesome/6.1.2/webfonts/fa-solid-900.woff2" />
+<link rel="preload" as="font" type="font/woff2" crossorigin href="_static/vendor/fontawesome/6.1.2/webfonts/fa-brands-400.woff2" />
+<link rel="preload" as="font" type="font/woff2" crossorigin href="_static/vendor/fontawesome/6.1.2/webfonts/fa-regular-400.woff2" />
+
+    <link rel="stylesheet" type="text/css" href="_static/pygments.css" />
+    <link rel="stylesheet" href="_static/styles/sphinx-book-theme.css?digest=14f4ca6b54d191a8c7657f6c759bf11a5fb86285" type="text/css" />
+    <link rel="stylesheet" type="text/css" href="_static/togglebutton.css" />
+    <link rel="stylesheet" type="text/css" href="_static/copybutton.css" />
+    <link rel="stylesheet" type="text/css" href="_static/mystnb.4510f1fc1dee50b3e5859aac5469c37c29e427902b24a333a5f9fcb2f0b3ac41.css" />
+    <link rel="stylesheet" type="text/css" href="_static/sphinx-thebe.css" />
+    <link rel="stylesheet" type="text/css" href="_static/design-style.4045f2051d55cab465a707391d5b2007.min.css" />
+  
+  <!-- Pre-loaded scripts that we'll load fully later -->
+  <link rel="preload" as="script" href="_static/scripts/bootstrap.js?digest=365ca57ee442770a23c6" />
+<link rel="preload" as="script" href="_static/scripts/pydata-sphinx-theme.js?digest=365ca57ee442770a23c6" />
+  <script src="_static/vendor/fontawesome/6.1.2/js/all.min.js?digest=365ca57ee442770a23c6"></script>
+
+    <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js"></script>
+    <script src="_static/jquery.js"></script>
+    <script src="_static/underscore.js"></script>
+    <script src="_static/_sphinx_javascript_frameworks_compat.js"></script>
+    <script src="_static/doctools.js"></script>
+    <script src="_static/clipboard.min.js"></script>
+    <script src="_static/copybutton.js"></script>
+    <script src="_static/scripts/sphinx-book-theme.js?digest=5a5c038af52cf7bc1a1ec88eea08e6366ee68824"></script>
+    <script>let toggleHintShow = 'Click to show';</script>
+    <script>let toggleHintHide = 'Click to hide';</script>
+    <script>let toggleOpenOnPrint = 'true';</script>
+    <script src="_static/togglebutton.js"></script>
+    <script>var togglebuttonSelector = '.toggle, .admonition.dropdown';</script>
+    <script src="_static/design-tabs.js"></script>
+    <script>const THEBE_JS_URL = "https://unpkg.com/thebe@0.8.2/lib/index.js"
+const thebe_selector = ".thebe,.cell"
+const thebe_selector_input = "pre"
+const thebe_selector_output = ".output, .cell_output"
+</script>
+    <script async="async" src="_static/sphinx-thebe.js"></script>
+    <script>window.MathJax = {"options": {"processHtmlClass": "tex2jax_process|mathjax_process|math|output_area"}}</script>
+    <script defer="defer" src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <script>DOCUMENTATION_OPTIONS.pagename = 'part3_chapter4';</script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Design Principles" href="appendix_chapter1.html" />
+    <link rel="prev" title="Chapter 3: Witness" href="part3_chapter3.html" />
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta name="docsearch:language" content="en"/>
+  </head>
+  
+  
+  <body data-bs-spy="scroll" data-bs-target=".bd-toc-nav" data-offset="180" data-bs-root-margin="0px 0px -60%" data-default-mode="">
+
+  
+  
+  <a class="skip-link" href="#main-content">Skip to main content</a>
+  
+  <div id="pst-scroll-pixel-helper"></div>
+
+  
+  <button type="button" class="btn rounded-pill" id="pst-back-to-top">
+    <i class="fa-solid fa-arrow-up"></i>
+    Back to top
+  </button>
+
+  
+  <input type="checkbox"
+          class="sidebar-toggle"
+          name="__primary"
+          id="__primary"/>
+  <label class="overlay overlay-primary" for="__primary"></label>
+  
+  <input type="checkbox"
+          class="sidebar-toggle"
+          name="__secondary"
+          id="__secondary"/>
+  <label class="overlay overlay-secondary" for="__secondary"></label>
+  
+  <div class="search-button__wrapper">
+    <div class="search-button__overlay"></div>
+    <div class="search-button__search-container">
+<form class="bd-search d-flex align-items-center"
+      action="search.html"
+      method="get">
+  <i class="fa-solid fa-magnifying-glass"></i>
+  <input type="search"
+         class="form-control"
+         name="q"
+         id="search-input"
+         placeholder="Search this book..."
+         aria-label="Search this book..."
+         autocomplete="off"
+         autocorrect="off"
+         autocapitalize="off"
+         spellcheck="false"/>
+  <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd>K</kbd></span>
+</form></div>
+  </div>
+  
+    <nav class="bd-header navbar navbar-expand-lg bd-navbar">
+    </nav>
+  
+  <div class="bd-container">
+    <div class="bd-container__inner bd-page-width">
+      
+      <div class="bd-sidebar-primary bd-sidebar">
+        
+
+  
+  <div class="sidebar-header-items sidebar-primary__section">
+    
+    
+    
+    
+  </div>
+  
+    <div class="sidebar-primary-items__start sidebar-primary__section">
+        <div class="sidebar-primary-item">
+  
+
+<a class="navbar-brand logo" href="landing_page.html">
+  
+  
+  
+  
+  
+    
+    
+      
+    
+    
+    <img src="_static/pselogo.png" class="logo__image only-light" alt="Introduction to Chiquito - Home"/>
+    <script>document.write(`<img src="_static/pselogo.png" class="logo__image only-dark" alt="Introduction to Chiquito - Home"/>`);</script>
+  
+  
+</a></div>
+        <div class="sidebar-primary-item"><nav class="bd-links" id="bd-docs-nav" aria-label="Main">
+    <div class="bd-toc-item navbar-nav active">
+        
+        <ul class="nav bd-sidenav bd-sidenav__home-link">
+            <li class="toctree-l1">
+                <a class="reference internal" href="landing_page.html">
+                    Meet Chiquito
+                </a>
+            </li>
+        </ul>
+        <p aria-level="2" class="caption" role="heading"><span class="caption-text">Part 1 - Intro to Chiquito</span></p>
+<ul class="nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="part1_chapter1.html">What is Zero Knowledge Proof (Developer POV)?</a></li>
+<li class="toctree-l1"><a class="reference internal" href="part1_chapter2.html">What is Chiquito?</a></li>
+<li class="toctree-l1"><a class="reference internal" href="part1_chapter3.html">Chiquito Programming Model</a></li>
+<li class="toctree-l1"><a class="reference internal" href="part1_chapter4.html">Python Syntax</a></li>
+<li class="toctree-l1"><a class="reference internal" href="part1_chapter5.html">Setup</a></li>
+</ul>
+<p aria-level="2" class="caption" role="heading"><span class="caption-text">Part 2 - Fibonacci Example</span></p>
+<ul class="nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="part2_chapter1.html">Chapter 1: Fibonacci and Chiquito Concepts</a></li>
+<li class="toctree-l1"><a class="reference internal" href="part2_chapter2.html">Chapter 2: StepType and Circuit</a></li>
+<li class="toctree-l1"><a class="reference internal" href="part2_chapter3.html">Chapter 3: Witness</a></li>
+<li class="toctree-l1"><a class="reference internal" href="part2_chapter4.html">Chapter 4: Multiple StepTypes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="part2_chapter5.html">Chapter 5: Padding and Exposing Signals</a></li>
+</ul>
+<p aria-level="2" class="caption" role="heading"><span class="caption-text">Part 3 - MiMC7 Example</span></p>
+<ul class="current nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="part3_chapter1.html">Chapter 1: MiMC7 Concepts</a></li>
+<li class="toctree-l1"><a class="reference internal" href="part3_chapter2.html">Chapter 2: First Attempt</a></li>
+<li class="toctree-l1"><a class="reference internal" href="part3_chapter3.html">Chapter 3: Witness</a></li>
+<li class="toctree-l1 current active"><a class="current reference internal" href="#">Chapter 4: Fixed Signals, Lookup Tables, and Super Circuit</a></li>
+</ul>
+<p aria-level="2" class="caption" role="heading"><span class="caption-text">Appendix</span></p>
+<ul class="nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="appendix_chapter1.html">Design Principles</a></li>
+<li class="toctree-l1"><a class="reference internal" href="appendix_chapter2.html">Chiquito vs Halo2</a></li>
+<li class="toctree-l1"><a class="reference internal" href="appendix_chapter3.html">Chiquito architecture</a></li>
+</ul>
+
+    </div>
+</nav></div>
+    </div>
+  
+  
+  <div class="sidebar-primary-items__end sidebar-primary__section">
+  </div>
+  
+  <div id="rtd-footer-container"></div>
+
+
+      </div>
+      
+      <main id="main-content" class="bd-main">
+        
+        
+
+<div class="sbt-scroll-pixel-helper"></div>
+
+          <div class="bd-content">
+            <div class="bd-article-container">
+              
+              <div class="bd-header-article">
+<div class="header-article-items header-article__inner">
+  
+    <div class="header-article-items__start">
+      
+        <div class="header-article-item"><label class="sidebar-toggle primary-toggle btn btn-sm" for="__primary" title="Toggle primary sidebar" data-bs-placement="bottom" data-bs-toggle="tooltip">
+  <span class="fa-solid fa-bars"></span>
+</label></div>
+      
+    </div>
+  
+  
+    <div class="header-article-items__end">
+      
+        <div class="header-article-item">
+
+<div class="article-header-buttons">
+
+
+
+
+
+<div class="dropdown dropdown-source-buttons">
+  <button class="btn dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Source repositories">
+    <i class="fab fa-github"></i>
+  </button>
+  <ul class="dropdown-menu">
+      
+      
+      
+      <li><a href="https://github.com/privacy-scaling-explorations/chiquito" target="_blank"
+   class="btn btn-sm btn-source-repository-button dropdown-item"
+   title="Source repository"
+   data-bs-placement="left" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fab fa-github"></i>
+  </span>
+<span class="btn__text-container">Repository</span>
+</a>
+</li>
+      
+      
+      
+      
+      <li><a href="https://github.com/privacy-scaling-explorations/chiquito/issues/new?title=Issue%20on%20page%20%2Fpart3_chapter4.html&body=Your%20issue%20content%20here." target="_blank"
+   class="btn btn-sm btn-source-issues-button dropdown-item"
+   title="Open an issue"
+   data-bs-placement="left" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fas fa-lightbulb"></i>
+  </span>
+<span class="btn__text-container">Open issue</span>
+</a>
+</li>
+      
+  </ul>
+</div>
+
+
+
+
+
+
+<div class="dropdown dropdown-download-buttons">
+  <button class="btn dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Download this page">
+    <i class="fas fa-download"></i>
+  </button>
+  <ul class="dropdown-menu">
+      
+      
+      
+      <li><a href="_sources/part3_chapter4.ipynb" target="_blank"
+   class="btn btn-sm btn-download-source-button dropdown-item"
+   title="Download source file"
+   data-bs-placement="left" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fas fa-file"></i>
+  </span>
+<span class="btn__text-container">.ipynb</span>
+</a>
+</li>
+      
+      
+      
+      
+      <li>
+<button onclick="window.print()"
+  class="btn btn-sm btn-download-pdf-button dropdown-item"
+  title="Print to PDF"
+  data-bs-placement="left" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fas fa-file-pdf"></i>
+  </span>
+<span class="btn__text-container">.pdf</span>
+</button>
+</li>
+      
+  </ul>
+</div>
+
+
+
+
+<button onclick="toggleFullScreen()"
+  class="btn btn-sm btn-fullscreen-button"
+  title="Fullscreen mode"
+  data-bs-placement="bottom" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fas fa-expand"></i>
+  </span>
+
+</button>
+
+
+<script>
+document.write(`
+  <button class="btn btn-sm navbar-btn theme-switch-button" title="light/dark" aria-label="light/dark" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <span class="theme-switch nav-link" data-mode="light"><i class="fa-solid fa-sun fa-lg"></i></span>
+    <span class="theme-switch nav-link" data-mode="dark"><i class="fa-solid fa-moon fa-lg"></i></span>
+    <span class="theme-switch nav-link" data-mode="auto"><i class="fa-solid fa-circle-half-stroke fa-lg"></i></span>
+  </button>
+`);
+</script>
+
+<script>
+document.write(`
+  <button class="btn btn-sm navbar-btn search-button search-button__button" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <i class="fa-solid fa-magnifying-glass fa-lg"></i>
+  </button>
+`);
+</script>
+<label class="sidebar-toggle secondary-toggle btn btn-sm" for="__secondary"title="Toggle secondary sidebar" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <span class="fa-solid fa-list"></span>
+</label>
+</div></div>
+      
+    </div>
+  
+</div>
+</div>
+              
+              
+
+<div id="jb-print-docs-body" class="onlyprint">
+    <h1>Chapter 4: Fixed Signals, Lookup Tables, and Super Circuit</h1>
+    <!-- Table of contents -->
+    <div id="print-main-content">
+        <div id="jb-print-toc">
+            
+            <div>
+                <h2> Contents </h2>
+            </div>
+            <nav aria-label="Page">
+                <ul class="visible nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#lookup-tables">Lookup Tables</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#fixed-signals">Fixed Signals</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#super-circuits">Super Circuits</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#putting-them-all-together">Putting Them All Together</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#mimc7constants-sub-circuit-for-lookup-table">MiMC7Constants Sub-Circuit for Lookup Table</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#modifications-to-mimc7circuit-sub-circuit">Modifications to MiMC7Circuit Sub-Circuit</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#constructing-the-super-circuit">Constructing the Super Circuit</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#putting-everything-together">Putting Everything Together</a></li>
+</ul>
+            </nav>
+        </div>
+    </div>
+</div>
+
+              
+                
+<div id="searchbox"></div>
+                <article class="bd-article" role="main">
+                  
+  <section class="tex2jax_ignore mathjax_ignore" id="chapter-4-fixed-signals-lookup-tables-and-super-circuit">
+<h1>Chapter 4: Fixed Signals, Lookup Tables, and Super Circuit<a class="headerlink" href="#chapter-4-fixed-signals-lookup-tables-and-super-circuit" title="Permalink to this heading">#</a></h1>
+<section id="lookup-tables">
+<h2>Lookup Tables<a class="headerlink" href="#lookup-tables" title="Permalink to this heading">#</a></h2>
+<p>It turns out that we have a whole different solution and new feature to introduce! “Lookup table” is a great feature enabled in proof systems with PLONKish arithmetization. They are composed of pre-computed constant values for circuits to “lookup to”. For example, suppose you have a single variable <code class="docutils literal notranslate"><span class="pre">x</span></code> and want to constrain that its value is an integer between 0 and <code class="docutils literal notranslate"><span class="pre">n</span></code>. While you can certainly create a constraint in the form of <span class="math notranslate nohighlight">\((x-0)(x-1)(x-2)...(x-n) = 0\)</span>, you can alternatively create a single column lookup table with all integer values between 0 and <code class="docutils literal notranslate"><span class="pre">n</span></code>, and then “lookup” or try to find the value of <code class="docutils literal notranslate"><span class="pre">x</span></code> in the table. The witness will pass the circuit if and only if you can find <code class="docutils literal notranslate"><span class="pre">x</span></code> in the table, essentially constraining the value of <code class="docutils literal notranslate"><span class="pre">x</span></code> to between 0 to <code class="docutils literal notranslate"><span class="pre">n</span></code> without manually writing a lengthy constraint expression. This use case of lookup table is called range checking, and is used quite extensively in projects like the zkEVM.</p>
+<p>Another common use of the lookup table is to provide pre-computed outputs given some inputs to a known function. A good example is bitwise operations such as <code class="docutils literal notranslate"><span class="pre">xor</span></code>. The following table is an example of a 2-bit <code class="docutils literal notranslate"><span class="pre">xor</span></code> lookup table, where <code class="docutils literal notranslate"><span class="pre">a</span></code> and <code class="docutils literal notranslate"><span class="pre">b</span></code> are two inputs and <code class="docutils literal notranslate"><span class="pre">xor</span></code> is the output column:</p>
+<table class="table">
+<thead>
+<tr class="row-odd"><th class="head text-center"><p>a</p></th>
+<th class="head text-center"><p>b</p></th>
+<th class="head text-center"><p>xor</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td class="text-center"><p>00</p></td>
+<td class="text-center"><p>00</p></td>
+<td class="text-center"><p>00</p></td>
+</tr>
+<tr class="row-odd"><td class="text-center"><p>00</p></td>
+<td class="text-center"><p>01</p></td>
+<td class="text-center"><p>01</p></td>
+</tr>
+<tr class="row-even"><td class="text-center"><p>00</p></td>
+<td class="text-center"><p>10</p></td>
+<td class="text-center"><p>10</p></td>
+</tr>
+<tr class="row-odd"><td class="text-center"><p>00</p></td>
+<td class="text-center"><p>11</p></td>
+<td class="text-center"><p>11</p></td>
+</tr>
+<tr class="row-even"><td class="text-center"><p>01</p></td>
+<td class="text-center"><p>00</p></td>
+<td class="text-center"><p>01</p></td>
+</tr>
+<tr class="row-odd"><td class="text-center"><p>01</p></td>
+<td class="text-center"><p>01</p></td>
+<td class="text-center"><p>00</p></td>
+</tr>
+<tr class="row-even"><td class="text-center"><p>01</p></td>
+<td class="text-center"><p>10</p></td>
+<td class="text-center"><p>11</p></td>
+</tr>
+<tr class="row-odd"><td class="text-center"><p>01</p></td>
+<td class="text-center"><p>11</p></td>
+<td class="text-center"><p>10</p></td>
+</tr>
+<tr class="row-even"><td class="text-center"><p>10</p></td>
+<td class="text-center"><p>00</p></td>
+<td class="text-center"><p>10</p></td>
+</tr>
+<tr class="row-odd"><td class="text-center"><p>10</p></td>
+<td class="text-center"><p>01</p></td>
+<td class="text-center"><p>11</p></td>
+</tr>
+<tr class="row-even"><td class="text-center"><p>10</p></td>
+<td class="text-center"><p>10</p></td>
+<td class="text-center"><p>00</p></td>
+</tr>
+<tr class="row-odd"><td class="text-center"><p>10</p></td>
+<td class="text-center"><p>11</p></td>
+<td class="text-center"><p>01</p></td>
+</tr>
+<tr class="row-even"><td class="text-center"><p>11</p></td>
+<td class="text-center"><p>00</p></td>
+<td class="text-center"><p>11</p></td>
+</tr>
+<tr class="row-odd"><td class="text-center"><p>11</p></td>
+<td class="text-center"><p>01</p></td>
+<td class="text-center"><p>10</p></td>
+</tr>
+<tr class="row-even"><td class="text-center"><p>11</p></td>
+<td class="text-center"><p>10</p></td>
+<td class="text-center"><p>01</p></td>
+</tr>
+<tr class="row-odd"><td class="text-center"><p>11</p></td>
+<td class="text-center"><p>11</p></td>
+<td class="text-center"><p>00</p></td>
+</tr>
+</tbody>
+</table>
+<p>When using this table, the user can lookup three columns in the witness to constrain them to one of the combinations of <code class="docutils literal notranslate"><span class="pre">(a,</span> <span class="pre">b,</span> <span class="pre">xor)</span></code> in the table, essentially constraining that the three witness columns satisfy the <code class="docutils literal notranslate"><span class="pre">xor</span></code> relationship. It’s well known that bitwise operations take many constraints in zero knowledge proofs to express. A simple operation such as <code class="docutils literal notranslate"><span class="pre">xor</span></code> would require decomposing the bits of a number before doing the <code class="docutils literal notranslate"><span class="pre">xor</span></code>. For example, an 8-bit <code class="docutils literal notranslate"><span class="pre">xor</span></code> would take 25-32 custom constraints. However, by using the lookup table, we can reduce this to one custom lookup constraint. Lookup tables are therefore widely used as a sub-routine in hash functions such as SHA-256, which require many bitwise operations.</p>
+<p>Now back to why we need to use lookup table for the round constants in our MiMC7 circuit. Recall that we would need to create 92 different step types corresponding to 91 distinct round constants plus the output round. However, with the new feature, we can create a lookup table with each of the 91 round constants occupying a row and constrain that signal <code class="docutils literal notranslate"><span class="pre">c</span></code> for the round constant is equal to one of the 91 round constants in the table.</p>
+<p>This still doesn’t fully satisfy our purpose, as it doesn’t constrain the order of the constants used. For example, an evil witness can pass in an arbitrary round constant or even use the same round constant across all rows, as long as it’s one of the 91 in the table.</p>
+<p>That’s why we need to introduce another column to the table for the row number, so that the order of constants used is fixed. Together, we have a two column lookup table that looks like the following:</p>
+<table class="table">
+<thead>
+<tr class="row-odd"><th class="head text-center"><p>row number</p></th>
+<th class="head text-center"><p>round constant</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td class="text-center"><p>0</p></td>
+<td class="text-center"><p>0</p></td>
+</tr>
+<tr class="row-odd"><td class="text-center"><p>1</p></td>
+<td class="text-center"><p>20888961410941983456478427210666206549300505294776164667214940546594746570981</p></td>
+</tr>
+<tr class="row-even"><td class="text-center"><p>2</p></td>
+<td class="text-center"><p>15265126113435022738560151911929040668591755459209400716467504685752745317193</p></td>
+</tr>
+<tr class="row-odd"><td class="text-center"><p>3</p></td>
+<td class="text-center"><p>8334177627492981984476504167502758309043212251641796197711684499645635709656</p></td>
+</tr>
+<tr class="row-even"><td class="text-center"><p>…</p></td>
+<td class="text-center"><p>…</p></td>
+</tr>
+<tr class="row-odd"><td class="text-center"><p>90</p></td>
+<td class="text-center"><p>13602139229813231349386885113156901793661719180900395818909719758150455500533</p></td>
+</tr>
+</tbody>
+</table>
+<p>Given this table, we need another signal <code class="docutils literal notranslate"><span class="pre">row</span></code> for the row number in the MiMC7 circuit. Then, we can constrain that the tuple of signals <code class="docutils literal notranslate"><span class="pre">(row,</span> <span class="pre">c)</span></code> is equal to one of the 91 rows in the lookup table. To fix the order of round constants, we need to additionally constrain that:</p>
+<ul class="simple">
+<li><p>row == 0 for the first step instance</p></li>
+<li><p>row + 1 = row.next for all step instances except the last</p></li>
+</ul>
+</section>
+<section id="fixed-signals">
+<h2>Fixed Signals<a class="headerlink" href="#fixed-signals" title="Permalink to this heading">#</a></h2>
+<p>Because lookup tables involves columns with pre-computed values that don’t change across witness assignments, they are constructed using a new type of signal called “fixed signal”, which is a concept parallel to “internal signal” and “forward signal” in Chiquito.</p>
+</section>
+<section id="super-circuits">
+<h2>Super Circuits<a class="headerlink" href="#super-circuits" title="Permalink to this heading">#</a></h2>
+<p>Furthermore, as a lookup table is fixed and can be used across multiple circuits, wouldn’t it be a waste to just construct it within one circuit? That’s why we also introduce the concept of “super circuit”, which essentially groups multiple circuits together so that they can share the inputs and outputs. You can write each circuit separately and group them as a super circuit with simple APIs in Chiquito, while we do all the backend work to convert the super circuit into one giant Halo2 circuit behind the scenes (with more backends to be enabled in the future).</p>
+</section>
+<section id="putting-them-all-together">
+<h2>Putting Them All Together<a class="headerlink" href="#putting-them-all-together" title="Permalink to this heading">#</a></h2>
+<p>Well. Lookup tables, fixed signals, and super circuits. They are quite a mouthful! Putting these all together, we will first construct a lookup table in a singleton circuit, whose only content is the lookup table, so that it can be later shared across other circuits in the super circuit. For now, the super circuit will only contain this lookup table circuit (which we will call the <code class="docutils literal notranslate"><span class="pre">MiMC7Constants</span></code> circuit) AND the <code class="docutils literal notranslate"><span class="pre">MiMC7Circuit</span></code> main circuit that we constructed in prior chapters.</p>
+</section>
+<section id="mimc7constants-sub-circuit-for-lookup-table">
+<h2>MiMC7Constants Sub-Circuit for Lookup Table<a class="headerlink" href="#mimc7constants-sub-circuit-for-lookup-table" title="Permalink to this heading">#</a></h2>
+<p>Let’s construct the <code class="docutils literal notranslate"><span class="pre">Mimc7Constants</span></code> sub-circuit! A sub-circuit is no different from a regular circuit, except that we will group them to a super circuit at the end. Therefore, it also has the <code class="docutils literal notranslate"><span class="pre">setup()</span></code> and <code class="docutils literal notranslate"><span class="pre">wg()</span></code> functions we need to define. However, because there’s only a lookup table containing only fixed signals in the <code class="docutils literal notranslate"><span class="pre">Mimc7Constants</span></code> sub-circuit that we are creating, no <code class="docutils literal notranslate"><span class="pre">wg()</span></code> function is needed for witness generation. Instead, we need to define the <code class="docutils literal notranslate"><span class="pre">fixed_gen()</span></code> function that assigns values to the fixed signals, similar to how we assign values to internal and forward signals in <code class="docutils literal notranslate"><span class="pre">wg()</span></code> previously.</p>
+<p>Now let’s first define the <code class="docutils literal notranslate"><span class="pre">setup()</span></code> function and you can refer to the code snippet below. Recall that we instantiated forward signals on the circuit level in the <code class="docutils literal notranslate"><span class="pre">setup()</span></code> function. We will also do the same for fixed signals, by invoking the <code class="docutils literal notranslate"><span class="pre">self.fixed()</span></code> function and appending it to the cicuit object like <code class="docutils literal notranslate"><span class="pre">self.lookup_row</span> <span class="pre">=</span> <span class="pre">self.fixed(&quot;constant</span> <span class="pre">row&quot;)</span></code>. Here, the signal object is named <code class="docutils literal notranslate"><span class="pre">lookup_row</span></code> and appended to the circuit, with “constant row” as its annotation. We create another fixed signal for the round constants and append it to the circuit as <code class="docutils literal notranslate"><span class="pre">self.lookup_c</span></code>.</p>
+<p>Next, also under <code class="docutils literal notranslate"><span class="pre">setup()</span></code>, we need to group the two signals into a lookup table, by calling <code class="docutils literal notranslate"><span class="pre">self.new_table()</span></code>. The function takes a table object, which is initiated by calling <code class="docutils literal notranslate"><span class="pre">table()</span></code>. We can then append signals to the table using <code class="docutils literal notranslate"><span class="pre">add()</span></code>, which takes the signals to append. <code class="docutils literal notranslate"><span class="pre">add()</span></code> is called as many times as the number of signals to append and therefore is called twice for fixed signals <code class="docutils literal notranslate"><span class="pre">self.lookup_row</span></code> and <code class="docutils literal notranslate"><span class="pre">self.lookup_c</span></code>. Finally, we append the lookup table to the circuit as well by assigning it to <code class="docutils literal notranslate"><span class="pre">self.lookup_table</span></code>. In summary, <code class="docutils literal notranslate"><span class="pre">table()</span></code> initiates the lookup table, <code class="docutils literal notranslate"><span class="pre">add()</span></code> appends fixed signals to it, <code class="docutils literal notranslate"><span class="pre">new_table()</span></code> adds the lookup table, and we assign the result to <code class="docutils literal notranslate"><span class="pre">self.lookup_table</span></code> or any name you want to assign the table to.</p>
+<p>Here’s the complete <code class="docutils literal notranslate"><span class="pre">setup()</span></code> function we defined for <code class="docutils literal notranslate"><span class="pre">Mimc7Constants</span></code> sub-circuit:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="k">class</span> <span class="nc">Mimc7Constants</span><span class="p">(</span><span class="n">Circuit</span><span class="p">):</span>
+    <span class="k">def</span> <span class="nf">setup</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">pragma_num_steps</span><span class="p">(</span><span class="n">ROUNDS</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">lookup_row</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">fixed</span><span class="p">(</span><span class="s2">&quot;constant row&quot;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">lookup_c</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">fixed</span><span class="p">(</span><span class="s2">&quot;constant value&quot;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">lookup_table</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">new_table</span><span class="p">(</span>
+            <span class="n">table</span><span class="p">()</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">lookup_row</span><span class="p">)</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">lookup_c</span><span class="p">)</span>
+        <span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">fixed_gen</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="c1"># TODO</span>
+</pre></div>
+</div>
+<p>Now let’s assign values to fixed signals in the lookup table by defining <code class="docutils literal notranslate"><span class="pre">fixed_gen()</span></code> for the sub-circuit. The assign function does exactly this via <code class="docutils literal notranslate"><span class="pre">self.assign(offset,</span> <span class="pre">lhs,</span> <span class="pre">rhs)</span></code>. Here, <code class="docutils literal notranslate"><span class="pre">offset</span></code> is the index of the assignment in a fixed signal to assign value to. You can think of this as the row number of a fixed signal column in a lookup table. <code class="docutils literal notranslate"><span class="pre">lhs</span></code> is the fixed signal to assign to. <code class="docutils literal notranslate"><span class="pre">rhs</span></code> is the value to assign, i.e. a field element. The code snippet below loops through the <code class="docutils literal notranslate"><span class="pre">ROUND_CONSTANTS</span></code> array and calls <code class="docutils literal notranslate"><span class="pre">self.assign</span></code> for both <code class="docutils literal notranslate"><span class="pre">self.lookup_row</span></code> and <code class="docutils literal notranslate"><span class="pre">self.lookup_c</span></code> signals.</p>
+<p>You might recall that <code class="docutils literal notranslate"><span class="pre">self.assign()</span></code> is also an API under the <code class="docutils literal notranslate"><span class="pre">wg()</span></code> witness generation function, and it only takes two parameters as <code class="docutils literal notranslate"><span class="pre">self.assign(lhs,</span> <span class="pre">rhs)</span></code> without the offset parameter. This is because <code class="docutils literal notranslate"><span class="pre">wg()</span></code> is specific to a step instance, and therefore we are assigning the <code class="docutils literal notranslate"><span class="pre">rhs</span></code> value to the <code class="docutils literal notranslate"><span class="pre">lhs</span></code> signal <strong>of a specific step instance</strong>. Contrarily, because lookup tables are on the circuit level, we require the <code class="docutils literal notranslate"><span class="pre">offset</span></code> parameter to assign a specific index of a fixed signal.</p>
+<p>Here’s the <code class="docutils literal notranslate"><span class="pre">fixed_gen()</span></code> function we defined for <code class="docutils literal notranslate"><span class="pre">Mimc7Constants</span></code> sub-circuit:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="k">class</span> <span class="nc">Mimc7Constants</span><span class="p">(</span><span class="n">Circuit</span><span class="p">):</span>
+    <span class="k">def</span> <span class="nf">setup</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="c1"># ...</span>
+
+    <span class="k">def</span> <span class="nf">fixed_gen</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">round_key</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">ROUND_CONSTANTS</span><span class="p">):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">assign</span><span class="p">(</span><span class="n">i</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">lookup_row</span><span class="p">,</span> <span class="n">F</span><span class="p">(</span><span class="n">i</span><span class="p">))</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">assign</span><span class="p">(</span><span class="n">i</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">lookup_c</span><span class="p">,</span> <span class="n">F</span><span class="p">(</span><span class="n">round_key</span><span class="p">))</span>
+</pre></div>
+</div>
+</section>
+<section id="modifications-to-mimc7circuit-sub-circuit">
+<h2>Modifications to MiMC7Circuit Sub-Circuit<a class="headerlink" href="#modifications-to-mimc7circuit-sub-circuit" title="Permalink to this heading">#</a></h2>
+<p>Now, let’s make necessary modifications to the <code class="docutils literal notranslate"><span class="pre">Mimc7Circuit</span></code> sub-circuit, the circuit we created in prior chapters, so that we can lookup witness values to the lookup table we just created. We already have the <code class="docutils literal notranslate"><span class="pre">c</span></code> internal signal corresponding to the round constants that can lookup to the <code class="docutils literal notranslate"><span class="pre">lookup_c</span></code> fixed signal in the table. Therefore, we need another <code class="docutils literal notranslate"><span class="pre">row</span></code> signal to lookup to the <code class="docutils literal notranslate"><span class="pre">lookup_row</span></code> fixed signal in the table. Because recall that we also need to constrain that <code class="docutils literal notranslate"><span class="pre">row</span> <span class="pre">=</span> <span class="pre">row.next</span></code> for all step instances except the last, <code class="docutils literal notranslate"><span class="pre">row</span></code> needs to be a forward signal at the circuit level with transition constraints.</p>
+<p>You might be wondering why do we need two fixed signals <code class="docutils literal notranslate"><span class="pre">lookup_c</span></code> <code class="docutils literal notranslate"><span class="pre">lookup_row</span></code> for the lookup table AND two internal/forward signals <code class="docutils literal notranslate"><span class="pre">c</span></code> <code class="docutils literal notranslate"><span class="pre">row</span></code> for the main circuit. Isn’t that duplicated? The reason is that <code class="docutils literal notranslate"><span class="pre">c</span></code> and <code class="docutils literal notranslate"><span class="pre">row</span></code> are signals for the witness where as <code class="docutils literal notranslate"><span class="pre">lookup_c</span></code> and <code class="docutils literal notranslate"><span class="pre">lookup_row</span></code> are signals for the table and we are constraining that <code class="docutils literal notranslate"><span class="pre">(c,</span> <span class="pre">row)</span></code> tuples we see in the witness appear in <code class="docutils literal notranslate"><span class="pre">(lookup_c,</span> <span class="pre">lookup_row)</span></code> tuples in the lookup table. In general, for <code class="docutils literal notranslate"><span class="pre">n</span></code> signals to lookup, we need <code class="docutils literal notranslate"><span class="pre">n</span></code> signals in the witness and another <code class="docutils literal notranslate"><span class="pre">n</span></code> signals in the lookup table, for a total of <code class="docutils literal notranslate"><span class="pre">2n</span></code> signals.</p>
+<p>With that settled, recall that from prior chapters, we have two step types, <code class="docutils literal notranslate"><span class="pre">Mimc7Step</span></code> and <code class="docutils literal notranslate"><span class="pre">Mimc7LastStep</span></code>. However, we need the additional constraint that <code class="docutils literal notranslate"><span class="pre">row</span> <span class="pre">==</span> <span class="pre">0</span></code> for the first step instance only. Therefore, we need another step type <code class="docutils literal notranslate"><span class="pre">Mimc7FirstStep</span></code>, which is the same as <code class="docutils literal notranslate"><span class="pre">Mimc7Step</span></code> plus this additional constraint. We also need to constrain that <code class="docutils literal notranslate"><span class="pre">row</span> <span class="pre">==</span> <span class="pre">row.next</span></code> for both <code class="docutils literal notranslate"><span class="pre">Mimc7FirstStep</span></code> and <code class="docutils literal notranslate"><span class="pre">Mimc7Step</span></code>, not to mention that we also need to assign value for this new <code class="docutils literal notranslate"><span class="pre">row</span></code> signal in <code class="docutils literal notranslate"><span class="pre">wg()</span></code> for both step types. New contents for <code class="docutils literal notranslate"><span class="pre">Mimc7FirstStep</span></code> compared to our prior chapters is listed in the code snippet below with prior contents abbreviated:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="k">class</span> <span class="nc">Mimc7FirstStep</span><span class="p">(</span><span class="n">StepType</span><span class="p">):</span>
+    <span class="k">def</span> <span class="nf">setup</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="c1"># ...</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">transition</span><span class="p">(</span><span class="n">eq</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">circuit</span><span class="o">.</span><span class="n">row</span><span class="p">,</span> <span class="mi">0</span><span class="p">))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">transition</span><span class="p">(</span><span class="n">eq</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">circuit</span><span class="o">.</span><span class="n">row</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">circuit</span><span class="o">.</span><span class="n">row</span><span class="o">.</span><span class="n">next</span><span class="p">()))</span>
+
+        <span class="c1"># TODO: lookup to table</span>
+
+    <span class="k">def</span> <span class="nf">wg</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x_value</span><span class="p">,</span> <span class="n">k_value</span><span class="p">,</span> <span class="n">c_value</span><span class="p">,</span> <span class="n">row_value</span><span class="p">):</span>
+        <span class="c1"># ...</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">assign</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">circuit</span><span class="o">.</span><span class="n">row</span><span class="p">,</span> <span class="n">F</span><span class="p">(</span><span class="n">row_value</span><span class="p">))</span>
+</pre></div>
+</div>
+<p>Take a look at the code snippet below for the following contents. Now, although we have constructed the lookup table in another <code class="docutils literal notranslate"><span class="pre">Mimc7Constants</span></code> sub-circuit, we still need to “lookup” to that table from this <code class="docutils literal notranslate"><span class="pre">Mimc7Circuits</span></code> sub-circuit, because creating the table is different from using the table. The <code class="docutils literal notranslate"><span class="pre">self.add_lookup()</span></code> function accomplishes this by taking one parameter. Inside this parameter, we need to first grab the lookup table we created in <code class="docutils literal notranslate"><span class="pre">Mimc7Constants</span></code> sub-circuit, but how to refer to a variable from another sub-circuit? The answer is that we cannot yet and would need the super circuit to do the trick. However, we do intend to grab this lookup table from another sub-circuit and store it as a circuit-level variable in the <code class="docutils literal notranslate"><span class="pre">Mimc7Constants</span></code> circuit that our step type resides in. Let’s say that we eventually call this circuit-level lookup table variable <code class="docutils literal notranslate"><span class="pre">constants_table</span></code>. Therefore, inside the <code class="docutils literal notranslate"><span class="pre">setup()</span></code> for <code class="docutils literal notranslate"><span class="pre">Mimc7FirstStep</span></code>, we can refer to it as <code class="docutils literal notranslate"><span class="pre">self.circuit.constants_table</span></code>.</p>
+<p>Next, we need to “lookup” the witness signals to the fixed signals in the table, accomplished through the <code class="docutils literal notranslate"><span class="pre">apply()</span></code> function. <code class="docutils literal notranslate"><span class="pre">apply()</span></code> function takes one parameter that’s the witness signal to lookup, and can be chain-called multiple times. <code class="docutils literal notranslate"><span class="pre">apply()</span></code> is called twice for the witness forward signal <code class="docutils literal notranslate"><span class="pre">self.circuit.row</span></code> and the witness internal signal <code class="docutils literal notranslate"><span class="pre">self.c</span></code>. Make sure to call <code class="docutils literal notranslate"><span class="pre">apply()</span></code> the same order that the fixed signals were added in the table. That is, we added fixed signals <code class="docutils literal notranslate"><span class="pre">lookup_row</span></code> first and then <code class="docutils literal notranslate"><span class="pre">lookup_c</span></code> by calling <code class="docutils literal notranslate"><span class="pre">table().add(self.lookup_row).add(self.lookup_c)</span></code> and therefore we need to apply signals <code class="docutils literal notranslate"><span class="pre">row</span></code> first and then <code class="docutils literal notranslate"><span class="pre">c</span></code>.</p>
+<p>See below for the full syntax. These APIs for looking up the lookup table are quite convenient, as we can lookup to the same lookup table multiple times, even with different witness signals. Note that we need to call <code class="docutils literal notranslate"><span class="pre">self.add_lookup()</span></code> for both <code class="docutils literal notranslate"><span class="pre">Mimc7FirstStep</span></code> and <code class="docutils literal notranslate"><span class="pre">Mimc7Step</span></code>. The following only spelled out the lookup for <code class="docutils literal notranslate"><span class="pre">Mimc7FirstStep</span></code> because it’s identical in <code class="docutils literal notranslate"><span class="pre">Mimc7Step</span></code>.</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="k">class</span> <span class="nc">Mimc7FirstStep</span><span class="p">(</span><span class="n">StepType</span><span class="p">):</span>
+    <span class="k">def</span> <span class="nf">setup</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="c1"># ...</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">add_lookup</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">circuit</span><span class="o">.</span><span class="n">constants_table</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">circuit</span><span class="o">.</span><span class="n">row</span><span class="p">)</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">c</span><span class="p">)</span>
+        <span class="p">)</span>
+</pre></div>
+</div>
+<p>Putting together constraints and assignments for the new row signal as well as looking up to the lookup table, we have the complete <code class="docutils literal notranslate"><span class="pre">Mimc7FirstStep</span></code> as the following. <code class="docutils literal notranslate"><span class="pre">Mimc7Step</span></code> is the same except that it doesn’t have the <code class="docutils literal notranslate"><span class="pre">row</span> <span class="pre">==</span> <span class="pre">0</span></code> constraint:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="k">class</span> <span class="nc">Mimc7FirstStep</span><span class="p">(</span><span class="n">StepType</span><span class="p">):</span>
+    <span class="k">def</span> <span class="nf">setup</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">xkc</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">internal</span><span class="p">(</span><span class="s2">&quot;xkc&quot;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">y</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">internal</span><span class="p">(</span><span class="s2">&quot;y&quot;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">c</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">internal</span><span class="p">(</span><span class="s2">&quot;c&quot;</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">constr</span><span class="p">(</span><span class="n">eq</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">circuit</span><span class="o">.</span><span class="n">x</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">circuit</span><span class="o">.</span><span class="n">k</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">c</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">xkc</span><span class="p">))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">constr</span><span class="p">(</span>
+            <span class="n">eq</span><span class="p">(</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">xkc</span>
+                <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">xkc</span>
+                <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">xkc</span>
+                <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">xkc</span>
+                <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">xkc</span>
+                <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">xkc</span>
+                <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">xkc</span><span class="p">,</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">y</span><span class="p">,</span>
+            <span class="p">)</span>
+        <span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">transition</span><span class="p">(</span><span class="n">eq</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">y</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">circuit</span><span class="o">.</span><span class="n">x</span><span class="o">.</span><span class="n">next</span><span class="p">()))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">transition</span><span class="p">(</span><span class="n">eq</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">circuit</span><span class="o">.</span><span class="n">k</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">circuit</span><span class="o">.</span><span class="n">k</span><span class="o">.</span><span class="n">next</span><span class="p">()))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">transition</span><span class="p">(</span><span class="n">eq</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">circuit</span><span class="o">.</span><span class="n">row</span><span class="p">,</span> <span class="mi">0</span><span class="p">))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">transition</span><span class="p">(</span><span class="n">eq</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">circuit</span><span class="o">.</span><span class="n">row</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">circuit</span><span class="o">.</span><span class="n">row</span><span class="o">.</span><span class="n">next</span><span class="p">()))</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">add_lookup</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">circuit</span><span class="o">.</span><span class="n">constants_table</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">circuit</span><span class="o">.</span><span class="n">row</span><span class="p">)</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">c</span><span class="p">)</span>
+        <span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">wg</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x_value</span><span class="p">,</span> <span class="n">k_value</span><span class="p">,</span> <span class="n">c_value</span><span class="p">,</span> <span class="n">row_value</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">assign</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">circuit</span><span class="o">.</span><span class="n">x</span><span class="p">,</span> <span class="n">F</span><span class="p">(</span><span class="n">x_value</span><span class="p">))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">assign</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">circuit</span><span class="o">.</span><span class="n">k</span><span class="p">,</span> <span class="n">F</span><span class="p">(</span><span class="n">k_value</span><span class="p">))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">assign</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">c</span><span class="p">,</span> <span class="n">F</span><span class="p">(</span><span class="n">c_value</span><span class="p">))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">assign</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">circuit</span><span class="o">.</span><span class="n">row</span><span class="p">,</span> <span class="n">F</span><span class="p">(</span><span class="n">row_value</span><span class="p">))</span>
+
+        <span class="n">xkc_value</span> <span class="o">=</span> <span class="n">F</span><span class="p">(</span><span class="n">x_value</span> <span class="o">+</span> <span class="n">k_value</span> <span class="o">+</span> <span class="n">c_value</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">assign</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">xkc</span><span class="p">,</span> <span class="n">F</span><span class="p">(</span><span class="n">xkc_value</span><span class="p">))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">assign</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">y</span><span class="p">,</span> <span class="n">F</span><span class="p">(</span><span class="n">xkc_value</span><span class="o">**</span><span class="mi">7</span><span class="p">))</span>
+</pre></div>
+</div>
+<p>We also need to modify <code class="docutils literal notranslate"><span class="pre">Mimc7LastStep</span></code>, the step type for the output row, by assigning value to the <code class="docutils literal notranslate"><span class="pre">row</span></code> signal. You might wonder why this is needed even though <code class="docutils literal notranslate"><span class="pre">Mimc7LastStep</span></code> has no constraints for <code class="docutils literal notranslate"><span class="pre">row</span></code>? This is because we have the constraint <code class="docutils literal notranslate"><span class="pre">row</span> <span class="pre">+</span> <span class="pre">1</span> <span class="pre">==</span> <span class="pre">row.next</span></code> in the prior step instance and therefore need to assign an incremental value for <code class="docutils literal notranslate"><span class="pre">row</span></code> in the last step instance.</p>
+<p>The modified <code class="docutils literal notranslate"><span class="pre">Mimc7LastStep</span></code> is as the following:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="k">class</span> <span class="nc">Mimc7LastStep</span><span class="p">(</span><span class="n">StepType</span><span class="p">):</span>
+    <span class="k">def</span> <span class="nf">setup</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">out</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">internal</span><span class="p">(</span><span class="s2">&quot;out&quot;</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">constr</span><span class="p">(</span><span class="n">eq</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">circuit</span><span class="o">.</span><span class="n">x</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">circuit</span><span class="o">.</span><span class="n">k</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">out</span><span class="p">))</span>
+
+    <span class="k">def</span> <span class="nf">wg</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x_value</span><span class="p">,</span> <span class="n">k_value</span><span class="p">,</span> <span class="n">_</span><span class="p">,</span> <span class="n">row_value</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">assign</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">circuit</span><span class="o">.</span><span class="n">x</span><span class="p">,</span> <span class="n">F</span><span class="p">(</span><span class="n">x_value</span><span class="p">))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">assign</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">circuit</span><span class="o">.</span><span class="n">k</span><span class="p">,</span> <span class="n">F</span><span class="p">(</span><span class="n">k_value</span><span class="p">))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">assign</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">circuit</span><span class="o">.</span><span class="n">row</span><span class="p">,</span> <span class="n">F</span><span class="p">(</span><span class="n">row_value</span><span class="p">))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">assign</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">out</span><span class="p">,</span> <span class="n">F</span><span class="p">(</span><span class="n">x_value</span> <span class="o">+</span> <span class="n">k_value</span><span class="p">))</span>
+</pre></div>
+</div>
+<p>Finally, we need to add the <code class="docutils literal notranslate"><span class="pre">row</span></code> forward signal at the circuit level, instantiate and append <code class="docutils literal notranslate"><span class="pre">Mimc7FirstStep</span></code> to the circuit, and constrain the first step instance to <code class="docutils literal notranslate"><span class="pre">self.mimc7_first_step</span></code>. We also need to modify the <code class="docutils literal notranslate"><span class="pre">trace</span></code> function to feed in assignments for the <code class="docutils literal notranslate"><span class="pre">row</span></code> forward signal as well. All changes are documented below, with prior contents abbreviated.</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="k">class</span> <span class="nc">Mimc7Circuit</span><span class="p">(</span><span class="n">Circuit</span><span class="p">):</span>
+    <span class="k">def</span> <span class="nf">setup</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="c1"># ...</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">row</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">forward</span><span class="p">(</span><span class="s2">&quot;row&quot;</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">mimc7_first_step</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">step_type</span><span class="p">(</span><span class="n">Mimc7FirstStep</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s2">&quot;mimc7_first_step&quot;</span><span class="p">))</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">pragma_first_step</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">mimc7_first_step</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">trace</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x_in_value</span><span class="p">,</span> <span class="n">k_value</span><span class="p">):</span>
+        <span class="c1"># ...</span>
+        <span class="n">row_value</span> <span class="o">=</span> <span class="n">F</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">mimc7_first_step</span><span class="p">,</span> <span class="n">x_value</span><span class="p">,</span> <span class="n">k_value</span><span class="p">,</span> <span class="n">c_value</span><span class="p">,</span> <span class="n">row_value</span><span class="p">)</span>
+
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">ROUNDS</span><span class="p">):</span>
+            <span class="c1"># ...</span>
+            <span class="n">row_value</span> <span class="o">+=</span> <span class="n">F</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+
+            <span class="bp">self</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">mimc7_step</span><span class="p">,</span> <span class="n">x_value</span><span class="p">,</span> <span class="n">k_value</span><span class="p">,</span> <span class="n">c_value</span><span class="p">,</span> <span class="n">row_value</span><span class="p">)</span>
+
+        <span class="c1"># ...</span>
+        <span class="n">row_value</span> <span class="o">+=</span> <span class="n">F</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">mimc7_last_step</span><span class="p">,</span> <span class="n">x_value</span><span class="p">,</span> <span class="n">k_value</span><span class="p">,</span> <span class="n">c_value</span><span class="p">,</span> <span class="n">row_value</span><span class="p">)</span>
+</pre></div>
+</div>
+</section>
+<section id="constructing-the-super-circuit">
+<h2>Constructing the Super Circuit<a class="headerlink" href="#constructing-the-super-circuit" title="Permalink to this heading">#</a></h2>
+<p>So far, we are done implementing two sub-circuits, <code class="docutils literal notranslate"><span class="pre">Mimc7Constants</span></code> which has the lookup table and <code class="docutils literal notranslate"><span class="pre">Mimc7Circuit</span></code> which wires up the core circuit logics. It’s time to combine them into a super circuit!</p>
+<p>Recall at the start of the chapter that super circuit is useful for wiring inputs and outputs among multiple sub-circuits and in our case of using a lookup table, it’s often the best practice to store the table in one sub-circuit, so that it can be used across multiple other sub-circuits.</p>
+<p>Refer to the code snippet below for the following contents. First we need to create the super circuit. Chiquito again provides convenient APIs, so that you can just inherit the <code class="docutils literal notranslate"><span class="pre">SuperCircuit</span></code> class, just as how you created a <code class="docutils literal notranslate"><span class="pre">Circuit</span></code>. Similarly, <code class="docutils literal notranslate"><span class="pre">SuperCircuit</span></code> requires the user to define two functions:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">setup()</span></code> instantiates sub-circuits and append them to the super circuit.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">mapping()</span></code> generates a super-witness which contains multiple witnesses, each for a sub-circuit that require a witness.</p></li>
+</ul>
+<p>Let’s talk about <code class="docutils literal notranslate"><span class="pre">setup()</span></code> first. TO create a sub-circuit, we call the <code class="docutils literal notranslate"><span class="pre">self.sub_circuit()</span></code> function, which takes one parameter that’s the instantiated sub-circuit. Sub-circuit instantiation takes an unlimited number of optional parameters. The first optional parameter must be <code class="docutils literal notranslate"><span class="pre">super_circuit</span></code> and all other optional parameters can be arbitrary named inputs to be stored under the sub-circuit.</p>
+<p>Taking the sub-circuit instantiation <code class="docutils literal notranslate"><span class="pre">Mimc7Constants(self)</span></code> for example, it only takes one optional parameter, and therefore must be the <code class="docutils literal notranslate"><span class="pre">super_circuit</span></code>. Because it’s instantiated under the <code class="docutils literal notranslate"><span class="pre">Mimc7SuperCircuit</span></code>, <code class="docutils literal notranslate"><span class="pre">self</span></code> simply refers to the super circuit.</p>
+<p>Taking the other sub-circuit instantiation <code class="docutils literal notranslate"><span class="pre">Mimc7Circuit(self,</span> <span class="pre">constants_table=self.mimc7_constants.lookup_table)</span></code> for example, it takes two optional parameters, the first again being the <code class="docutils literal notranslate"><span class="pre">super_circuit=self</span></code>, and the second a named parameter <code class="docutils literal notranslate"><span class="pre">constants_table</span></code>, which points to <code class="docutils literal notranslate"><span class="pre">self.lookup_table</span></code> from the <code class="docutils literal notranslate"><span class="pre">Mimc7Constants</span></code> sub-circuit that we defined at the start of this chapter. Because we named the lookup table <code class="docutils literal notranslate"><span class="pre">constants_table</span></code> when instantiating <code class="docutils literal notranslate"><span class="pre">Mimc7Circuit</span></code>, <code class="docutils literal notranslate"><span class="pre">constants_table</span></code> is the name that the lookup table will be referred to within <code class="docutils literal notranslate"><span class="pre">Mimc7Circuit</span></code>. It’s a circuit level variable that is referred to as <code class="docutils literal notranslate"><span class="pre">self.constants_table</span></code> at the circuit level or <code class="docutils literal notranslate"><span class="pre">self.circuit.constants_table</span></code> at the step type level, which is indeed what we did when looking up to the lookup table inside a step type, i.e. <code class="docutils literal notranslate"><span class="pre">self.add_lookup(self.circuit.constants_table.apply(self.circuit.row).apply(self.c))</span></code>.</p>
+<p>Because sub-circuit instantiation can take as many arbitrary parameters as we want, we can even pass in additional lookup tables or any input types, as long as they are named arguments, which is required because we need to refer to some name inside the sub-circuit.</p>
+<p>In summary, the super circuit <code class="docutils literal notranslate"><span class="pre">setup()</span></code> is constructed as such:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="k">class</span> <span class="nc">Mimc7SuperCircuit</span><span class="p">(</span><span class="n">SuperCircuit</span><span class="p">):</span>
+    <span class="k">def</span> <span class="nf">setup</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">mimc7_constants</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">sub_circuit</span><span class="p">(</span><span class="n">Mimc7Constants</span><span class="p">(</span><span class="bp">self</span><span class="p">))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">mimc7_circuit</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">sub_circuit</span><span class="p">(</span>
+            <span class="n">Mimc7Circuit</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">constants_table</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">mimc7_constants</span><span class="o">.</span><span class="n">lookup_table</span><span class="p">)</span>
+        <span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">mapping</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x_in_value</span><span class="p">,</span> <span class="n">k_value</span><span class="p">):</span>
+        <span class="c1"># TODO</span>
+</pre></div>
+</div>
+<p>Now we define <code class="docutils literal notranslate"><span class="pre">mapping()</span></code> for the super circuit, which generates a super-witness that contains multiple witnesses, each for a sub-circuit that requires a witness. Again, refer to the code snippet below. Inside <code class="docutils literal notranslate"><span class="pre">mapping()</span></code>, we call <code class="docutils literal notranslate"><span class="pre">map()</span></code> for each sub-circuit that needs a witness, and this <code class="docutils literal notranslate"><span class="pre">map()</span></code> function essentially calls the <code class="docutils literal notranslate"><span class="pre">trace()</span></code> function defined under the sub-circuit. If we further go down the pipeline and recall from the Fibonacci tutorial, inside <code class="docutils literal notranslate"><span class="pre">trace()</span></code>, we call <code class="docutils literal notranslate"><span class="pre">add()</span></code> each time we add a step instance, and this <code class="docutils literal notranslate"><span class="pre">add()</span></code> function essentially calls the <code class="docutils literal notranslate"><span class="pre">wg()</span></code> function defined under the corresponding step type. In summary:</p>
+<p><strong>super circuit level:</strong></p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">mapping()</span></code> is defined by the user</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">mapping()</span></code> calls <code class="docutils literal notranslate"><span class="pre">map()</span></code> for each sub-circuit that requires a witness</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">map()</span></code> invokes <code class="docutils literal notranslate"><span class="pre">trace()</span></code> under sub-circuit</p></li>
+<li><p>Therefore, <code class="docutils literal notranslate"><span class="pre">map()</span></code> and <code class="docutils literal notranslate"><span class="pre">trace()</span></code> must have the same optional parameters</p></li>
+</ul>
+<p><strong>sub-circuit level:</strong></p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">trace()</span></code> is defined by the user</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">trace()</span></code> calls <code class="docutils literal notranslate"><span class="pre">add()</span></code> for each step instance added</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">add()</span></code> invokes <code class="docutils literal notranslate"><span class="pre">wg()</span></code> under step type</p></li>
+<li><p>Therefore, <code class="docutils literal notranslate"><span class="pre">add()</span></code> and <code class="docutils literal notranslate"><span class="pre">wg()</span></code> must have the same optional parameters</p></li>
+</ul>
+<p><strong>step-type level:</strong></p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">wg()</span></code> is defined by the user</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">wg()</span></code> calls <code class="docutils literal notranslate"><span class="pre">assign()</span></code> for each signal value assigned</p></li>
+</ul>
+<p>Because we call <code class="docutils literal notranslate"><span class="pre">map()</span></code> for each sub-circuit that requires a witness and because <code class="docutils literal notranslate"><span class="pre">Mimc7Constants</span></code> simply constructs the lookup table with fixed signals but no witness, we only need to call <code class="docutils literal notranslate"><span class="pre">map()</span></code> once for <code class="docutils literal notranslate"><span class="pre">Mimc7Circuit</span></code>, which we appended to the super circuit as <code class="docutils literal notranslate"><span class="pre">self.mimc7_circuit</span></code> in <code class="docutils literal notranslate"><span class="pre">setup()</span></code>. Because <code class="docutils literal notranslate"><span class="pre">map()</span></code> invokes <code class="docutils literal notranslate"><span class="pre">trace()</span></code> under sub-circuit, we need to make sure that they have the same optional parameters, i.e. <code class="docutils literal notranslate"><span class="pre">x_in_value</span></code> and <code class="docutils literal notranslate"><span class="pre">k_value</span></code>. Scroll above or to the prior chapter to confirm that <code class="docutils literal notranslate"><span class="pre">trace()</span></code> indeed only have <code class="docutils literal notranslate"><span class="pre">x_in_value</span></code> and <code class="docutils literal notranslate"><span class="pre">k_value</span></code> as the optional parameters. Similarly, because <code class="docutils literal notranslate"><span class="pre">add()</span></code> invokes <code class="docutils literal notranslate"><span class="pre">wg()</span></code> under step type, we need to make sure that they have the same optional parameters as well for the same step type. Again, you can confirm this with any circuits from this or prior chapters.</p>
+<p>Here’s our <code class="docutils literal notranslate"><span class="pre">mapping()</span></code> implementation for <code class="docutils literal notranslate"><span class="pre">Mimc7SuperCircuit</span></code>:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="k">class</span> <span class="nc">Mimc7SuperCircuit</span><span class="p">(</span><span class="n">SuperCircuit</span><span class="p">):</span>
+    <span class="k">def</span> <span class="nf">setup</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="c1"># ...</span>
+
+    <span class="k">def</span> <span class="nf">mapping</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x_in_value</span><span class="p">,</span> <span class="n">k_value</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">map</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">mimc7_circuit</span><span class="p">,</span> <span class="n">x_in_value</span><span class="p">,</span> <span class="n">k_value</span><span class="p">)</span>
+</pre></div>
+</div>
+</section>
+<section id="putting-everything-together">
+<h2>Putting Everything Together<a class="headerlink" href="#putting-everything-together" title="Permalink to this heading">#</a></h2>
+<p>You’ve progressed this far! Finally, it’s time to put everything, lookup tables, fixed signals, new sub-circuit, and super circuit, together.</p>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">__future__</span> <span class="kn">import</span> <span class="n">annotations</span>
+<span class="kn">from</span> <span class="nn">chiquito.dsl</span> <span class="kn">import</span> <span class="n">SuperCircuit</span><span class="p">,</span> <span class="n">Circuit</span><span class="p">,</span> <span class="n">StepType</span>
+<span class="kn">from</span> <span class="nn">chiquito.cb</span> <span class="kn">import</span> <span class="n">eq</span><span class="p">,</span> <span class="n">table</span>
+<span class="kn">from</span> <span class="nn">chiquito.util</span> <span class="kn">import</span> <span class="n">F</span>
+
+
+<span class="n">ROUNDS</span> <span class="o">=</span> <span class="mi">91</span>
+
+<span class="n">ROUND_CONSTANTS</span> <span class="o">=</span> <span class="p">[</span>
+    <span class="mi">0</span><span class="p">,</span>
+    <span class="mi">20888961410941983456478427210666206549300505294776164667214940546594746570981</span><span class="p">,</span>
+    <span class="mi">15265126113435022738560151911929040668591755459209400716467504685752745317193</span><span class="p">,</span>
+    <span class="mi">8334177627492981984476504167502758309043212251641796197711684499645635709656</span><span class="p">,</span>
+    <span class="mi">1374324219480165500871639364801692115397519265181803854177629327624133579404</span><span class="p">,</span>
+    <span class="mi">11442588683664344394633565859260176446561886575962616332903193988751292992472</span><span class="p">,</span>
+    <span class="mi">2558901189096558760448896669327086721003508630712968559048179091037845349145</span><span class="p">,</span>
+    <span class="mi">11189978595292752354820141775598510151189959177917284797737745690127318076389</span><span class="p">,</span>
+    <span class="mi">3262966573163560839685415914157855077211340576201936620532175028036746741754</span><span class="p">,</span>
+    <span class="mi">17029914891543225301403832095880481731551830725367286980611178737703889171730</span><span class="p">,</span>
+    <span class="mi">4614037031668406927330683909387957156531244689520944789503628527855167665518</span><span class="p">,</span>
+    <span class="mi">19647356996769918391113967168615123299113119185942498194367262335168397100658</span><span class="p">,</span>
+    <span class="mi">5040699236106090655289931820723926657076483236860546282406111821875672148900</span><span class="p">,</span>
+    <span class="mi">2632385916954580941368956176626336146806721642583847728103570779270161510514</span><span class="p">,</span>
+    <span class="mi">17691411851977575435597871505860208507285462834710151833948561098560743654671</span><span class="p">,</span>
+    <span class="mi">11482807709115676646560379017491661435505951727793345550942389701970904563183</span><span class="p">,</span>
+    <span class="mi">8360838254132998143349158726141014535383109403565779450210746881879715734773</span><span class="p">,</span>
+    <span class="mi">12663821244032248511491386323242575231591777785787269938928497649288048289525</span><span class="p">,</span>
+    <span class="mi">3067001377342968891237590775929219083706800062321980129409398033259904188058</span><span class="p">,</span>
+    <span class="mi">8536471869378957766675292398190944925664113548202769136103887479787957959589</span><span class="p">,</span>
+    <span class="mi">19825444354178182240559170937204690272111734703605805530888940813160705385792</span><span class="p">,</span>
+    <span class="mi">16703465144013840124940690347975638755097486902749048533167980887413919317592</span><span class="p">,</span>
+    <span class="mi">13061236261277650370863439564453267964462486225679643020432589226741411380501</span><span class="p">,</span>
+    <span class="mi">10864774797625152707517901967943775867717907803542223029967000416969007792571</span><span class="p">,</span>
+    <span class="mi">10035653564014594269791753415727486340557376923045841607746250017541686319774</span><span class="p">,</span>
+    <span class="mi">3446968588058668564420958894889124905706353937375068998436129414772610003289</span><span class="p">,</span>
+    <span class="mi">4653317306466493184743870159523234588955994456998076243468148492375236846006</span><span class="p">,</span>
+    <span class="mi">8486711143589723036499933521576871883500223198263343024003617825616410932026</span><span class="p">,</span>
+    <span class="mi">250710584458582618659378487568129931785810765264752039738223488321597070280</span><span class="p">,</span>
+    <span class="mi">2104159799604932521291371026105311735948154964200596636974609406977292675173</span><span class="p">,</span>
+    <span class="mi">16313562605837709339799839901240652934758303521543693857533755376563489378839</span><span class="p">,</span>
+    <span class="mi">6032365105133504724925793806318578936233045029919447519826248813478479197288</span><span class="p">,</span>
+    <span class="mi">14025118133847866722315446277964222215118620050302054655768867040006542798474</span><span class="p">,</span>
+    <span class="mi">7400123822125662712777833064081316757896757785777291653271747396958201309118</span><span class="p">,</span>
+    <span class="mi">1744432620323851751204287974553233986555641872755053103823939564833813704825</span><span class="p">,</span>
+    <span class="mi">8316378125659383262515151597439205374263247719876250938893842106722210729522</span><span class="p">,</span>
+    <span class="mi">6739722627047123650704294650168547689199576889424317598327664349670094847386</span><span class="p">,</span>
+    <span class="mi">21211457866117465531949733809706514799713333930924902519246949506964470524162</span><span class="p">,</span>
+    <span class="mi">13718112532745211817410303291774369209520657938741992779396229864894885156527</span><span class="p">,</span>
+    <span class="mi">5264534817993325015357427094323255342713527811596856940387954546330728068658</span><span class="p">,</span>
+    <span class="mi">18884137497114307927425084003812022333609937761793387700010402412840002189451</span><span class="p">,</span>
+    <span class="mi">5148596049900083984813839872929010525572543381981952060869301611018636120248</span><span class="p">,</span>
+    <span class="mi">19799686398774806587970184652860783461860993790013219899147141137827718662674</span><span class="p">,</span>
+    <span class="mi">19240878651604412704364448729659032944342952609050243268894572835672205984837</span><span class="p">,</span>
+    <span class="mi">10546185249390392695582524554167530669949955276893453512788278945742408153192</span><span class="p">,</span>
+    <span class="mi">5507959600969845538113649209272736011390582494851145043668969080335346810411</span><span class="p">,</span>
+    <span class="mi">18177751737739153338153217698774510185696788019377850245260475034576050820091</span><span class="p">,</span>
+    <span class="mi">19603444733183990109492724100282114612026332366576932662794133334264283907557</span><span class="p">,</span>
+    <span class="mi">10548274686824425401349248282213580046351514091431715597441736281987273193140</span><span class="p">,</span>
+    <span class="mi">1823201861560942974198127384034483127920205835821334101215923769688644479957</span><span class="p">,</span>
+    <span class="mi">11867589662193422187545516240823411225342068709600734253659804646934346124945</span><span class="p">,</span>
+    <span class="mi">18718569356736340558616379408444812528964066420519677106145092918482774343613</span><span class="p">,</span>
+    <span class="mi">10530777752259630125564678480897857853807637120039176813174150229243735996839</span><span class="p">,</span>
+    <span class="mi">20486583726592018813337145844457018474256372770211860618687961310422228379031</span><span class="p">,</span>
+    <span class="mi">12690713110714036569415168795200156516217175005650145422920562694422306200486</span><span class="p">,</span>
+    <span class="mi">17386427286863519095301372413760745749282643730629659997153085139065756667205</span><span class="p">,</span>
+    <span class="mi">2216432659854733047132347621569505613620980842043977268828076165669557467682</span><span class="p">,</span>
+    <span class="mi">6309765381643925252238633914530877025934201680691496500372265330505506717193</span><span class="p">,</span>
+    <span class="mi">20806323192073945401862788605803131761175139076694468214027227878952047793390</span><span class="p">,</span>
+    <span class="mi">4037040458505567977365391535756875199663510397600316887746139396052445718861</span><span class="p">,</span>
+    <span class="mi">19948974083684238245321361840704327952464170097132407924861169241740046562673</span><span class="p">,</span>
+    <span class="mi">845322671528508199439318170916419179535949348988022948153107378280175750024</span><span class="p">,</span>
+    <span class="mi">16222384601744433420585982239113457177459602187868460608565289920306145389382</span><span class="p">,</span>
+    <span class="mi">10232118865851112229330353999139005145127746617219324244541194256766741433339</span><span class="p">,</span>
+    <span class="mi">6699067738555349409504843460654299019000594109597429103342076743347235369120</span><span class="p">,</span>
+    <span class="mi">6220784880752427143725783746407285094967584864656399181815603544365010379208</span><span class="p">,</span>
+    <span class="mi">6129250029437675212264306655559561251995722990149771051304736001195288083309</span><span class="p">,</span>
+    <span class="mi">10773245783118750721454994239248013870822765715268323522295722350908043393604</span><span class="p">,</span>
+    <span class="mi">4490242021765793917495398271905043433053432245571325177153467194570741607167</span><span class="p">,</span>
+    <span class="mi">19596995117319480189066041930051006586888908165330319666010398892494684778526</span><span class="p">,</span>
+    <span class="mi">837850695495734270707668553360118467905109360511302468085569220634750561083</span><span class="p">,</span>
+    <span class="mi">11803922811376367215191737026157445294481406304781326649717082177394185903907</span><span class="p">,</span>
+    <span class="mi">10201298324909697255105265958780781450978049256931478989759448189112393506592</span><span class="p">,</span>
+    <span class="mi">13564695482314888817576351063608519127702411536552857463682060761575100923924</span><span class="p">,</span>
+    <span class="mi">9262808208636973454201420823766139682381973240743541030659775288508921362724</span><span class="p">,</span>
+    <span class="mi">173271062536305557219323722062711383294158572562695717740068656098441040230</span><span class="p">,</span>
+    <span class="mi">18120430890549410286417591505529104700901943324772175772035648111937818237369</span><span class="p">,</span>
+    <span class="mi">20484495168135072493552514219686101965206843697794133766912991150184337935627</span><span class="p">,</span>
+    <span class="mi">19155651295705203459475805213866664350848604323501251939850063308319753686505</span><span class="p">,</span>
+    <span class="mi">11971299749478202793661982361798418342615500543489781306376058267926437157297</span><span class="p">,</span>
+    <span class="mi">18285310723116790056148596536349375622245669010373674803854111592441823052978</span><span class="p">,</span>
+    <span class="mi">7069216248902547653615508023941692395371990416048967468982099270925308100727</span><span class="p">,</span>
+    <span class="mi">6465151453746412132599596984628739550147379072443683076388208843341824127379</span><span class="p">,</span>
+    <span class="mi">16143532858389170960690347742477978826830511669766530042104134302796355145785</span><span class="p">,</span>
+    <span class="mi">19362583304414853660976404410208489566967618125972377176980367224623492419647</span><span class="p">,</span>
+    <span class="mi">1702213613534733786921602839210290505213503664731919006932367875629005980493</span><span class="p">,</span>
+    <span class="mi">10781825404476535814285389902565833897646945212027592373510689209734812292327</span><span class="p">,</span>
+    <span class="mi">4212716923652881254737947578600828255798948993302968210248673545442808456151</span><span class="p">,</span>
+    <span class="mi">7594017890037021425366623750593200398174488805473151513558919864633711506220</span><span class="p">,</span>
+    <span class="mi">18979889247746272055963929241596362599320706910852082477600815822482192194401</span><span class="p">,</span>
+    <span class="mi">13602139229813231349386885113156901793661719180900395818909719758150455500533</span><span class="p">,</span>
+<span class="p">]</span>
+
+
+<span class="k">class</span> <span class="nc">Mimc7Constants</span><span class="p">(</span><span class="n">Circuit</span><span class="p">):</span>
+    <span class="k">def</span> <span class="nf">setup</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">pragma_num_steps</span><span class="p">(</span><span class="n">ROUNDS</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">lookup_row</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">fixed</span><span class="p">(</span><span class="s2">&quot;constant row&quot;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">lookup_c</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">fixed</span><span class="p">(</span><span class="s2">&quot;constant value&quot;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">lookup_table</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">new_table</span><span class="p">(</span>
+            <span class="n">table</span><span class="p">()</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">lookup_row</span><span class="p">)</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">lookup_c</span><span class="p">)</span>
+        <span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">fixed_gen</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">round_key</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">ROUND_CONSTANTS</span><span class="p">):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">assign</span><span class="p">(</span><span class="n">i</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">lookup_row</span><span class="p">,</span> <span class="n">F</span><span class="p">(</span><span class="n">i</span><span class="p">))</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">assign</span><span class="p">(</span><span class="n">i</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">lookup_c</span><span class="p">,</span> <span class="n">F</span><span class="p">(</span><span class="n">round_key</span><span class="p">))</span>
+
+
+<span class="k">class</span> <span class="nc">Mimc7FirstStep</span><span class="p">(</span><span class="n">StepType</span><span class="p">):</span>
+    <span class="k">def</span> <span class="nf">setup</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">xkc</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">internal</span><span class="p">(</span><span class="s2">&quot;xkc&quot;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">y</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">internal</span><span class="p">(</span><span class="s2">&quot;y&quot;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">c</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">internal</span><span class="p">(</span><span class="s2">&quot;c&quot;</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">constr</span><span class="p">(</span><span class="n">eq</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">circuit</span><span class="o">.</span><span class="n">x</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">circuit</span><span class="o">.</span><span class="n">k</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">c</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">xkc</span><span class="p">))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">constr</span><span class="p">(</span>
+            <span class="n">eq</span><span class="p">(</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">xkc</span>
+                <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">xkc</span>
+                <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">xkc</span>
+                <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">xkc</span>
+                <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">xkc</span>
+                <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">xkc</span>
+                <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">xkc</span><span class="p">,</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">y</span><span class="p">,</span>
+            <span class="p">)</span>
+        <span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">transition</span><span class="p">(</span><span class="n">eq</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">y</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">circuit</span><span class="o">.</span><span class="n">x</span><span class="o">.</span><span class="n">next</span><span class="p">()))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">transition</span><span class="p">(</span><span class="n">eq</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">circuit</span><span class="o">.</span><span class="n">k</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">circuit</span><span class="o">.</span><span class="n">k</span><span class="o">.</span><span class="n">next</span><span class="p">()))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">transition</span><span class="p">(</span><span class="n">eq</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">circuit</span><span class="o">.</span><span class="n">row</span><span class="p">,</span> <span class="mi">0</span><span class="p">))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">transition</span><span class="p">(</span><span class="n">eq</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">circuit</span><span class="o">.</span><span class="n">row</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">circuit</span><span class="o">.</span><span class="n">row</span><span class="o">.</span><span class="n">next</span><span class="p">()))</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">add_lookup</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">circuit</span><span class="o">.</span><span class="n">constants_table</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">circuit</span><span class="o">.</span><span class="n">row</span><span class="p">)</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">c</span><span class="p">)</span>
+        <span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">wg</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x_value</span><span class="p">,</span> <span class="n">k_value</span><span class="p">,</span> <span class="n">c_value</span><span class="p">,</span> <span class="n">row_value</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">assign</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">circuit</span><span class="o">.</span><span class="n">x</span><span class="p">,</span> <span class="n">F</span><span class="p">(</span><span class="n">x_value</span><span class="p">))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">assign</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">circuit</span><span class="o">.</span><span class="n">k</span><span class="p">,</span> <span class="n">F</span><span class="p">(</span><span class="n">k_value</span><span class="p">))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">assign</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">c</span><span class="p">,</span> <span class="n">F</span><span class="p">(</span><span class="n">c_value</span><span class="p">))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">assign</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">circuit</span><span class="o">.</span><span class="n">row</span><span class="p">,</span> <span class="n">F</span><span class="p">(</span><span class="n">row_value</span><span class="p">))</span>
+
+        <span class="n">xkc_value</span> <span class="o">=</span> <span class="n">F</span><span class="p">(</span><span class="n">x_value</span> <span class="o">+</span> <span class="n">k_value</span> <span class="o">+</span> <span class="n">c_value</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">assign</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">xkc</span><span class="p">,</span> <span class="n">F</span><span class="p">(</span><span class="n">xkc_value</span><span class="p">))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">assign</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">y</span><span class="p">,</span> <span class="n">F</span><span class="p">(</span><span class="n">xkc_value</span><span class="o">**</span><span class="mi">7</span><span class="p">))</span>
+
+
+<span class="k">class</span> <span class="nc">Mimc7Step</span><span class="p">(</span><span class="n">StepType</span><span class="p">):</span>
+    <span class="k">def</span> <span class="nf">setup</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">xkc</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">internal</span><span class="p">(</span><span class="s2">&quot;xkc&quot;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">y</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">internal</span><span class="p">(</span><span class="s2">&quot;y&quot;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">c</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">internal</span><span class="p">(</span><span class="s2">&quot;c&quot;</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">constr</span><span class="p">(</span><span class="n">eq</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">circuit</span><span class="o">.</span><span class="n">x</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">circuit</span><span class="o">.</span><span class="n">k</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">c</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">xkc</span><span class="p">))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">constr</span><span class="p">(</span>
+            <span class="n">eq</span><span class="p">(</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">xkc</span>
+                <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">xkc</span>
+                <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">xkc</span>
+                <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">xkc</span>
+                <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">xkc</span>
+                <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">xkc</span>
+                <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">xkc</span><span class="p">,</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">y</span><span class="p">,</span>
+            <span class="p">)</span>
+        <span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">transition</span><span class="p">(</span><span class="n">eq</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">y</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">circuit</span><span class="o">.</span><span class="n">x</span><span class="o">.</span><span class="n">next</span><span class="p">()))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">transition</span><span class="p">(</span><span class="n">eq</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">circuit</span><span class="o">.</span><span class="n">k</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">circuit</span><span class="o">.</span><span class="n">k</span><span class="o">.</span><span class="n">next</span><span class="p">()))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">transition</span><span class="p">(</span><span class="n">eq</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">circuit</span><span class="o">.</span><span class="n">row</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">circuit</span><span class="o">.</span><span class="n">row</span><span class="o">.</span><span class="n">next</span><span class="p">()))</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">add_lookup</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">circuit</span><span class="o">.</span><span class="n">constants_table</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">circuit</span><span class="o">.</span><span class="n">row</span><span class="p">)</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">c</span><span class="p">)</span>
+        <span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">wg</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x_value</span><span class="p">,</span> <span class="n">k_value</span><span class="p">,</span> <span class="n">c_value</span><span class="p">,</span> <span class="n">row_value</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">assign</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">circuit</span><span class="o">.</span><span class="n">x</span><span class="p">,</span> <span class="n">F</span><span class="p">(</span><span class="n">x_value</span><span class="p">))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">assign</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">circuit</span><span class="o">.</span><span class="n">k</span><span class="p">,</span> <span class="n">F</span><span class="p">(</span><span class="n">k_value</span><span class="p">))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">assign</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">c</span><span class="p">,</span> <span class="n">F</span><span class="p">(</span><span class="n">c_value</span><span class="p">))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">assign</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">circuit</span><span class="o">.</span><span class="n">row</span><span class="p">,</span> <span class="n">F</span><span class="p">(</span><span class="n">row_value</span><span class="p">))</span>
+
+        <span class="n">xkc_value</span> <span class="o">=</span> <span class="n">F</span><span class="p">(</span><span class="n">x_value</span> <span class="o">+</span> <span class="n">k_value</span> <span class="o">+</span> <span class="n">c_value</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">assign</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">xkc</span><span class="p">,</span> <span class="n">F</span><span class="p">(</span><span class="n">xkc_value</span><span class="p">))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">assign</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">y</span><span class="p">,</span> <span class="n">F</span><span class="p">(</span><span class="n">xkc_value</span><span class="o">**</span><span class="mi">7</span><span class="p">))</span>
+
+
+<span class="k">class</span> <span class="nc">Mimc7LastStep</span><span class="p">(</span><span class="n">StepType</span><span class="p">):</span>
+    <span class="k">def</span> <span class="nf">setup</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">out</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">internal</span><span class="p">(</span><span class="s2">&quot;out&quot;</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">constr</span><span class="p">(</span><span class="n">eq</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">circuit</span><span class="o">.</span><span class="n">x</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">circuit</span><span class="o">.</span><span class="n">k</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">out</span><span class="p">))</span>
+
+    <span class="k">def</span> <span class="nf">wg</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x_value</span><span class="p">,</span> <span class="n">k_value</span><span class="p">,</span> <span class="n">_</span><span class="p">,</span> <span class="n">row_value</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">assign</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">circuit</span><span class="o">.</span><span class="n">x</span><span class="p">,</span> <span class="n">F</span><span class="p">(</span><span class="n">x_value</span><span class="p">))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">assign</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">circuit</span><span class="o">.</span><span class="n">k</span><span class="p">,</span> <span class="n">F</span><span class="p">(</span><span class="n">k_value</span><span class="p">))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">assign</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">circuit</span><span class="o">.</span><span class="n">row</span><span class="p">,</span> <span class="n">F</span><span class="p">(</span><span class="n">row_value</span><span class="p">))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">assign</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">out</span><span class="p">,</span> <span class="n">F</span><span class="p">(</span><span class="n">x_value</span> <span class="o">+</span> <span class="n">k_value</span><span class="p">))</span>
+
+
+<span class="k">class</span> <span class="nc">Mimc7Circuit</span><span class="p">(</span><span class="n">Circuit</span><span class="p">):</span>
+    <span class="k">def</span> <span class="nf">setup</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">x</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">forward</span><span class="p">(</span><span class="s2">&quot;x&quot;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">k</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">forward</span><span class="p">(</span><span class="s2">&quot;k&quot;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">row</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">forward</span><span class="p">(</span><span class="s2">&quot;row&quot;</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">mimc7_first_step</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">step_type</span><span class="p">(</span><span class="n">Mimc7FirstStep</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s2">&quot;mimc7_first_step&quot;</span><span class="p">))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">mimc7_step</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">step_type</span><span class="p">(</span><span class="n">Mimc7Step</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s2">&quot;mimc7_step&quot;</span><span class="p">))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">mimc7_last_step</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">step_type</span><span class="p">(</span><span class="n">Mimc7LastStep</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s2">&quot;mimc7_last_step&quot;</span><span class="p">))</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">pragma_first_step</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">mimc7_first_step</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">pragma_last_step</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">mimc7_last_step</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">pragma_num_steps</span><span class="p">(</span><span class="n">ROUNDS</span> <span class="o">+</span> <span class="mi">2</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">trace</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x_in_value</span><span class="p">,</span> <span class="n">k_value</span><span class="p">):</span>
+        <span class="n">c_value</span> <span class="o">=</span> <span class="n">F</span><span class="p">(</span><span class="n">ROUND_CONSTANTS</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+        <span class="n">x_value</span> <span class="o">=</span> <span class="n">F</span><span class="p">(</span><span class="n">x_in_value</span><span class="p">)</span>
+        <span class="n">row_value</span> <span class="o">=</span> <span class="n">F</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">mimc7_first_step</span><span class="p">,</span> <span class="n">x_value</span><span class="p">,</span> <span class="n">k_value</span><span class="p">,</span> <span class="n">c_value</span><span class="p">,</span> <span class="n">row_value</span><span class="p">)</span>
+
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">ROUNDS</span><span class="p">):</span>
+            <span class="n">row_value</span> <span class="o">+=</span> <span class="n">F</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+            <span class="n">x_value</span> <span class="o">+=</span> <span class="n">F</span><span class="p">(</span><span class="n">k_value</span> <span class="o">+</span> <span class="n">c_value</span><span class="p">)</span>
+            <span class="n">x_value</span> <span class="o">=</span> <span class="n">F</span><span class="p">(</span><span class="n">x_value</span><span class="o">**</span><span class="mi">7</span><span class="p">)</span>
+            <span class="n">c_value</span> <span class="o">=</span> <span class="n">F</span><span class="p">(</span><span class="n">ROUND_CONSTANTS</span><span class="p">[</span><span class="n">i</span><span class="p">])</span>
+
+            <span class="bp">self</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">mimc7_step</span><span class="p">,</span> <span class="n">x_value</span><span class="p">,</span> <span class="n">k_value</span><span class="p">,</span> <span class="n">c_value</span><span class="p">,</span> <span class="n">row_value</span><span class="p">)</span>
+
+        <span class="n">row_value</span> <span class="o">+=</span> <span class="n">F</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+        <span class="n">x_value</span> <span class="o">+=</span> <span class="n">F</span><span class="p">(</span><span class="n">k_value</span> <span class="o">+</span> <span class="n">c_value</span><span class="p">)</span>
+        <span class="n">x_value</span> <span class="o">=</span> <span class="n">F</span><span class="p">(</span><span class="n">x_value</span><span class="o">**</span><span class="mi">7</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">mimc7_last_step</span><span class="p">,</span> <span class="n">x_value</span><span class="p">,</span> <span class="n">k_value</span><span class="p">,</span> <span class="n">c_value</span><span class="p">,</span> <span class="n">row_value</span><span class="p">)</span>
+
+
+<span class="k">class</span> <span class="nc">Mimc7SuperCircuit</span><span class="p">(</span><span class="n">SuperCircuit</span><span class="p">):</span>
+    <span class="k">def</span> <span class="nf">setup</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">mimc7_constants</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">sub_circuit</span><span class="p">(</span><span class="n">Mimc7Constants</span><span class="p">(</span><span class="bp">self</span><span class="p">))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">mimc7_circuit</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">sub_circuit</span><span class="p">(</span>
+            <span class="n">Mimc7Circuit</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">constants_table</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">mimc7_constants</span><span class="o">.</span><span class="n">lookup_table</span><span class="p">)</span>
+        <span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">mapping</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x_in_value</span><span class="p">,</span> <span class="n">k_value</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">map</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">mimc7_circuit</span><span class="p">,</span> <span class="n">x_in_value</span><span class="p">,</span> <span class="n">k_value</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+</div>
+<p>Similar to a regular circuit, we first instantiate the supercircuit, then invoke the <code class="docutils literal notranslate"><span class="pre">gen_witness</span></code> function with parameters that match the <code class="docutils literal notranslate"><span class="pre">mapping()</span></code> function to create the super witness, and finally feed the super witness to the <code class="docutils literal notranslate"><span class="pre">halo2_mock_prover</span></code>. Here we are feeding in an input message value of <code class="docutils literal notranslate"><span class="pre">x_in_value</span> <span class="pre">=</span> <span class="pre">F(1)</span></code> and the key value of <code class="docutils literal notranslate"><span class="pre">k_value</span> <span class="pre">=</span> <span class="pre">F(2)</span></code>. A successful run should give you an <code class="docutils literal notranslate"><span class="pre">Ok(())</span></code> print out.</p>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">mimc7</span> <span class="o">=</span> <span class="n">Mimc7SuperCircuit</span><span class="p">()</span>
+<span class="n">mimc7_super_witness</span> <span class="o">=</span> <span class="n">mimc7</span><span class="o">.</span><span class="n">gen_witness</span><span class="p">(</span><span class="n">F</span><span class="p">(</span><span class="mi">1</span><span class="p">),</span> <span class="n">F</span><span class="p">(</span><span class="mi">2</span><span class="p">))</span>
+<span class="n">mimc7</span><span class="o">.</span><span class="n">halo2_mock_prover</span><span class="p">(</span><span class="n">mimc7_super_witness</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>result = Ok(
+    (),
+)
+</pre></div>
+</div>
+</div>
+</div>
+<p>Voila! In this chapter, we started from the hypothetical scenario where the evil witness inputs arbitrary round constant value. We constructed a lookup table with 2 columns using 2 fixed signals and put this lookup table within a sub-circuit so that it can be used across other sub-circuits. We added the <code class="docutils literal notranslate"><span class="pre">row</span></code> signal to our original circuit, now also a sub-circuit, so that the ordering of the round constants are ensured. To achieve this, we are required to add an additional step type for the first step instance to constrain <code class="docutils literal notranslate"><span class="pre">row</span> <span class="pre">==</span> <span class="pre">0</span></code>, and added additional constraints for <code class="docutils literal notranslate"><span class="pre">row</span></code> in other step types. We additionally also needed to modify the <code class="docutils literal notranslate"><span class="pre">wg()</span></code> and <code class="docutils literal notranslate"><span class="pre">trace()</span></code> function to reflect the <code class="docutils literal notranslate"><span class="pre">row</span></code> signal addition in witness assignment and step instantiation. Finally, we grouped both sub-circuits in a super circuit, and invoked the <code class="docutils literal notranslate"><span class="pre">mapping()</span></code> function to create a super witness, which only contains a witness for the <code class="docutils literal notranslate"><span class="pre">Mimc7Circuit</span></code> sub-circuit.</p>
+<p>That’s a lot you’ve learned from this chapter alone! Now that you finished the entire Chiquito tutorial series and just became a newly minted Chiquito expert :)</p>
+</section>
+</section>
+
+    <script type="text/x-thebe-config">
+    {
+        requestKernel: true,
+        binderOptions: {
+            repo: "binder-examples/jupyter-stacks-datascience",
+            ref: "master",
+        },
+        codeMirrorConfig: {
+            theme: "abcdef",
+            mode: "chiquito_kernel"
+        },
+        kernelOptions: {
+            name: "chiquito_kernel",
+            path: "./."
+        },
+        predefinedOutput: true
+    }
+    </script>
+    <script>kernelName = 'chiquito_kernel'</script>
+
+                </article>
+              
+
+              
+              
+              
+              
+                <footer class="prev-next-footer">
+                  <!-- Previous / next buttons -->
+<div class="prev-next-area">
+    <a class="left-prev"
+       href="part3_chapter3.html"
+       title="previous page">
+      <i class="fa-solid fa-angle-left"></i>
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">previous</p>
+        <p class="prev-next-title">Chapter 3: Witness</p>
+      </div>
+    </a>
+    <a class="right-next"
+       href="appendix_chapter1.html"
+       title="next page">
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">next</p>
+        <p class="prev-next-title">Design Principles</p>
+      </div>
+      <i class="fa-solid fa-angle-right"></i>
+    </a>
+</div>
+                </footer>
+              
+            </div>
+            
+            
+              
+                <div class="bd-sidebar-secondary bd-toc"><div class="sidebar-secondary-items sidebar-secondary__inner">
+
+  <div class="sidebar-secondary-item">
+  <div class="page-toc tocsection onthispage">
+    <i class="fa-solid fa-list"></i> Contents
+  </div>
+  <nav class="bd-toc-nav page-toc">
+    <ul class="visible nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#lookup-tables">Lookup Tables</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#fixed-signals">Fixed Signals</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#super-circuits">Super Circuits</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#putting-them-all-together">Putting Them All Together</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#mimc7constants-sub-circuit-for-lookup-table">MiMC7Constants Sub-Circuit for Lookup Table</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#modifications-to-mimc7circuit-sub-circuit">Modifications to MiMC7Circuit Sub-Circuit</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#constructing-the-super-circuit">Constructing the Super Circuit</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#putting-everything-together">Putting Everything Together</a></li>
+</ul>
+  </nav></div>
+
+</div></div>
+              
+            
+          </div>
+          <footer class="bd-footer-content">
+            
+<div class="bd-footer-content__inner container">
+  
+  <div class="footer-item">
+    
+<p class="component-author">
+By Leo Lara, Steve Wang
+</p>
+
+  </div>
+  
+  <div class="footer-item">
+    
+  <p class="copyright">
+    
+      © Copyright 2022.
+      <br/>
+    
+  </p>
+
+  </div>
+  
+  <div class="footer-item">
+    
+  </div>
+  
+  <div class="footer-item">
+    
+  </div>
+  
+</div>
+          </footer>
+        
+
+      </main>
+    </div>
+  </div>
+  
+  <!-- Scripts loaded after <body> so the DOM is not blocked -->
+  <script src="_static/scripts/bootstrap.js?digest=365ca57ee442770a23c6"></script>
+<script src="_static/scripts/pydata-sphinx-theme.js?digest=365ca57ee442770a23c6"></script>
+
+  <footer class="bd-footer">
+  </footer>
+  </body>
+</html>

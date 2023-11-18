@@ -1,0 +1,660 @@
+
+
+<!DOCTYPE html>
+
+
+<html lang="en" >
+
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="generator" content="Docutils 0.18.1: http://docutils.sourceforge.net/" />
+
+    <title>Python Syntax &#8212; Introduction to Chiquito</title>
+  
+  
+  
+  <script data-cfasync="false">
+    document.documentElement.dataset.mode = localStorage.getItem("mode") || "";
+    document.documentElement.dataset.theme = localStorage.getItem("theme") || "light";
+  </script>
+  
+  <!-- Loaded before other Sphinx assets -->
+  <link href="_static/styles/theme.css?digest=365ca57ee442770a23c6" rel="stylesheet" />
+<link href="_static/styles/bootstrap.css?digest=365ca57ee442770a23c6" rel="stylesheet" />
+<link href="_static/styles/pydata-sphinx-theme.css?digest=365ca57ee442770a23c6" rel="stylesheet" />
+
+  
+  <link href="_static/vendor/fontawesome/6.1.2/css/all.min.css?digest=365ca57ee442770a23c6" rel="stylesheet" />
+  <link rel="preload" as="font" type="font/woff2" crossorigin href="_static/vendor/fontawesome/6.1.2/webfonts/fa-solid-900.woff2" />
+<link rel="preload" as="font" type="font/woff2" crossorigin href="_static/vendor/fontawesome/6.1.2/webfonts/fa-brands-400.woff2" />
+<link rel="preload" as="font" type="font/woff2" crossorigin href="_static/vendor/fontawesome/6.1.2/webfonts/fa-regular-400.woff2" />
+
+    <link rel="stylesheet" type="text/css" href="_static/pygments.css" />
+    <link rel="stylesheet" href="_static/styles/sphinx-book-theme.css?digest=14f4ca6b54d191a8c7657f6c759bf11a5fb86285" type="text/css" />
+    <link rel="stylesheet" type="text/css" href="_static/togglebutton.css" />
+    <link rel="stylesheet" type="text/css" href="_static/copybutton.css" />
+    <link rel="stylesheet" type="text/css" href="_static/mystnb.4510f1fc1dee50b3e5859aac5469c37c29e427902b24a333a5f9fcb2f0b3ac41.css" />
+    <link rel="stylesheet" type="text/css" href="_static/sphinx-thebe.css" />
+    <link rel="stylesheet" type="text/css" href="_static/design-style.4045f2051d55cab465a707391d5b2007.min.css" />
+  
+  <!-- Pre-loaded scripts that we'll load fully later -->
+  <link rel="preload" as="script" href="_static/scripts/bootstrap.js?digest=365ca57ee442770a23c6" />
+<link rel="preload" as="script" href="_static/scripts/pydata-sphinx-theme.js?digest=365ca57ee442770a23c6" />
+  <script src="_static/vendor/fontawesome/6.1.2/js/all.min.js?digest=365ca57ee442770a23c6"></script>
+
+    <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js"></script>
+    <script src="_static/jquery.js"></script>
+    <script src="_static/underscore.js"></script>
+    <script src="_static/_sphinx_javascript_frameworks_compat.js"></script>
+    <script src="_static/doctools.js"></script>
+    <script src="_static/clipboard.min.js"></script>
+    <script src="_static/copybutton.js"></script>
+    <script src="_static/scripts/sphinx-book-theme.js?digest=5a5c038af52cf7bc1a1ec88eea08e6366ee68824"></script>
+    <script>let toggleHintShow = 'Click to show';</script>
+    <script>let toggleHintHide = 'Click to hide';</script>
+    <script>let toggleOpenOnPrint = 'true';</script>
+    <script src="_static/togglebutton.js"></script>
+    <script>var togglebuttonSelector = '.toggle, .admonition.dropdown';</script>
+    <script src="_static/design-tabs.js"></script>
+    <script>const THEBE_JS_URL = "https://unpkg.com/thebe@0.8.2/lib/index.js"
+const thebe_selector = ".thebe,.cell"
+const thebe_selector_input = "pre"
+const thebe_selector_output = ".output, .cell_output"
+</script>
+    <script async="async" src="_static/sphinx-thebe.js"></script>
+    <script>DOCUMENTATION_OPTIONS.pagename = 'part1_chapter4';</script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Setup" href="part1_chapter5.html" />
+    <link rel="prev" title="Chiquito Programming Model" href="part1_chapter3.html" />
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta name="docsearch:language" content="en"/>
+  </head>
+  
+  
+  <body data-bs-spy="scroll" data-bs-target=".bd-toc-nav" data-offset="180" data-bs-root-margin="0px 0px -60%" data-default-mode="">
+
+  
+  
+  <a class="skip-link" href="#main-content">Skip to main content</a>
+  
+  <div id="pst-scroll-pixel-helper"></div>
+
+  
+  <button type="button" class="btn rounded-pill" id="pst-back-to-top">
+    <i class="fa-solid fa-arrow-up"></i>
+    Back to top
+  </button>
+
+  
+  <input type="checkbox"
+          class="sidebar-toggle"
+          name="__primary"
+          id="__primary"/>
+  <label class="overlay overlay-primary" for="__primary"></label>
+  
+  <input type="checkbox"
+          class="sidebar-toggle"
+          name="__secondary"
+          id="__secondary"/>
+  <label class="overlay overlay-secondary" for="__secondary"></label>
+  
+  <div class="search-button__wrapper">
+    <div class="search-button__overlay"></div>
+    <div class="search-button__search-container">
+<form class="bd-search d-flex align-items-center"
+      action="search.html"
+      method="get">
+  <i class="fa-solid fa-magnifying-glass"></i>
+  <input type="search"
+         class="form-control"
+         name="q"
+         id="search-input"
+         placeholder="Search this book..."
+         aria-label="Search this book..."
+         autocomplete="off"
+         autocorrect="off"
+         autocapitalize="off"
+         spellcheck="false"/>
+  <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd>K</kbd></span>
+</form></div>
+  </div>
+  
+    <nav class="bd-header navbar navbar-expand-lg bd-navbar">
+    </nav>
+  
+  <div class="bd-container">
+    <div class="bd-container__inner bd-page-width">
+      
+      <div class="bd-sidebar-primary bd-sidebar">
+        
+
+  
+  <div class="sidebar-header-items sidebar-primary__section">
+    
+    
+    
+    
+  </div>
+  
+    <div class="sidebar-primary-items__start sidebar-primary__section">
+        <div class="sidebar-primary-item">
+  
+
+<a class="navbar-brand logo" href="landing_page.html">
+  
+  
+  
+  
+  
+    
+    
+      
+    
+    
+    <img src="_static/pselogo.png" class="logo__image only-light" alt="Introduction to Chiquito - Home"/>
+    <script>document.write(`<img src="_static/pselogo.png" class="logo__image only-dark" alt="Introduction to Chiquito - Home"/>`);</script>
+  
+  
+</a></div>
+        <div class="sidebar-primary-item"><nav class="bd-links" id="bd-docs-nav" aria-label="Main">
+    <div class="bd-toc-item navbar-nav active">
+        
+        <ul class="nav bd-sidenav bd-sidenav__home-link">
+            <li class="toctree-l1">
+                <a class="reference internal" href="landing_page.html">
+                    Meet Chiquito
+                </a>
+            </li>
+        </ul>
+        <p aria-level="2" class="caption" role="heading"><span class="caption-text">Part 1 - Intro to Chiquito</span></p>
+<ul class="current nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="part1_chapter1.html">What is Zero Knowledge Proof (Developer POV)?</a></li>
+<li class="toctree-l1"><a class="reference internal" href="part1_chapter2.html">What is Chiquito?</a></li>
+<li class="toctree-l1"><a class="reference internal" href="part1_chapter3.html">Chiquito Programming Model</a></li>
+<li class="toctree-l1 current active"><a class="current reference internal" href="#">Python Syntax</a></li>
+<li class="toctree-l1"><a class="reference internal" href="part1_chapter5.html">Setup</a></li>
+</ul>
+<p aria-level="2" class="caption" role="heading"><span class="caption-text">Part 2 - Fibonacci Example</span></p>
+<ul class="nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="part2_chapter1.html">Chapter 1: Fibonacci and Chiquito Concepts</a></li>
+<li class="toctree-l1"><a class="reference internal" href="part2_chapter2.html">Chapter 2: StepType and Circuit</a></li>
+<li class="toctree-l1"><a class="reference internal" href="part2_chapter3.html">Chapter 3: Witness</a></li>
+<li class="toctree-l1"><a class="reference internal" href="part2_chapter4.html">Chapter 4: Multiple StepTypes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="part2_chapter5.html">Chapter 5: Padding and Exposing Signals</a></li>
+</ul>
+<p aria-level="2" class="caption" role="heading"><span class="caption-text">Part 3 - MiMC7 Example</span></p>
+<ul class="nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="part3_chapter1.html">Chapter 1: MiMC7 Concepts</a></li>
+<li class="toctree-l1"><a class="reference internal" href="part3_chapter2.html">Chapter 2: First Attempt</a></li>
+<li class="toctree-l1"><a class="reference internal" href="part3_chapter3.html">Chapter 3: Witness</a></li>
+<li class="toctree-l1"><a class="reference internal" href="part3_chapter4.html">Chapter 4: Fixed Signals, Lookup Tables, and Super Circuit</a></li>
+</ul>
+<p aria-level="2" class="caption" role="heading"><span class="caption-text">Appendix</span></p>
+<ul class="nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="appendix_chapter1.html">Design Principles</a></li>
+<li class="toctree-l1"><a class="reference internal" href="appendix_chapter2.html">Chiquito vs Halo2</a></li>
+<li class="toctree-l1"><a class="reference internal" href="appendix_chapter3.html">Chiquito architecture</a></li>
+</ul>
+
+    </div>
+</nav></div>
+    </div>
+  
+  
+  <div class="sidebar-primary-items__end sidebar-primary__section">
+  </div>
+  
+  <div id="rtd-footer-container"></div>
+
+
+      </div>
+      
+      <main id="main-content" class="bd-main">
+        
+        
+
+<div class="sbt-scroll-pixel-helper"></div>
+
+          <div class="bd-content">
+            <div class="bd-article-container">
+              
+              <div class="bd-header-article">
+<div class="header-article-items header-article__inner">
+  
+    <div class="header-article-items__start">
+      
+        <div class="header-article-item"><label class="sidebar-toggle primary-toggle btn btn-sm" for="__primary" title="Toggle primary sidebar" data-bs-placement="bottom" data-bs-toggle="tooltip">
+  <span class="fa-solid fa-bars"></span>
+</label></div>
+      
+    </div>
+  
+  
+    <div class="header-article-items__end">
+      
+        <div class="header-article-item">
+
+<div class="article-header-buttons">
+
+
+
+
+
+<div class="dropdown dropdown-source-buttons">
+  <button class="btn dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Source repositories">
+    <i class="fab fa-github"></i>
+  </button>
+  <ul class="dropdown-menu">
+      
+      
+      
+      <li><a href="https://github.com/privacy-scaling-explorations/chiquito" target="_blank"
+   class="btn btn-sm btn-source-repository-button dropdown-item"
+   title="Source repository"
+   data-bs-placement="left" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fab fa-github"></i>
+  </span>
+<span class="btn__text-container">Repository</span>
+</a>
+</li>
+      
+      
+      
+      
+      <li><a href="https://github.com/privacy-scaling-explorations/chiquito/issues/new?title=Issue%20on%20page%20%2Fpart1_chapter4.html&body=Your%20issue%20content%20here." target="_blank"
+   class="btn btn-sm btn-source-issues-button dropdown-item"
+   title="Open an issue"
+   data-bs-placement="left" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fas fa-lightbulb"></i>
+  </span>
+<span class="btn__text-container">Open issue</span>
+</a>
+</li>
+      
+  </ul>
+</div>
+
+
+
+
+
+
+<div class="dropdown dropdown-download-buttons">
+  <button class="btn dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Download this page">
+    <i class="fas fa-download"></i>
+  </button>
+  <ul class="dropdown-menu">
+      
+      
+      
+      <li><a href="_sources/part1_chapter4.md" target="_blank"
+   class="btn btn-sm btn-download-source-button dropdown-item"
+   title="Download source file"
+   data-bs-placement="left" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fas fa-file"></i>
+  </span>
+<span class="btn__text-container">.md</span>
+</a>
+</li>
+      
+      
+      
+      
+      <li>
+<button onclick="window.print()"
+  class="btn btn-sm btn-download-pdf-button dropdown-item"
+  title="Print to PDF"
+  data-bs-placement="left" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fas fa-file-pdf"></i>
+  </span>
+<span class="btn__text-container">.pdf</span>
+</button>
+</li>
+      
+  </ul>
+</div>
+
+
+
+
+<button onclick="toggleFullScreen()"
+  class="btn btn-sm btn-fullscreen-button"
+  title="Fullscreen mode"
+  data-bs-placement="bottom" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fas fa-expand"></i>
+  </span>
+
+</button>
+
+
+<script>
+document.write(`
+  <button class="btn btn-sm navbar-btn theme-switch-button" title="light/dark" aria-label="light/dark" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <span class="theme-switch nav-link" data-mode="light"><i class="fa-solid fa-sun fa-lg"></i></span>
+    <span class="theme-switch nav-link" data-mode="dark"><i class="fa-solid fa-moon fa-lg"></i></span>
+    <span class="theme-switch nav-link" data-mode="auto"><i class="fa-solid fa-circle-half-stroke fa-lg"></i></span>
+  </button>
+`);
+</script>
+
+<script>
+document.write(`
+  <button class="btn btn-sm navbar-btn search-button search-button__button" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <i class="fa-solid fa-magnifying-glass fa-lg"></i>
+  </button>
+`);
+</script>
+<label class="sidebar-toggle secondary-toggle btn btn-sm" for="__secondary"title="Toggle secondary sidebar" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <span class="fa-solid fa-list"></span>
+</label>
+</div></div>
+      
+    </div>
+  
+</div>
+</div>
+              
+              
+
+<div id="jb-print-docs-body" class="onlyprint">
+    <h1>Python Syntax</h1>
+    <!-- Table of contents -->
+    <div id="print-main-content">
+        <div id="jb-print-toc">
+            
+            <div>
+                <h2> Contents </h2>
+            </div>
+            <nav aria-label="Page">
+                <ul class="visible nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#constraint-builder">Constraint builder</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#defining-a-step">Defining a step</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#defining-the-circuit">Defining the circuit</a></li>
+</ul>
+            </nav>
+        </div>
+    </div>
+</div>
+
+              
+                
+<div id="searchbox"></div>
+                <article class="bd-article" role="main">
+                  
+  <section class="tex2jax_ignore mathjax_ignore" id="python-syntax">
+<h1>Python Syntax<a class="headerlink" href="#python-syntax" title="Permalink to this heading">#</a></h1>
+<section id="constraint-builder">
+<h2>Constraint builder<a class="headerlink" href="#constraint-builder" title="Permalink to this heading">#</a></h2>
+<p>One of the most important parts of defining a circuit is the constraints. The basis for writing constraints are arithmetic operations with signals. You use the operators <code class="docutils literal notranslate"><span class="pre">*</span></code>, <code class="docutils literal notranslate"><span class="pre">+</span></code> and <code class="docutils literal notranslate"><span class="pre">-</span></code> with numbers and signals. For example:</p>
+<p><code class="docutils literal notranslate"><span class="pre">a</span> <span class="pre">+</span> <span class="pre">1</span> <span class="pre">*</span> <span class="pre">b</span></code></p>
+<p>When you need to do a rotation on a signal you can use the operators <code class="docutils literal notranslate"><span class="pre">.next()</span></code>, <code class="docutils literal notranslate"><span class="pre">prev()</span></code> and or <code class="docutils literal notranslate"><span class="pre">.rot(n)</span></code>.  For example:</p>
+<p><code class="docutils literal notranslate"><span class="pre">a</span> <span class="pre">+</span> <span class="pre">1</span> <span class="pre">*</span> <span class="pre">b.next()</span></code></p>
+<p>There are several helper functions to define constraints:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">cb_and([a1</span> <span class="pre">...</span> <span class="pre">an])</span></code>: And operator</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">cb_or([a1</span> <span class="pre">...</span> <span class="pre">an])</span></code>: Or operator</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">xor(a,</span> <span class="pre">b)</span></code>: Xor operator</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">eq(a,</span> <span class="pre">b)</span></code>: Arithmetic equality.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">select(selector,</span> <span class="pre">when_true,</span> <span class="pre">when_false)</span></code>: trinary operator</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">when(selector,</span> <span class="pre">when_true)</span></code>:  Logical imply.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">unless(selector,</span> <span class="pre">when_false)</span></code>: Logical imply when !selector.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">cb_not(a)</span></code>: Not operator.</p></li>
+<li><p>isz(a): Equal to zero.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">if_next_step(step_type,</span> <span class="pre">a)</span></code>: If next step is step_type, implies a.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">next_step_must_be(step_type)</span></code>: Enforces next step must be step_type.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">next_step_must_not_be(step_type)</span></code>: Enforces next step must not be step_type.</p></li>
+</ul>
+<p>In the current version of chiquito these operator cannot be combined arbitrarily, there is a solution in the works. For example <code class="docutils literal notranslate"><span class="pre">cb_and</span></code> cannot have operands that are <code class="docutils literal notranslate"><span class="pre">eq</span></code>.</p>
+</section>
+<section id="defining-a-step">
+<h2>Defining a step<a class="headerlink" href="#defining-a-step" title="Permalink to this heading">#</a></h2>
+<p>A chiquito circuit is made of steps, this is how we define steps:</p>
+<div class="highlight-python= notranslate"><div class="highlight"><pre><span></span>class AStep(StepType):
+	def setup(self):
+		# setup: rules about a valid step
+	def wg(self, a, b, c):
+		# witness generation: set data for a step instance
+</pre></div>
+</div>
+<p>For the setup we need to define constraints that define which step witness is valid and also define the internal signals. For example:</p>
+<div class="highlight-python= notranslate"><div class="highlight"><pre><span></span>class AStep(StepType):
+	def setup(self):
+		self.c = self.internal(&quot;c&quot;)
+</pre></div>
+</div>
+<p>To access shared signals we can do it with <code class="docutils literal notranslate"><span class="pre">self.circuit.signal_identifier</span></code>.</p>
+<p>For the constraints that we can use the method <code class="docutils literal notranslate"><span class="pre">constr</span></code>. For example:</p>
+<div class="highlight-python= notranslate"><div class="highlight"><pre><span></span>class AStep(StepType):
+	def setup(self):
+		self.constr(eq(self.circuit.a, self.circuit.b * 3))
+		self.constr(when(self.circuit.a, eq(self.circuit.b, self.c))
+
+# ...
+</pre></div>
+</div>
+<p>The first constraint means that <code class="docutils literal notranslate"><span class="pre">a</span></code> must be equal to <code class="docutils literal notranslate"><span class="pre">b</span> <span class="pre">times</span> <span class="pre">3</span></code>. The second that when <code class="docutils literal notranslate"><span class="pre">a</span></code> value is <code class="docutils literal notranslate"><span class="pre">1</span></code> then <code class="docutils literal notranslate"><span class="pre">b</span></code> must be equal to <code class="docutils literal notranslate"><span class="pre">c</span></code>.</p>
+<p>When you have a rotation you should use the method <code class="docutils literal notranslate"><span class="pre">transition</span></code>. For example:</p>
+<div class="highlight-python= notranslate"><div class="highlight"><pre><span></span>class AStep(StepType):
+	def setup(self):
+		self.transition(eq(self.circuit.a, self.circuit.b.next() * 3))
+		self.transition(when(self.circuit.a, eq(self.circuit.b.next(), self.c))
+
+# ...
+</pre></div>
+</div>
+<p>For the data of one step instance in the <code class="docutils literal notranslate"><span class="pre">wg</span></code> method we must use the <code class="docutils literal notranslate"><span class="pre">assign</span></code> method to assign all signals.</p>
+<div class="highlight-python= notranslate"><div class="highlight"><pre><span></span>class AStep(StepType):
+	def wg(self, a_val, b_val):
+		self.assign(self.circuit.a, a_val)
+		self.assign(self.circuit.b, b_val)
+		self.assign(self.c, a_val + b_val)
+
+# ...
+</pre></div>
+</div>
+<p>The method <code class="docutils literal notranslate"><span class="pre">wg</span></code> can have any parameters, and do any computation to calculate the assignations. But signals cannot be rotated for assignation, you can only assign the current step.</p>
+</section>
+<section id="defining-the-circuit">
+<h2>Defining the circuit<a class="headerlink" href="#defining-the-circuit" title="Permalink to this heading">#</a></h2>
+<p>To put everything together we define the circuit, also with two methods.</p>
+<div class="highlight-python= notranslate"><div class="highlight"><pre><span></span>class ACircuit(Circuit):
+	def setup(self):
+		# Define shared signals and step types used, number of total steps plus more setup configuration.
+	def trace(self, arg1, arg2):
+		# Define algorithm to create the trace from the input.
+</pre></div>
+</div>
+<p>For the setup we defined shared signals, step types and number of steps in the trace. For example:</p>
+<div class="highlight-python= notranslate"><div class="highlight"><pre><span></span>class ACircuit(Circuit):
+	def setup(self):
+		# shared signals
+		self.a = self.forward(&quot;a&quot;)
+		self.b = self.forward(&quot;b&quot;)
+		self.n = self.forward(&quot;n&quot;)
+
+		# step types
+		self.a_step = self.step_type(AStep(self, &quot;a_step&quot;))
+		self.b_step = self.step_type(BStep(self, &quot;b_step&quot;))
+		self.c_step = self.step_type(CStep(self, &quot;c_step&quot;))
+
+		# number of trace steps
+		self.pragma_num_steps(10)
+
+# ...
+</pre></div>
+</div>
+<p>There are many optional things that you can also configure in the circuit setup:</p>
+<div class="highlight-python= notranslate"><div class="highlight"><pre><span></span>class ACircuit(Circuit):
+	def setup(self):
+		self.pragma_first_step(self.a_step)
+		self.pragma_last_step(self.b_step)
+
+		self.expose(self.b, Last())
+		self.expose(self.n, Last())
+
+# ... 
+</pre></div>
+</div>
+<p>Then, we should define <code class="docutils literal notranslate"><span class="pre">trace</span></code>, this method add step instances or trace steps to create a particular trace. The most important method is <code class="docutils literal notranslate"><span class="pre">add()</span></code>, the first parameter is a step type, and the rest are the parameters to the step type <code class="docutils literal notranslate"><span class="pre">wg</span></code> method. This method adds a trace step</p>
+<p>For example:</p>
+<div class="highlight-python= notranslate"><div class="highlight"><pre><span></span>class ACircuit(Circuit):
+	def trace(self, n):
+		self.add(self.a_step, 1, 1, n)
+		a = 1
+		b = 2
+		for i in range(1, n):
+			self.add(self.b_step, a, b, n)
+			prev_a = a
+			a = b
+			b += prev_a
+		
+		while self.needs_padding():
+			self.add(self.b_step, a, b, n)
+
+# ... 
+</pre></div>
+</div>
+</section>
+</section>
+
+    <script type="text/x-thebe-config">
+    {
+        requestKernel: true,
+        binderOptions: {
+            repo: "binder-examples/jupyter-stacks-datascience",
+            ref: "master",
+        },
+        codeMirrorConfig: {
+            theme: "abcdef",
+            mode: "python"
+        },
+        kernelOptions: {
+            name: "python3",
+            path: "./."
+        },
+        predefinedOutput: true
+    }
+    </script>
+    <script>kernelName = 'python3'</script>
+
+                </article>
+              
+
+              
+              
+              
+              
+                <footer class="prev-next-footer">
+                  <!-- Previous / next buttons -->
+<div class="prev-next-area">
+    <a class="left-prev"
+       href="part1_chapter3.html"
+       title="previous page">
+      <i class="fa-solid fa-angle-left"></i>
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">previous</p>
+        <p class="prev-next-title">Chiquito Programming Model</p>
+      </div>
+    </a>
+    <a class="right-next"
+       href="part1_chapter5.html"
+       title="next page">
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">next</p>
+        <p class="prev-next-title">Setup</p>
+      </div>
+      <i class="fa-solid fa-angle-right"></i>
+    </a>
+</div>
+                </footer>
+              
+            </div>
+            
+            
+              
+                <div class="bd-sidebar-secondary bd-toc"><div class="sidebar-secondary-items sidebar-secondary__inner">
+
+  <div class="sidebar-secondary-item">
+  <div class="page-toc tocsection onthispage">
+    <i class="fa-solid fa-list"></i> Contents
+  </div>
+  <nav class="bd-toc-nav page-toc">
+    <ul class="visible nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#constraint-builder">Constraint builder</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#defining-a-step">Defining a step</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#defining-the-circuit">Defining the circuit</a></li>
+</ul>
+  </nav></div>
+
+</div></div>
+              
+            
+          </div>
+          <footer class="bd-footer-content">
+            
+<div class="bd-footer-content__inner container">
+  
+  <div class="footer-item">
+    
+<p class="component-author">
+By Leo Lara, Steve Wang
+</p>
+
+  </div>
+  
+  <div class="footer-item">
+    
+  <p class="copyright">
+    
+      © Copyright 2022.
+      <br/>
+    
+  </p>
+
+  </div>
+  
+  <div class="footer-item">
+    
+  </div>
+  
+  <div class="footer-item">
+    
+  </div>
+  
+</div>
+          </footer>
+        
+
+      </main>
+    </div>
+  </div>
+  
+  <!-- Scripts loaded after <body> so the DOM is not blocked -->
+  <script src="_static/scripts/bootstrap.js?digest=365ca57ee442770a23c6"></script>
+<script src="_static/scripts/pydata-sphinx-theme.js?digest=365ca57ee442770a23c6"></script>
+
+  <footer class="bd-footer">
+  </footer>
+  </body>
+</html>

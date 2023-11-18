@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"struct":["LogNSelectorBuilder","SimpleStepSelectorBuilder","StepSelector","TwoStepsSelectorBuilder"],"trait":["StepSelectorBuilder"],"type":["SelectorAssignment"]};

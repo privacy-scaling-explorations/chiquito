@@ -1,0 +1,908 @@
+
+
+<!DOCTYPE html>
+
+
+<html lang="en" >
+
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="generator" content="Docutils 0.18.1: http://docutils.sourceforge.net/" />
+
+    <title>Chapter 2: First Attempt &#8212; Introduction to Chiquito</title>
+  
+  
+  
+  <script data-cfasync="false">
+    document.documentElement.dataset.mode = localStorage.getItem("mode") || "";
+    document.documentElement.dataset.theme = localStorage.getItem("theme") || "light";
+  </script>
+  
+  <!-- Loaded before other Sphinx assets -->
+  <link href="_static/styles/theme.css?digest=365ca57ee442770a23c6" rel="stylesheet" />
+<link href="_static/styles/bootstrap.css?digest=365ca57ee442770a23c6" rel="stylesheet" />
+<link href="_static/styles/pydata-sphinx-theme.css?digest=365ca57ee442770a23c6" rel="stylesheet" />
+
+  
+  <link href="_static/vendor/fontawesome/6.1.2/css/all.min.css?digest=365ca57ee442770a23c6" rel="stylesheet" />
+  <link rel="preload" as="font" type="font/woff2" crossorigin href="_static/vendor/fontawesome/6.1.2/webfonts/fa-solid-900.woff2" />
+<link rel="preload" as="font" type="font/woff2" crossorigin href="_static/vendor/fontawesome/6.1.2/webfonts/fa-brands-400.woff2" />
+<link rel="preload" as="font" type="font/woff2" crossorigin href="_static/vendor/fontawesome/6.1.2/webfonts/fa-regular-400.woff2" />
+
+    <link rel="stylesheet" type="text/css" href="_static/pygments.css" />
+    <link rel="stylesheet" href="_static/styles/sphinx-book-theme.css?digest=14f4ca6b54d191a8c7657f6c759bf11a5fb86285" type="text/css" />
+    <link rel="stylesheet" type="text/css" href="_static/togglebutton.css" />
+    <link rel="stylesheet" type="text/css" href="_static/copybutton.css" />
+    <link rel="stylesheet" type="text/css" href="_static/mystnb.4510f1fc1dee50b3e5859aac5469c37c29e427902b24a333a5f9fcb2f0b3ac41.css" />
+    <link rel="stylesheet" type="text/css" href="_static/sphinx-thebe.css" />
+    <link rel="stylesheet" type="text/css" href="_static/design-style.4045f2051d55cab465a707391d5b2007.min.css" />
+  
+  <!-- Pre-loaded scripts that we'll load fully later -->
+  <link rel="preload" as="script" href="_static/scripts/bootstrap.js?digest=365ca57ee442770a23c6" />
+<link rel="preload" as="script" href="_static/scripts/pydata-sphinx-theme.js?digest=365ca57ee442770a23c6" />
+  <script src="_static/vendor/fontawesome/6.1.2/js/all.min.js?digest=365ca57ee442770a23c6"></script>
+
+    <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js"></script>
+    <script src="_static/jquery.js"></script>
+    <script src="_static/underscore.js"></script>
+    <script src="_static/_sphinx_javascript_frameworks_compat.js"></script>
+    <script src="_static/doctools.js"></script>
+    <script src="_static/clipboard.min.js"></script>
+    <script src="_static/copybutton.js"></script>
+    <script src="_static/scripts/sphinx-book-theme.js?digest=5a5c038af52cf7bc1a1ec88eea08e6366ee68824"></script>
+    <script>let toggleHintShow = 'Click to show';</script>
+    <script>let toggleHintHide = 'Click to hide';</script>
+    <script>let toggleOpenOnPrint = 'true';</script>
+    <script src="_static/togglebutton.js"></script>
+    <script>var togglebuttonSelector = '.toggle, .admonition.dropdown';</script>
+    <script src="_static/design-tabs.js"></script>
+    <script>const THEBE_JS_URL = "https://unpkg.com/thebe@0.8.2/lib/index.js"
+const thebe_selector = ".thebe,.cell"
+const thebe_selector_input = "pre"
+const thebe_selector_output = ".output, .cell_output"
+</script>
+    <script async="async" src="_static/sphinx-thebe.js"></script>
+    <script>window.MathJax = {"options": {"processHtmlClass": "tex2jax_process|mathjax_process|math|output_area"}}</script>
+    <script defer="defer" src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <script>DOCUMENTATION_OPTIONS.pagename = 'part3_chapter2';</script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Chapter 3: Witness" href="part3_chapter3.html" />
+    <link rel="prev" title="Chapter 1: MiMC7 Concepts" href="part3_chapter1.html" />
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta name="docsearch:language" content="en"/>
+  </head>
+  
+  
+  <body data-bs-spy="scroll" data-bs-target=".bd-toc-nav" data-offset="180" data-bs-root-margin="0px 0px -60%" data-default-mode="">
+
+  
+  
+  <a class="skip-link" href="#main-content">Skip to main content</a>
+  
+  <div id="pst-scroll-pixel-helper"></div>
+
+  
+  <button type="button" class="btn rounded-pill" id="pst-back-to-top">
+    <i class="fa-solid fa-arrow-up"></i>
+    Back to top
+  </button>
+
+  
+  <input type="checkbox"
+          class="sidebar-toggle"
+          name="__primary"
+          id="__primary"/>
+  <label class="overlay overlay-primary" for="__primary"></label>
+  
+  <input type="checkbox"
+          class="sidebar-toggle"
+          name="__secondary"
+          id="__secondary"/>
+  <label class="overlay overlay-secondary" for="__secondary"></label>
+  
+  <div class="search-button__wrapper">
+    <div class="search-button__overlay"></div>
+    <div class="search-button__search-container">
+<form class="bd-search d-flex align-items-center"
+      action="search.html"
+      method="get">
+  <i class="fa-solid fa-magnifying-glass"></i>
+  <input type="search"
+         class="form-control"
+         name="q"
+         id="search-input"
+         placeholder="Search this book..."
+         aria-label="Search this book..."
+         autocomplete="off"
+         autocorrect="off"
+         autocapitalize="off"
+         spellcheck="false"/>
+  <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd>K</kbd></span>
+</form></div>
+  </div>
+  
+    <nav class="bd-header navbar navbar-expand-lg bd-navbar">
+    </nav>
+  
+  <div class="bd-container">
+    <div class="bd-container__inner bd-page-width">
+      
+      <div class="bd-sidebar-primary bd-sidebar">
+        
+
+  
+  <div class="sidebar-header-items sidebar-primary__section">
+    
+    
+    
+    
+  </div>
+  
+    <div class="sidebar-primary-items__start sidebar-primary__section">
+        <div class="sidebar-primary-item">
+  
+
+<a class="navbar-brand logo" href="landing_page.html">
+  
+  
+  
+  
+  
+    
+    
+      
+    
+    
+    <img src="_static/pselogo.png" class="logo__image only-light" alt="Introduction to Chiquito - Home"/>
+    <script>document.write(`<img src="_static/pselogo.png" class="logo__image only-dark" alt="Introduction to Chiquito - Home"/>`);</script>
+  
+  
+</a></div>
+        <div class="sidebar-primary-item"><nav class="bd-links" id="bd-docs-nav" aria-label="Main">
+    <div class="bd-toc-item navbar-nav active">
+        
+        <ul class="nav bd-sidenav bd-sidenav__home-link">
+            <li class="toctree-l1">
+                <a class="reference internal" href="landing_page.html">
+                    Meet Chiquito
+                </a>
+            </li>
+        </ul>
+        <p aria-level="2" class="caption" role="heading"><span class="caption-text">Part 1 - Intro to Chiquito</span></p>
+<ul class="nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="part1_chapter1.html">What is Zero Knowledge Proof (Developer POV)?</a></li>
+<li class="toctree-l1"><a class="reference internal" href="part1_chapter2.html">What is Chiquito?</a></li>
+<li class="toctree-l1"><a class="reference internal" href="part1_chapter3.html">Chiquito Programming Model</a></li>
+<li class="toctree-l1"><a class="reference internal" href="part1_chapter4.html">Python Syntax</a></li>
+<li class="toctree-l1"><a class="reference internal" href="part1_chapter5.html">Setup</a></li>
+</ul>
+<p aria-level="2" class="caption" role="heading"><span class="caption-text">Part 2 - Fibonacci Example</span></p>
+<ul class="nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="part2_chapter1.html">Chapter 1: Fibonacci and Chiquito Concepts</a></li>
+<li class="toctree-l1"><a class="reference internal" href="part2_chapter2.html">Chapter 2: StepType and Circuit</a></li>
+<li class="toctree-l1"><a class="reference internal" href="part2_chapter3.html">Chapter 3: Witness</a></li>
+<li class="toctree-l1"><a class="reference internal" href="part2_chapter4.html">Chapter 4: Multiple StepTypes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="part2_chapter5.html">Chapter 5: Padding and Exposing Signals</a></li>
+</ul>
+<p aria-level="2" class="caption" role="heading"><span class="caption-text">Part 3 - MiMC7 Example</span></p>
+<ul class="current nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="part3_chapter1.html">Chapter 1: MiMC7 Concepts</a></li>
+<li class="toctree-l1 current active"><a class="current reference internal" href="#">Chapter 2: First Attempt</a></li>
+<li class="toctree-l1"><a class="reference internal" href="part3_chapter3.html">Chapter 3: Witness</a></li>
+<li class="toctree-l1"><a class="reference internal" href="part3_chapter4.html">Chapter 4: Fixed Signals, Lookup Tables, and Super Circuit</a></li>
+</ul>
+<p aria-level="2" class="caption" role="heading"><span class="caption-text">Appendix</span></p>
+<ul class="nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="appendix_chapter1.html">Design Principles</a></li>
+<li class="toctree-l1"><a class="reference internal" href="appendix_chapter2.html">Chiquito vs Halo2</a></li>
+<li class="toctree-l1"><a class="reference internal" href="appendix_chapter3.html">Chiquito architecture</a></li>
+</ul>
+
+    </div>
+</nav></div>
+    </div>
+  
+  
+  <div class="sidebar-primary-items__end sidebar-primary__section">
+  </div>
+  
+  <div id="rtd-footer-container"></div>
+
+
+      </div>
+      
+      <main id="main-content" class="bd-main">
+        
+        
+
+<div class="sbt-scroll-pixel-helper"></div>
+
+          <div class="bd-content">
+            <div class="bd-article-container">
+              
+              <div class="bd-header-article">
+<div class="header-article-items header-article__inner">
+  
+    <div class="header-article-items__start">
+      
+        <div class="header-article-item"><label class="sidebar-toggle primary-toggle btn btn-sm" for="__primary" title="Toggle primary sidebar" data-bs-placement="bottom" data-bs-toggle="tooltip">
+  <span class="fa-solid fa-bars"></span>
+</label></div>
+      
+    </div>
+  
+  
+    <div class="header-article-items__end">
+      
+        <div class="header-article-item">
+
+<div class="article-header-buttons">
+
+
+
+
+
+<div class="dropdown dropdown-source-buttons">
+  <button class="btn dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Source repositories">
+    <i class="fab fa-github"></i>
+  </button>
+  <ul class="dropdown-menu">
+      
+      
+      
+      <li><a href="https://github.com/privacy-scaling-explorations/chiquito" target="_blank"
+   class="btn btn-sm btn-source-repository-button dropdown-item"
+   title="Source repository"
+   data-bs-placement="left" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fab fa-github"></i>
+  </span>
+<span class="btn__text-container">Repository</span>
+</a>
+</li>
+      
+      
+      
+      
+      <li><a href="https://github.com/privacy-scaling-explorations/chiquito/issues/new?title=Issue%20on%20page%20%2Fpart3_chapter2.html&body=Your%20issue%20content%20here." target="_blank"
+   class="btn btn-sm btn-source-issues-button dropdown-item"
+   title="Open an issue"
+   data-bs-placement="left" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fas fa-lightbulb"></i>
+  </span>
+<span class="btn__text-container">Open issue</span>
+</a>
+</li>
+      
+  </ul>
+</div>
+
+
+
+
+
+
+<div class="dropdown dropdown-download-buttons">
+  <button class="btn dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Download this page">
+    <i class="fas fa-download"></i>
+  </button>
+  <ul class="dropdown-menu">
+      
+      
+      
+      <li><a href="_sources/part3_chapter2.ipynb" target="_blank"
+   class="btn btn-sm btn-download-source-button dropdown-item"
+   title="Download source file"
+   data-bs-placement="left" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fas fa-file"></i>
+  </span>
+<span class="btn__text-container">.ipynb</span>
+</a>
+</li>
+      
+      
+      
+      
+      <li>
+<button onclick="window.print()"
+  class="btn btn-sm btn-download-pdf-button dropdown-item"
+  title="Print to PDF"
+  data-bs-placement="left" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fas fa-file-pdf"></i>
+  </span>
+<span class="btn__text-container">.pdf</span>
+</button>
+</li>
+      
+  </ul>
+</div>
+
+
+
+
+<button onclick="toggleFullScreen()"
+  class="btn btn-sm btn-fullscreen-button"
+  title="Fullscreen mode"
+  data-bs-placement="bottom" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fas fa-expand"></i>
+  </span>
+
+</button>
+
+
+<script>
+document.write(`
+  <button class="btn btn-sm navbar-btn theme-switch-button" title="light/dark" aria-label="light/dark" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <span class="theme-switch nav-link" data-mode="light"><i class="fa-solid fa-sun fa-lg"></i></span>
+    <span class="theme-switch nav-link" data-mode="dark"><i class="fa-solid fa-moon fa-lg"></i></span>
+    <span class="theme-switch nav-link" data-mode="auto"><i class="fa-solid fa-circle-half-stroke fa-lg"></i></span>
+  </button>
+`);
+</script>
+
+<script>
+document.write(`
+  <button class="btn btn-sm navbar-btn search-button search-button__button" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <i class="fa-solid fa-magnifying-glass fa-lg"></i>
+  </button>
+`);
+</script>
+
+</div></div>
+      
+    </div>
+  
+</div>
+</div>
+              
+              
+
+<div id="jb-print-docs-body" class="onlyprint">
+    <h1>Chapter 2: First Attempt</h1>
+    <!-- Table of contents -->
+    <div id="print-main-content">
+        <div id="jb-print-toc">
+            
+        </div>
+    </div>
+</div>
+
+              
+                
+<div id="searchbox"></div>
+                <article class="bd-article" role="main">
+                  
+  <section class="tex2jax_ignore mathjax_ignore" id="chapter-2-first-attempt">
+<h1>Chapter 2: First Attempt<a class="headerlink" href="#chapter-2-first-attempt" title="Permalink to this heading">#</a></h1>
+<p>In this Chapter, we will code out the MiMC7 circuit based on our understanding of the algorithm from the prior chapter. There are no new Chiquito concepts other than the ones introduced in <strong>Part 3: Fibonacci Example</strong>, which you are highly recommended to go through first before starting this Chapter.</p>
+<p>Remember that we have the following table for constructing the circuit:</p>
+<table class="table">
+<thead>
+<tr class="row-odd"><th class="head text-center"><p>Step Type</p></th>
+<th class="head text-center"><p>Round</p></th>
+<th class="head text-center"><p></p></th>
+<th class="head text-center"><p></p></th>
+<th class="head text-center"><p>Signals</p></th>
+<th class="head text-center"><p></p></th>
+<th class="head text-center"><p></p></th>
+<th class="head text-center"><p></p></th>
+<th class="head text-center"><p></p></th>
+<th class="head text-center"><p></p></th>
+<th class="head text-center"><p>Setups</p></th>
+<th class="head text-center"><p></p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td class="text-center"><p></p></td>
+<td class="text-center"><p></p></td>
+<td class="text-center"><p>x</p></td>
+<td class="text-center"><p>k</p></td>
+<td class="text-center"><p>c</p></td>
+<td class="text-center"><p>xkc</p></td>
+<td class="text-center"><p>y</p></td>
+<td class="text-center"><p>output</p></td>
+<td class="text-center"><p>constraint 1</p></td>
+<td class="text-center"><p>constraint 2</p></td>
+<td class="text-center"><p>transition 1</p></td>
+<td class="text-center"><p>transition 2</p></td>
+</tr>
+<tr class="row-odd"><td class="text-center"><p>MiMC7Step</p></td>
+<td class="text-center"><p>0th</p></td>
+<td class="text-center"><p>0</p></td>
+<td class="text-center"><p>1</p></td>
+<td class="text-center"><p>1</p></td>
+<td class="text-center"><p>1</p></td>
+<td class="text-center"><p>1</p></td>
+<td class="text-center"><p>n.a.</p></td>
+<td class="text-center"><p>x+k+c==xkc</p></td>
+<td class="text-center"><p>xkc^7==y</p></td>
+<td class="text-center"><p>y==x.next</p></td>
+<td class="text-center"><p>k==k.next</p></td>
+</tr>
+<tr class="row-even"><td class="text-center"><p>MiMC7Step</p></td>
+<td class="text-center"><p>1st</p></td>
+<td class="text-center"><p>1</p></td>
+<td class="text-center"><p>1</p></td>
+<td class="text-center"><p>1</p></td>
+<td class="text-center"><p>3</p></td>
+<td class="text-center"><p>2183</p></td>
+<td class="text-center"><p>n.a.</p></td>
+<td class="text-center"><p>x+k+c==xkc</p></td>
+<td class="text-center"><p>xkc^7==y</p></td>
+<td class="text-center"><p>y==x.next</p></td>
+<td class="text-center"><p>k==k.next</p></td>
+</tr>
+<tr class="row-odd"><td class="text-center"><p>MiMC7Step</p></td>
+<td class="text-center"><p>2nd</p></td>
+<td class="text-center"><p>2183</p></td>
+<td class="text-center"><p>1</p></td>
+<td class="text-center"><p>2</p></td>
+<td class="text-center"><p>2186</p></td>
+<td class="text-center"><p>2385…0896</p></td>
+<td class="text-center"><p>n.a.</p></td>
+<td class="text-center"><p>x+k+c==xkc</p></td>
+<td class="text-center"><p>xkc^7==y</p></td>
+<td class="text-center"><p>y==x.next</p></td>
+<td class="text-center"><p>k==k.next</p></td>
+</tr>
+<tr class="row-even"><td class="text-center"><p>MiMC7Step</p></td>
+<td class="text-center"><p>3rd</p></td>
+<td class="text-center"><p>2385…0896</p></td>
+<td class="text-center"><p>1</p></td>
+<td class="text-center"><p>0</p></td>
+<td class="text-center"><p>2385…0897</p></td>
+<td class="text-center"><p>1393…5858</p></td>
+<td class="text-center"><p>n.a.</p></td>
+<td class="text-center"><p>x+k+c==xkc</p></td>
+<td class="text-center"><p>xkc^7==y</p></td>
+<td class="text-center"><p>y==x.next</p></td>
+<td class="text-center"><p>k==k.next</p></td>
+</tr>
+<tr class="row-odd"><td class="text-center"><p>MiMC7Step</p></td>
+<td class="text-center"><p>4th-89th</p></td>
+<td class="text-center"><p>…</p></td>
+<td class="text-center"><p>…</p></td>
+<td class="text-center"><p>…</p></td>
+<td class="text-center"><p>…</p></td>
+<td class="text-center"><p>…</p></td>
+<td class="text-center"><p>n.a.</p></td>
+<td class="text-center"><p>x+k+c==xkc</p></td>
+<td class="text-center"><p>xkc^7==y</p></td>
+<td class="text-center"><p>y==x.next</p></td>
+<td class="text-center"><p>k==k.next</p></td>
+</tr>
+<tr class="row-even"><td class="text-center"><p>MiMC7Step</p></td>
+<td class="text-center"><p>90th</p></td>
+<td class="text-center"><p>…</p></td>
+<td class="text-center"><p>…</p></td>
+<td class="text-center"><p>…</p></td>
+<td class="text-center"><p>…</p></td>
+<td class="text-center"><p><span class="math notranslate nohighlight">\(y_{90}\)</span></p></td>
+<td class="text-center"><p>n.a.</p></td>
+<td class="text-center"><p>x+k+c==xkc</p></td>
+<td class="text-center"><p>xkc^7==y</p></td>
+<td class="text-center"><p>y==x.next</p></td>
+<td class="text-center"><p>k==k.next</p></td>
+</tr>
+<tr class="row-odd"><td class="text-center"><p>MiMC7LastStep</p></td>
+<td class="text-center"><p>output</p></td>
+<td class="text-center"><p><span class="math notranslate nohighlight">\(x_{91} = y_{90}\)</span></p></td>
+<td class="text-center"><p>1</p></td>
+<td class="text-center"><p>n.a.</p></td>
+<td class="text-center"><p>n.a.</p></td>
+<td class="text-center"><p><span class="math notranslate nohighlight">\(output = x_{91} + k\)</span></p></td>
+<td class="text-center"><p>n.a.</p></td>
+<td class="text-center"><p>n.a.</p></td>
+<td class="text-center"><p>n.a.</p></td>
+<td class="text-center"><p>n.a.</p></td>
+<td class="text-center"><p>output==x+k</p></td>
+</tr>
+</tbody>
+</table>
+<p>Let’s create the <code class="docutils literal notranslate"><span class="pre">Mimc7Step</span></code> first. Again, note that we only declare internal signals <code class="docutils literal notranslate"><span class="pre">xkc</span></code>, <code class="docutils literal notranslate"><span class="pre">y</span></code>, and <code class="docutils literal notranslate"><span class="pre">c</span></code> on the step type level while forward signals <code class="docutils literal notranslate"><span class="pre">x</span></code> and <code class="docutils literal notranslate"><span class="pre">k</span></code> will be declared on the circuit level. When building constraints, internal signals are directly referred to as <code class="docutils literal notranslate"><span class="pre">self.signal</span></code>. When building transitions, forward signals are referred to as <code class="docutils literal notranslate"><span class="pre">self.circuit.signal</span></code> because they are defined on the circuit level. Finally, note that all <code class="docutils literal notranslate"><span class="pre">wg</span></code> value assignments should assign field elements by wrapping <code class="docutils literal notranslate"><span class="pre">F</span></code> around the values.</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="k">class</span> <span class="nc">Mimc7Step</span><span class="p">(</span><span class="n">StepType</span><span class="p">):</span>
+    <span class="k">def</span> <span class="nf">setup</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">xkc</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">internal</span><span class="p">(</span><span class="s2">&quot;xkc&quot;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">y</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">internal</span><span class="p">(</span><span class="s2">&quot;y&quot;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">c</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">internal</span><span class="p">(</span><span class="s2">&quot;c&quot;</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">constr</span><span class="p">(</span><span class="n">eq</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">circuit</span><span class="o">.</span><span class="n">x</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">circuit</span><span class="o">.</span><span class="n">k</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">c</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">xkc</span><span class="p">))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">constr</span><span class="p">(</span>
+            <span class="n">eq</span><span class="p">(</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">xkc</span>
+                <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">xkc</span>
+                <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">xkc</span>
+                <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">xkc</span>
+                <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">xkc</span>
+                <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">xkc</span>
+                <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">xkc</span><span class="p">,</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">y</span><span class="p">,</span>
+            <span class="p">)</span>
+        <span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">transition</span><span class="p">(</span><span class="n">eq</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">y</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">circuit</span><span class="o">.</span><span class="n">x</span><span class="o">.</span><span class="n">next</span><span class="p">()))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">transition</span><span class="p">(</span><span class="n">eq</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">circuit</span><span class="o">.</span><span class="n">k</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">circuit</span><span class="o">.</span><span class="n">k</span><span class="o">.</span><span class="n">next</span><span class="p">()))</span>
+
+    <span class="k">def</span> <span class="nf">wg</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x_value</span><span class="p">,</span> <span class="n">k_value</span><span class="p">,</span> <span class="n">c_value</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">assign</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">circuit</span><span class="o">.</span><span class="n">x</span><span class="p">,</span> <span class="n">F</span><span class="p">(</span><span class="n">x_value</span><span class="p">))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">assign</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">circuit</span><span class="o">.</span><span class="n">k</span><span class="p">,</span> <span class="n">F</span><span class="p">(</span><span class="n">k_value</span><span class="p">))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">assign</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">c</span><span class="p">,</span> <span class="n">F</span><span class="p">(</span><span class="n">c_value</span><span class="p">))</span>
+
+        <span class="n">xkc_value</span> <span class="o">=</span> <span class="n">F</span><span class="p">(</span><span class="n">x_value</span> <span class="o">+</span> <span class="n">k_value</span> <span class="o">+</span> <span class="n">c_value</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">assign</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">xkc</span><span class="p">,</span> <span class="n">F</span><span class="p">(</span><span class="n">xkc_value</span><span class="p">))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">assign</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">y</span><span class="p">,</span> <span class="n">F</span><span class="p">(</span><span class="n">xkc_value</span><span class="o">**</span><span class="mi">7</span><span class="p">))</span>
+</pre></div>
+</div>
+<p>Now let’s create the <code class="docutils literal notranslate"><span class="pre">MimcLastStep</span></code>:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="k">class</span> <span class="nc">Mimc7LastStep</span><span class="p">(</span><span class="n">StepType</span><span class="p">):</span>
+    <span class="k">def</span> <span class="nf">setup</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">out</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">internal</span><span class="p">(</span><span class="s2">&quot;out&quot;</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">constr</span><span class="p">(</span><span class="n">eq</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">circuit</span><span class="o">.</span><span class="n">x</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">circuit</span><span class="o">.</span><span class="n">k</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">out</span><span class="p">))</span>
+
+    <span class="k">def</span> <span class="nf">wg</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x_value</span><span class="p">,</span> <span class="n">k_value</span><span class="p">,</span> <span class="n">_</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">assign</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">circuit</span><span class="o">.</span><span class="n">x</span><span class="p">,</span> <span class="n">F</span><span class="p">(</span><span class="n">x_value</span><span class="p">))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">assign</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">circuit</span><span class="o">.</span><span class="n">k</span><span class="p">,</span> <span class="n">F</span><span class="p">(</span><span class="n">k_value</span><span class="p">))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">assign</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">out</span><span class="p">,</span> <span class="n">F</span><span class="p">(</span><span class="n">x_value</span> <span class="o">+</span> <span class="n">k_value</span><span class="p">))</span>
+</pre></div>
+</div>
+<p>Finally, we put the step types together to a circuit. Note that the forward signals <code class="docutils literal notranslate"><span class="pre">x</span></code> and <code class="docutils literal notranslate"><span class="pre">k</span></code> are declared here. We also constrain the step type of the first step instance to <code class="docutils literal notranslate"><span class="pre">mimc7_step</span></code> and that of the last step instance to <code class="docutils literal notranslate"><span class="pre">mimc7_last_step</span></code>. We constrain the number of steps to the number of rounds (denoted by <code class="docutils literal notranslate"><span class="pre">ROUNDS</span></code> constant) plus one, because we have an extra output round. <code class="docutils literal notranslate"><span class="pre">trace</span></code> takes <code class="docutils literal notranslate"><span class="pre">x_in_value</span></code> as the initial input message for the MiMC7 hash function. The value is assigned to <code class="docutils literal notranslate"><span class="pre">x</span></code> for the first round while for all other rounds, <code class="docutils literal notranslate"><span class="pre">x</span></code> takes the output value of the prior round. Round constants <code class="docutils literal notranslate"><span class="pre">c</span></code> take a distinct value each round from the constants array <code class="docutils literal notranslate"><span class="pre">ROUND_CONSTANTS</span></code>, which you can take a peek of at the end of this chapter if curious. (Warning: they are huge!)</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="k">class</span> <span class="nc">Mimc7Circuit</span><span class="p">(</span><span class="n">Circuit</span><span class="p">):</span>
+    <span class="k">def</span> <span class="nf">setup</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">x</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">forward</span><span class="p">(</span><span class="s2">&quot;x&quot;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">k</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">forward</span><span class="p">(</span><span class="s2">&quot;k&quot;</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">mimc7_step</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">step_type</span><span class="p">(</span><span class="n">Mimc7Step</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s2">&quot;mimc7_step&quot;</span><span class="p">))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">mimc7_last_step</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">step_type</span><span class="p">(</span><span class="n">Mimc7LastStep</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s2">&quot;mimc7_last_step&quot;</span><span class="p">))</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">pragma_first_step</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">mimc7_step</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">pragma_last_step</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">mimc7_last_step</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">pragma_num_steps</span><span class="p">(</span><span class="n">ROUNDS</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">trace</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x_in_value</span><span class="p">,</span> <span class="n">k_value</span><span class="p">):</span>
+        <span class="n">c_value</span> <span class="o">=</span> <span class="n">F</span><span class="p">(</span><span class="n">ROUND_CONSTANTS</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+        <span class="n">x_value</span> <span class="o">=</span> <span class="n">F</span><span class="p">(</span><span class="n">x_in_value</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">mimc7_step</span><span class="p">,</span> <span class="n">x_value</span><span class="p">,</span> <span class="n">k_value</span><span class="p">,</span> <span class="n">c_value</span><span class="p">)</span>
+
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">ROUNDS</span><span class="p">):</span>
+            <span class="n">x_value</span> <span class="o">+=</span> <span class="n">F</span><span class="p">(</span><span class="n">k_value</span> <span class="o">+</span> <span class="n">c_value</span><span class="p">)</span>
+            <span class="n">x_value</span> <span class="o">=</span> <span class="n">F</span><span class="p">(</span><span class="n">x_value</span><span class="o">**</span><span class="mi">7</span><span class="p">)</span>
+            <span class="n">c_value</span> <span class="o">=</span> <span class="n">F</span><span class="p">(</span><span class="n">ROUND_CONSTANTS</span><span class="p">[</span><span class="n">i</span><span class="p">])</span>
+
+            <span class="bp">self</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">mimc7_step</span><span class="p">,</span> <span class="n">x_value</span><span class="p">,</span> <span class="n">k_value</span><span class="p">,</span> <span class="n">c_value</span><span class="p">)</span>
+
+        <span class="n">x_value</span> <span class="o">+=</span> <span class="n">F</span><span class="p">(</span><span class="n">k_value</span> <span class="o">+</span> <span class="n">c_value</span><span class="p">)</span>
+        <span class="n">x_value</span> <span class="o">=</span> <span class="n">F</span><span class="p">(</span><span class="n">x_value</span><span class="o">**</span><span class="mi">7</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">mimc7_last_step</span><span class="p">,</span> <span class="n">x_value</span><span class="p">,</span> <span class="n">k_value</span><span class="p">,</span> <span class="n">c_value</span><span class="p">)</span>
+
+</pre></div>
+</div>
+<p>Putting everything together, we have:</p>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">__future__</span> <span class="kn">import</span> <span class="n">annotations</span>
+<span class="kn">from</span> <span class="nn">chiquito.dsl</span> <span class="kn">import</span> <span class="n">Circuit</span><span class="p">,</span> <span class="n">StepType</span>
+<span class="kn">from</span> <span class="nn">chiquito.cb</span> <span class="kn">import</span> <span class="n">eq</span>
+<span class="kn">from</span> <span class="nn">chiquito.util</span> <span class="kn">import</span> <span class="n">F</span>
+
+<span class="n">ROUNDS</span> <span class="o">=</span> <span class="mi">91</span>
+
+<span class="n">ROUND_CONSTANTS</span> <span class="o">=</span> <span class="p">[</span>
+    <span class="mi">0</span><span class="p">,</span>
+    <span class="mi">20888961410941983456478427210666206549300505294776164667214940546594746570981</span><span class="p">,</span>
+    <span class="mi">15265126113435022738560151911929040668591755459209400716467504685752745317193</span><span class="p">,</span>
+    <span class="mi">8334177627492981984476504167502758309043212251641796197711684499645635709656</span><span class="p">,</span>
+    <span class="mi">1374324219480165500871639364801692115397519265181803854177629327624133579404</span><span class="p">,</span>
+    <span class="mi">11442588683664344394633565859260176446561886575962616332903193988751292992472</span><span class="p">,</span>
+    <span class="mi">2558901189096558760448896669327086721003508630712968559048179091037845349145</span><span class="p">,</span>
+    <span class="mi">11189978595292752354820141775598510151189959177917284797737745690127318076389</span><span class="p">,</span>
+    <span class="mi">3262966573163560839685415914157855077211340576201936620532175028036746741754</span><span class="p">,</span>
+    <span class="mi">17029914891543225301403832095880481731551830725367286980611178737703889171730</span><span class="p">,</span>
+    <span class="mi">4614037031668406927330683909387957156531244689520944789503628527855167665518</span><span class="p">,</span>
+    <span class="mi">19647356996769918391113967168615123299113119185942498194367262335168397100658</span><span class="p">,</span>
+    <span class="mi">5040699236106090655289931820723926657076483236860546282406111821875672148900</span><span class="p">,</span>
+    <span class="mi">2632385916954580941368956176626336146806721642583847728103570779270161510514</span><span class="p">,</span>
+    <span class="mi">17691411851977575435597871505860208507285462834710151833948561098560743654671</span><span class="p">,</span>
+    <span class="mi">11482807709115676646560379017491661435505951727793345550942389701970904563183</span><span class="p">,</span>
+    <span class="mi">8360838254132998143349158726141014535383109403565779450210746881879715734773</span><span class="p">,</span>
+    <span class="mi">12663821244032248511491386323242575231591777785787269938928497649288048289525</span><span class="p">,</span>
+    <span class="mi">3067001377342968891237590775929219083706800062321980129409398033259904188058</span><span class="p">,</span>
+    <span class="mi">8536471869378957766675292398190944925664113548202769136103887479787957959589</span><span class="p">,</span>
+    <span class="mi">19825444354178182240559170937204690272111734703605805530888940813160705385792</span><span class="p">,</span>
+    <span class="mi">16703465144013840124940690347975638755097486902749048533167980887413919317592</span><span class="p">,</span>
+    <span class="mi">13061236261277650370863439564453267964462486225679643020432589226741411380501</span><span class="p">,</span>
+    <span class="mi">10864774797625152707517901967943775867717907803542223029967000416969007792571</span><span class="p">,</span>
+    <span class="mi">10035653564014594269791753415727486340557376923045841607746250017541686319774</span><span class="p">,</span>
+    <span class="mi">3446968588058668564420958894889124905706353937375068998436129414772610003289</span><span class="p">,</span>
+    <span class="mi">4653317306466493184743870159523234588955994456998076243468148492375236846006</span><span class="p">,</span>
+    <span class="mi">8486711143589723036499933521576871883500223198263343024003617825616410932026</span><span class="p">,</span>
+    <span class="mi">250710584458582618659378487568129931785810765264752039738223488321597070280</span><span class="p">,</span>
+    <span class="mi">2104159799604932521291371026105311735948154964200596636974609406977292675173</span><span class="p">,</span>
+    <span class="mi">16313562605837709339799839901240652934758303521543693857533755376563489378839</span><span class="p">,</span>
+    <span class="mi">6032365105133504724925793806318578936233045029919447519826248813478479197288</span><span class="p">,</span>
+    <span class="mi">14025118133847866722315446277964222215118620050302054655768867040006542798474</span><span class="p">,</span>
+    <span class="mi">7400123822125662712777833064081316757896757785777291653271747396958201309118</span><span class="p">,</span>
+    <span class="mi">1744432620323851751204287974553233986555641872755053103823939564833813704825</span><span class="p">,</span>
+    <span class="mi">8316378125659383262515151597439205374263247719876250938893842106722210729522</span><span class="p">,</span>
+    <span class="mi">6739722627047123650704294650168547689199576889424317598327664349670094847386</span><span class="p">,</span>
+    <span class="mi">21211457866117465531949733809706514799713333930924902519246949506964470524162</span><span class="p">,</span>
+    <span class="mi">13718112532745211817410303291774369209520657938741992779396229864894885156527</span><span class="p">,</span>
+    <span class="mi">5264534817993325015357427094323255342713527811596856940387954546330728068658</span><span class="p">,</span>
+    <span class="mi">18884137497114307927425084003812022333609937761793387700010402412840002189451</span><span class="p">,</span>
+    <span class="mi">5148596049900083984813839872929010525572543381981952060869301611018636120248</span><span class="p">,</span>
+    <span class="mi">19799686398774806587970184652860783461860993790013219899147141137827718662674</span><span class="p">,</span>
+    <span class="mi">19240878651604412704364448729659032944342952609050243268894572835672205984837</span><span class="p">,</span>
+    <span class="mi">10546185249390392695582524554167530669949955276893453512788278945742408153192</span><span class="p">,</span>
+    <span class="mi">5507959600969845538113649209272736011390582494851145043668969080335346810411</span><span class="p">,</span>
+    <span class="mi">18177751737739153338153217698774510185696788019377850245260475034576050820091</span><span class="p">,</span>
+    <span class="mi">19603444733183990109492724100282114612026332366576932662794133334264283907557</span><span class="p">,</span>
+    <span class="mi">10548274686824425401349248282213580046351514091431715597441736281987273193140</span><span class="p">,</span>
+    <span class="mi">1823201861560942974198127384034483127920205835821334101215923769688644479957</span><span class="p">,</span>
+    <span class="mi">11867589662193422187545516240823411225342068709600734253659804646934346124945</span><span class="p">,</span>
+    <span class="mi">18718569356736340558616379408444812528964066420519677106145092918482774343613</span><span class="p">,</span>
+    <span class="mi">10530777752259630125564678480897857853807637120039176813174150229243735996839</span><span class="p">,</span>
+    <span class="mi">20486583726592018813337145844457018474256372770211860618687961310422228379031</span><span class="p">,</span>
+    <span class="mi">12690713110714036569415168795200156516217175005650145422920562694422306200486</span><span class="p">,</span>
+    <span class="mi">17386427286863519095301372413760745749282643730629659997153085139065756667205</span><span class="p">,</span>
+    <span class="mi">2216432659854733047132347621569505613620980842043977268828076165669557467682</span><span class="p">,</span>
+    <span class="mi">6309765381643925252238633914530877025934201680691496500372265330505506717193</span><span class="p">,</span>
+    <span class="mi">20806323192073945401862788605803131761175139076694468214027227878952047793390</span><span class="p">,</span>
+    <span class="mi">4037040458505567977365391535756875199663510397600316887746139396052445718861</span><span class="p">,</span>
+    <span class="mi">19948974083684238245321361840704327952464170097132407924861169241740046562673</span><span class="p">,</span>
+    <span class="mi">845322671528508199439318170916419179535949348988022948153107378280175750024</span><span class="p">,</span>
+    <span class="mi">16222384601744433420585982239113457177459602187868460608565289920306145389382</span><span class="p">,</span>
+    <span class="mi">10232118865851112229330353999139005145127746617219324244541194256766741433339</span><span class="p">,</span>
+    <span class="mi">6699067738555349409504843460654299019000594109597429103342076743347235369120</span><span class="p">,</span>
+    <span class="mi">6220784880752427143725783746407285094967584864656399181815603544365010379208</span><span class="p">,</span>
+    <span class="mi">6129250029437675212264306655559561251995722990149771051304736001195288083309</span><span class="p">,</span>
+    <span class="mi">10773245783118750721454994239248013870822765715268323522295722350908043393604</span><span class="p">,</span>
+    <span class="mi">4490242021765793917495398271905043433053432245571325177153467194570741607167</span><span class="p">,</span>
+    <span class="mi">19596995117319480189066041930051006586888908165330319666010398892494684778526</span><span class="p">,</span>
+    <span class="mi">837850695495734270707668553360118467905109360511302468085569220634750561083</span><span class="p">,</span>
+    <span class="mi">11803922811376367215191737026157445294481406304781326649717082177394185903907</span><span class="p">,</span>
+    <span class="mi">10201298324909697255105265958780781450978049256931478989759448189112393506592</span><span class="p">,</span>
+    <span class="mi">13564695482314888817576351063608519127702411536552857463682060761575100923924</span><span class="p">,</span>
+    <span class="mi">9262808208636973454201420823766139682381973240743541030659775288508921362724</span><span class="p">,</span>
+    <span class="mi">173271062536305557219323722062711383294158572562695717740068656098441040230</span><span class="p">,</span>
+    <span class="mi">18120430890549410286417591505529104700901943324772175772035648111937818237369</span><span class="p">,</span>
+    <span class="mi">20484495168135072493552514219686101965206843697794133766912991150184337935627</span><span class="p">,</span>
+    <span class="mi">19155651295705203459475805213866664350848604323501251939850063308319753686505</span><span class="p">,</span>
+    <span class="mi">11971299749478202793661982361798418342615500543489781306376058267926437157297</span><span class="p">,</span>
+    <span class="mi">18285310723116790056148596536349375622245669010373674803854111592441823052978</span><span class="p">,</span>
+    <span class="mi">7069216248902547653615508023941692395371990416048967468982099270925308100727</span><span class="p">,</span>
+    <span class="mi">6465151453746412132599596984628739550147379072443683076388208843341824127379</span><span class="p">,</span>
+    <span class="mi">16143532858389170960690347742477978826830511669766530042104134302796355145785</span><span class="p">,</span>
+    <span class="mi">19362583304414853660976404410208489566967618125972377176980367224623492419647</span><span class="p">,</span>
+    <span class="mi">1702213613534733786921602839210290505213503664731919006932367875629005980493</span><span class="p">,</span>
+    <span class="mi">10781825404476535814285389902565833897646945212027592373510689209734812292327</span><span class="p">,</span>
+    <span class="mi">4212716923652881254737947578600828255798948993302968210248673545442808456151</span><span class="p">,</span>
+    <span class="mi">7594017890037021425366623750593200398174488805473151513558919864633711506220</span><span class="p">,</span>
+    <span class="mi">18979889247746272055963929241596362599320706910852082477600815822482192194401</span><span class="p">,</span>
+    <span class="mi">13602139229813231349386885113156901793661719180900395818909719758150455500533</span><span class="p">,</span>
+<span class="p">]</span>
+
+
+<span class="k">class</span> <span class="nc">Mimc7Step</span><span class="p">(</span><span class="n">StepType</span><span class="p">):</span>
+    <span class="k">def</span> <span class="nf">setup</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">xkc</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">internal</span><span class="p">(</span><span class="s2">&quot;xkc&quot;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">y</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">internal</span><span class="p">(</span><span class="s2">&quot;y&quot;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">c</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">internal</span><span class="p">(</span><span class="s2">&quot;c&quot;</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">constr</span><span class="p">(</span><span class="n">eq</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">circuit</span><span class="o">.</span><span class="n">x</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">circuit</span><span class="o">.</span><span class="n">k</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">c</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">xkc</span><span class="p">))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">constr</span><span class="p">(</span>
+            <span class="n">eq</span><span class="p">(</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">xkc</span>
+                <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">xkc</span>
+                <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">xkc</span>
+                <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">xkc</span>
+                <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">xkc</span>
+                <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">xkc</span>
+                <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">xkc</span><span class="p">,</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">y</span><span class="p">,</span>
+            <span class="p">)</span>
+        <span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">transition</span><span class="p">(</span><span class="n">eq</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">y</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">circuit</span><span class="o">.</span><span class="n">x</span><span class="o">.</span><span class="n">next</span><span class="p">()))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">transition</span><span class="p">(</span><span class="n">eq</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">circuit</span><span class="o">.</span><span class="n">k</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">circuit</span><span class="o">.</span><span class="n">k</span><span class="o">.</span><span class="n">next</span><span class="p">()))</span>
+
+    <span class="k">def</span> <span class="nf">wg</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x_value</span><span class="p">,</span> <span class="n">k_value</span><span class="p">,</span> <span class="n">c_value</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">assign</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">circuit</span><span class="o">.</span><span class="n">x</span><span class="p">,</span> <span class="n">F</span><span class="p">(</span><span class="n">x_value</span><span class="p">))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">assign</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">circuit</span><span class="o">.</span><span class="n">k</span><span class="p">,</span> <span class="n">F</span><span class="p">(</span><span class="n">k_value</span><span class="p">))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">assign</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">c</span><span class="p">,</span> <span class="n">F</span><span class="p">(</span><span class="n">c_value</span><span class="p">))</span>
+
+        <span class="n">xkc_value</span> <span class="o">=</span> <span class="n">F</span><span class="p">(</span><span class="n">x_value</span> <span class="o">+</span> <span class="n">k_value</span> <span class="o">+</span> <span class="n">c_value</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">assign</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">xkc</span><span class="p">,</span> <span class="n">F</span><span class="p">(</span><span class="n">xkc_value</span><span class="p">))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">assign</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">y</span><span class="p">,</span> <span class="n">F</span><span class="p">(</span><span class="n">xkc_value</span><span class="o">**</span><span class="mi">7</span><span class="p">))</span>
+
+
+<span class="k">class</span> <span class="nc">Mimc7LastStep</span><span class="p">(</span><span class="n">StepType</span><span class="p">):</span>
+    <span class="k">def</span> <span class="nf">setup</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">out</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">internal</span><span class="p">(</span><span class="s2">&quot;out&quot;</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">constr</span><span class="p">(</span><span class="n">eq</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">circuit</span><span class="o">.</span><span class="n">x</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">circuit</span><span class="o">.</span><span class="n">k</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">out</span><span class="p">))</span>
+
+    <span class="k">def</span> <span class="nf">wg</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x_value</span><span class="p">,</span> <span class="n">k_value</span><span class="p">,</span> <span class="n">_</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">assign</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">circuit</span><span class="o">.</span><span class="n">x</span><span class="p">,</span> <span class="n">F</span><span class="p">(</span><span class="n">x_value</span><span class="p">))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">assign</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">circuit</span><span class="o">.</span><span class="n">k</span><span class="p">,</span> <span class="n">F</span><span class="p">(</span><span class="n">k_value</span><span class="p">))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">assign</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">out</span><span class="p">,</span> <span class="n">F</span><span class="p">(</span><span class="n">x_value</span> <span class="o">+</span> <span class="n">k_value</span><span class="p">))</span>
+
+
+<span class="k">class</span> <span class="nc">Mimc7Circuit</span><span class="p">(</span><span class="n">Circuit</span><span class="p">):</span>
+    <span class="k">def</span> <span class="nf">setup</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">x</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">forward</span><span class="p">(</span><span class="s2">&quot;x&quot;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">k</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">forward</span><span class="p">(</span><span class="s2">&quot;k&quot;</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">mimc7_step</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">step_type</span><span class="p">(</span><span class="n">Mimc7Step</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s2">&quot;mimc7_step&quot;</span><span class="p">))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">mimc7_last_step</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">step_type</span><span class="p">(</span><span class="n">Mimc7LastStep</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s2">&quot;mimc7_last_step&quot;</span><span class="p">))</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">pragma_first_step</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">mimc7_step</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">pragma_last_step</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">mimc7_last_step</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">pragma_num_steps</span><span class="p">(</span><span class="n">ROUNDS</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">trace</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x_in_value</span><span class="p">,</span> <span class="n">k_value</span><span class="p">):</span>
+        <span class="n">c_value</span> <span class="o">=</span> <span class="n">F</span><span class="p">(</span><span class="n">ROUND_CONSTANTS</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+        <span class="n">x_value</span> <span class="o">=</span> <span class="n">F</span><span class="p">(</span><span class="n">x_in_value</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">mimc7_step</span><span class="p">,</span> <span class="n">x_value</span><span class="p">,</span> <span class="n">k_value</span><span class="p">,</span> <span class="n">c_value</span><span class="p">)</span>
+
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">ROUNDS</span><span class="p">):</span>
+            <span class="n">x_value</span> <span class="o">+=</span> <span class="n">F</span><span class="p">(</span><span class="n">k_value</span> <span class="o">+</span> <span class="n">c_value</span><span class="p">)</span>
+            <span class="n">x_value</span> <span class="o">=</span> <span class="n">F</span><span class="p">(</span><span class="n">x_value</span><span class="o">**</span><span class="mi">7</span><span class="p">)</span>
+            <span class="n">c_value</span> <span class="o">=</span> <span class="n">F</span><span class="p">(</span><span class="n">ROUND_CONSTANTS</span><span class="p">[</span><span class="n">i</span><span class="p">])</span>
+
+            <span class="bp">self</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">mimc7_step</span><span class="p">,</span> <span class="n">x_value</span><span class="p">,</span> <span class="n">k_value</span><span class="p">,</span> <span class="n">c_value</span><span class="p">)</span>
+
+        <span class="n">x_value</span> <span class="o">+=</span> <span class="n">F</span><span class="p">(</span><span class="n">k_value</span> <span class="o">+</span> <span class="n">c_value</span><span class="p">)</span>
+        <span class="n">x_value</span> <span class="o">=</span> <span class="n">F</span><span class="p">(</span><span class="n">x_value</span><span class="o">**</span><span class="mi">7</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">mimc7_last_step</span><span class="p">,</span> <span class="n">x_value</span><span class="p">,</span> <span class="n">k_value</span><span class="p">,</span> <span class="n">c_value</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+</div>
+<p>Let’s generate the circuit, the witness, and check that the witness passes the circuit using <code class="docutils literal notranslate"><span class="pre">halo2_mock_prover</span></code>:</p>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">mimc7_circuit</span> <span class="o">=</span> <span class="n">Mimc7Circuit</span><span class="p">()</span>
+<span class="n">mimc7_circuit_witness</span> <span class="o">=</span> <span class="n">mimc7_circuit</span><span class="o">.</span><span class="n">gen_witness</span><span class="p">(</span><span class="n">F</span><span class="p">(</span><span class="mi">1</span><span class="p">),</span> <span class="n">F</span><span class="p">(</span><span class="mi">2</span><span class="p">))</span>
+<span class="n">mimc7_circuit</span><span class="o">.</span><span class="n">halo2_mock_prover</span><span class="p">(</span><span class="n">mimc7_circuit_witness</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>Ok(
+    (),
+)
+</pre></div>
+</div>
+</div>
+</div>
+<p>Voila! <code class="docutils literal notranslate"><span class="pre">mimc7_circuit.gen_witness(F(1),</span> <span class="pre">F(2))</span></code> means that you are applying a key <code class="docutils literal notranslate"><span class="pre">k</span></code> of <code class="docutils literal notranslate"><span class="pre">2</span></code> to an initial message <code class="docutils literal notranslate"><span class="pre">x</span></code> of <code class="docutils literal notranslate"><span class="pre">1</span></code>. You should see an <code class="docutils literal notranslate"><span class="pre">Ok(())</span></code> message to confirm successful run of the witness against the circuit. Now let’s proceed to the next chapter to check the soundness of the circuit.</p>
+</section>
+
+    <script type="text/x-thebe-config">
+    {
+        requestKernel: true,
+        binderOptions: {
+            repo: "binder-examples/jupyter-stacks-datascience",
+            ref: "master",
+        },
+        codeMirrorConfig: {
+            theme: "abcdef",
+            mode: "chiquito_kernel"
+        },
+        kernelOptions: {
+            name: "chiquito_kernel",
+            path: "./."
+        },
+        predefinedOutput: true
+    }
+    </script>
+    <script>kernelName = 'chiquito_kernel'</script>
+
+                </article>
+              
+
+              
+              
+              
+              
+                <footer class="prev-next-footer">
+                  <!-- Previous / next buttons -->
+<div class="prev-next-area">
+    <a class="left-prev"
+       href="part3_chapter1.html"
+       title="previous page">
+      <i class="fa-solid fa-angle-left"></i>
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">previous</p>
+        <p class="prev-next-title">Chapter 1: MiMC7 Concepts</p>
+      </div>
+    </a>
+    <a class="right-next"
+       href="part3_chapter3.html"
+       title="next page">
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">next</p>
+        <p class="prev-next-title">Chapter 3: Witness</p>
+      </div>
+      <i class="fa-solid fa-angle-right"></i>
+    </a>
+</div>
+                </footer>
+              
+            </div>
+            
+            
+              
+            
+          </div>
+          <footer class="bd-footer-content">
+            
+<div class="bd-footer-content__inner container">
+  
+  <div class="footer-item">
+    
+<p class="component-author">
+By Leo Lara, Steve Wang
+</p>
+
+  </div>
+  
+  <div class="footer-item">
+    
+  <p class="copyright">
+    
+      © Copyright 2022.
+      <br/>
+    
+  </p>
+
+  </div>
+  
+  <div class="footer-item">
+    
+  </div>
+  
+  <div class="footer-item">
+    
+  </div>
+  
+</div>
+          </footer>
+        
+
+      </main>
+    </div>
+  </div>
+  
+  <!-- Scripts loaded after <body> so the DOM is not blocked -->
+  <script src="_static/scripts/bootstrap.js?digest=365ca57ee442770a23c6"></script>
+<script src="_static/scripts/pydata-sphinx-theme.js?digest=365ca57ee442770a23c6"></script>
+
+  <footer class="bd-footer">
+  </footer>
+  </body>
+</html>
