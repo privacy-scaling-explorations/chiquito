@@ -562,14 +562,22 @@ class Examples:
             "n_inputs": 6,
             "n_outputs": 1,
         }
+        expected_output = 19202028150024867662780481379838409946689630430681355990725140707642055614070
 
         # Act
         poseidon = PoseidonSuperCircuit(lens=lens)
         witness = poseidon.gen_witness(values)
+        poseidon.halo2_mock_prover(witness)
 
         # Assert
-        # print(list(witness.values())[0])
-        poseidon.halo2_mock_prover(witness)
+        circuit_trace = list(witness.values())[0]
+        steps_length = len(circuit_trace.step_instances)
+        last_step = circuit_trace.step_instances[steps_length - 1]
+        assignments = last_step.assignments
+        assignments_values = list(assignments.values())
+        for i, assignment in enumerate(assignments):
+            if assignment.__str__() == "output_0":
+                assert assignments_values[i] == expected_output
 
 
 if __name__ == "__main__":
