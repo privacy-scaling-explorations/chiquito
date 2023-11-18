@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"enum":["Typing"],"fn":["and","annotate","eq","if_next_step","isz","lookup","next_step_must_be","next_step_must_not_be","not","or","rlc","select","table","unless","when","xor"],"struct":["Constraint"]};

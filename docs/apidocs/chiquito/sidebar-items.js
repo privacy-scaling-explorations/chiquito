@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"mod":["ast","field","frontend","plonkish","poly","stdlib","wit_gen"]};

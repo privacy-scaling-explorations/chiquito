@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"fn":["super_circuit"],"struct":["SuperCircuitContext"]};

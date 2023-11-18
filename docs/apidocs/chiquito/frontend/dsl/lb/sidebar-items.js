@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"struct":["InPlaceLookupBuilder","LookupTable","LookupTableBuilder","LookupTableRegistry","LookupTableStore"],"trait":["LookupBuilder"]};

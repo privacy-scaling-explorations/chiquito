@@ -1,3 +1,0 @@
-(function() {var implementors = {
-"chiquito":[["impl&lt;F&gt; <a class=\"trait\" href=\"https://doc.rust-lang.org/nightly/core/ops/deref/trait.DerefMut.html\" title=\"trait core::ops::deref::DerefMut\">DerefMut</a> for <a class=\"struct\" href=\"chiquito/plonkish/ir/assignments/struct.Assignments.html\" title=\"struct chiquito::plonkish::ir::assignments::Assignments\">Assignments</a>&lt;F&gt;"]]
-};if (window.register_implementors) {window.register_implementors(implementors);} else {window.pending_implementors = implementors;}})()
