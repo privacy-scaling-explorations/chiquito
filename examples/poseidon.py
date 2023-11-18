@@ -115,15 +115,15 @@ class PoseidonStepFirstRound(StepType):
             self.assign(signal, F(value))
 
         for i in range(0, self.circuit.param_t):
-            self.assign(self.circuit.round, round_values["round"])
-            self.assign(self.circuit.constants[i], round_values["constant_values"][i])
-            self.assign(self.circuit.x_vec[i], round_values["x_values"][i])
-            self.assign(self.circuit.sboxs[i], round_values["sbox_values"][i])
-            self.assign(self.circuit.outs[i], round_values["out_values"][i])
+            self.assign(self.circuit.constants[i], F(round_values["constant_values"][i]))
             if i < len(round_values["input_values"]):
-                self.assign(self.circuit.inputs[i], round_values["input_values"][i])
+                self.assign(self.circuit.inputs[i], F(round_values["input_values"][i]))
             else:
                 self.assign(self.circuit.inputs[i], F(0))
+            self.assign(self.circuit.x_vec[i], F(round_values["x_values"][i]))
+            self.assign(self.circuit.sboxs[i], F(round_values["sbox_values"][i]))
+            self.assign(self.circuit.outs[i], F(round_values["out_values"][i]))
+            self.assign(self.circuit.round, F(round_values["round"]))
 
 
 class PoseidonStepFullRound(StepType):
@@ -181,13 +181,13 @@ class PoseidonStepFullRound(StepType):
             self.assign(signal, F(value))
 
         for i in range(0, self.circuit.param_t):
-            self.assign(self.circuit.constants[i], round_values["constant_values"][i])
-            self.assign(self.circuit.inputs[i], round_values["input_values"][i])
-            self.assign(self.circuit.x_vec[i], round_values["x_values"][i])
-            self.assign(self.circuit.sboxs[i], round_values["sbox_values"][i])
-            self.assign(self.circuit.outs[i], round_values["out_values"][i])
+            self.assign(self.circuit.constants[i], F(round_values["constant_values"][i]))
+            self.assign(self.circuit.inputs[i], F(round_values["input_values"][i]))
+            self.assign(self.circuit.x_vec[i], F(round_values["x_values"][i]))
+            self.assign(self.circuit.sboxs[i], F(round_values["sbox_values"][i]))
+            self.assign(self.circuit.outs[i], F(round_values["out_values"][i]))
 
-        self.assign(self.circuit.round, round_values["round"])
+        self.assign(self.circuit.round, F(round_values["round"]))
 
 
 class PoseidonStepPartialRound(StepType):
@@ -252,15 +252,15 @@ class PoseidonStepPartialRound(StepType):
             self.assign(signal, F(value))
 
         for i in range(0, self.circuit.param_t):
-            self.assign(self.circuit.constants[i], round_values["constant_values"][i])
-            self.assign(self.circuit.inputs[i], round_values["input_values"][i])
-            self.assign(self.circuit.outs[i], round_values["out_values"][i])
-            self.assign(self.circuit.x_vec[i], round_values["x_values"][i])
+            self.assign(self.circuit.constants[i], F(round_values["constant_values"][i]))
+            self.assign(self.circuit.inputs[i], F(round_values["input_values"][i]))
+            self.assign(self.circuit.outs[i], F(round_values["out_values"][i]))
+            self.assign(self.circuit.x_vec[i], F(round_values["x_values"][i]))
 
         for i, sbox in enumerate(self.circuit.sboxs[0:self.circuit.param_c]):
             self.assign(sbox, F(round_values["sbox_values"][i]))
 
-        self.assign(self.circuit.round, round_values["round"])
+        self.assign(self.circuit.round, F(round_values["round"]))
 
 
 class PoseidonStepLastRound(StepType):
@@ -314,10 +314,10 @@ class PoseidonStepLastRound(StepType):
             self.assign(signal, F(value))
 
         for i in range(0, self.circuit.param_t):
-            self.assign(self.circuit.constants[i], round_values["constant_values"][i])
-            self.assign(self.circuit.inputs[i], round_values["input_values"][i])
-            self.assign(self.circuit.x_vec[i], round_values["x_values"][i])
-            self.assign(self.circuit.sboxs[i], round_values["sbox_values"][i])
+            self.assign(self.circuit.constants[i], F(round_values["constant_values"][i]))
+            self.assign(self.circuit.inputs[i], F(round_values["input_values"][i]))
+            self.assign(self.circuit.x_vec[i], F(round_values["x_values"][i]))
+            self.assign(self.circuit.sboxs[i], F(round_values["sbox_values"][i]))
 
         for signal, value in zip(
                 self.circuit.outs,
@@ -325,7 +325,7 @@ class PoseidonStepLastRound(StepType):
         ):
             self.assign(signal, F(value))
 
-        self.assign(self.circuit.round, round_values["round"])
+        self.assign(self.circuit.round, F(round_values["round"]))
 
 
 class PoseidonCircuit(Circuit):
