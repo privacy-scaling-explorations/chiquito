@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"enum":["ColumnType"],"mod":["assignments","query","sc"],"struct":["Circuit","Column","Poly","PolyLookup"],"type":["PolyExpr"]};

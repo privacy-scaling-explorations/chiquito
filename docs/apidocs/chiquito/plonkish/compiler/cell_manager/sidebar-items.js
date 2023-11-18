@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"struct":["MaxWidthCellManager","Placement","SignalPlacement","SingleRowCellManager","StepPlacement"],"trait":["CellManager"]};
