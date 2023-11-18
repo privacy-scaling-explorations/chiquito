@@ -158,7 +158,7 @@ class PoseidonStepFullRound(StepType):
             for j in range(0, param_t):
                 self.add_lookup(
                     self.circuit.matrix_table
-                    .apply(m_offset * j)
+                    .apply(m_offset + j)
                     .apply(matrix[m_offset + j]),
                 )
 
@@ -533,7 +533,7 @@ class PoseidonSuperCircuit(SuperCircuit):
             "n_inputs": 6,
             "n_outputs": 1,
         }
-        n_inputs = lens["n_inputs"]
+        n_inputs = lens["n_inputs"] + 1
         self.constants_circuit = self.sub_circuit(
             PoseidonConstants(self, n_inputs=n_inputs)
         )
