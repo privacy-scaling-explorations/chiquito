@@ -27,5 +27,7 @@ test:
 	# generate lcov coverage report
 	./target/test_coverage/grcov . --binary-path ./target/debug/deps/ -s . -t lcov --branch --ignore-not-existing --ignore '../*' --ignore "/*" -o target/test_coverage/tests.lcov
 
+book:
+	jupyter-book build book
 
-.PHONY: precommit build test
+.PHONY: precommit build test book
