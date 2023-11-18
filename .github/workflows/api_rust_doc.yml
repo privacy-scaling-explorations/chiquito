@@ -27,8 +27,9 @@ jobs:
 
       - name: Add CNAME file to docs root
         run: |
-          mkdir -p ./target/doc
-          echo 'apidocs.pecadorplonkish.xyz' > ./target/doc/CNAME
+          mkdir -p ./book/_build/html
+          echo 'docs.pecadorplonkish.xyz' > ./book/_build/html/CNAME
+          touch ./book/_build/html/.nojekyll
 
       - name: Deploy book
         uses: peaceiris/actions-gh-pages@v3
@@ -37,9 +38,9 @@ jobs:
           publish_dir: ./book/_build/html
           destination_dir: ./docs
 
-      - name: Deploy Api docs
-        uses: peaceiris/actions-gh-pages@v3
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: ./target/doc
-          destination_dir: ./docs/apidocs
+#      - name: Deploy Api docs
+#        uses: peaceiris/actions-gh-pages@v3
+#        with:
+#          github_token: ${{ secrets.GITHUB_TOKEN }}
+#          publish_dir: ./target/doc
+#          destination_dir: ./docs/apidocs
