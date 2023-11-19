@@ -594,8 +594,8 @@ document.write(`
                     index: 0,
                     name: &quot;main&quot;,
                 },
-                index: 3,
-                name: &quot;fibo_first_step::(a == 1) =&gt; (a + (-0x1)) =&gt; Product(Fixed { query_index: 0, column_index: 0, rotation: Rotation(0) }, Product(Advice { query_index: 6, column_index: 4, rotation: Rotation(0) }, Sum(Advice { query_index: 1, column_index: 0, rotation: Rotation(0) }, Negated(Constant(0x0000000000000000000000000000000000000000000000000000000000000001)))))&quot;,
+                index: 0,
+                name: &quot;fibo_first_step::(a == 1) =&gt; (a + (-0x1)) =&gt; Product(Fixed { query_index: 0, column_index: 0, rotation: Rotation(0) }, Product(Advice { query_index: 0, column_index: 3, rotation: Rotation(0) }, Sum(Advice { query_index: 1, column_index: 0, rotation: Rotation(0) }, Negated(Constant(0x0000000000000000000000000000000000000000000000000000000000000001)))))&quot;,
             },
             location: InRegion {
                 region: Region 0 (&#39;circuit&#39;),
@@ -608,10 +608,7 @@ document.write(`
                         column: DebugColumn {
                             column_type: Advice,
                             index: 0,
-                       
-</pre></div>
-</div>
-<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>     annotation: &quot;srcm forward a&quot;,
+                            annotation: &quot;srcm forward a&quot;,
                         },
                         rotation: 0,
                     },
@@ -622,7 +619,7 @@ document.write(`
                         name: &quot;&quot;,
                         column: DebugColumn {
                             column_type: Advice,
-                            index: 4,
+                            index: 3,
                             annotation: &quot;&#39;step selector for fibo_first_step&#39;&quot;,
                         },
                         rotation: 0,
@@ -649,8 +646,8 @@ document.write(`
                     index: 0,
                     name: &quot;main&quot;,
                 },
-                index: 4,
-                name: &quot;fibo_first_step::(b == 1) =&gt; (b + (-0x1)) =&gt; Product(Fixed { query_index: 0, column_index: 0, rotation: Rotation(0) }, Product(Advice { query_index: 6, column_index: 4, rotation: Rotation(0) }, Sum(Advice { query_index: 2, column_index: 1, rotation: Rotation(0) }, Negated(Constant(0x0000000000000000000000000000000000000000000000000000000000000001)))))&quot;,
+                index: 1,
+                name: &quot;fibo_first_step::(b == 1) =&gt; (b + (-0x1)) =&gt; Product(Fixed { query_index: 0, column_index: 0, rotation: Rotation(0) }, Product(Advice { query_index: 0, column_index: 3, rotation: Rotation(0) }, Sum(Advice { query_index: 2, column_index: 1, rotation: Rotation(0) }, Negated(Constant(0x0000000000000000000000000000000000000000000000000000000000000001)))))&quot;,
             },
             location: InRegion {
                 region: Region 0 (&#39;circuit&#39;),
@@ -674,7 +671,7 @@ document.write(`
                         name: &quot;&quot;,
                         column: DebugColumn {
                             column_type: Advice,
-                            index: 4,
+                            index: 3,
                             annotation: &quot;&#39;step selector for fibo_first_step&#39;&quot;,
                         },
                         rotation: 0,
@@ -697,14 +694,14 @@ document.write(`
         },
     ],
 )
-Constraint 3 (&#39;fibo_first_step::(a == 1) =&gt; (a + (-0x1)) =&gt; Product(Fixed { query_index: 0, column_index: 0, rotation: Rotation(0) }, Product(Advice { query_index: 6, column_index: 4, rotation: Rotation(0) }, Sum(Advice { query_index: 1, column_index: 0, rotation: Rotation(0) }, Negated(Constant(0x0000000000000000000000000000000000000000000000000000000000000001)))))&#39;) in gate 0 (&#39;main&#39;) is not satisfied in Region 0 (&#39;circuit&#39;) at offset 0
+Constraint 0 (&#39;fibo_first_step::(a == 1) =&gt; (a + (-0x1)) =&gt; Product(Fixed { query_index: 0, column_index: 0, rotation: Rotation(0) }, Product(Advice { query_index: 0, column_index: 3, rotation: Rotation(0) }, Sum(Advice { query_index: 1, column_index: 0, rotation: Rotation(0) }, Negated(Constant(0x0000000000000000000000000000000000000000000000000000000000000001)))))&#39;) in gate 0 (&#39;main&#39;) is not satisfied in Region 0 (&#39;circuit&#39;) at offset 0
 - Column(&#39;Advice&#39;, 0 - srcm forward a)@0 = 0
-- Column(&#39;Advice&#39;, 4 - &#39;step selector for fibo_first_step&#39;)@0 = 1
+- Column(&#39;Advice&#39;, 3 - &#39;step selector for fibo_first_step&#39;)@0 = 1
 - Column(&#39;Fixed&#39;, 0 - q_enable)@0 = 1
 
-Constraint 4 (&#39;fibo_first_step::(b == 1) =&gt; (b + (-0x1)) =&gt; Product(Fixed { query_index: 0, column_index: 0, rotation: Rotation(0) }, Product(Advice { query_index: 6, column_index: 4, rotation: Rotation(0) }, Sum(Advice { query_index: 2, column_index: 1, rotation: Rotation(0) }, Negated(Constant(0x0000000000000000000000000000000000000000000000000000000000000001)))))&#39;) in gate 0 (&#39;main&#39;) is not satisfied in Region 0 (&#39;circuit&#39;) at offset 0
+Constraint 1 (&#39;fibo_first_step::(b == 1) =&gt; (b + (-0x1)) =&gt; Product(Fixed { query_index: 0, column_index: 0, rotation: Rotation(0) }, Product(Advice { query_index: 0, column_index: 3, rotation: Rotation(0) }, Sum(Advice { query_index: 2, column_index: 1, rotation: Rotation(0) }, Negated(Constant(0x0000000000000000000000000000000000000000000000000000000000000001)))))&#39;) in gate 0 (&#39;main&#39;) is not satisfied in Region 0 (&#39;circuit&#39;) at offset 0
 - Column(&#39;Advice&#39;, 1 - srcm forward b)@0 = 0x2
-- Column(&#39;Advice&#39;, 4 - &#39;step selector for fibo_first_step&#39;)@0 = 1
+- Column(&#39;Advice&#39;, 3 - &#39;step selector for fibo_first_step&#39;)@0 = 1
 - Column(&#39;Fixed&#39;, 0 - q_enable)@0 = 1
 </pre></div>
 </div>
