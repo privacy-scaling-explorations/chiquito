@@ -1,8 +1,4 @@
-use crate::{
-    ast::query::Queriable,
-    poly::Expr,
-    util::UUID,
-};
+use crate::{ast::query::Queriable, poly::Expr, util::UUID};
 use std::collections::HashMap;
 extern crate regex;
 
