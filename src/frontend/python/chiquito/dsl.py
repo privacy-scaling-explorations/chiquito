@@ -28,7 +28,12 @@ class SuperCircuitMode(Enum):
 
 
 class SuperCircuit:
-    def __init__(self: SuperCircuit):
+    def __init__(
+        self: SuperCircuit,
+        **kwargs,  # **kwargs is intended for arbitrary names for imports
+    ):
+        for key, value in kwargs.items():
+            setattr(self, key, value)
         self.ast = ASTSuperCircuit()
         self.mode = SuperCircuitMode.SETUP
         self.setup()
@@ -42,7 +47,7 @@ class SuperCircuit:
                 "SuperCircuit: sub_circuit() cannot be called twice on the same circuit."
             )
         ast_json: str = sub_circuit.get_ast_json()
-        sub_circuit.rust_id: int = rust_chiquito.ast_to_halo2(ast_json)
+        sub_circuit.rust_id: int = rust_chiquito.ast_map_store(ast_json)
         self.ast.sub_circuits[sub_circuit.rust_id] = sub_circuit.ast
         return sub_circuit
 
@@ -73,15 +78,15 @@ class SuperCircuit:
     def halo2_mock_prover(
         self: SuperCircuit, super_witness: Dict[int, TraceWitness], k: int = 16
     ):
+        witness_json = {}
         for rust_id, witness in super_witness.items():
             if rust_id not in self.ast.sub_circuits:
                 raise ValueError(
                     f"SuperCircuit.halo2_mock_prover(): TraceWitness with rust_id {rust_id} not found in sub_circuits."
                 )
-            witness_json: str = witness.get_witness_json()
-            super_witness[rust_id] = witness_json
+            witness_json[rust_id] = witness.get_witness_json()
         rust_chiquito.super_circuit_halo2_mock_prover(
-            list(self.ast.sub_circuits.keys()), super_witness, k
+            list(self.ast.sub_circuits.keys()), witness_json, k
         )
 
 
@@ -286,7 +291,8 @@ class StepType:
         self.step_instance.assign(lhs, F(rhs))
 
     def add_lookup(self: StepType, lookup_builder: LookupBuilder):
-        self.step_type.lookups.append(lookup_builder.build())
+        lookup = lookup_builder.build()
+        self.step_type.lookups.append(lookup)
 
 
 LookupBuilder = LookupTableBuilder | InPlaceLookupBuilder
