@@ -8,7 +8,7 @@ use crate::{
 };
 use std::{
     collections::HashMap,
-    fmt::{Debug, Write},
+    fmt::{Debug, Write}, hash::Hash,
 };
 extern crate regex;
 
@@ -354,7 +354,7 @@ impl<F: Debug> ChiquitoPilSuperCircuit<F> {
 /// User needs to supply a Vec<String> for `circuit_names`, the order of which should be the same as
 /// the order of calling `sub_circuit()` function. `args` are the input arguments supplied to the
 /// mapping generator of the super circuit.
-pub fn chiquitoSuperCircuit2Pil<F: Debug + Field, MappingArgs>(
+pub fn chiquitoSuperCircuit2Pil<F: Debug + Field + Hash, MappingArgs>(
     super_circuit: SuperCircuit<F, MappingArgs>,
     args: MappingArgs,
     circuit_names: Vec<String>,
