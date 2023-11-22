@@ -172,12 +172,9 @@ fn main() {
             println!("{}", failure);
         }
     }
-}
 
-#[cfg(test)]
-#[test]
-fn test_pil_single_circuit_fibo() {
-    use chiquito::plonkish::backend::powdr_pil::chiquito2Pil;
+    // pil boilerplate
+    use chiquito::pil::backend::powdr_pil::chiquito2Pil;
 
     let (_, wit_gen, circuit) = fibo_circuit::<Fr>();
     let pil = chiquito2Pil(

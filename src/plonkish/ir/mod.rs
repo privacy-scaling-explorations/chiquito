@@ -9,7 +9,6 @@ use crate::{
 use self::{assignments::Assignments, query::Queriable};
 
 pub mod assignments;
-pub mod pil;
 pub mod query;
 pub mod sc;
 

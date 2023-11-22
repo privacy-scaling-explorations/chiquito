@@ -9,13 +9,11 @@ use crate::{
         InternalSignal, Lookup, SharedSignal, StepType, StepTypeUUID, TransitionConstraint,
     },
     frontend::dsl::{StepTypeHandler, SuperCircuitContext},
+    pil::backend::powdr_pil::chiquito2Pil,
     plonkish::{
-        backend::{
-            halo2::{
-                chiquito2Halo2, chiquitoSuperCircuit2Halo2, ChiquitoHalo2, ChiquitoHalo2Circuit,
-                ChiquitoHalo2SuperCircuit,
-            },
-            powdr_pil::chiquito2Pil,
+        backend::halo2::{
+            chiquito2Halo2, chiquitoSuperCircuit2Halo2, ChiquitoHalo2, ChiquitoHalo2Circuit,
+            ChiquitoHalo2SuperCircuit,
         },
         compiler::{
             cell_manager::SingleRowCellManager, compile, config,

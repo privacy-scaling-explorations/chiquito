@@ -219,14 +219,10 @@ fn main() {
             println!("{}", failure);
         }
     }
-}
 
-#[cfg(test)]
-#[test]
-fn test_pil_super_circuit_mimc7() {
+    // pil boilerplate
     use chiquito::{
-        frontend::dsl::sc::*, plonkish::backend::powdr_pil::chiquitoSuperCircuit2Pil,
-        wit_gen::Witness,
+        frontend::dsl::sc::*, pil::backend::powdr_pil::chiquitoSuperCircuit2Pil, wit_gen::Witness,
     };
     use halo2_proofs::poly::commitment::Params;
 

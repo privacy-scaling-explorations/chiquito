@@ -1,6 +1,7 @@
 pub mod ast;
 pub mod field;
 pub mod frontend;
+pub mod pil;
 pub mod plonkish;
 pub mod poly;
 pub mod stdlib;
