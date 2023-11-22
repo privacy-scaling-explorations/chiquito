@@ -72,6 +72,7 @@ fn reduce_degree_recursive<
         ),
         Expr::Query(_) => ConstrDecomp::from(constr),
         Expr::Halo2Expr(_) => unimplemented!(),
+        Expr::MI(_) => unimplemented!(),
     }
 }
 

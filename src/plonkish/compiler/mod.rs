@@ -389,6 +389,7 @@ fn transform_expr<F: Clone>(
         Expr::Pow(v, exp) => PolyExpr::Pow(Box::new(transform_expr(unit, step, &v)), exp),
         Expr::Query(q) => place_queriable(unit, step, q),
         Expr::Halo2Expr(expr) => PolyExpr::Halo2Expr(expr),
+        Expr::MI(_) => panic!("mi elimination not done"),
     }
 }
 
