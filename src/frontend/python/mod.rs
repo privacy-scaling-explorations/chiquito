@@ -63,7 +63,23 @@ pub fn chiquito_ast_to_halo2(ast_json: &str) -> UUID {
             .insert(uuid, (circuit, chiquito_halo2, assignment_generator));
     });
 
-    println!("{:?}", uuid);
+    uuid
+}
+
+// Internal function called by `sub_circuit` function in Python frontend. Used in conjunction with
+// the super circuit only. Parses AST JSON and stores AST in `CIRCUIT_MAP` without compiling it.
+// Compilation is done by `chiquito_super_circuit_halo2_mock_prover`.
+pub fn chiquito_ast_map_store(ast_json: &str) -> UUID {
+    let circuit: Circuit<Fr, ()> =
+        serde_json::from_str(ast_json).expect("Json deserialization to Circuit failed.");
+
+    let uuid = uuid();
+
+    CIRCUIT_MAP.with(|circuit_map| {
+        circuit_map
+            .borrow_mut()
+            .insert(uuid, (circuit, ChiquitoHalo2::default(), None));
+    });
 
     uuid
 }
@@ -426,13 +442,14 @@ impl<'de> Visitor<'de> for StepTypeVisitor {
         let constraints = constraints.ok_or_else(|| de::Error::missing_field("constraints"))?;
         let transition_constraints = transition_constraints
             .ok_or_else(|| de::Error::missing_field("transition_constraints"))?;
+        let lookups = lookups.ok_or_else(|| de::Error::missing_field("lookups"))?;
         let annotations = annotations.ok_or_else(|| de::Error::missing_field("annotations"))?;
 
         let mut step_type = StepType::<Fr>::new(id, name);
         step_type.signals = signals;
         step_type.constraints = constraints;
         step_type.transition_constraints = transition_constraints;
-        step_type.lookups = Default::default();
+        step_type.lookups = lookups;
         step_type.annotations = annotations;
 
         Ok(step_type)
@@ -1645,6 +1662,7 @@ mod tests {
                     }
                 }
             ],
+            "lookups":[],
             "annotations":{
                 "5":"a",
                 "6":"b",
@@ -1852,6 +1870,13 @@ fn to_pil(witness_json: &PyString, rust_id: &PyLong) -> String {
 }
 
 #[pyfunction]
+fn ast_map_store(json: &PyString) -> u128 {
+    let uuid = chiquito_ast_map_store(json.to_str().expect("PyString convertion failed."));
+
+    uuid
+}
+
+#[pyfunction]
 fn halo2_mock_prover(witness_json: &PyString, rust_id: &PyLong, k: &PyLong) {
     chiquito_halo2_mock_prover(
         witness_json.to_str().expect("PyString convertion failed."),
@@ -1903,6 +1928,7 @@ fn rust_chiquito(_py: Python, m: &PyModule) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(convert_and_print_trace_witness, m)?)?;
     m.add_function(wrap_pyfunction!(ast_to_halo2, m)?)?;
     m.add_function(wrap_pyfunction!(to_pil, m)?)?;
+    m.add_function(wrap_pyfunction!(ast_map_store, m)?)?;
     m.add_function(wrap_pyfunction!(halo2_mock_prover, m)?)?;
     m.add_function(wrap_pyfunction!(super_circuit_halo2_mock_prover, m)?)?;
     Ok(())

@@ -27,5 +27,9 @@ test:
 	# generate lcov coverage report
 	./target/test_coverage/grcov . --binary-path ./target/debug/deps/ -s . -t lcov --branch --ignore-not-existing --ignore '../*' --ignore "/*" -o target/test_coverage/tests.lcov
 
+book:
+	python3 -m venv .env
+	. .env/bin/activate; pip install -r requirements.txt; maturin develop; pip install jupyter; python -m ipykernel install --user --name=chiquito_kernel
+	jupyter-book build book
 
-.PHONY: precommit build test
+.PHONY: precommit build test book

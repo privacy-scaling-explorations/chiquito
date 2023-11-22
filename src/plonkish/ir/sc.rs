@@ -1,4 +1,4 @@
-use std::{collections::HashMap, rc::Rc};
+use std::{collections::HashMap, hash::Hash, rc::Rc};
 
 use crate::{ast::Circuit as astCircuit, field::Field, util::UUID, wit_gen::TraceWitness};
 
@@ -57,7 +57,7 @@ impl<F: Clone, MappingArgs> SuperCircuit<F, MappingArgs> {
     }
 }
 
-impl<F: Field, MappingArgs> SuperCircuit<F, MappingArgs> {
+impl<F: Field + Hash, MappingArgs> SuperCircuit<F, MappingArgs> {
     pub fn set_mapping<M: Fn(&mut MappingContext<F>, MappingArgs) + 'static>(
         &mut self,
         mapping: M,
@@ -89,7 +89,7 @@ impl<F: Default> Default for MappingContext<F> {
     }
 }
 
-impl<F: Field> MappingContext<F> {
+impl<F: Field + Hash> MappingContext<F> {
     pub fn map<TraceArgs>(&mut self, gen: &AssignmentGenerator<F, TraceArgs>, args: TraceArgs) {
         let trace_witness = gen.generate_trace_witness(args);
         self.trace_witnesses
@@ -138,7 +138,7 @@ impl<F, MappingArgs> Default for MappingGenerator<F, MappingArgs> {
     }
 }
 
-impl<F: Field, MappingArgs> MappingGenerator<F, MappingArgs> {
+impl<F: Field + Hash, MappingArgs> MappingGenerator<F, MappingArgs> {
     pub fn new(mapping: Rc<Mapping<F, MappingArgs>>) -> Self {
         Self { mapping }
     }

@@ -226,6 +226,9 @@ pub struct StepType<F> {
     pub constraints: Vec<Constraint<F>>,
     pub transition_constraints: Vec<TransitionConstraint<F>>,
     pub lookups: Vec<Lookup<F>>,
+
+    pub auto_signals: HashMap<Queriable<F>, ASTExpr<F>>,
+
     pub annotations: HashMap<UUID, String>,
 }
 
@@ -236,6 +239,7 @@ impl<F: Debug> Debug for StepType<F> {
             .field("signals", &self.signals)
             .field("constraints", &self.constraints)
             .field("transition_constraints", &self.transition_constraints)
+            .field("lookups", &self.lookups)
             .finish()
     }
 }
@@ -249,9 +253,11 @@ impl<F> StepType<F> {
             constraints: Default::default(),
             transition_constraints: Default::default(),
             lookups: Default::default(),
+            auto_signals: Default::default(),
             annotations: Default::default(),
         }
     }
+
     pub fn uuid(&self) -> StepTypeUUID {
         self.id
     }
@@ -309,7 +315,7 @@ pub struct TransitionConstraint<F> {
     pub expr: ASTExpr<F>,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct Lookup<F> {
     pub annotation: String,
     pub exprs: Vec<(Constraint<F>, ASTExpr<F>)>,

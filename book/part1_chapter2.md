@@ -66,7 +66,7 @@ In research:
  + Folding backend with ProtoStar, HyperNova, and/or others.
  + Tracers
 
-## Fibonacci circtuit in PyChiquito.
+## Fibonacci circuit in PyChiquito.
 
 But better see for yourself:
 
