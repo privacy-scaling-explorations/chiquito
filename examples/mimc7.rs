@@ -221,10 +221,7 @@ fn main() {
     }
 
     // pil boilerplate
-    use chiquito::{
-        frontend::dsl::sc::*, pil::backend::powdr_pil::chiquitoSuperCircuit2Pil, wit_gen::Witness,
-    };
-    use halo2_proofs::poly::commitment::Params;
+    use chiquito::pil::backend::powdr_pil::chiquitoSuperCircuit2Pil;
 
     let x_in_value = Fr::from_str_vartime("1").expect("expected a number");
     let k_value = Fr::from_str_vartime("2").expect("expected a number");
