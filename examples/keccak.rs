@@ -1537,8 +1537,11 @@ fn main() {
 
     keccak_run(circuit_param, 9);
 
-    keccak_plaf(KeccakCircuit{
-        bits: vec![0, 0, 0, 0, 0, 0, 0, 0],
-        output_len: 256,
-    }, 9);
+    keccak_plaf(
+        KeccakCircuit {
+            bits: vec![0, 0, 0, 0, 0, 0, 0, 0],
+            output_len: 256,
+        },
+        9,
+    );
 }
