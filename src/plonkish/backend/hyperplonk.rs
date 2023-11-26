@@ -4,13 +4,12 @@ use crate::{
         Circuit, Column, ColumnType, PolyExpr,
     },
     util::UUID,
-    wit_gen::{Trace, TraceWitness},
+    wit_gen::TraceWitness,
 };
 use halo2_proofs::arithmetic::Field;
 use plonkish_backend::{
     backend::{PlonkishCircuit, PlonkishCircuitInfo},
-    frontend::halo2::Halo2Circuit,
-    util::expression::{self, rotate::Rotation, Expression, Query},
+    util::expression::{rotate::Rotation, Expression, Query},
 };
 use std::{collections::HashMap, hash::Hash};
 
@@ -369,18 +368,18 @@ impl<F: Field, TraceArgs> ChiquitoCircuit<F, TraceArgs> {
         // if column type is selector, query column will be determined by column_idx function and
         // self.selector_uuids the order of column number is instance + fixed + selector
         // advice + non-selector advice
-        if (column.ctype == ColumnType::Fixed) {
+        if column.ctype == ColumnType::Fixed {
             // there's always only 1 instance column, so the offset is 1
             let column_idx = 1 + column_idx(column.id, &self.fixed_uuids);
             Query::new(column_idx, Rotation(rotation)).into()
-        } else if (column.ctype == ColumnType::Advice
-            && column.annotation.starts_with("step selector"))
+        } else if column.ctype == ColumnType::Advice
+            && column.annotation.starts_with("step selector")
         {
             let column_idx =
                 1 + self.fixed_uuids.len() + column_idx(column.id, &self.selector_uuids);
             Query::new(column_idx, Rotation(rotation)).into()
-        } else if (column.ctype == ColumnType::Advice
-            && !column.annotation.starts_with("step selector"))
+        } else if column.ctype == ColumnType::Advice
+            && !column.annotation.starts_with("step selector")
         {
             // advice_idx already takes into account of the offset of instance, fixed, and selector
             // columns
