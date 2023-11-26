@@ -36,7 +36,7 @@ impl<F: Debug> Debug for Circuit<F> {
     }
 }
 
-impl<F> Circuit<F> {
+impl<F: Clone> Circuit<F> {
     pub(crate) fn instance(&self, witness: &Assignments<F>) -> Vec<F> {
         let mut instance_values = Vec::new();
         for (column, rotation) in &self.exposed {
@@ -45,7 +45,7 @@ impl<F> Circuit<F> {
                 .unwrap_or_else(|| panic!("exposed column not found: {}", column.annotation));
 
             if let Some(value) = values.get(*rotation as usize) {
-                instance_values.push(*value);
+                instance_values.push(value.clone());
             } else {
                 panic!(
                     "assignment index out of bounds for column: {}",
