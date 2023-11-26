@@ -1,10 +1,10 @@
-use std::{collections::HashMap, hash::Hash, rc::Rc};
-
-use halo2_proofs::arithmetic::Field;
+use std::{collections::HashMap, fmt, hash::Hash, rc::Rc};
 
 use crate::{
-    ast::{query::Queriable, StepTypeUUID},
+    ast::{query::Queriable, ASTExpr, Circuit, StepTypeUUID},
+    field::Field,
     frontend::dsl::StepTypeWGHandler,
+    util::UUID,
 };
 
 /// A struct that represents a witness generation context. It provides an interface for assigning
@@ -13,6 +13,16 @@ use crate::{
 pub struct StepInstance<F> {
     pub step_type_uuid: StepTypeUUID,
     pub assignments: HashMap<Queriable<F>, F>,
+}
+
+impl<F: fmt::Debug> fmt::Display for StepInstance<F> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "({}): ", self.step_type_uuid)?;
+        for (queriable, value) in self.assignments.iter() {
+            write!(f, "{:?} = {:?}, ", queriable, value)?;
+        }
+        Ok(())
+    }
 }
 
 impl<F> StepInstance<F> {
@@ -34,9 +44,27 @@ impl<F: Eq + Hash> StepInstance<F> {
 
 pub type Witness<F> = Vec<StepInstance<F>>;
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone)]
 pub struct TraceWitness<F> {
     pub step_instances: Witness<F>,
+}
+
+impl<F: fmt::Debug> fmt::Display for TraceWitness<F> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        // get the decimal width based on the step_instances size, add extra one leading zero
+        let decimal_width = self.step_instances.len().checked_ilog10().unwrap_or(0) + 2;
+        // offset(step_uuid): assignations
+        for (i, step_instance) in self.step_instances.iter().enumerate() {
+            writeln!(
+                f,
+                "{:0>width$}{}",
+                i,
+                step_instance,
+                width = decimal_width as usize,
+            )?;
+        }
+        Ok(())
+    }
 }
 
 #[derive(Debug)]
@@ -122,6 +150,84 @@ impl<F: Default, TraceArgs> TraceGenerator<F, TraceArgs> {
     }
 }
 
+#[derive(Debug, Clone)]
+pub struct AutoTraceGenerator<F> {
+    auto_signals: HashMap<UUID, HashMap<Queriable<F>, ASTExpr<F>>>,
+}
+
+impl<F> Default for AutoTraceGenerator<F> {
+    fn default() -> Self {
+        Self {
+            auto_signals: Default::default(),
+        }
+    }
+}
+
+impl<F: Clone, TraceArgs> From<&Circuit<F, TraceArgs>> for AutoTraceGenerator<F> {
+    fn from(circuit: &Circuit<F, TraceArgs>) -> Self {
+        let auto_signals = circuit
+            .step_types
+            .iter()
+            .map(|(&uuid, step_type)| (uuid, step_type.auto_signals.clone()))
+            .collect();
+
+        Self { auto_signals }
+    }
+}
+
+impl<F: Field + Eq + PartialEq + Hash + Clone> AutoTraceGenerator<F> {
+    pub fn generate(&self, mut witness: TraceWitness<F>) -> TraceWitness<F> {
+        for step_instance in witness.step_instances.iter_mut() {
+            let uuid = step_instance.step_type_uuid;
+
+            if let Some(auto_signals) = self.auto_signals.get(&uuid) {
+                self.step_gen(auto_signals, step_instance)
+            }
+        }
+
+        witness
+    }
+
+    fn step_gen(
+        &self,
+        auto_signals: &HashMap<Queriable<F>, ASTExpr<F>>,
+        witness: &mut StepInstance<F>,
+    ) {
+        let mut pending = auto_signals
+            .keys()
+            .filter(|s| witness.assignments.get(s).is_none())
+            .copied()
+            .collect::<Vec<Queriable<F>>>();
+
+        let mut pending_amount = pending.len();
+
+        while pending_amount > 0 {
+            pending = pending
+                .clone()
+                .into_iter()
+                .filter(|s| {
+                    if let Some(value) = auto_signals
+                        .get(s)
+                        .expect("auto definition not found")
+                        .eval(&witness.assignments)
+                    {
+                        witness.assign(*s, value)
+                    }
+
+                    witness.assignments.get(s).is_none()
+                })
+                .collect::<Vec<Queriable<F>>>()
+                .clone();
+
+            // in each round at least one new signal should be assigned
+            if pending.len() == pending_amount {
+                panic!("cannot infer some auto signals")
+            }
+            pending_amount = pending.len()
+        }
+    }
+}
+
 pub type FixedAssignment<F> = HashMap<Queriable<F>, Vec<F>>;
 
 /// A struct that can be used a fixed column generation context. It provides an interface for
@@ -167,7 +273,12 @@ impl<F: Field + Hash> FixedGenContext<F> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{frontend::dsl::StepTypeWGHandler, util::uuid};
+    use crate::{
+        ast::{query::Queriable, FixedSignal, ForwardSignal},
+        frontend::dsl::StepTypeWGHandler,
+        util::uuid,
+    };
+    use halo2_proofs::halo2curves::bn256::Fr;
 
     fn dummy_args_fn() {}
 
@@ -194,5 +305,177 @@ mod tests {
         ctx.padding(&step, dummy_args_fn);
 
         assert_eq!(ctx.witness.step_instances.len(), 5);
+    }
+
+    #[test]
+    fn test_trace_witness_display() {
+        let display = format!(
+            "{}",
+            TraceWitness::<i32> {
+                step_instances: vec![
+                    StepInstance {
+                        step_type_uuid: 9,
+                        assignments: HashMap::from([
+                            (Queriable::Fixed(FixedSignal::new("a".into()), 0), 1),
+                            (Queriable::Fixed(FixedSignal::new("b".into()), 0), 2)
+                        ]),
+                    },
+                    StepInstance {
+                        step_type_uuid: 10,
+                        assignments: HashMap::from([
+                            (Queriable::Fixed(FixedSignal::new("a".into()), 0), 1),
+                            (Queriable::Fixed(FixedSignal::new("b".into()), 0), 2)
+                        ]),
+                    }
+                ]
+            }
+        );
+        println!("{}", display);
+    }
+
+    #[test]
+    fn test_fixed_gen_context() {
+        let mut ctx = FixedGenContext::new(3);
+        let fixed_signal = FixedSignal::new("dummy".to_owned());
+        let queriable = Queriable::Fixed(fixed_signal, 3);
+
+        ctx.assign(0, queriable, Fr::from(3));
+        let gt = vec![Fr::from(3), Fr::from(0), Fr::from(0)];
+        assert_eq!(*ctx.get_assignments().get_mut(&queriable).unwrap(), gt);
+    }
+
+    #[test]
+    fn test_fixed_gen_context_multiple() {
+        let mut ctx = FixedGenContext::new(3);
+        let fixed_signal = FixedSignal::new("dummy".to_owned());
+        let fixed_signal2 = FixedSignal::new("dummy2".to_owned());
+        let queriable = Queriable::Fixed(fixed_signal, 3);
+        let queriable2 = Queriable::Fixed(fixed_signal2, 3);
+
+        ctx.assign(0, queriable, Fr::from(3));
+        ctx.assign(2, queriable2, Fr::from(3));
+
+        let gt1 = vec![Fr::from(3), Fr::from(0), Fr::from(0)];
+        let gt2 = vec![Fr::from(0), Fr::from(0), Fr::from(3)];
+        let mut assignment = ctx.get_assignments();
+        assert_eq!(*assignment.get_mut(&queriable).unwrap(), gt1);
+        assert_eq!(*assignment.get_mut(&queriable2).unwrap(), gt2);
+    }
+
+    #[test]
+    fn test_auto_trace_gen() {
+        let a = Queriable::Forward(
+            ForwardSignal::new_with_id(uuid(), 0, "a".to_string()),
+            false,
+        );
+        let b = Queriable::Forward(
+            ForwardSignal::new_with_id(uuid(), 0, "b".to_string()),
+            false,
+        );
+        let c = Queriable::Forward(
+            ForwardSignal::new_with_id(uuid(), 0, "c".to_string()),
+            false,
+        );
+        let step_uuid = uuid();
+        let mut witness = TraceWitness::default();
+        witness.step_instances.push(StepInstance {
+            step_type_uuid: step_uuid,
+            assignments: HashMap::from([(a, Fr::ONE), (b, Fr::ONE)]),
+        });
+        witness.step_instances.push(StepInstance {
+            step_type_uuid: step_uuid,
+            assignments: HashMap::from([(a, Fr::ONE), (b, Fr::ONE), (c, Fr::ONE)]),
+        });
+
+        let generator = AutoTraceGenerator {
+            auto_signals: HashMap::from([(step_uuid, HashMap::from([(c, a + b)]))]),
+        };
+
+        let witness = generator.generate(witness);
+        assert_eq!(
+            witness.step_instances[0].assignments.get(&c),
+            Some(&Fr::from(2))
+        );
+        assert_eq!(
+            witness.step_instances[1].assignments.get(&c),
+            Some(&Fr::ONE)
+        );
+    }
+
+    #[test]
+    #[should_panic]
+    fn test_auto_trace_gen_panic() {
+        let a = Queriable::Forward(
+            ForwardSignal::new_with_id(uuid(), 0, "a".to_string()),
+            false,
+        );
+        let b = Queriable::Forward(
+            ForwardSignal::new_with_id(uuid(), 0, "b".to_string()),
+            false,
+        );
+        let c = Queriable::Forward(
+            ForwardSignal::new_with_id(uuid(), 0, "c".to_string()),
+            false,
+        );
+        let step_uuid = uuid();
+        let mut witness = TraceWitness::default();
+        witness.step_instances.push(StepInstance {
+            step_type_uuid: step_uuid,
+            assignments: HashMap::from([(a, Fr::ONE)]),
+        });
+
+        let generator = AutoTraceGenerator {
+            auto_signals: HashMap::from([(step_uuid, HashMap::from([(c, a + b)]))]),
+        };
+
+        generator.generate(witness);
+    }
+
+    #[test]
+    fn test_auto_trace_gen_dep() {
+        let a = Queriable::Forward(
+            ForwardSignal::new_with_id(uuid(), 0, "a".to_string()),
+            false,
+        );
+        let b = Queriable::Forward(
+            ForwardSignal::new_with_id(uuid(), 0, "b".to_string()),
+            false,
+        );
+        let c = Queriable::Forward(
+            ForwardSignal::new_with_id(uuid(), 0, "c".to_string()),
+            false,
+        );
+        let step_uuid = uuid();
+        let mut witness = TraceWitness::default();
+        witness.step_instances.push(StepInstance {
+            step_type_uuid: step_uuid,
+            assignments: HashMap::from([(a, Fr::ONE)]),
+        });
+        witness.step_instances.push(StepInstance {
+            step_type_uuid: step_uuid,
+            assignments: HashMap::from([(a, Fr::ONE), (c, Fr::ONE)]),
+        });
+
+        let generator = AutoTraceGenerator {
+            auto_signals: HashMap::from([(step_uuid, HashMap::from([(c, a + b), (b, a + 1)]))]),
+        };
+
+        let witness = generator.generate(witness);
+        assert_eq!(
+            witness.step_instances[0].assignments.get(&b),
+            Some(&Fr::from(2))
+        );
+        assert_eq!(
+            witness.step_instances[0].assignments.get(&c),
+            Some(&Fr::from(3))
+        );
+        assert_eq!(
+            witness.step_instances[1].assignments.get(&b),
+            Some(&Fr::from(2))
+        );
+        assert_eq!(
+            witness.step_instances[1].assignments.get(&c),
+            Some(&Fr::ONE)
+        );
     }
 }

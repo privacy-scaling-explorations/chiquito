@@ -4,3 +4,5 @@
 .env
 __pycache__
 *.so
+.ipynb_checkpoints
+_build

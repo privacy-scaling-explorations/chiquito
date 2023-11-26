@@ -1,8 +1,6 @@
-use std::{collections::HashMap, rc::Rc};
+use std::{collections::HashMap, hash::Hash, rc::Rc};
 
-use halo2_proofs::arithmetic::Field;
-
-use crate::util::UUID;
+use crate::{field::Field, util::UUID, wit_gen::TraceWitness};
 
 use super::{
     assignments::{AssignmentGenerator, Assignments},
@@ -33,7 +31,7 @@ impl<F, MappingArgs> SuperCircuit<F, MappingArgs> {
     }
 }
 
-impl<F: Field, MappingArgs> SuperCircuit<F, MappingArgs> {
+impl<F: Field + Hash, MappingArgs> SuperCircuit<F, MappingArgs> {
     pub fn set_mapping<M: Fn(&mut MappingContext<F>, MappingArgs) + 'static>(
         &mut self,
         mapping: M,
@@ -62,12 +60,21 @@ impl<F> Default for MappingContext<F> {
     }
 }
 
-impl<F: Field> MappingContext<F> {
+impl<F: Field + Hash> MappingContext<F> {
     pub fn map<TraceArgs>(&mut self, gen: &AssignmentGenerator<F, TraceArgs>, args: TraceArgs) {
         self.assignments.insert(gen.uuid(), gen.generate(args));
     }
 
-    fn get_super_assignments(self) -> SuperAssignments<F> {
+    pub fn map_with_witness<TraceArgs>(
+        &mut self,
+        gen: &AssignmentGenerator<F, TraceArgs>,
+        witness: TraceWitness<F>,
+    ) {
+        self.assignments
+            .insert(gen.uuid(), gen.generate_with_witness(witness));
+    }
+
+    pub fn get_super_assignments(self) -> SuperAssignments<F> {
         self.assignments
     }
 }
@@ -94,7 +101,7 @@ impl<F, MappingArgs> Default for MappingGenerator<F, MappingArgs> {
     }
 }
 
-impl<F: Field, MappingArgs> MappingGenerator<F, MappingArgs> {
+impl<F: Field + Hash, MappingArgs> MappingGenerator<F, MappingArgs> {
     pub fn new(mapping: Rc<Mapping<F, MappingArgs>>) -> Self {
         Self { mapping }
     }

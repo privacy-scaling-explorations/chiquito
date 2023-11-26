@@ -11,7 +11,7 @@ use halo2_proofs::{
 };
 
 use crate::{
-    ast::ToField,
+    field::Field as ChiquitoField,
     plonkish::ir::{
         assignments::Assignments,
         sc::{SuperAssignments, SuperCircuit},
@@ -19,8 +19,22 @@ use crate::{
         ColumnType::{Advice as cAdvice, Fixed as cFixed, Halo2Advice, Halo2Fixed},
         PolyExpr,
     },
+    poly::ToField,
     util::UUID,
 };
+
+impl<T: Field + From<u64>> ChiquitoField for T {
+    const ZERO: Self = <Self as Field>::ZERO;
+    const ONE: Self = <Self as Field>::ONE;
+
+    fn mi(&self) -> Self {
+        self.invert().unwrap_or(Self::ZERO)
+    }
+
+    fn pow<S: AsRef<[u64]>>(&self, exp: S) -> Self {
+        Field::pow(self, exp)
+    }
+}
 
 #[allow(non_snake_case)]
 pub fn chiquito2Halo2<F: Field + From<u64> + Hash>(circuit: Circuit<F>) -> ChiquitoHalo2<F> {
@@ -178,7 +192,7 @@ impl<F: Field + From<u64> + Hash> ChiquitoHalo2<F> {
     }
 
     fn assign_advice(&self, region: &mut Region<F>, witness: &Assignments<F>) -> Result<(), Error> {
-        for (column, assignments) in witness {
+        for (column, assignments) in witness.iter() {
             let column = self.convert_advice_column(column);
 
             for (offset, value) in assignments.iter().enumerate() {
@@ -190,7 +204,7 @@ impl<F: Field + From<u64> + Hash> ChiquitoHalo2<F> {
     }
 
     fn assign_fixed(&self, region: &mut Region<F>, fixed: &Assignments<F>) -> Result<(), Error> {
-        for (column, values) in fixed {
+        for (column, values) in fixed.iter() {
             let column = self.convert_fixed_column(column);
 
             for (offset, value) in values.iter().enumerate() {
@@ -266,7 +280,7 @@ impl<F: Field + From<u64> + Hash> ChiquitoHalo2<F> {
                 }
             }
             PolyExpr::Halo2Expr(e) => e.clone(),
-            PolyExpr::Query(column, rotation, _) => self.convert_query(meta, column, *rotation),
+            PolyExpr::Query((column, rotation, _)) => self.convert_query(meta, column, *rotation),
         }
     }
 
