@@ -203,6 +203,10 @@ fn main() {
 
     let super_circuit = mimc7_super_circuit::<Fr>();
     let compiled = chiquitoSuperCircuit2Halo2(&super_circuit);
+    compiled[1].circuit.polys.iter().for_each(|poly| {
+        println!("poly = {:#?}", poly);
+        println!("");
+    });
     let circuit = ChiquitoHalo2SuperCircuit::new(
         compiled,
         super_circuit.get_mapping().generate((x_in_value, k_value)),

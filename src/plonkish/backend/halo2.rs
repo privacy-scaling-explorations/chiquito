@@ -56,7 +56,7 @@ pub fn chiquitoSuperCircuit2Halo2<F: Field + From<u64> + Hash, MappingArgs>(
 pub struct ChiquitoHalo2<F: Field + From<u64>> {
     pub debug: bool,
 
-    circuit: Circuit<F>,
+    pub circuit: Circuit<F>,
 
     advice_columns: HashMap<UUID, Column<Advice>>,
     fixed_columns: HashMap<UUID, Column<Fixed>>,
