@@ -1,12 +1,12 @@
 use chiquito::{
-    ast::{query::Queriable, Expr},
+    ast::{query::Queriable, ASTExpr},
     frontend::dsl::{lb::LookupTable, super_circuit, CircuitContext},
     plonkish::{
         backend::halo2::{chiquitoSuperCircuit2Halo2, ChiquitoHalo2SuperCircuit},
         compiler::{
             cell_manager::{MaxWidthCellManager, SingleRowCellManager},
             config,
-            step_selector::SimpleStepSelectorBuilder,
+            step_selector::LogNSelectorBuilder,
         },
         ir::sc::SuperCircuit,
     },
@@ -635,8 +635,8 @@ fn keccak_circuit<F: PrimeField<Repr = [u8; 32]> + Eq + Hash>(
                     );
                 }
 
-                let mut sum_split_vec: Expr<F> = setup_split_vec[s][0] * setup_coeff_split_vec[0];
-                let mut sum_split_xor_vec: Expr<F> =
+                let mut sum_split_vec: ASTExpr<F> = setup_split_vec[s][0] * setup_coeff_split_vec[0];
+                let mut sum_split_xor_vec: ASTExpr<F> =
                     setup_split_xor_vec[s][0] * setup_coeff_split_vec[0];
                 for k in 1..NUM_PER_WORD {
                     sum_split_vec =
@@ -822,13 +822,13 @@ fn keccak_circuit<F: PrimeField<Repr = [u8; 32]> + Eq + Hash>(
             }
 
             // Theta
-            let mut theta_sum_split_xor_vec: Vec<Expr<F>> = Vec::new();
-            let mut theta_sum_move_split_xor_vec: Vec<Expr<F>> = Vec::new();
+            let mut theta_sum_split_xor_vec: Vec<ASTExpr<F>> = Vec::new();
+            let mut theta_sum_move_split_xor_vec: Vec<ASTExpr<F>> = Vec::new();
             for s in 0..PART_SIZE {
                 // 1. \sum_y' a[x][y'][z]
                 // 2. xor(sum)
-                let mut sum_split_vec: Expr<F> = setup_theta_split_vec[s][0] * setup_coeff_split_vec[0];
-                let mut sum_split_xor_vec: Expr<F> = setup_theta_split_xor_vec[s][0] * setup_coeff_split_vec[0];
+                let mut sum_split_vec: ASTExpr<F> = setup_theta_split_vec[s][0] * setup_coeff_split_vec[0];
+                let mut sum_split_xor_vec: ASTExpr<F> = setup_theta_split_xor_vec[s][0] * setup_coeff_split_vec[0];
                 for k in 1..NUM_PER_WORD {
                     sum_split_vec =
                         sum_split_vec + setup_theta_split_vec[s][k] * setup_coeff_split_vec[k];
@@ -895,7 +895,7 @@ fn keccak_circuit<F: PrimeField<Repr = [u8; 32]> + Eq + Hash>(
                                 .apply(setup_theta_sum_split_xor_vec[i * PART_SIZE + j][k]),
                         );
                     }
-                    let mut theta_sum_split: Expr<F> = setup_theta_sum_split_vec[i * PART_SIZE + j][0] * setup_coeff_split_vec[0];
+                    let mut theta_sum_split: ASTExpr<F> = setup_theta_sum_split_vec[i * PART_SIZE + j][0] * setup_coeff_split_vec[0];
                     for k in 1..NUM_PER_WORD {
                         theta_sum_split =
                             theta_sum_split + setup_theta_sum_split_vec[i * PART_SIZE + j][k] * setup_coeff_split_vec[k];
@@ -910,7 +910,7 @@ fn keccak_circuit<F: PrimeField<Repr = [u8; 32]> + Eq + Hash>(
                     // rho
                     // a[x][y][z] = a[x][y][z-(t+1)(t+2)/2]
                     let v = ((t_vec[i * PART_SIZE + j] + 1) * t_vec[i * PART_SIZE + j] / 2) % NUM_BITS_PER_WORD;
-                    let mut rho_sum_split_move_vec: Expr<F>; 
+                    let mut rho_sum_split_move_vec: ASTExpr<F>; 
                     if v % 2 != 0  {
                         rho_sum_split_move_vec = setup_rho_bit_1[i * PART_SIZE + j] + setup_rho_bit_0[i * PART_SIZE + j] * setup_coeff_split_vec[NUM_PER_WORD - 1] * 8;
                         for k in 1..NUM_PER_WORD {
@@ -937,7 +937,7 @@ fn keccak_circuit<F: PrimeField<Repr = [u8; 32]> + Eq + Hash>(
             // a[x] = a[x] ^ (~a[x+1] & a[x+2])
             // todo: setup_rho_pi_s_new_vec can be remove
             ctx.constr(eq(three2, 27));
-            let mut three_sum_split_vec: Expr<F> = three2 * 64 + three2;
+            let mut three_sum_split_vec: ASTExpr<F> = three2 * 64 + three2;
             for _ in 2..NUM_PER_WORD {
                 three_sum_split_vec = three_sum_split_vec * 64 + three2;
             }
@@ -956,8 +956,8 @@ fn keccak_circuit<F: PrimeField<Repr = [u8; 32]> + Eq + Hash>(
                         ctx.add_lookup(param.chi_table.apply(setup_chi_sum_split_value_vec[i * PART_SIZE + j][k]).apply(setup_chi_split_value_vec[i * PART_SIZE + j][k]));
                     }
     
-                    let mut sum_split_vec: Expr<F> = setup_chi_sum_split_value_vec[i * PART_SIZE + j][0] * setup_coeff_split_vec[0];
-                    let mut sum_split_chi_vec: Expr<F> = setup_chi_split_value_vec[i * PART_SIZE + j][0] * setup_coeff_split_vec[0];
+                    let mut sum_split_vec: ASTExpr<F> = setup_chi_sum_split_value_vec[i * PART_SIZE + j][0] * setup_coeff_split_vec[0];
+                    let mut sum_split_chi_vec: ASTExpr<F> = setup_chi_split_value_vec[i * PART_SIZE + j][0] * setup_coeff_split_vec[0];
                     for k in 1..NUM_PER_WORD {
                         sum_split_vec = sum_split_vec + setup_chi_sum_split_value_vec[i * PART_SIZE + j][k] * setup_coeff_split_vec[k];
                         sum_split_chi_vec = sum_split_chi_vec + setup_chi_split_value_vec[i * PART_SIZE + j][k] * setup_coeff_split_vec[k];
@@ -966,9 +966,9 @@ fn keccak_circuit<F: PrimeField<Repr = [u8; 32]> + Eq + Hash>(
                     if i != 0 || j != 0 {
                         ctx.constr(eq(sum_split_chi_vec, setup_s_new_vec[i * PART_SIZE + j]));
                     } else {
-                        let mut sum_s_split_vec: Expr<F> =
+                        let mut sum_s_split_vec: ASTExpr<F> =
                         setup_final_sum_split_vec[0] * setup_coeff_split_vec[0];
-                        let mut sum_s_split_xor_vec: Expr<F> =
+                        let mut sum_s_split_xor_vec: ASTExpr<F> =
                         setup_final_xor_split_vec[0] * setup_coeff_split_vec[0];
                         for k in 1..NUM_PER_WORD {
                             sum_s_split_vec =
@@ -1209,7 +1209,7 @@ fn keccak_super_circuit<F: PrimeField<Repr = [u8; 32]> + Eq + Hash>(
         // println!("step_num = {}", step_num);
         let step_num = in_n * (1  + NUM_ROUNDS) + out_n * NUM_ROUNDS;
 
-        let single_config = config(SingleRowCellManager {}, SimpleStepSelectorBuilder {});
+        let single_config = config(SingleRowCellManager {}, LogNSelectorBuilder {});
         let (_, constants_table) = ctx.sub_circuit(
             single_config.clone(),
             keccak_round_constants_table,
@@ -1229,7 +1229,7 @@ fn keccak_super_circuit<F: PrimeField<Repr = [u8; 32]> + Eq + Hash>(
         let maxwidth_config = config(
             MaxWidthCellManager::new(256
                 , true),
-            SimpleStepSelectorBuilder {},
+                LogNSelectorBuilder {},
         );
         let (keccak, _) = ctx.sub_circuit(maxwidth_config, keccak_circuit, params);
 
