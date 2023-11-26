@@ -1,9 +1,13 @@
-use std::collections::HashMap;
-
-use halo2_proofs::{
-    arithmetic::Field,
-    plonk::{Advice, Column as Halo2Column},
+use std::{
+    collections::HashMap,
+    fmt,
+    hash::Hash,
+    ops::{Deref, DerefMut},
 };
+
+use crate::{field::Field, wit_gen::AutoTraceGenerator};
+
+use halo2_proofs::plonk::{Advice, Column as Halo2Column};
 
 use crate::{
     ast::{query::Queriable, ForwardSignal, SharedSignal, StepTypeUUID},
@@ -14,13 +18,58 @@ use crate::{
 
 use super::{Column, PolyExpr};
 
-pub type Assignments<F> = HashMap<Column, Vec<F>>;
+#[derive(Debug, Clone)]
+pub struct Assignments<F>(pub HashMap<Column, Vec<F>>);
+
+impl<F: fmt::Debug> fmt::Display for Assignments<F> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        // get the decimal width based on the step_instances size, add extra one leading zero
+        let decimal_width = self.0.len().checked_ilog10().unwrap_or(0) + 2;
+        // offset(col_uuid): value0, value1, value2,...
+        for (i, (col, vals)) in self.0.iter().enumerate() {
+            let vals = vals.iter().fold(String::new(), |mut acc, val| {
+                acc.push_str(&format!("{:?}, ", val));
+                acc
+            });
+            writeln!(
+                f,
+                "{:0>width$}({}): {}",
+                i,
+                col.id,
+                vals,
+                width = decimal_width as usize,
+            )?;
+        }
+        Ok(())
+    }
+}
+
+impl<F> Default for Assignments<F> {
+    fn default() -> Self {
+        Self(HashMap::default())
+    }
+}
+
+impl<F> Deref for Assignments<F> {
+    type Target = HashMap<Column, Vec<F>>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl<F> DerefMut for Assignments<F> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
+    }
+}
 
 pub struct AssignmentGenerator<F, TraceArgs> {
     columns: Vec<Column>,
     placement: Placement,
     selector: StepSelector<F>,
     trace_gen: TraceGenerator<F, TraceArgs>,
+    auto_trace_gen: AutoTraceGenerator<F>,
 
     num_rows: usize,
 
@@ -34,6 +83,7 @@ impl<F: Clone, TraceArgs> Clone for AssignmentGenerator<F, TraceArgs> {
             placement: self.placement.clone(),
             selector: self.selector.clone(),
             trace_gen: self.trace_gen.clone(),
+            auto_trace_gen: self.auto_trace_gen.clone(),
             num_rows: self.num_rows,
             ir_id: self.ir_id,
         }
@@ -47,18 +97,20 @@ impl<F: Clone, TraceArgs> Default for AssignmentGenerator<F, TraceArgs> {
             placement: Default::default(),
             selector: Default::default(),
             trace_gen: Default::default(),
+            auto_trace_gen: Default::default(),
             num_rows: Default::default(),
             ir_id: Default::default(),
         }
     }
 }
 
-impl<F: Field, TraceArgs> AssignmentGenerator<F, TraceArgs> {
+impl<F: Field + Hash, TraceArgs> AssignmentGenerator<F, TraceArgs> {
     pub fn new(
         columns: Vec<Column>,
         placement: Placement,
         selector: StepSelector<F>,
         trace_gen: TraceGenerator<F, TraceArgs>,
+        auto_trace_gen: AutoTraceGenerator<F>,
         num_rows: usize,
         ir_id: UUID,
     ) -> Self {
@@ -67,6 +119,7 @@ impl<F: Field, TraceArgs> AssignmentGenerator<F, TraceArgs> {
             placement,
             selector,
             trace_gen,
+            auto_trace_gen,
             num_rows,
             ir_id,
         }
@@ -88,6 +141,8 @@ impl<F: Field, TraceArgs> AssignmentGenerator<F, TraceArgs> {
     pub fn generate_with_witness(&self, witness: TraceWitness<F>) -> Assignments<F> {
         let mut offset: usize = 0;
         let mut assignments: Assignments<F> = Default::default();
+
+        let witness = self.auto_trace_gen.generate(witness);
 
         for step_instance in witness.step_instances.into_iter() {
             self.assign_step(&mut offset, &mut assignments, &step_instance);
@@ -116,7 +171,7 @@ impl<F: Field, TraceArgs> AssignmentGenerator<F, TraceArgs> {
 
         for (expr, value) in selector_assignment.iter() {
             match expr {
-                PolyExpr::Query(column, rot, _) => {
+                PolyExpr::Query((column, rot, _)) => {
                     self.set_value(assignments, column.clone(), *offset + *rot as usize, value)
                 }
                 _ => panic!("wrong type of expresion is selector assignment"),
@@ -226,5 +281,22 @@ impl<F: Field, TraceArgs> AssignmentGenerator<F, TraceArgs> {
         }
 
         None
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn pretty_print_assignments() {
+        let display = format!(
+            "{}",
+            Assignments::<i32>(HashMap::from([
+                (Column::advice("a", 1), vec![1, 2, 3]),
+                (Column::fixed("a"), vec![4, 5, 6]),
+            ])),
+        );
+        println!("{}", display);
     }
 }

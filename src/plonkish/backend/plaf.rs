@@ -116,7 +116,7 @@ impl<F: PrimeField<Repr = [u8; 32]>> ChiquitoPlaf<F> {
             fixed.push(vec![None; plaf.info.num_rows]);
         }
 
-        for (column, values) in self.circuit.fixed_assignments.clone().into_iter() {
+        for (column, values) in self.circuit.fixed_assignments.clone().0.into_iter() {
             let column = self
                 .c_column_id_to_p_column_index
                 .get(&column.uuid())
@@ -216,7 +216,7 @@ impl<F: PrimeField<Repr = [u8; 32]>> ChiquitoPlaf<F> {
                 }
             }
             cPolyExpr::Halo2Expr(e) => pExpr::from(e),
-            cPolyExpr::Query(column, rotation, annotation) => {
+            cPolyExpr::Query((column, rotation, annotation)) => {
                 let index = self
                     .c_column_id_to_p_column_index
                     .get(&column.uuid())
@@ -306,7 +306,7 @@ impl ChiquitoPlafWitGen {
         };
 
         if let Some(witness) = &witness {
-            for (column, assignments) in witness {
+            for (column, assignments) in witness.iter() {
                 let p_column_index = self
                     .c_column_id_to_p_column_index
                     .get(&column.uuid())

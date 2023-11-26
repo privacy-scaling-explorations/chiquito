@@ -1,12 +1,12 @@
 from __future__ import annotations
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from enum import Enum, auto
-from typing import List
+from typing import List, Dict, Optional
 
-from chiquito.util import F
+from chiquito.util import F, uuid
 from chiquito.expr import Expr, Const, Neg, to_expr, ToExpr
 from chiquito.query import StepTypeNext
-from chiquito.chiquito_ast import ASTStepType
+from chiquito.chiquito_ast import ASTStepType, Lookup
 
 
 class Typing(Enum):
@@ -197,7 +197,12 @@ def rlc(exprs: List[ToExpr], randomness: Expr) -> Expr:
         return Expr(Const(F(0)))
 
 
-# TODO: Implement lookup table after the lookup abstraction PR is merged.
+def lookup() -> InPlaceLookupBuilder:
+    return InPlaceLookupBuilder()
+
+
+def table() -> LookupTable:
+    return LookupTable()
 
 
 ToConstraint = Constraint | Expr | int | F
@@ -222,3 +227,99 @@ def to_constraint(v: ToConstraint) -> Constraint:
         raise TypeError(
             f"Type `{type(v)}` is not ToConstraint (one of Constraint, Expr, int, or F)."
         )
+
+
+@dataclass
+class LookupTable:
+    uuid: int = 0
+    dest: List[Expr] = field(default_factory=list)
+    finished_flag: bool = False
+
+    def __init__(self: LookupTable):
+        self.uuid: int = uuid()
+        self.dest = []
+        self.finished_flag = False
+
+    def add(self: LookupTable, expr: ToExpr) -> LookupTable:
+        assert self.finished_flag == False
+        self.dest.append(to_expr(expr))
+        return self
+
+    def apply(self: LookupTable, constraint: ToConstraint) -> LookupTableBuilder:
+        assert self.finished_flag == True
+        # just pass in lookuptable itself rather than finding it from uuid
+        return LookupTableBuilder(self).apply(constraint)
+
+    def when(self: LookupTable, enable: ToConstraint) -> LookupTableBuilder:
+        assert self.finished_flag == True
+        return LookupTableBuilder(self).when(enable)
+
+    def set_finished_flag(self: LookupTable):
+        assert self.finished_flag == False
+        self.finished_flag = True
+
+
+@dataclass
+class LookupTableBuilder:
+    lookup_table: LookupTable
+    src: List[Constraint] = field(default_factory=list)
+    enable: Optional[Constraint] = None
+
+    def __init__(self: LookupTableBuilder, lookup_table: LookupTable):
+        self.lookup_table = lookup_table
+        self.src = []
+        self.enable = None
+
+    def apply(self: LookupTableBuilder, constraint: ToConstraint) -> LookupTableBuilder:
+        self.src.append(to_constraint(constraint))
+        return self
+
+    def when(self: LookupTableBuilder, enable: ToConstraint) -> LookupTableBuilder:
+        if self.enable is not None:
+            raise ValueError("LookupTableBuilder: when() can only be called once.")
+        self.enable = to_constraint(enable)
+        return self
+
+    def build(self: LookupTableBuilder) -> Lookup:
+        if self.lookup_table is None:
+            raise ValueError(
+                f"LookupTableBuilder: cannot call build() if self.lookup_table is None"
+            )
+        if len(self.src) != len(self.lookup_table.dest):
+            raise ValueError(
+                "LookupTableBuilder: build() has different number of source columns and destination columns."
+            )
+
+        lookup = Lookup()
+
+        if self.enable is not None:
+            lookup.enable(self.enable.annotation, self.enable.expr)
+
+        for i in range(len(self.src)):
+            lookup.add(
+                self.src[i].annotation, self.src[i].expr, self.lookup_table.dest[i]
+            )
+
+        return lookup
+
+
+@dataclass
+class InPlaceLookupBuilder:
+    lookup: Lookup = field(default_factory=Lookup)
+
+    def build(self: InPlaceLookupBuilder) -> Lookup:
+        return self.lookup
+
+    def add(
+        self: InPlaceLookupBuilder, constraint: ToConstraint, expression: ToExpr
+    ) -> InPlaceLookupBuilder:
+        constraint = to_constraint(constraint)
+        self.lookup.add(constraint.annotation, constraint.expr, to_expr(expression))
+        return self
+
+    def enable(
+        self: InPlaceLookupBuilder, enable: ToConstraint
+    ) -> InPlaceLookupBuilder:
+        enable = to_constraint(enable)
+        self.lookup.enable(enable.annotation, enable.expr)
+        return self
