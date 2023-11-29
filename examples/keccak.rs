@@ -266,14 +266,11 @@ struct OneRoundValues<F> {
 
     theta_split_vec: Vec<Vec<F>>,
     theta_split_xor_vec: Vec<Vec<F>>,
-    // theta_sum_split_xor_value_vec: Vec<F>,
-    // theta_sum_split_xor_move_value_vec: Vec<F>,
     theta_bit_0: Vec<F>,
     theta_bit_1: Vec<F>,
     theta_sum_split_vec: Vec<Vec<F>>,
     theta_sum_split_xor_vec: Vec<Vec<F>>,
 
-    // rho_split_vec: Vec<Vec<F>>,
     rho_pi_s_new_vec: Vec<F>,
     rho_bit_0: Vec<F>,
     rho_bit_1: Vec<F>,
@@ -300,7 +297,6 @@ fn eval_keccak_f_one_round<F: PrimeField<Repr = [u8; 32]> + Eq + Hash>(
     let mut theta_bit_1 = Vec::new();
     let mut theta_sum_split_vec = Vec::new();
     let mut theta_sum_split_xor_vec = Vec::new();
-    // let mut rho_split_vec = Vec::new();
     let mut rho_pi_s_new_vec = vec![F::ZERO; PART_SIZE * PART_SIZE];
     let mut rho_bit_0 = vec![F::ZERO; PART_SIZE * PART_SIZE];
     let mut rho_bit_1 = vec![F::ZERO; PART_SIZE * PART_SIZE];
@@ -376,7 +372,6 @@ fn eval_keccak_f_one_round<F: PrimeField<Repr = [u8; 32]> + Eq + Hash>(
             }
             theta_sum_split_vec.push(st_split);
             theta_sum_split_xor_vec.push(st_split_xor);
-            // TODO: can be improved
             theta_st_bit_xor_vec.push(st_bit_xor_vec);
         }
     }
@@ -513,18 +508,12 @@ fn keccak_circuit<F: PrimeField<Repr = [u8; 32]> + Eq + Hash>(
     param: CircuitParams,
 ) {
     use chiquito::frontend::dsl::cb::*;
-    // 25
+
     let s_vec: Vec<Queriable<F>> = (0..PART_SIZE * PART_SIZE)
         .map(|i| ctx.forward(&format!("s[{}][{}]", i / PART_SIZE, i % PART_SIZE)))
         .collect();
-    // 25
     let s_new_vec: Vec<Queriable<F>> = (0..PART_SIZE * PART_SIZE)
         .map(|i| ctx.forward(&format!("s[{}][{}]", i / PART_SIZE, i % PART_SIZE)))
-        .collect();
-
-    // 32
-    let coeff_split_or_absorb_vec: Vec<Queriable<F>> = (0..NUM_PER_WORD)
-        .map(|i| ctx.forward(&format!("coeff_split_{}", i)))
         .collect();
 
     let round: Queriable<F> = ctx.forward("round");
@@ -534,7 +523,9 @@ fn keccak_circuit<F: PrimeField<Repr = [u8; 32]> + Eq + Hash>(
         let s_vec = s_vec.clone();
         let setup_s_vec = s_vec.clone();
 
-        let absorb_vec = coeff_split_or_absorb_vec.clone();
+        let absorb_vec: Vec<Queriable<F>> = (0..PART_SIZE * PART_SIZE)
+            .map(|i| ctx.internal(&format!("absorb_{}", i)))
+            .collect();
         let setup_absorb_vec = absorb_vec.clone();
 
         ctx.setup(move |ctx| {
@@ -583,19 +574,21 @@ fn keccak_circuit<F: PrimeField<Repr = [u8; 32]> + Eq + Hash>(
         let s_new_vec = s_new_vec.clone();
         let setup_s_new_vec = s_new_vec.clone();
 
-        let absorb_vec = coeff_split_or_absorb_vec.clone();
+        let absorb_vec: Vec<Queriable<F>> = (0..PART_SIZE * PART_SIZE)
+            .map(|i| ctx.internal(&format!("absorb_{}", i)))
+            .collect();
         let setup_absorb_vec = absorb_vec.clone();
 
-        // 25
         let sum_split_value_vec: Vec<Queriable<F>> = (0..PART_SIZE * PART_SIZE)
             .map(|i| ctx.internal(&format!("sum_split_value_{}", i)))
             .collect();
         let setup_sum_split_value_vec = sum_split_value_vec.clone();
 
-        let coeff_split_vec: Vec<Queriable<F>> = coeff_split_or_absorb_vec.clone();
+        let coeff_split_vec: Vec<Queriable<F>> = (0..NUM_PER_WORD)
+            .map(|i| ctx.internal(&format!("coeff_split_{}", i)))
+            .collect();
         let setup_coeff_split_vec = coeff_split_vec.clone();
 
-        // 17 * 32 = 544
         let split_vec: Vec<Vec<Queriable<F>>> = (0..NUM_WORDS_TO_ABSORB)
             .map(|i| {
                 (0..NUM_PER_WORD)
@@ -605,7 +598,6 @@ fn keccak_circuit<F: PrimeField<Repr = [u8; 32]> + Eq + Hash>(
             .collect();
         let setup_split_vec = split_vec.clone();
 
-        // 17 * 32 = 544
         let split_xor_vec: Vec<Vec<Queriable<F>>> = (0..NUM_WORDS_TO_ABSORB)
             .map(|i| {
                 (0..NUM_PER_WORD)
@@ -680,9 +672,6 @@ fn keccak_circuit<F: PrimeField<Repr = [u8; 32]> + Eq + Hash>(
 
         ctx.wg::<(Vec<(F, F, F)>, Vec<Vec<(F, F)>>, F), _>(
             move |ctx, (absorb_rows, split_values, round_value)| {
-                // let coeff_split_vec
-                // coeff64
-                // round
                 ctx.assign(coeff64, F::from_u128(64));
                 let mut coeff_value = F::from_u128(1);
                 for &coeff_split in coeff_split_vec.iter().take(NUM_PER_WORD) {
@@ -691,10 +680,6 @@ fn keccak_circuit<F: PrimeField<Repr = [u8; 32]> + Eq + Hash>(
                 }
                 ctx.assign(round, round_value);
 
-                // let s_vec
-                // let s_new_vec
-                // let absorb_vec
-                // let sum_split_value_vec
                 for i in 0..PART_SIZE {
                     for j in 0..PART_SIZE {
                         ctx.assign(
@@ -713,8 +698,6 @@ fn keccak_circuit<F: PrimeField<Repr = [u8; 32]> + Eq + Hash>(
                     }
                 }
 
-                // split_vec
-                // split_xor_vec
                 for i in 0..NUM_WORDS_TO_ABSORB {
                     for j in 0..NUM_PER_WORD {
                         ctx.assign(split_vec[i][j], split_values[i][j].0);
@@ -726,19 +709,17 @@ fn keccak_circuit<F: PrimeField<Repr = [u8; 32]> + Eq + Hash>(
     });
 
     let keccak_one_round = ctx.step_type_def("keccak one round", |ctx| {
-        // 32
-        let coeff_split_vec: Vec<Queriable<F>> = coeff_split_or_absorb_vec.clone();
-        let setup_coeff_split_vec = coeff_split_vec.clone();
-
-        // 25
         let s_vec = s_vec.clone();
         let setup_s_vec = s_vec.clone();
 
-        // 25
         let s_new_vec = s_new_vec.clone();
         let setup_s_new_vec = s_new_vec.clone();
 
-        // 32 * 5
+        let coeff_split_vec: Vec<Queriable<F>> = (0..NUM_PER_WORD)
+            .map(|i| ctx.internal(&format!("coeff_split_{}", i)))
+            .collect();
+        let setup_coeff_split_vec = coeff_split_vec.clone();
+
         let theta_split_vec: Vec<Vec<Queriable<F>>> = (0..PART_SIZE)
             .map(|i| {
                 (0..NUM_PER_WORD)
@@ -748,7 +729,6 @@ fn keccak_circuit<F: PrimeField<Repr = [u8; 32]> + Eq + Hash>(
             .collect();
         let setup_theta_split_vec = theta_split_vec.clone();
 
-        // 32 * 5
         let theta_split_xor_vec: Vec<Vec<Queriable<F>>> = (0..PART_SIZE)
             .map(|i| {
                 (0..NUM_PER_WORD)
@@ -758,19 +738,16 @@ fn keccak_circuit<F: PrimeField<Repr = [u8; 32]> + Eq + Hash>(
             .collect();
         let setup_theta_split_xor_vec = theta_split_xor_vec.clone();
 
-        // 5
         let theta_bit_0: Vec<Queriable<F>> = (0..PART_SIZE)
             .map(|i| ctx.internal(&format!("bit0_{}", i)))
             .collect();
         let setup_theta_bit_0 = theta_bit_0.clone();
 
-        // 5
         let theta_bit_1: Vec<Queriable<F>> = (0..PART_SIZE)
             .map(|i| ctx.internal(&format!("bit1_{}", i)))
             .collect();
         let setup_theta_bit_1 = theta_bit_1.clone();
 
-        // 25 * 32
         let theta_sum_split_vec: Vec<Vec<Queriable<F>>> = (0..PART_SIZE * PART_SIZE)
             .map(|i| {
                 (0..NUM_PER_WORD)
@@ -780,7 +757,6 @@ fn keccak_circuit<F: PrimeField<Repr = [u8; 32]> + Eq + Hash>(
             .collect();
         let setup_theta_sum_split_vec = theta_sum_split_vec.clone();
 
-        // 25 * 32
         let theta_sum_split_xor_vec: Vec<Vec<Queriable<F>>> = (0..PART_SIZE * PART_SIZE)
             .map(|i| {
                 (0..NUM_PER_WORD)
@@ -790,36 +766,26 @@ fn keccak_circuit<F: PrimeField<Repr = [u8; 32]> + Eq + Hash>(
             .collect();
         let setup_theta_sum_split_xor_vec = theta_sum_split_xor_vec.clone();
 
-        // 25
         let rho_bit_0: Vec<Queriable<F>> = (0..PART_SIZE * PART_SIZE)
             .map(|i| ctx.internal(&format!("rho_bit0_{}", i)))
             .collect();
         let setup_rho_bit_0 = rho_bit_0.clone();
 
-        // 25
         let rho_bit_1: Vec<Queriable<F>> = (0..PART_SIZE * PART_SIZE)
             .map(|i| ctx.internal(&format!("rho_bit1_{}", i)))
             .collect();
         let setup_rho_bit_1 = rho_bit_1.clone();
 
-        // 25
         let rho_pi_s_new_vec: Vec<Queriable<F>> = (0..PART_SIZE * PART_SIZE)
             .map(|i| ctx.internal(&format!("rho_s[{}][{}]", i / PART_SIZE, i % PART_SIZE)))
             .collect();
         let setup_rho_pi_s_new_vec = rho_pi_s_new_vec.clone();
 
-        // 3
-        let round_cst: Queriable<F> = ctx.internal("round constant");
-        let three2: Queriable<F> = ctx.internal("three2");
-        let threes: Queriable<F> = ctx.internal("threes");
-
-        // 25
         let chi_sum_value_vec: Vec<Queriable<F>> = (0..PART_SIZE * PART_SIZE)
             .map(|i| ctx.internal(&format!("chi_sum_value_{}", i)))
             .collect();
         let setup_chi_sum_value_vec: Vec<Queriable<F>> = chi_sum_value_vec.clone();
 
-        // 25 * 32
         let chi_sum_split_value_vec: Vec<Vec<Queriable<F>>> = (0..PART_SIZE * PART_SIZE)
             .map(|i| {
                 (0..NUM_PER_WORD)
@@ -829,7 +795,6 @@ fn keccak_circuit<F: PrimeField<Repr = [u8; 32]> + Eq + Hash>(
             .collect();
         let setup_chi_sum_split_value_vec: Vec<Vec<Queriable<F>>> = chi_sum_split_value_vec.clone();
 
-        // 25 * 32
         let chi_split_value_vec: Vec<Vec<Queriable<F>>> = (0..PART_SIZE * PART_SIZE)
             .map(|i| {
                 (0..NUM_PER_WORD)
@@ -839,19 +804,41 @@ fn keccak_circuit<F: PrimeField<Repr = [u8; 32]> + Eq + Hash>(
             .collect();
         let setup_chi_split_value_vec: Vec<Vec<Queriable<F>>> = chi_split_value_vec.clone();
 
-        // 32
         let final_sum_split_vec: Vec<Queriable<F>> = (0..NUM_PER_WORD)
             .map(|i| ctx.internal(&format!("final_sum_split_{}", i)))
             .collect();
         let setup_final_sum_split_vec = final_sum_split_vec.clone();
 
-        // 32
         let final_xor_split_vec: Vec<Queriable<F>> = (0..NUM_PER_WORD)
             .map(|i| ctx.internal(&format!("final_xor_split_{}", i)))
             .collect();
         let setup_final_xor_split_vec = final_xor_split_vec.clone();
 
+        let round_cst: Queriable<F> = ctx.internal("round constant");
+        let three2: Queriable<F> = ctx.internal("three2");
+        let threes: Queriable<F> = ctx.internal("threes");
+
         ctx.setup(move |ctx| {
+            let mut t_vec = vec![0; PART_SIZE * PART_SIZE];
+            {
+                let mut i = 1;
+                let mut j = 0;
+                for t in 0..PART_SIZE * PART_SIZE {
+                    if t == 0 {
+                        i = 0;
+                        j = 0
+                    } else if t == 1 {
+                        i = 1;
+                        j = 0;
+                    } else {
+                        let m = j;
+                        j = (2 * i + 3 * j) % PART_SIZE;
+                        i = m;
+                    }
+                    t_vec[i * PART_SIZE + j] = t;
+                }
+            }
+
             ctx.constr(eq(setup_coeff_split_vec[0], 1));
             ctx.constr(eq(coeff64, 64));
             for k in 1..NUM_PER_WORD {
@@ -862,8 +849,8 @@ fn keccak_circuit<F: PrimeField<Repr = [u8; 32]> + Eq + Hash>(
             }
 
             // Theta
-            let mut theta_sum_split_xor_vec: Vec<ASTExpr<F>> = Vec::new();
-            let mut theta_sum_move_split_xor_vec: Vec<ASTExpr<F>> = Vec::new();
+            let mut tmp_theta_sum_split_xor_vec: Vec<ASTExpr<F>> = Vec::new();
+            let mut tmp_theta_sum_move_split_xor_vec: Vec<ASTExpr<F>> = Vec::new();
             for s in 0..PART_SIZE {
                 // 1. \sum_y' a[x][y'][z]
                 // 2. xor(sum)
@@ -909,28 +896,8 @@ fn keccak_circuit<F: PrimeField<Repr = [u8; 32]> + Eq + Hash>(
                     - setup_theta_bit_1[s] * setup_coeff_split_vec[NUM_PER_WORD - 1] * 8)
                     * 8
                     + setup_theta_bit_1[s];
-                theta_sum_split_xor_vec.push(sum_split_xor_vec);
-                theta_sum_move_split_xor_vec.push(sum_split_xor_move_value_vec);
-            }
-
-            let mut t_vec = vec![0; PART_SIZE * PART_SIZE];
-            {
-                let mut i = 1;
-                let mut j = 0;
-                for t in 0..PART_SIZE * PART_SIZE {
-                    if t == 0 {
-                        i = 0;
-                        j = 0
-                    } else if t == 1 {
-                        i = 1;
-                        j = 0;
-                    } else {
-                        let m = j;
-                        j = (2 * i + 3 * j) % 5;
-                        i = m;
-                    }
-                    t_vec[i * PART_SIZE + j] = t;
-                }
+                tmp_theta_sum_split_xor_vec.push(sum_split_xor_vec);
+                tmp_theta_sum_move_split_xor_vec.push(sum_split_xor_move_value_vec);
             }
 
             for i in 0..PART_SIZE {
@@ -960,8 +927,8 @@ fn keccak_circuit<F: PrimeField<Repr = [u8; 32]> + Eq + Hash>(
                     ctx.constr(eq(
                         theta_sum_split,
                         setup_s_vec[i * PART_SIZE + j]
-                            + theta_sum_split_xor_vec[(i + PART_SIZE - 1) % PART_SIZE].clone()
-                            + theta_sum_move_split_xor_vec[(i + 1) % PART_SIZE].clone(),
+                            + tmp_theta_sum_split_xor_vec[(i + PART_SIZE - 1) % PART_SIZE].clone()
+                            + tmp_theta_sum_move_split_xor_vec[(i + 1) % PART_SIZE].clone(),
                     ));
 
                     // rho
@@ -1025,7 +992,6 @@ fn keccak_circuit<F: PrimeField<Repr = [u8; 32]> + Eq + Hash>(
 
             // chi
             // a[x] = a[x] ^ (~a[x+1] & a[x+2])
-            // todo: setup_rho_pi_s_new_vec can be remove
             ctx.constr(eq(three2, 27));
             let mut three_sum_split_vec: ASTExpr<F> = three2 * 64 + three2;
             for _ in 2..NUM_PER_WORD {
@@ -1040,8 +1006,8 @@ fn keccak_circuit<F: PrimeField<Repr = [u8; 32]> + Eq + Hash>(
                         threes
                             - setup_rho_pi_s_new_vec[i * PART_SIZE + j]
                             - setup_rho_pi_s_new_vec[i * PART_SIZE + j]
-                            + setup_rho_pi_s_new_vec[((i + 1) % 5) * PART_SIZE + j]
-                            - setup_rho_pi_s_new_vec[((i + 2) % 5) * PART_SIZE + j],
+                            + setup_rho_pi_s_new_vec[((i + 1) % PART_SIZE) * PART_SIZE + j]
+                            - setup_rho_pi_s_new_vec[((i + 2) % PART_SIZE) * PART_SIZE + j],
                         setup_chi_sum_value_vec[i * PART_SIZE + j],
                     ));
                     for k in 0..NUM_PER_WORD {
@@ -1093,6 +1059,7 @@ fn keccak_circuit<F: PrimeField<Repr = [u8; 32]> + Eq + Hash>(
             }
 
             ctx.transition(eq((round + 1 - round.next()) * (round + 1 - NUM_ROUNDS), 0));
+            ctx.transition(eq((round + 1 - round.next()) * round.next(), 0));
 
             for i in 0..PART_SIZE {
                 for j in 0..PART_SIZE {
@@ -1315,7 +1282,6 @@ fn keccak_circuit<F: PrimeField<Repr = [u8; 32]> + Eq + Hash>(
         assert!(output_bits.len() >= params.output_len);
         output_bits = output_bits[0..params.output_len].to_vec();
         println!("output = {:?}", output_bits);
-        // println!("num_steps = {:?}", ctx.num_steps);
     });
 }
 
@@ -1339,10 +1305,6 @@ fn keccak_super_circuit<F: PrimeField<Repr = [u8; 32]> + Eq + Hash>(
     super_circuit::<F, KeccakCircuit, _>("keccak", |ctx| {
         let in_n = (input_len + 1 + RATE_IN_BITS) / RATE_IN_BITS;
         let out_n = output_len / RATE_IN_BITS;
-        // let step_num = in_n
-        //     * (1  + (NUM_ROUNDS) * ((25 + 5) + (25) + (25 + 1)))
-        //     + out_n * ((NUM_ROUNDS) * ((25 + 5) + (25) + (25 + 1)));
-        // println!("step_num = {}", step_num);
         let step_num = in_n * (1 + NUM_ROUNDS) + out_n * NUM_ROUNDS;
 
         let single_config = config(SingleRowCellManager {}, LogNSelectorBuilder {});
