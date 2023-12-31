@@ -1,6 +1,6 @@
 use chiquito::{
     ast::{query::Queriable, ASTExpr},
-    frontend::dsl::{lb::LookupTable, super_circuit, CircuitContext},
+    frontend::dsl::{lb::LookupTable, super_circuit, CircuitContext, StepTypeWGHandler},
     plonkish::{
         backend::halo2::{chiquitoSuperCircuit2Halo2, ChiquitoHalo2SuperCircuit},
         compiler::{
@@ -11,7 +11,7 @@ use chiquito::{
         ir::sc::SuperCircuit,
     },
 };
-use std::hash::Hash;
+use std::{hash::Hash, ops::Neg};
 
 use halo2_proofs::{
     dev::MockProver,
@@ -189,27 +189,29 @@ fn convert_bits_to_f<F: PrimeField<Repr = [u8; 32]>>(value_vec: &Vec<u8>) -> F {
     F::from_repr(sum_value_arr.try_into().unwrap()).unwrap()
 }
 
-fn eval_keccak_f_to_bit_vec<F: PrimeField<Repr = [u8; 32]>>(
-    value1: F,
-    value2: F,
-) -> (Vec<(F, F)>, F, F) {
+fn eval_keccak_f_to_bit_vec4<F: PrimeField<Repr = [u8; 32]>>(value1: F, value2: F) -> Vec<(F, F)> {
     let v1_vec = convert_field_to_vec_bits(value1);
     let v2_vec = convert_field_to_vec_bits(value2);
     assert_eq!(v1_vec.len(), NUM_BITS_PER_WORD);
     assert_eq!(v2_vec.len(), NUM_BITS_PER_WORD);
-    let vec = (0..NUM_PER_WORD)
+    (0..NUM_PER_WORD_BATCH4)
         .map(|i| {
             (
-                F::from_u128(v1_vec[2 * i] as u128 + v1_vec[2 * i + 1] as u128 * 8),
-                F::from_u128(v2_vec[2 * i] as u128 + v2_vec[2 * i + 1] as u128 * 8),
+                F::from_u128(
+                    v1_vec[4 * i] as u128
+                        + v1_vec[4 * i + 1] as u128 * 8
+                        + v1_vec[4 * i + 2] as u128 * 64
+                        + v1_vec[4 * i + 3] as u128 * 256,
+                ),
+                F::from_u128(
+                    v2_vec[4 * i] as u128
+                        + v2_vec[4 * i + 1] as u128 * 8
+                        + v2_vec[4 * i + 2] as u128 * 64
+                        + v2_vec[4 * i + 3] as u128 * 256,
+                ),
             )
         })
-        .collect();
-    (
-        vec,
-        F::from_u128(v2_vec[NUM_BITS_PER_WORD - 2] as u128),
-        F::from_u128(v2_vec[NUM_BITS_PER_WORD - 1] as u128),
-    )
+        .collect()
 }
 
 fn keccak_xor_table_batch2<F: PrimeField + Eq + Hash>(
@@ -370,18 +372,25 @@ struct PreValues<F> {
     absorb_split_vec: Vec<Vec<F>>,
     absorb_split_input_vec: Vec<Vec<F>>,
     split_values: Vec<Vec<(F, F)>>,
+    is_padding_vec: Vec<Vec<F>>,
+    input_len: F,
+    data_rlc_vec: Vec<Vec<F>>,
+    data_rlc: F,
 }
 
+#[derive(Clone)]
 struct SqueezeValues<F> {
-    s_vec: Vec<F>,
+    s_new_vec: Vec<F>,
     squeeze_split_vec: Vec<Vec<F>>,
     squeeze_split_output_vec: Vec<Vec<F>>,
+    hash_rlc: F,
 }
 
 #[derive(Clone)]
 struct OneRoundValues<F> {
     round: F,
     round_cst: F,
+    input_len: F,
 
     s_vec: Vec<F>,
     s_new_vec: Vec<F>,
@@ -398,12 +407,17 @@ struct OneRoundValues<F> {
 
     final_sum_split_vec: Vec<F>,
     final_xor_split_vec: Vec<F>,
+
+    svalues: SqueezeValues<F>,
+    data_rlc: F,
 }
 
 fn eval_keccak_f_one_round<F: PrimeField<Repr = [u8; 32]> + Eq + Hash>(
     round: u64,
     cst: u64,
     s_vec: Vec<F>,
+    input_len: u64,
+    data_rlc: F,
 ) -> OneRoundValues<F> {
     let mut s_new_vec = Vec::new();
     let mut theta_split_vec = Vec::new();
@@ -636,9 +650,17 @@ fn eval_keccak_f_one_round<F: PrimeField<Repr = [u8; 32]> + Eq + Hash>(
 
     s_new_vec[0] = convert_bits_to_f(&split_xor_vec);
 
+    let svalues = SqueezeValues {
+        s_new_vec: Vec::new(),
+        squeeze_split_vec: Vec::new(),
+        squeeze_split_output_vec: Vec::new(),
+        hash_rlc: F::ZERO,
+    };
+
     OneRoundValues {
         round: F::from(round),
         round_cst: pack_u64::<F>(cst),
+        input_len: F::from(input_len),
 
         s_vec,
         s_new_vec,
@@ -655,6 +677,9 @@ fn eval_keccak_f_one_round<F: PrimeField<Repr = [u8; 32]> + Eq + Hash>(
 
         final_sum_split_vec,
         final_xor_split_vec,
+
+        svalues,
+        data_rlc,
     }
 }
 
@@ -669,6 +694,8 @@ fn keccak_circuit<F: PrimeField<Repr = [u8; 32]> + Eq + Hash>(
         .collect();
 
     let round: Queriable<F> = ctx.forward("round");
+    let input_len = ctx.forward("input_len");
+    let data_rlc = ctx.forward("data_rlc");
 
     let keccak_first_step = ctx.step_type_def("keccak first step", |ctx| {
         let s_vec = s_vec.clone();
@@ -697,6 +724,24 @@ fn keccak_circuit<F: PrimeField<Repr = [u8; 32]> + Eq + Hash>(
             .collect();
         let setup_absorb_split_input_vec = absorb_split_input_vec.clone();
 
+        let is_padding_vec: Vec<Vec<Queriable<F>>> = (0..NUM_WORDS_TO_ABSORB)
+            .map(|i| {
+                (0..8)
+                    .map(|j| ctx.internal(&format!("is_padding_{}_{}", i, j)))
+                    .collect()
+            })
+            .collect();
+        let setup_is_padding_vec = is_padding_vec.clone();
+
+        let data_rlc_vec: Vec<Vec<Queriable<F>>> = (0..NUM_WORDS_TO_ABSORB)
+            .map(|i| {
+                (0..8)
+                    .map(|j| ctx.internal(&format!("is_padding_{}_{}", i, j)))
+                    .collect()
+            })
+            .collect();
+        let setup_data_rlc_vec = data_rlc_vec.clone();
+
         ctx.setup(move |ctx| {
             for i in 0..PART_SIZE {
                 for j in 0..PART_SIZE {
@@ -721,6 +766,7 @@ fn keccak_circuit<F: PrimeField<Repr = [u8; 32]> + Eq + Hash>(
                             setup_absorb_vec[j * PART_SIZE + i],
                             tmp_absorb_split_sum_vec,
                         ));
+
                         for k in 0..SQUEEZE_SPLIT_NUM / 2 {
                             ctx.add_lookup(
                                 param
@@ -728,6 +774,11 @@ fn keccak_circuit<F: PrimeField<Repr = [u8; 32]> + Eq + Hash>(
                                     .apply(setup_absorb_split_vec[j * PART_SIZE + i][k])
                                     .apply(setup_absorb_split_input_vec[j * PART_SIZE + i][k]),
                             );
+                            ctx.constr(eq(
+                                (setup_is_padding_vec[j * PART_SIZE + i][k] - 1)
+                                    * setup_is_padding_vec[j * PART_SIZE + i][k],
+                                0,
+                            ));
                         }
                     } else {
                         ctx.transition(eq(
@@ -737,9 +788,44 @@ fn keccak_circuit<F: PrimeField<Repr = [u8; 32]> + Eq + Hash>(
                     }
                 }
             }
+            ctx.constr(eq(data_rlc, 0));
+            ctx.transition(eq(
+                setup_data_rlc_vec[NUM_WORDS_TO_ABSORB - 1][SQUEEZE_SPLIT_NUM / 2 - 1],
+                data_rlc.next(),
+            ));
+            for i in 0..NUM_WORDS_TO_ABSORB {
+                if i == 0 {
+                    // data_rlc_vec[0][0] = 0 * 256 + absorb_split_input_vec[0][0];
+                    ctx.constr(eq(
+                        setup_data_rlc_vec[i][0],
+                        (data_rlc * 256 + setup_absorb_split_input_vec[i][0])
+                            * (setup_is_padding_vec[i][0] - 1).neg()
+                            + data_rlc * setup_is_padding_vec[i][0],
+                    ));
+                } else {
+                    // data_rlc_vec[0][0] = 0 * 256 + absorb_split_input_vec[0][0];
+                    ctx.constr(eq(
+                        setup_data_rlc_vec[i][0],
+                        (setup_data_rlc_vec[i - 1][SQUEEZE_SPLIT_NUM / 2 - 1] * 256
+                            + setup_absorb_split_input_vec[i][0])
+                            * (setup_is_padding_vec[i][0] - 1).neg()
+                            + setup_data_rlc_vec[i - 1][SQUEEZE_SPLIT_NUM / 2 - 1]
+                                * setup_is_padding_vec[i][0],
+                    ));
+                }
+                for k in 1..SQUEEZE_SPLIT_NUM / 2 {
+                    ctx.constr(eq(
+                        setup_data_rlc_vec[i][k],
+                        (setup_data_rlc_vec[i][k - 1] * 256 + setup_absorb_split_input_vec[i][k])
+                            * (setup_is_padding_vec[i][k] - 1).neg()
+                            + setup_data_rlc_vec[i][k - 1] * setup_is_padding_vec[i][k],
+                    ));
+                }
+            }
 
             ctx.constr(eq(round, 0));
             ctx.transition(eq(round, round.next()));
+            ctx.transition(eq(input_len, input_len.next()));
         });
 
         ctx.wg::<PreValues<F>, _>(move |ctx, values| {
@@ -770,7 +856,21 @@ fn keccak_circuit<F: PrimeField<Repr = [u8; 32]> + Eq + Hash>(
                     ctx.assign(*q, *v)
                 }
             }
+
+            for (q_vec, v_vec) in is_padding_vec.iter().zip(values.is_padding_vec.iter()) {
+                for (q, v) in q_vec.iter().zip(v_vec.iter()) {
+                    ctx.assign(*q, *v)
+                }
+            }
+
+            for (q_vec, v_vec) in data_rlc_vec.iter().zip(values.data_rlc_vec.iter()) {
+                for (q, v) in q_vec.iter().zip(v_vec.iter()) {
+                    ctx.assign(*q, *v)
+                }
+            }
             ctx.assign(round, values.round_value);
+            ctx.assign(input_len, values.input_len);
+            ctx.assign(data_rlc, values.data_rlc);
         })
     });
 
@@ -808,7 +908,7 @@ fn keccak_circuit<F: PrimeField<Repr = [u8; 32]> + Eq + Hash>(
 
         let split_vec: Vec<Vec<Queriable<F>>> = (0..NUM_WORDS_TO_ABSORB)
             .map(|i| {
-                (0..NUM_PER_WORD)
+                (0..NUM_PER_WORD_BATCH4)
                     .map(|j| ctx.internal(&format!("split_{}_{}", i, j)))
                     .collect()
             })
@@ -817,12 +917,30 @@ fn keccak_circuit<F: PrimeField<Repr = [u8; 32]> + Eq + Hash>(
 
         let split_xor_vec: Vec<Vec<Queriable<F>>> = (0..NUM_WORDS_TO_ABSORB)
             .map(|i| {
-                (0..NUM_PER_WORD)
+                (0..NUM_PER_WORD_BATCH4)
                     .map(|j| ctx.internal(&format!("split_xor_{}_{}", i, j)))
                     .collect()
             })
             .collect();
         let setup_split_xor_vec = split_xor_vec.clone();
+
+        let is_padding_vec: Vec<Vec<Queriable<F>>> = (0..NUM_WORDS_TO_ABSORB)
+            .map(|i| {
+                (0..8)
+                    .map(|j| ctx.internal(&format!("is_padding_{}_{}", i, j)))
+                    .collect()
+            })
+            .collect();
+        let setup_is_padding_vec = is_padding_vec.clone();
+
+        let data_rlc_vec: Vec<Vec<Queriable<F>>> = (0..NUM_WORDS_TO_ABSORB)
+            .map(|i| {
+                (0..8)
+                    .map(|j| ctx.internal(&format!("is_padding_{}_{}", i, j)))
+                    .collect()
+            })
+            .collect();
+        let setup_data_rlc_vec = data_rlc_vec.clone();
 
         ctx.setup(move |ctx| {
             for i in 0..PART_SIZE {
@@ -855,7 +973,7 @@ fn keccak_circuit<F: PrimeField<Repr = [u8; 32]> + Eq + Hash>(
                             );
                         }
 
-                        for k in 0..NUM_PER_WORD {
+                        for k in 0..NUM_PER_WORD_BATCH4 {
                             ctx.add_lookup(
                                 param
                                     .xor_table
@@ -872,21 +990,53 @@ fn keccak_circuit<F: PrimeField<Repr = [u8; 32]> + Eq + Hash>(
                 }
             }
 
-            for s in 0..NUM_WORDS_TO_ABSORB {
-                // let s = (s % PART_SIZE) * PART_SIZE + s / PART_SIZE;
+            ctx.transition(eq(
+                setup_data_rlc_vec[NUM_WORDS_TO_ABSORB - 1][SQUEEZE_SPLIT_NUM / 2 - 1],
+                data_rlc.next(),
+            ));
+            for i in 0..NUM_WORDS_TO_ABSORB {
+                if i == 0 {
+                    // data_rlc_vec[0][0] = 0 * 256 + absorb_split_input_vec[0][0];
+                    ctx.constr(eq(
+                        setup_data_rlc_vec[i][0],
+                        (data_rlc * 256 + setup_absorb_split_input_vec[i][0])
+                            * (setup_is_padding_vec[i][0] - 1).neg()
+                            + data_rlc * setup_is_padding_vec[i][0],
+                    ));
+                } else {
+                    // data_rlc_vec[0][0] = 0 * 256 + absorb_split_input_vec[0][0];
+                    ctx.constr(eq(
+                        setup_data_rlc_vec[i][0],
+                        (setup_data_rlc_vec[i - 1][SQUEEZE_SPLIT_NUM / 2 - 1] * 256
+                            + setup_absorb_split_input_vec[i][0])
+                            * (setup_is_padding_vec[i][0] - 1).neg()
+                            + setup_data_rlc_vec[i - 1][SQUEEZE_SPLIT_NUM / 2 - 1]
+                                * setup_is_padding_vec[i][0],
+                    ));
+                }
+                for k in 1..SQUEEZE_SPLIT_NUM / 2 {
+                    ctx.constr(eq(
+                        setup_data_rlc_vec[i][k],
+                        (setup_data_rlc_vec[i][k - 1] * 256 + setup_absorb_split_input_vec[i][k])
+                            * (setup_is_padding_vec[i][k] - 1).neg()
+                            + setup_data_rlc_vec[i][k - 1] * setup_is_padding_vec[i][k],
+                    ));
+                }
+            }
 
-                let mut sum_split_vec: ASTExpr<F> = setup_split_vec[s][NUM_PER_WORD - 1] * 1;
+            for s in 0..NUM_WORDS_TO_ABSORB {
+                let mut sum_split_vec: ASTExpr<F> = setup_split_vec[s][NUM_PER_WORD_BATCH4 - 1] * 1;
                 let mut sum_split_xor_vec: ASTExpr<F> =
-                    setup_split_xor_vec[s][NUM_PER_WORD - 1] * 1;
+                    setup_split_xor_vec[s][NUM_PER_WORD_BATCH4 - 1] * 1;
                 for (&value, &xor_value) in setup_split_vec[s]
                     .iter()
                     .rev()
                     .zip(setup_split_xor_vec[s].iter().rev())
-                    .take(NUM_PER_WORD)
+                    .take(NUM_PER_WORD_BATCH4)
                     .skip(1)
                 {
-                    sum_split_vec = sum_split_vec * 64 + value;
-                    sum_split_xor_vec = sum_split_xor_vec * 64 + xor_value;
+                    sum_split_vec = sum_split_vec * 64 * 64 + value;
+                    sum_split_xor_vec = sum_split_xor_vec * 64 * 64 + xor_value;
                 }
                 ctx.constr(eq(
                     sum_split_vec,
@@ -899,6 +1049,7 @@ fn keccak_circuit<F: PrimeField<Repr = [u8; 32]> + Eq + Hash>(
             }
 
             ctx.transition(eq(round, round.next()));
+            ctx.transition(eq(input_len, input_len.next()));
         });
 
         ctx.wg::<PreValues<F>, _>(move |ctx, values| {
@@ -930,6 +1081,18 @@ fn keccak_circuit<F: PrimeField<Repr = [u8; 32]> + Eq + Hash>(
                 }
             }
 
+            for (q_vec, v_vec) in is_padding_vec.iter().zip(values.is_padding_vec.iter()) {
+                for (q, v) in q_vec.iter().zip(v_vec.iter()) {
+                    ctx.assign(*q, *v)
+                }
+            }
+
+            for (q_vec, v_vec) in data_rlc_vec.iter().zip(values.data_rlc_vec.iter()) {
+                for (q, v) in q_vec.iter().zip(v_vec.iter()) {
+                    ctx.assign(*q, *v)
+                }
+            }
+
             for i in 0..PART_SIZE {
                 for j in 0..PART_SIZE {
                     if j * PART_SIZE + i < NUM_WORDS_TO_ABSORB {
@@ -952,479 +1115,535 @@ fn keccak_circuit<F: PrimeField<Repr = [u8; 32]> + Eq + Hash>(
             }
 
             for i in 0..NUM_WORDS_TO_ABSORB {
-                for j in 0..NUM_PER_WORD {
+                for j in 0..NUM_PER_WORD_BATCH4 {
                     ctx.assign(split_vec[i][j], values.split_values[i][j].0);
                     ctx.assign(split_xor_vec[i][j], values.split_values[i][j].1);
                 }
             }
+            ctx.assign(input_len, values.input_len);
+            ctx.assign(data_rlc, values.data_rlc);
         })
     });
 
-    let keccak_one_round = ctx.step_type_def("keccak one round", |ctx| {
-        let s_vec = s_vec.clone();
-        let setup_s_vec = s_vec.clone();
+    let keccak_one_round_step_vec: Vec<StepTypeWGHandler<F, OneRoundValues<F>, _>> = (0..2)
+        .map(|last| {
+            ctx.step_type_def("keccak one round", |ctx| {
+                let s_vec = s_vec.clone();
+                let setup_s_vec = s_vec.clone();
 
-        let theta_split_vec: Vec<Vec<Queriable<F>>> = (0..PART_SIZE)
-            .map(|i| {
-                (0..NUM_PER_WORD + 1)
-                    .map(|j| ctx.internal(&format!("theta_split_{}_{}", i, j)))
-                    .collect()
-            })
-            .collect();
-        let setup_theta_split_vec = theta_split_vec.clone();
+                let theta_split_vec: Vec<Vec<Queriable<F>>> = (0..PART_SIZE)
+                    .map(|i| {
+                        (0..NUM_PER_WORD + 1)
+                            .map(|j| ctx.internal(&format!("theta_split_{}_{}", i, j)))
+                            .collect()
+                    })
+                    .collect();
+                let setup_theta_split_vec = theta_split_vec.clone();
 
-        let theta_split_xor_vec: Vec<Vec<Queriable<F>>> = (0..PART_SIZE)
-            .map(|i| {
-                (0..NUM_PER_WORD + 1)
-                    .map(|j| ctx.internal(&format!("theta_split_xor_{}_{}", i, j)))
-                    .collect()
-            })
-            .collect();
-        let setup_theta_split_xor_vec = theta_split_xor_vec.clone();
+                let theta_split_xor_vec: Vec<Vec<Queriable<F>>> = (0..PART_SIZE)
+                    .map(|i| {
+                        (0..NUM_PER_WORD + 1)
+                            .map(|j| ctx.internal(&format!("theta_split_xor_{}_{}", i, j)))
+                            .collect()
+                    })
+                    .collect();
+                let setup_theta_split_xor_vec = theta_split_xor_vec.clone();
 
-        let theta_sum_split_vec: Vec<Vec<Queriable<F>>> = (0..PART_SIZE * PART_SIZE)
-            .map(|i| {
-                (0..NUM_PER_WORD_BATCH3)
-                    .map(|j| ctx.internal(&format!("theta_sum_split_{}_{}", i, j)))
-                    .collect()
-            })
-            .collect();
-        let setup_theta_sum_split_vec = theta_sum_split_vec.clone();
+                let theta_sum_split_vec: Vec<Vec<Queriable<F>>> = (0..PART_SIZE * PART_SIZE)
+                    .map(|i| {
+                        (0..NUM_PER_WORD_BATCH3)
+                            .map(|j| ctx.internal(&format!("theta_sum_split_{}_{}", i, j)))
+                            .collect()
+                    })
+                    .collect();
+                let setup_theta_sum_split_vec = theta_sum_split_vec.clone();
 
-        let theta_sum_split_xor_vec: Vec<Vec<Queriable<F>>> = (0..PART_SIZE * PART_SIZE)
-            .map(|i| {
-                (0..NUM_PER_WORD_BATCH3)
-                    .map(|j| ctx.internal(&format!("theta_sum_split_xor_{}_{}", i, j)))
-                    .collect()
-            })
-            .collect();
-        let setup_theta_sum_split_xor_vec = theta_sum_split_xor_vec.clone();
+                let theta_sum_split_xor_vec: Vec<Vec<Queriable<F>>> = (0..PART_SIZE * PART_SIZE)
+                    .map(|i| {
+                        (0..NUM_PER_WORD_BATCH3)
+                            .map(|j| ctx.internal(&format!("theta_sum_split_xor_{}_{}", i, j)))
+                            .collect()
+                    })
+                    .collect();
+                let setup_theta_sum_split_xor_vec = theta_sum_split_xor_vec.clone();
 
-        let rho_bit_0: Vec<Queriable<F>> = (0..PART_SIZE * PART_SIZE)
-            .map(|i| ctx.internal(&format!("rho_bit0_{}", i)))
-            .collect();
-        let setup_rho_bit_0 = rho_bit_0.clone();
+                let rho_bit_0: Vec<Queriable<F>> = (0..PART_SIZE * PART_SIZE)
+                    .map(|i| ctx.internal(&format!("rho_bit0_{}", i)))
+                    .collect();
+                let setup_rho_bit_0 = rho_bit_0.clone();
 
-        let rho_bit_1: Vec<Queriable<F>> = (0..PART_SIZE * PART_SIZE)
-            .map(|i| ctx.internal(&format!("rho_bit1_{}", i)))
-            .collect();
-        let setup_rho_bit_1 = rho_bit_1.clone();
+                let rho_bit_1: Vec<Queriable<F>> = (0..PART_SIZE * PART_SIZE)
+                    .map(|i| ctx.internal(&format!("rho_bit1_{}", i)))
+                    .collect();
+                let setup_rho_bit_1 = rho_bit_1.clone();
 
-        let chi_split_value_vec: Vec<Vec<Queriable<F>>> = (0..PART_SIZE * PART_SIZE)
-            .map(|i| {
-                (0..NUM_PER_WORD_BATCH3)
-                    .map(|j| ctx.internal(&format!("chi_split_value_{}_{}", i, j)))
-                    .collect()
-            })
-            .collect();
-        let setup_chi_split_value_vec: Vec<Vec<Queriable<F>>> = chi_split_value_vec.clone();
+                let chi_split_value_vec: Vec<Vec<Queriable<F>>> = (0..PART_SIZE * PART_SIZE)
+                    .map(|i| {
+                        (0..NUM_PER_WORD_BATCH3)
+                            .map(|j| ctx.internal(&format!("chi_split_value_{}_{}", i, j)))
+                            .collect()
+                    })
+                    .collect();
+                let setup_chi_split_value_vec: Vec<Vec<Queriable<F>>> = chi_split_value_vec.clone();
 
-        let final_xor_split_vec: Vec<Queriable<F>> = (0..NUM_PER_WORD_BATCH4)
-            .map(|i| ctx.internal(&format!("final_xor_split_{}", i)))
-            .collect();
-        let setup_final_xor_split_vec = final_xor_split_vec.clone();
+                let final_xor_split_vec: Vec<Queriable<F>> = (0..NUM_PER_WORD_BATCH4)
+                    .map(|i| ctx.internal(&format!("final_xor_split_{}", i)))
+                    .collect();
+                let setup_final_xor_split_vec = final_xor_split_vec.clone();
 
-        let final_sum_split_vec: Vec<Queriable<F>> = (0..NUM_PER_WORD_BATCH4)
-            .map(|i| ctx.internal(&format!("final_sum_split_{}", i)))
-            .collect();
-        let setup_final_sum_split_vec = final_sum_split_vec.clone();
+                let final_sum_split_vec: Vec<Queriable<F>> = (0..NUM_PER_WORD_BATCH4)
+                    .map(|i| ctx.internal(&format!("final_sum_split_{}", i)))
+                    .collect();
+                let setup_final_sum_split_vec = final_sum_split_vec.clone();
 
-        let round_cst: Queriable<F> = ctx.internal("round constant");
+                let round_cst: Queriable<F> = ctx.internal("round constant");
 
-        ctx.setup(move |ctx| {
-            let mut t_vec = vec![0; PART_SIZE * PART_SIZE];
-            {
-                let mut i = 1;
-                let mut j = 0;
-                for t in 0..PART_SIZE * PART_SIZE {
-                    if t == 0 {
-                        i = 0;
-                        j = 0
-                    } else if t == 1 {
-                        i = 1;
-                        j = 0;
-                    } else {
-                        let m = j;
-                        j = (2 * i + 3 * j) % PART_SIZE;
-                        i = m;
+                let s_new_vec: Vec<Queriable<F>> = (0..PART_SIZE * PART_SIZE)
+                    .map(|i| ctx.internal(&format!("s_new[{}][{}]", i / PART_SIZE, i % PART_SIZE)))
+                    .collect();
+                let setup_s_new_vec = s_new_vec.clone();
+
+                let squeeze_split_vec: Vec<Vec<Queriable<F>>> = (0..SQUEEZE_VECTOR_NUM)
+                    .map(|i| {
+                        (0..SQUEEZE_SPLIT_NUM / 2)
+                            .map(|j| ctx.internal(&format!("squeeze_split_vec_{}_{}", i, j)))
+                            .collect()
+                    })
+                    .collect();
+                let setup_squeeze_split_vec = squeeze_split_vec.clone();
+
+                let squeeze_split_output_vec: Vec<Vec<Queriable<F>>> = (0..SQUEEZE_VECTOR_NUM)
+                    .map(|i| {
+                        (0..SQUEEZE_SPLIT_NUM / 2)
+                            .map(|j| ctx.internal(&format!("squeeze_split_output_vec_{}_{}", i, j)))
+                            .collect()
+                    })
+                    .collect();
+                let setup_squeeze_split_output_vec = squeeze_split_output_vec.clone();
+
+                let hash_rlc = ctx.internal(&format!("hash_rlc"));
+
+                ctx.setup(move |ctx| {
+                    let mut t_vec = vec![0; PART_SIZE * PART_SIZE];
+                    {
+                        let mut i = 1;
+                        let mut j = 0;
+                        for t in 0..PART_SIZE * PART_SIZE {
+                            if t == 0 {
+                                i = 0;
+                                j = 0
+                            } else if t == 1 {
+                                i = 1;
+                                j = 0;
+                            } else {
+                                let m = j;
+                                j = (2 * i + 3 * j) % PART_SIZE;
+                                i = m;
+                            }
+                            t_vec[i * PART_SIZE + j] = t;
+                        }
                     }
-                    t_vec[i * PART_SIZE + j] = t;
-                }
-            }
 
-            // Theta
-            let mut tmp_theta_sum_split_xor_vec: Vec<ASTExpr<F>> = Vec::new();
-            let mut tmp_theta_sum_move_split_xor_vec: Vec<ASTExpr<F>> = Vec::new();
-            for s in 0..PART_SIZE {
-                // 1. \sum_y' a[x][y'][z]
-                // 2. xor(sum)
-                let mut sum_split_vec: ASTExpr<F> = setup_theta_split_vec[s][NUM_PER_WORD] * 8
-                    + setup_theta_split_vec[s][NUM_PER_WORD - 1];
-                let mut sum_split_xor_vec: ASTExpr<F> = setup_theta_split_xor_vec[s][NUM_PER_WORD]
-                    * 8
-                    + setup_theta_split_xor_vec[s][NUM_PER_WORD - 1];
-                let mut sum_split_xor_move_value_vec: ASTExpr<F> =
-                    setup_theta_split_xor_vec[s][NUM_PER_WORD - 1] * 1;
-                for k in 1..NUM_PER_WORD {
-                    sum_split_vec =
-                        sum_split_vec * 64 + setup_theta_split_vec[s][NUM_PER_WORD - k - 1];
-                    sum_split_xor_vec =
-                        sum_split_xor_vec * 64 + setup_theta_split_xor_vec[s][NUM_PER_WORD - k - 1];
-                    sum_split_xor_move_value_vec = sum_split_xor_move_value_vec * 64
-                        + setup_theta_split_xor_vec[s][NUM_PER_WORD - k - 1];
-                }
-                sum_split_xor_move_value_vec =
-                    sum_split_xor_move_value_vec * 8 + setup_theta_split_xor_vec[s][NUM_PER_WORD];
-
-                for k in 0..NUM_PER_WORD {
-                    ctx.add_lookup(
-                        param
-                            .xor_table
-                            .apply(setup_theta_split_vec[s][k])
-                            .apply(setup_theta_split_xor_vec[s][k]),
-                    );
-                }
-
-                ctx.constr(eq(
-                    setup_s_vec[s * PART_SIZE]
-                        + setup_s_vec[s * PART_SIZE + 1]
-                        + setup_s_vec[s * PART_SIZE + 2]
-                        + setup_s_vec[s * PART_SIZE + 3]
-                        + setup_s_vec[s * PART_SIZE + 4],
-                    sum_split_vec,
-                ));
-
-                tmp_theta_sum_split_xor_vec.push(sum_split_xor_vec);
-                tmp_theta_sum_move_split_xor_vec.push(sum_split_xor_move_value_vec);
-            }
-
-            for i in 0..PART_SIZE {
-                for j in 0..PART_SIZE {
                     // Theta
-                    // 3. a[x][y][z] = a[x][y][z] + xor(\sum_y' a[x-1][y'][z]) + xor(\sum
-                    // a[x+1][y'][z-1]) 4. a'[x][y][z'+(t+1)(t+2)/2] =
-                    // xor(a[x][y][z'+(t+1)(t+2)/2]) rho
-                    // a[x][y][z'] = a[x][y][z']
-                    let v = ((t_vec[i * PART_SIZE + j] + 1) * t_vec[i * PART_SIZE + j] / 2)
-                        % NUM_BITS_PER_WORD;
+                    let mut tmp_theta_sum_split_xor_vec: Vec<ASTExpr<F>> = Vec::new();
+                    let mut tmp_theta_sum_move_split_xor_vec: Vec<ASTExpr<F>> = Vec::new();
+                    for s in 0..PART_SIZE {
+                        // 1. \sum_y' a[x][y'][z]
+                        // 2. xor(sum)
+                        let mut sum_split_vec: ASTExpr<F> = setup_theta_split_vec[s][NUM_PER_WORD]
+                            * 8
+                            + setup_theta_split_vec[s][NUM_PER_WORD - 1];
+                        let mut sum_split_xor_vec: ASTExpr<F> =
+                            setup_theta_split_xor_vec[s][NUM_PER_WORD] * 8
+                                + setup_theta_split_xor_vec[s][NUM_PER_WORD - 1];
+                        let mut sum_split_xor_move_value_vec: ASTExpr<F> =
+                            setup_theta_split_xor_vec[s][NUM_PER_WORD - 1] * 1;
+                        for k in 1..NUM_PER_WORD {
+                            sum_split_vec =
+                                sum_split_vec * 64 + setup_theta_split_vec[s][NUM_PER_WORD - k - 1];
+                            sum_split_xor_vec = sum_split_xor_vec * 64
+                                + setup_theta_split_xor_vec[s][NUM_PER_WORD - k - 1];
+                            sum_split_xor_move_value_vec = sum_split_xor_move_value_vec * 64
+                                + setup_theta_split_xor_vec[s][NUM_PER_WORD - k - 1];
+                        }
+                        sum_split_xor_move_value_vec = sum_split_xor_move_value_vec * 8
+                            + setup_theta_split_xor_vec[s][NUM_PER_WORD];
 
-                    for k in 0..NUM_PER_WORD_BATCH3 {
-                        ctx.add_lookup(
-                            param
-                                .xor_table_batch3
-                                .apply(setup_theta_sum_split_vec[i * PART_SIZE + j][k])
-                                .apply(setup_theta_sum_split_xor_vec[i * PART_SIZE + j][k]),
-                        );
+                        for k in 0..NUM_PER_WORD {
+                            ctx.add_lookup(
+                                param
+                                    .xor_table
+                                    .apply(setup_theta_split_vec[s][k])
+                                    .apply(setup_theta_split_xor_vec[s][k]),
+                            );
+                        }
+
+                        ctx.constr(eq(
+                            setup_s_vec[s * PART_SIZE]
+                                + setup_s_vec[s * PART_SIZE + 1]
+                                + setup_s_vec[s * PART_SIZE + 2]
+                                + setup_s_vec[s * PART_SIZE + 3]
+                                + setup_s_vec[s * PART_SIZE + 4],
+                            sum_split_vec,
+                        ));
+
+                        tmp_theta_sum_split_xor_vec.push(sum_split_xor_vec);
+                        tmp_theta_sum_move_split_xor_vec.push(sum_split_xor_move_value_vec);
                     }
 
-                    let mut tmp_theta_sum_split: ASTExpr<F>;
-                    if v % 3 == 0 {
-                        let st = v / 3;
-                        if st != 0 {
-                            tmp_theta_sum_split =
-                                setup_theta_sum_split_vec[i * PART_SIZE + j][st - 1] * 1;
-                            for k in 1..st {
-                                tmp_theta_sum_split = tmp_theta_sum_split * 512
-                                    + setup_theta_sum_split_vec[i * PART_SIZE + j][st - k - 1];
+                    for i in 0..PART_SIZE {
+                        for j in 0..PART_SIZE {
+                            // Theta
+                            // 3. a[x][y][z] = a[x][y][z] + xor(\sum_y' a[x-1][y'][z]) + xor(\sum
+                            // a[x+1][y'][z-1]) 4. a'[x][y][z'+(t+1)(t+2)/2] =
+                            // xor(a[x][y][z'+(t+1)(t+2)/2]) rho
+                            // a[x][y][z'] = a[x][y][z']
+                            let v = ((t_vec[i * PART_SIZE + j] + 1) * t_vec[i * PART_SIZE + j] / 2)
+                                % NUM_BITS_PER_WORD;
+
+                            for k in 0..NUM_PER_WORD_BATCH3 {
+                                ctx.add_lookup(
+                                    param
+                                        .xor_table_batch3
+                                        .apply(setup_theta_sum_split_vec[i * PART_SIZE + j][k])
+                                        .apply(setup_theta_sum_split_xor_vec[i * PART_SIZE + j][k]),
+                                );
                             }
-                            tmp_theta_sum_split = tmp_theta_sum_split * 8
-                                + setup_theta_sum_split_vec[i * PART_SIZE + j]
-                                    [NUM_PER_WORD_BATCH3 - 1];
-                            for k in 1..NUM_PER_WORD_BATCH3 - st {
-                                tmp_theta_sum_split = tmp_theta_sum_split * 512
-                                    + setup_theta_sum_split_vec[i * PART_SIZE + j]
-                                        [NUM_PER_WORD_BATCH3 - k - 1];
+
+                            let mut tmp_theta_sum_split: ASTExpr<F>;
+                            if v % 3 == 0 {
+                                let st = v / 3;
+                                if st != 0 {
+                                    tmp_theta_sum_split =
+                                        setup_theta_sum_split_vec[i * PART_SIZE + j][st - 1] * 1;
+                                    for k in 1..st {
+                                        tmp_theta_sum_split = tmp_theta_sum_split * 512
+                                            + setup_theta_sum_split_vec[i * PART_SIZE + j]
+                                                [st - k - 1];
+                                    }
+                                    tmp_theta_sum_split = tmp_theta_sum_split * 8
+                                        + setup_theta_sum_split_vec[i * PART_SIZE + j]
+                                            [NUM_PER_WORD_BATCH3 - 1];
+                                    for k in 1..NUM_PER_WORD_BATCH3 - st {
+                                        tmp_theta_sum_split = tmp_theta_sum_split * 512
+                                            + setup_theta_sum_split_vec[i * PART_SIZE + j]
+                                                [NUM_PER_WORD_BATCH3 - k - 1];
+                                    }
+                                } else {
+                                    tmp_theta_sum_split = setup_theta_sum_split_vec
+                                        [i * PART_SIZE + j][NUM_PER_WORD_BATCH3 - 1]
+                                        * 1;
+                                    for k in 1..NUM_PER_WORD_BATCH3 {
+                                        tmp_theta_sum_split = tmp_theta_sum_split * 512
+                                            + setup_theta_sum_split_vec[i * PART_SIZE + j]
+                                                [NUM_PER_WORD_BATCH3 - k - 1];
+                                    }
+                                }
+                            } else if v % 3 == 1 {
+                                let st = (v - 1) / 3;
+                                tmp_theta_sum_split = setup_rho_bit_1[i * PART_SIZE + j] * 1;
+                                for k in 0..st {
+                                    tmp_theta_sum_split = tmp_theta_sum_split * 512
+                                        + setup_theta_sum_split_vec[i * PART_SIZE + j][st - k - 1];
+                                }
+                                for k in 0..NUM_PER_WORD_BATCH3 - st - 1 {
+                                    if k == 0 {
+                                        tmp_theta_sum_split = tmp_theta_sum_split * 8
+                                            + setup_theta_sum_split_vec[i * PART_SIZE + j]
+                                                [NUM_PER_WORD_BATCH3 - 1];
+                                    } else {
+                                        tmp_theta_sum_split = tmp_theta_sum_split * 512
+                                            + setup_theta_sum_split_vec[i * PART_SIZE + j]
+                                                [NUM_PER_WORD_BATCH3 - k - 1];
+                                    }
+                                }
+                                tmp_theta_sum_split =
+                                    tmp_theta_sum_split * 64 + setup_rho_bit_0[i * PART_SIZE + j];
+                                ctx.constr(eq(
+                                    setup_rho_bit_0[i * PART_SIZE + j] * 8
+                                        + setup_rho_bit_1[i * PART_SIZE + j],
+                                    setup_theta_sum_split_vec[i * PART_SIZE + j][st],
+                                ));
+                            } else {
+                                let st = (v - 2) / 3;
+                                tmp_theta_sum_split = setup_rho_bit_1[i * PART_SIZE + j] * 1;
+                                for k in 0..st {
+                                    tmp_theta_sum_split = tmp_theta_sum_split * 512
+                                        + setup_theta_sum_split_vec[i * PART_SIZE + j][st - k - 1];
+                                }
+                                for k in 0..NUM_PER_WORD_BATCH3 - st - 1 {
+                                    if k == 0 {
+                                        tmp_theta_sum_split = tmp_theta_sum_split * 8
+                                            + setup_theta_sum_split_vec[i * PART_SIZE + j]
+                                                [NUM_PER_WORD_BATCH3 - 1];
+                                    } else {
+                                        tmp_theta_sum_split = tmp_theta_sum_split * 512
+                                            + setup_theta_sum_split_vec[i * PART_SIZE + j]
+                                                [NUM_PER_WORD_BATCH3 - k - 1];
+                                    }
+                                }
+                                tmp_theta_sum_split =
+                                    tmp_theta_sum_split * 8 + setup_rho_bit_0[i * PART_SIZE + j];
+                                ctx.constr(eq(
+                                    setup_rho_bit_0[i * PART_SIZE + j] * 64
+                                        + setup_rho_bit_1[i * PART_SIZE + j],
+                                    setup_theta_sum_split_vec[i * PART_SIZE + j][st],
+                                ));
                             }
-                        } else {
-                            tmp_theta_sum_split = setup_theta_sum_split_vec[i * PART_SIZE + j]
-                                [NUM_PER_WORD_BATCH3 - 1]
+
+                            ctx.constr(eq(
+                                tmp_theta_sum_split,
+                                setup_s_vec[i * PART_SIZE + j]
+                                    + tmp_theta_sum_split_xor_vec[(i + PART_SIZE - 1) % PART_SIZE]
+                                        .clone()
+                                    + tmp_theta_sum_move_split_xor_vec[(i + 1) % PART_SIZE].clone(),
+                            ));
+                        }
+                    }
+
+                    let mut tmp_pi_sum_split_xor_vec = setup_theta_sum_split_xor_vec.clone();
+                    for i in 0..PART_SIZE {
+                        for j in 0..PART_SIZE {
+                            tmp_pi_sum_split_xor_vec
+                                [j * PART_SIZE + ((2 * i + 3 * j) % PART_SIZE)] =
+                                setup_theta_sum_split_xor_vec[i * PART_SIZE + j].clone();
+                        }
+                    }
+
+                    // chi
+                    // a[x] = a[x] ^ (~a[x+1] & a[x+2])
+                    // chi(3 - 2a[x] + a[x+1] - a[x+2])
+                    ctx.add_lookup(param.constants_table.apply(round).apply(round_cst));
+                    for i in 0..PART_SIZE {
+                        for j in 0..PART_SIZE {
+                            for k in 0..NUM_PER_WORD_BATCH3 {
+                                ctx.add_lookup(
+                                    param
+                                        .chi_table
+                                        .apply(
+                                            tmp_pi_sum_split_xor_vec
+                                                [((i + 1) % PART_SIZE) * PART_SIZE + j][k]
+                                                - tmp_pi_sum_split_xor_vec[i * PART_SIZE + j][k]
+                                                - tmp_pi_sum_split_xor_vec[i * PART_SIZE + j][k]
+                                                - tmp_pi_sum_split_xor_vec
+                                                    [((i + 2) % PART_SIZE) * PART_SIZE + j][k]
+                                                + 219,
+                                        )
+                                        .apply(setup_chi_split_value_vec[i * PART_SIZE + j][k]),
+                                );
+                            }
+
+                            let mut tmp_sum_split_chi_vec: ASTExpr<F> = setup_chi_split_value_vec
+                                [i * PART_SIZE + j][NUM_PER_WORD_BATCH3 - 1]
                                 * 1;
                             for k in 1..NUM_PER_WORD_BATCH3 {
-                                tmp_theta_sum_split = tmp_theta_sum_split * 512
-                                    + setup_theta_sum_split_vec[i * PART_SIZE + j]
+                                tmp_sum_split_chi_vec = tmp_sum_split_chi_vec * 512
+                                    + setup_chi_split_value_vec[i * PART_SIZE + j]
                                         [NUM_PER_WORD_BATCH3 - k - 1];
                             }
-                        }
-                    } else if v % 3 == 1 {
-                        let st = (v - 1) / 3;
-                        tmp_theta_sum_split = setup_rho_bit_1[i * PART_SIZE + j] * 1;
-                        for k in 0..st {
-                            tmp_theta_sum_split = tmp_theta_sum_split * 512
-                                + setup_theta_sum_split_vec[i * PART_SIZE + j][st - k - 1];
-                        }
-                        for k in 0..NUM_PER_WORD_BATCH3 - st - 1 {
-                            if k == 0 {
-                                tmp_theta_sum_split = tmp_theta_sum_split * 8
-                                    + setup_theta_sum_split_vec[i * PART_SIZE + j]
-                                        [NUM_PER_WORD_BATCH3 - 1];
+
+                            if i != 0 || j != 0 {
+                                if last == 1 {
+                                    ctx.transition(eq(
+                                        tmp_sum_split_chi_vec,
+                                        setup_s_new_vec[i * PART_SIZE + j],
+                                    ));
+                                } else {
+                                    ctx.transition(eq(
+                                        tmp_sum_split_chi_vec,
+                                        setup_s_vec[i * PART_SIZE + j].next(),
+                                    ));
+                                }
                             } else {
-                                tmp_theta_sum_split = tmp_theta_sum_split * 512
-                                    + setup_theta_sum_split_vec[i * PART_SIZE + j]
-                                        [NUM_PER_WORD_BATCH3 - k - 1];
+                                let mut tmp_sum_s_split_vec: ASTExpr<F> =
+                                    setup_final_sum_split_vec[NUM_PER_WORD_BATCH4 - 1] * 1;
+                                let mut tmp_sum_s_split_xor_vec: ASTExpr<F> =
+                                    setup_final_xor_split_vec[NUM_PER_WORD_BATCH4 - 1] * 1;
+                                ctx.add_lookup(
+                                    param
+                                        .xor_table_batch4
+                                        .apply(setup_final_sum_split_vec[NUM_PER_WORD_BATCH4 - 1])
+                                        .apply(setup_final_xor_split_vec[NUM_PER_WORD_BATCH4 - 1]),
+                                );
+                                for (&value, &xor_value) in setup_final_sum_split_vec
+                                    .iter()
+                                    .zip(setup_final_xor_split_vec.iter())
+                                    .rev()
+                                    .take(NUM_PER_WORD_BATCH4)
+                                    .skip(1)
+                                {
+                                    tmp_sum_s_split_vec = tmp_sum_s_split_vec * 64 * 64 + value;
+                                    tmp_sum_s_split_xor_vec =
+                                        tmp_sum_s_split_xor_vec * 64 * 64 + xor_value;
+                                    ctx.add_lookup(
+                                        param.xor_table_batch4.apply(value).apply(xor_value),
+                                    );
+                                }
+
+                                ctx.constr(eq(
+                                    tmp_sum_s_split_vec,
+                                    tmp_sum_split_chi_vec + round_cst,
+                                ));
+                                if last == 1 {
+                                    ctx.transition(eq(
+                                        tmp_sum_s_split_xor_vec,
+                                        setup_s_new_vec[i * PART_SIZE + j],
+                                    ));
+                                } else {
+                                    ctx.transition(eq(
+                                        tmp_sum_s_split_xor_vec,
+                                        setup_s_vec[i * PART_SIZE + j].next(),
+                                    ));
+                                }
                             }
                         }
-                        tmp_theta_sum_split =
-                            tmp_theta_sum_split * 64 + setup_rho_bit_0[i * PART_SIZE + j];
-                        ctx.constr(eq(
-                            setup_rho_bit_0[i * PART_SIZE + j] * 8
-                                + setup_rho_bit_1[i * PART_SIZE + j],
-                            setup_theta_sum_split_vec[i * PART_SIZE + j][st],
-                        ));
-                    } else {
-                        let st = (v - 2) / 3;
-                        tmp_theta_sum_split = setup_rho_bit_1[i * PART_SIZE + j] * 1;
-                        for k in 0..st {
-                            tmp_theta_sum_split = tmp_theta_sum_split * 512
-                                + setup_theta_sum_split_vec[i * PART_SIZE + j][st - k - 1];
-                        }
-                        for k in 0..NUM_PER_WORD_BATCH3 - st - 1 {
-                            if k == 0 {
-                                tmp_theta_sum_split = tmp_theta_sum_split * 8
-                                    + setup_theta_sum_split_vec[i * PART_SIZE + j]
-                                        [NUM_PER_WORD_BATCH3 - 1];
-                            } else {
-                                tmp_theta_sum_split = tmp_theta_sum_split * 512
-                                    + setup_theta_sum_split_vec[i * PART_SIZE + j]
-                                        [NUM_PER_WORD_BATCH3 - k - 1];
+                    }
+
+                    if last == 1 {
+                        for i in 0..SQUEEZE_VECTOR_NUM {
+                            let mut tmp_squeeze_split_sum =
+                                setup_squeeze_split_vec[i][SQUEEZE_SPLIT_NUM / 2 - 1] * 1;
+                            for j in 1..SQUEEZE_SPLIT_NUM / 2 {
+                                tmp_squeeze_split_sum = tmp_squeeze_split_sum * 4096 * 4096
+                                    + setup_squeeze_split_vec[i][SQUEEZE_SPLIT_NUM / 2 - j - 1];
+                            }
+                            ctx.constr(eq(tmp_squeeze_split_sum, setup_s_new_vec[i * PART_SIZE]));
+                            for j in 0..SQUEEZE_SPLIT_NUM / 2 {
+                                ctx.add_lookup(
+                                    param
+                                        .pack_table
+                                        .apply(setup_squeeze_split_vec[i][j])
+                                        .apply(setup_squeeze_split_output_vec[i][j]),
+                                );
+                            }
+                            // hash_rlc
+                            let mut tmp_hash_rlc_value = setup_squeeze_split_output_vec[0][0] * 1;
+
+                            for (i, values) in setup_squeeze_split_output_vec
+                                .iter()
+                                .enumerate()
+                                .take(SQUEEZE_VECTOR_NUM)
+                            {
+                                for (j, &value) in
+                                    values.iter().enumerate().take(SQUEEZE_SPLIT_NUM / 2)
+                                {
+                                    if i != 0 || j != 0 {
+                                        tmp_hash_rlc_value = tmp_hash_rlc_value * 256 + value;
+                                    }
+                                }
                             }
                         }
-                        tmp_theta_sum_split =
-                            tmp_theta_sum_split * 8 + setup_rho_bit_0[i * PART_SIZE + j];
-                        ctx.constr(eq(
-                            setup_rho_bit_0[i * PART_SIZE + j] * 64
-                                + setup_rho_bit_1[i * PART_SIZE + j],
-                            setup_theta_sum_split_vec[i * PART_SIZE + j][st],
-                        ));
                     }
 
-                    ctx.constr(eq(
-                        tmp_theta_sum_split,
-                        setup_s_vec[i * PART_SIZE + j]
-                            + tmp_theta_sum_split_xor_vec[(i + PART_SIZE - 1) % PART_SIZE].clone()
-                            + tmp_theta_sum_move_split_xor_vec[(i + 1) % PART_SIZE].clone(),
-                    ));
-                }
-            }
+                    ctx.transition(eq((round + 1 - round.next()) * (round + 1 - NUM_ROUNDS), 0));
+                    ctx.transition(eq((round + 1 - round.next()) * round.next(), 0));
+                    ctx.transition(eq(input_len, input_len.next()));
+                    ctx.transition(eq(data_rlc, data_rlc.next()));
+                });
 
-            let mut tmp_pi_sum_split_xor_vec = setup_theta_sum_split_xor_vec.clone();
-            for i in 0..PART_SIZE {
-                for j in 0..PART_SIZE {
-                    tmp_pi_sum_split_xor_vec[j * PART_SIZE + ((2 * i + 3 * j) % PART_SIZE)] =
-                        setup_theta_sum_split_xor_vec[i * PART_SIZE + j].clone();
-                }
-            }
+                ctx.wg::<OneRoundValues<F>, _>(move |ctx, rvalues| {
+                    ctx.assign(round, rvalues.round);
+                    ctx.assign(round_cst, rvalues.round_cst);
 
-            // chi
-            // a[x] = a[x] ^ (~a[x+1] & a[x+2])
-            // chi(3 - 2a[x] + a[x+1] - a[x+2])
-            ctx.add_lookup(param.constants_table.apply(round).apply(round_cst));
-            for i in 0..PART_SIZE {
-                for j in 0..PART_SIZE {
-                    for k in 0..NUM_PER_WORD_BATCH3 {
-                        ctx.add_lookup(
-                            param
-                                .chi_table
-                                .apply(
-                                    tmp_pi_sum_split_xor_vec[((i + 1) % PART_SIZE) * PART_SIZE + j]
-                                        [k]
-                                        - tmp_pi_sum_split_xor_vec[i * PART_SIZE + j][k]
-                                        - tmp_pi_sum_split_xor_vec[i * PART_SIZE + j][k]
-                                        - tmp_pi_sum_split_xor_vec
-                                            [((i + 2) % PART_SIZE) * PART_SIZE + j][k]
-                                        + 219,
-                                )
-                                .apply(setup_chi_split_value_vec[i * PART_SIZE + j][k]),
-                        );
+                    for (q, v) in s_vec.iter().zip(rvalues.s_vec.iter()) {
+                        ctx.assign(*q, *v)
+                    }
+                    for (q_vec, v_vec) in theta_split_vec.iter().zip(rvalues.theta_split_vec.iter())
+                    {
+                        for (q, v) in q_vec.iter().zip(v_vec.iter()) {
+                            ctx.assign(*q, *v)
+                        }
+                    }
+                    for (q_vec, v_vec) in theta_split_xor_vec
+                        .iter()
+                        .zip(rvalues.theta_split_xor_vec.iter())
+                    {
+                        for (q, v) in q_vec.iter().zip(v_vec.iter()) {
+                            ctx.assign(*q, *v)
+                        }
+                    }
+                    for (q_vec, v_vec) in theta_sum_split_vec
+                        .iter()
+                        .zip(rvalues.theta_sum_split_vec.iter())
+                    {
+                        for (q, v) in q_vec.iter().zip(v_vec.iter()) {
+                            ctx.assign(*q, *v)
+                        }
+                    }
+                    for (q_vec, v_vec) in theta_sum_split_xor_vec
+                        .iter()
+                        .zip(rvalues.theta_sum_split_xor_vec.iter())
+                    {
+                        for (q, v) in q_vec.iter().zip(v_vec.iter()) {
+                            ctx.assign(*q, *v)
+                        }
+                    }
+                    for (q, v) in rho_bit_0.iter().zip(rvalues.rho_bit_0.iter()) {
+                        ctx.assign(*q, *v)
+                    }
+                    for (q, v) in rho_bit_1.iter().zip(rvalues.rho_bit_1.iter()) {
+                        ctx.assign(*q, *v)
                     }
 
-                    let mut tmp_sum_split_chi_vec: ASTExpr<F> =
-                        setup_chi_split_value_vec[i * PART_SIZE + j][NUM_PER_WORD_BATCH3 - 1] * 1;
-                    for k in 1..NUM_PER_WORD_BATCH3 {
-                        tmp_sum_split_chi_vec = tmp_sum_split_chi_vec * 512
-                            + setup_chi_split_value_vec[i * PART_SIZE + j]
-                                [NUM_PER_WORD_BATCH3 - k - 1];
+                    for (q_vec, v_vec) in chi_split_value_vec
+                        .iter()
+                        .zip(rvalues.chi_split_value_vec.iter())
+                    {
+                        for (q, v) in q_vec.iter().zip(v_vec.iter()) {
+                            ctx.assign(*q, *v)
+                        }
+                    }
+                    for (q, v) in final_sum_split_vec
+                        .iter()
+                        .zip(rvalues.final_sum_split_vec.iter())
+                    {
+                        ctx.assign(*q, *v)
+                    }
+                    for (q, v) in final_xor_split_vec
+                        .iter()
+                        .zip(rvalues.final_xor_split_vec.iter())
+                    {
+                        ctx.assign(*q, *v)
                     }
 
-                    if i != 0 || j != 0 {
-                        ctx.transition(eq(
-                            tmp_sum_split_chi_vec,
-                            setup_s_vec[i * PART_SIZE + j].next(),
-                        ));
-                    } else {
-                        let mut tmp_sum_s_split_vec: ASTExpr<F> =
-                            setup_final_sum_split_vec[NUM_PER_WORD_BATCH4 - 1] * 1;
-                        let mut tmp_sum_s_split_xor_vec: ASTExpr<F> =
-                            setup_final_xor_split_vec[NUM_PER_WORD_BATCH4 - 1] * 1;
-                        ctx.add_lookup(
-                            param
-                                .xor_table_batch4
-                                .apply(setup_final_sum_split_vec[NUM_PER_WORD_BATCH4 - 1])
-                                .apply(setup_final_xor_split_vec[NUM_PER_WORD_BATCH4 - 1]),
-                        );
-                        for (&value, &xor_value) in setup_final_sum_split_vec
+                    if last == 1 {
+                        for (q, v) in s_new_vec.iter().zip(rvalues.svalues.s_new_vec.iter()) {
+                            ctx.assign(*q, *v)
+                        }
+
+                        for (q_vec, v_vec) in squeeze_split_vec
                             .iter()
-                            .zip(setup_final_xor_split_vec.iter())
-                            .rev()
-                            .take(NUM_PER_WORD_BATCH4)
-                            .skip(1)
+                            .zip(rvalues.svalues.squeeze_split_vec.iter())
                         {
-                            tmp_sum_s_split_vec = tmp_sum_s_split_vec * 64 * 64 + value;
-                            tmp_sum_s_split_xor_vec = tmp_sum_s_split_xor_vec * 64 * 64 + xor_value;
-                            ctx.add_lookup(param.xor_table_batch4.apply(value).apply(xor_value));
+                            for (q, v) in q_vec.iter().zip(v_vec.iter()) {
+                                ctx.assign(*q, *v)
+                            }
                         }
 
-                        ctx.constr(eq(tmp_sum_s_split_vec, tmp_sum_split_chi_vec + round_cst));
-                        ctx.transition(eq(
-                            tmp_sum_s_split_xor_vec,
-                            setup_s_vec[i * PART_SIZE + j].next(),
-                        ));
+                        for (q_vec, v_vec) in squeeze_split_output_vec
+                            .iter()
+                            .zip(rvalues.svalues.squeeze_split_output_vec.iter())
+                        {
+                            for (q, v) in q_vec.iter().zip(v_vec.iter()) {
+                                ctx.assign(*q, *v)
+                            }
+                        }
+                        ctx.assign(hash_rlc, rvalues.svalues.hash_rlc);
                     }
-                }
-            }
-
-            ctx.transition(eq((round + 1 - round.next()) * (round + 1 - NUM_ROUNDS), 0));
-            ctx.transition(eq((round + 1 - round.next()) * round.next(), 0));
-        });
-
-        ctx.wg::<OneRoundValues<F>, _>(move |ctx, values| {
-            ctx.assign(round, values.round);
-            ctx.assign(round_cst, values.round_cst);
-
-            for (q, v) in s_vec.iter().zip(values.s_vec.iter()) {
-                ctx.assign(*q, *v)
-            }
-            for (q_vec, v_vec) in theta_split_vec.iter().zip(values.theta_split_vec.iter()) {
-                for (q, v) in q_vec.iter().zip(v_vec.iter()) {
-                    ctx.assign(*q, *v)
-                }
-            }
-            for (q_vec, v_vec) in theta_split_xor_vec
-                .iter()
-                .zip(values.theta_split_xor_vec.iter())
-            {
-                for (q, v) in q_vec.iter().zip(v_vec.iter()) {
-                    ctx.assign(*q, *v)
-                }
-            }
-            for (q_vec, v_vec) in theta_sum_split_vec
-                .iter()
-                .zip(values.theta_sum_split_vec.iter())
-            {
-                for (q, v) in q_vec.iter().zip(v_vec.iter()) {
-                    ctx.assign(*q, *v)
-                }
-            }
-            for (q_vec, v_vec) in theta_sum_split_xor_vec
-                .iter()
-                .zip(values.theta_sum_split_xor_vec.iter())
-            {
-                for (q, v) in q_vec.iter().zip(v_vec.iter()) {
-                    ctx.assign(*q, *v)
-                }
-            }
-            for (q, v) in rho_bit_0.iter().zip(values.rho_bit_0.iter()) {
-                ctx.assign(*q, *v)
-            }
-            for (q, v) in rho_bit_1.iter().zip(values.rho_bit_1.iter()) {
-                ctx.assign(*q, *v)
-            }
-
-            for (q_vec, v_vec) in chi_split_value_vec
-                .iter()
-                .zip(values.chi_split_value_vec.iter())
-            {
-                for (q, v) in q_vec.iter().zip(v_vec.iter()) {
-                    ctx.assign(*q, *v)
-                }
-            }
-            for (q, v) in final_sum_split_vec
-                .iter()
-                .zip(values.final_sum_split_vec.iter())
-            {
-                ctx.assign(*q, *v)
-            }
-            for (q, v) in final_xor_split_vec
-                .iter()
-                .zip(values.final_xor_split_vec.iter())
-            {
-                ctx.assign(*q, *v)
-            }
-        })
-    });
-    let keccak_squeeze_step = ctx.step_type_def("keccak squeezing", |ctx| {
-        let s_vec = s_vec.clone();
-        let setup_s_vec = s_vec.clone();
-
-        let squeeze_split_vec: Vec<Vec<Queriable<F>>> = (0..SQUEEZE_VECTOR_NUM)
-            .map(|i| {
-                (0..SQUEEZE_SPLIT_NUM / 2)
-                    .map(|j| ctx.internal(&format!("squeeze_split_vec_{}_{}", i, j)))
-                    .collect()
+                    ctx.assign(input_len, rvalues.input_len);
+                    ctx.assign(data_rlc, rvalues.data_rlc);
+                })
             })
-            .collect();
-        let setup_squeeze_split_vec = squeeze_split_vec.clone();
-
-        let squeeze_split_output_vec: Vec<Vec<Queriable<F>>> = (0..SQUEEZE_VECTOR_NUM)
-            .map(|i| {
-                (0..SQUEEZE_SPLIT_NUM / 2)
-                    .map(|j| ctx.internal(&format!("squeeze_split_output_vec_{}_{}", i, j)))
-                    .collect()
-            })
-            .collect();
-        let setup_squeeze_split_output_vec = squeeze_split_output_vec.clone();
-
-        ctx.setup(move |ctx| {
-            for i in 0..SQUEEZE_VECTOR_NUM {
-                let mut tmp_squeeze_split_sum =
-                    setup_squeeze_split_vec[i][SQUEEZE_SPLIT_NUM / 2 - 1] * 1;
-                for j in 1..SQUEEZE_SPLIT_NUM / 2 {
-                    tmp_squeeze_split_sum = tmp_squeeze_split_sum * 4096 * 4096
-                        + setup_squeeze_split_vec[i][SQUEEZE_SPLIT_NUM / 2 - j - 1];
-                }
-                ctx.constr(eq(tmp_squeeze_split_sum, setup_s_vec[i * PART_SIZE]));
-                for j in 0..SQUEEZE_SPLIT_NUM / 2 {
-                    ctx.add_lookup(
-                        param
-                            .pack_table
-                            .apply(setup_squeeze_split_vec[i][j])
-                            .apply(setup_squeeze_split_output_vec[i][j]),
-                    );
-                }
-            }
-        });
-
-        ctx.wg::<SqueezeValues<F>, _>(move |ctx, values| {
-            for (q, v) in s_vec.iter().zip(values.s_vec.iter()) {
-                ctx.assign(*q, *v)
-            }
-
-            for (q_vec, v_vec) in squeeze_split_vec
-                .iter()
-                .zip(values.squeeze_split_vec.iter())
-            {
-                for (q, v) in q_vec.iter().zip(v_vec.iter()) {
-                    ctx.assign(*q, *v)
-                }
-            }
-
-            for (q_vec, v_vec) in squeeze_split_output_vec
-                .iter()
-                .zip(values.squeeze_split_output_vec.iter())
-            {
-                for (q, v) in q_vec.iter().zip(v_vec.iter()) {
-                    ctx.assign(*q, *v)
-                }
-            }
         })
-    });
-    // ctx.pragma_first_step(&keccak_pre_step);
+        .collect();
+
     ctx.pragma_first_step(&keccak_first_step); // keccak_pre_step
-
-    ctx.pragma_last_step(&keccak_squeeze_step);
-
+    ctx.pragma_last_step(&keccak_one_round_step_vec[1]); // keccak_squeeze_step
     ctx.pragma_num_steps(param.step_num);
 
     ctx.trace(move |ctx, params| {
+        assert_eq!(params.bits.len() % 8, 0);
+        let input_num = params.bits.len() / 8;
         let mut bits = params.bits;
         println!("intput bits(without padding) = {:?}", bits);
         // padding
@@ -1439,7 +1658,8 @@ fn keccak_circuit<F: PrimeField<Repr = [u8; 32]> + Eq + Hash>(
 
         // chunks
         let chunks = bits.chunks(RATE_IN_BITS);
-
+        let chunks_len = chunks.len();
+        let mut data_rlc_value = F::ZERO;
         // absorb
         for (k, chunk) in chunks.enumerate() {
             let s: Vec<F> = s_new.to_vec();
@@ -1478,7 +1698,7 @@ fn keccak_circuit<F: PrimeField<Repr = [u8; 32]> + Eq + Hash>(
                 })
                 .collect();
 
-            let absorb_split_input_vec = (0..NUM_WORDS_TO_ABSORB)
+            let absorb_split_input_vec: Vec<Vec<F>> = (0..NUM_WORDS_TO_ABSORB)
                 .map(|idx| {
                     let bits = chunk[idx * 64..(idx + 1) * 64].to_vec();
                     (0..SQUEEZE_SPLIT_NUM / 2)
@@ -1498,7 +1718,46 @@ fn keccak_circuit<F: PrimeField<Repr = [u8; 32]> + Eq + Hash>(
                 })
                 .collect();
 
+            let mut is_padding_vec = vec![vec![F::ONE; 8]; NUM_WORDS_TO_ABSORB];
+            is_padding_vec = is_padding_vec
+                .iter()
+                .enumerate()
+                .take(NUM_WORDS_TO_ABSORB)
+                .map(|(i, is_paddings)| {
+                    is_paddings
+                        .iter()
+                        .enumerate()
+                        .take(8)
+                        .map(|(j, &is_padding)| {
+                            if input_num > k * 8 * NUM_WORDS_TO_ABSORB + i * 8 + j {
+                                F::ZERO
+                            } else {
+                                is_padding
+                            }
+                        })
+                        .collect()
+                })
+                .collect();
+
             if k == 0 {
+                let data_rlc = data_rlc_value;
+                let data_rlc_vec: Vec<Vec<F>> = absorb_split_input_vec
+                    .iter()
+                    .zip(is_padding_vec.iter())
+                    .map(|(v1_vec, v2_vec)| {
+                        v1_vec
+                            .iter()
+                            .zip(v2_vec.iter())
+                            .map(|(&v1, &v2)| {
+                                if v2 == F::ZERO {
+                                    data_rlc_value = data_rlc_value * F::from(256) + v1
+                                }
+                                data_rlc_value
+                            })
+                            .collect()
+                    })
+                    .collect();
+
                 let values = PreValues {
                     s_vec: s,
                     absorb_rows: absorbs[0..NUM_WORDS_TO_ABSORB].to_vec(),
@@ -1506,53 +1765,39 @@ fn keccak_circuit<F: PrimeField<Repr = [u8; 32]> + Eq + Hash>(
                     absorb_split_vec,
                     absorb_split_input_vec,
                     split_values: Vec::new(),
+                    is_padding_vec,
+                    input_len: F::from(input_num as u64),
+                    data_rlc_vec,
+                    data_rlc,
                 };
                 ctx.add(&keccak_first_step, values);
-                // let split_values: Vec<Vec<(F, F)>> = (0..NUM_WORDS_TO_ABSORB)
-                //     .map(|t| {
-                //         let i = t % PART_SIZE;
-                //         let j = t / PART_SIZE;
-                //         let v = i * PART_SIZE + j;
-                //         let (xor_rows, _, _) = eval_keccak_f_to_bit_vec::<F>(
-                //             s[v] + absorbs[(v % PART_SIZE) * PART_SIZE + (v / PART_SIZE)],
-                //             s_new[v],
-                //         );
-                //         xor_rows
-                //     })
-                //     .collect();
-
-                // for k in 0..NUM_WORDS_TO_ABSORB {
-                //     let mut sum_split_vec =  split_values[k][NUM_PER_WORD - 1].0;
-
-                //     for &value in split_values[k]
-                //         .iter()
-                //         .rev()
-                //         .take(NUM_PER_WORD)
-                //         .skip(1)
-                //     {
-                //         sum_split_vec = sum_split_vec * F::from(64) + value.0;
-
-                //     }
-                //     println!("sum_split_vec = {:?}, setup_sum_split_value_vec = {:?}",
-                // sum_split_vec, s[(k % PART_SIZE) * PART_SIZE + (k / PART_SIZE)]+ absorbs[k]);
-
-                // }
-
-                // let values = PreValues{s_vec: s, absorb_rows:
-                // absorbs[0..NUM_WORDS_TO_ABSORB].to_vec(), split_values, absorb_split_vec,
-                // absorb_split_input_vec, round_value: F::ZERO,};
-                // ctx.add(&keccak_pre_step, values);
             } else {
+                let data_rlc = data_rlc_value;
                 let split_values = (0..NUM_WORDS_TO_ABSORB)
                     .map(|t| {
                         let i = t % PART_SIZE;
                         let j = t / PART_SIZE;
                         let v = i * PART_SIZE + j;
-                        let (xor_rows, _, _) = eval_keccak_f_to_bit_vec::<F>(
+                        eval_keccak_f_to_bit_vec4::<F>(
                             s[v] + absorbs[(v % PART_SIZE) * PART_SIZE + (v / PART_SIZE)],
                             s_new[v],
-                        );
-                        xor_rows
+                        )
+                    })
+                    .collect();
+                let data_rlc_vec: Vec<Vec<F>> = absorb_split_input_vec
+                    .iter()
+                    .zip(is_padding_vec.iter())
+                    .map(|(v1_vec, v2_vec)| {
+                        v1_vec
+                            .iter()
+                            .zip(v2_vec.iter())
+                            .map(|(&v1, &v2)| {
+                                if v2 == F::ZERO {
+                                    data_rlc_value = data_rlc_value * F::from(256) + v1
+                                }
+                                data_rlc_value
+                            })
+                            .collect()
                     })
                     .collect();
                 let values = PreValues {
@@ -1562,62 +1807,80 @@ fn keccak_circuit<F: PrimeField<Repr = [u8; 32]> + Eq + Hash>(
                     absorb_split_vec,
                     absorb_split_input_vec,
                     round_value: F::ZERO,
+                    is_padding_vec,
+                    input_len: F::from(input_num as u64),
+                    data_rlc_vec,
+                    data_rlc,
                 };
                 ctx.add(&keccak_pre_step, values);
             }
 
             for (round, &cst) in ROUND_CST.iter().enumerate().take(NUM_ROUNDS) {
-                let values = eval_keccak_f_one_round(round as u64, cst, s_new.to_vec());
-
+                let mut values = eval_keccak_f_one_round(
+                    round as u64,
+                    cst,
+                    s_new.to_vec(),
+                    input_num as u64,
+                    data_rlc_value,
+                );
                 s_new = values.s_new_vec.clone().try_into().unwrap();
-                ctx.add(&keccak_one_round, values.clone());
+
+                if k != chunks_len - 1 || round != NUM_ROUNDS - 1 {
+                    ctx.add(&keccak_one_round_step_vec[0], values.clone());
+                } else {
+                    // squeezing
+                    let mut squeeze_split_vec: Vec<Vec<F>> = Vec::new();
+                    let mut squeeze_split_output_vec: Vec<Vec<F>> = Vec::new();
+                    for i in 0..4 {
+                        let bits = convert_field_to_vec_bits(s_new[i * PART_SIZE]);
+
+                        squeeze_split_vec.push(
+                            (0..SQUEEZE_SPLIT_NUM / 2)
+                                .map(|k| {
+                                    let value = bits[k * 8] as u64
+                                        + bits[k * 8 + 1] as u64 * 8
+                                        + bits[k * 8 + 2] as u64 * 64
+                                        + bits[k * 8 + 3] as u64 * 512
+                                        + bits[k * 8 + 4] as u64 * 4096
+                                        + bits[k * 8 + 5] as u64 * 8 * 4096
+                                        + bits[k * 8 + 6] as u64 * 64 * 4096
+                                        + bits[k * 8 + 7] as u64 * 512 * 4096;
+                                    F::from(value)
+                                })
+                                .collect(),
+                        );
+                        squeeze_split_output_vec.push(
+                            (0..SQUEEZE_SPLIT_NUM / 2)
+                                .map(|k| {
+                                    let value = bits[k * 8] as u64
+                                        + bits[k * 8 + 1] as u64 * 2
+                                        + bits[k * 8 + 2] as u64 * 4
+                                        + bits[k * 8 + 3] as u64 * 8
+                                        + bits[k * 8 + 4] as u64 * 16
+                                        + bits[k * 8 + 5] as u64 * 32
+                                        + bits[k * 8 + 6] as u64 * 64
+                                        + bits[k * 8 + 7] as u64 * 128;
+                                    F::from(value)
+                                })
+                                .collect(),
+                        );
+                    }
+                    let mut hash_rlc = F::ZERO;
+                    for squeeze_split_output in squeeze_split_output_vec.iter().take(4) {
+                        for output in squeeze_split_output.iter().take(SQUEEZE_SPLIT_NUM / 2) {
+                            hash_rlc = hash_rlc * F::from(256) + output;
+                        }
+                    }
+                    values.svalues = SqueezeValues {
+                        s_new_vec: s_new.to_vec(),
+                        squeeze_split_vec,
+                        squeeze_split_output_vec,
+                        hash_rlc,
+                    };
+                    ctx.add(&keccak_one_round_step_vec[1], values);
+                }
             }
         }
-
-        // squeezing
-        let mut squeeze_split_vec: Vec<Vec<F>> = Vec::new();
-        let mut squeeze_split_output_vec = Vec::new();
-        for i in 0..4 {
-            let bits = convert_field_to_vec_bits(s_new[i * PART_SIZE]);
-
-            squeeze_split_vec.push(
-                (0..SQUEEZE_SPLIT_NUM / 2)
-                    .map(|k| {
-                        let value = bits[k * 8] as u64
-                            + bits[k * 8 + 1] as u64 * 8
-                            + bits[k * 8 + 2] as u64 * 64
-                            + bits[k * 8 + 3] as u64 * 512
-                            + bits[k * 8 + 4] as u64 * 4096
-                            + bits[k * 8 + 5] as u64 * 8 * 4096
-                            + bits[k * 8 + 6] as u64 * 64 * 4096
-                            + bits[k * 8 + 7] as u64 * 512 * 4096;
-                        F::from(value)
-                    })
-                    .collect(),
-            );
-            squeeze_split_output_vec.push(
-                (0..SQUEEZE_SPLIT_NUM / 2)
-                    .map(|k| {
-                        let value = bits[k * 8] as u64
-                            + bits[k * 8 + 1] as u64 * 2
-                            + bits[k * 8 + 2] as u64 * 4
-                            + bits[k * 8 + 3] as u64 * 8
-                            + bits[k * 8 + 4] as u64 * 16
-                            + bits[k * 8 + 5] as u64 * 32
-                            + bits[k * 8 + 6] as u64 * 64
-                            + bits[k * 8 + 7] as u64 * 128;
-                        F::from(value)
-                    })
-                    .collect(),
-            );
-        }
-
-        let values = SqueezeValues {
-            s_vec: s_new.to_vec(),
-            squeeze_split_vec,
-            squeeze_split_output_vec,
-        };
-        ctx.add(&keccak_squeeze_step, values);
 
         let output2: Vec<Vec<u8>> = (0..4)
             .map(|k| {
@@ -1653,7 +1916,7 @@ fn keccak_super_circuit<F: PrimeField<Repr = [u8; 32]> + Eq + Hash>(
 ) -> SuperCircuit<F, KeccakCircuit> {
     super_circuit::<F, KeccakCircuit, _>("keccak", |ctx| {
         let in_n = (input_len + 1 + RATE_IN_BITS) / RATE_IN_BITS;
-        let step_num = in_n * (1 + NUM_ROUNDS) + 1;
+        let step_num = in_n * (1 + NUM_ROUNDS);
 
         let single_config = config(SingleRowCellManager {}, LogNSelectorBuilder {});
         let (_, constants_table) = ctx.sub_circuit(
@@ -1710,10 +1973,7 @@ fn keccak_plaf(circuit_param: KeccakCircuit, k: u32) {
     for wit_gen in witness.values() {
         let wit_gen = wit_gen.clone();
 
-        let mut circuit = super_circuit.get_sub_circuits()[5].clone();
-        circuit
-            .columns
-            .append(&mut super_circuit.get_sub_circuits()[0].columns);
+        let mut circuit = super_circuit.get_sub_circuits()[0].clone();
         circuit
             .columns
             .append(&mut super_circuit.get_sub_circuits()[1].columns);
@@ -1726,6 +1986,9 @@ fn keccak_plaf(circuit_param: KeccakCircuit, k: u32) {
         circuit
             .columns
             .append(&mut super_circuit.get_sub_circuits()[4].columns);
+        circuit
+            .columns
+            .append(&mut super_circuit.get_sub_circuits()[5].columns);
         circuit
             .columns
             .append(&mut super_circuit.get_sub_circuits()[6].columns);
@@ -1757,7 +2020,7 @@ fn keccak_plaf(circuit_param: KeccakCircuit, k: u32) {
     }
 }
 
-fn keccak_run(circuit_param: KeccakCircuit, k: u32) {
+fn keccak_run(circuit_param: KeccakCircuit, k: u32) -> bool {
     let super_circuit = keccak_super_circuit::<Fr>(circuit_param.bits.len());
     let compiled = chiquitoSuperCircuit2Halo2(&super_circuit);
 
@@ -1775,6 +2038,9 @@ fn keccak_run(circuit_param: KeccakCircuit, k: u32) {
         for failure in failures.iter() {
             println!("{}", failure);
         }
+        false
+    } else {
+        true
     }
 }
 
@@ -1787,16 +2053,18 @@ fn main() {
         ],
     };
 
-    keccak_run(circuit_param, 9);
+    let res = keccak_run(circuit_param, 9);
 
-    keccak_plaf(
-        KeccakCircuit {
-            bits: vec![
-                0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0,
-                0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0,
-                1, 1, 1, 0, 0, 0, 0, 0,
-            ],
-        },
-        9,
-    );
+    if res {
+        keccak_plaf(
+            KeccakCircuit {
+                bits: vec![
+                    0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 1, 1,
+                    0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 0, 0, 1, 1, 0,
+                    0, 0, 0, 0, 1, 1, 1, 0, 0, 0, 0, 0,
+                ],
+            },
+            9,
+        );
+    }
 }
