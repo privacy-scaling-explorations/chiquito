@@ -202,7 +202,7 @@ impl StepSelectorBuilder for LogNSelectorBuilder {
 
         let n_step_types = unit.step_types.len() as u64;
         let n_cols = (n_step_types as f64 + 1.0).log2().ceil() as u64;
-
+        println!("n_step_types = {}, n_cols = {}", n_step_types, n_cols);
         let mut annotation;
         for index in 0..n_cols {
             annotation = format!("'binary selector column {}'", index);
