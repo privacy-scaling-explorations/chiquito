@@ -51,11 +51,11 @@ mod test {
     use halo2curves::bn256::Fr;
 
     use crate::{
-        ast::{query::Queriable, InternalSignal},
         poly::{
             simplify::{assoc_mul_simplify, const_mul_simplify, simplify_mul},
             ToExpr,
         },
+        sbpir::{query::Queriable, InternalSignal},
     };
 
     use super::Expr::*;

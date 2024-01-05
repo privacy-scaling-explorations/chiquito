@@ -3,12 +3,12 @@ use std::hash::Hash;
 use crate::field::Field;
 
 use crate::{
-    ast::query::Queriable,
     frontend::dsl::{
         cb::{Constraint, Typing},
         StepTypeContext,
     },
     poly::ToExpr,
+    sbpir::query::Queriable,
     wit_gen::StepInstance,
 };
 

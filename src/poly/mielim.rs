@@ -73,8 +73,8 @@ mod test {
     use halo2curves::bn256::Fr;
 
     use crate::{
-        ast::{query::Queriable, InternalSignal},
         poly::{ConstrDecomp, Expr},
+        sbpir::{query::Queriable, InternalSignal},
     };
 
     use super::{mi_elimination, SignalFactory};

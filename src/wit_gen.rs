@@ -1,9 +1,9 @@
 use std::{collections::HashMap, fmt, hash::Hash, rc::Rc};
 
 use crate::{
-    ast::{query::Queriable, ASTExpr, Circuit, StepTypeUUID},
     field::Field,
     frontend::dsl::StepTypeWGHandler,
+    sbpir::{query::Queriable, StepTypeUUID, PIR, SBPIR},
     util::UUID,
 };
 
@@ -152,7 +152,7 @@ impl<F: Default, TraceArgs> TraceGenerator<F, TraceArgs> {
 
 #[derive(Debug, Clone)]
 pub struct AutoTraceGenerator<F> {
-    auto_signals: HashMap<UUID, HashMap<Queriable<F>, ASTExpr<F>>>,
+    auto_signals: HashMap<UUID, HashMap<Queriable<F>, PIR<F>>>,
 }
 
 impl<F> Default for AutoTraceGenerator<F> {
@@ -163,8 +163,8 @@ impl<F> Default for AutoTraceGenerator<F> {
     }
 }
 
-impl<F: Clone, TraceArgs> From<&Circuit<F, TraceArgs>> for AutoTraceGenerator<F> {
-    fn from(circuit: &Circuit<F, TraceArgs>) -> Self {
+impl<F: Clone, TraceArgs> From<&SBPIR<F, TraceArgs>> for AutoTraceGenerator<F> {
+    fn from(circuit: &SBPIR<F, TraceArgs>) -> Self {
         let auto_signals = circuit
             .step_types
             .iter()
@@ -190,7 +190,7 @@ impl<F: Field + Eq + PartialEq + Hash + Clone> AutoTraceGenerator<F> {
 
     fn step_gen(
         &self,
-        auto_signals: &HashMap<Queriable<F>, ASTExpr<F>>,
+        auto_signals: &HashMap<Queriable<F>, PIR<F>>,
         witness: &mut StepInstance<F>,
     ) {
         let mut pending = auto_signals
@@ -274,8 +274,8 @@ impl<F: Field + Hash> FixedGenContext<F> {
 mod tests {
     use super::*;
     use crate::{
-        ast::{query::Queriable, FixedSignal, ForwardSignal},
         frontend::dsl::StepTypeWGHandler,
+        sbpir::{query::Queriable, FixedSignal, ForwardSignal},
         util::uuid,
     };
     use halo2_proofs::halo2curves::bn256::Fr;

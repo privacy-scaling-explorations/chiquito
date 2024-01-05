@@ -1,8 +1,8 @@
 use std::{fmt::Debug, hash::Hash};
 
 use crate::{
-    ast::{ImportedHalo2Advice, ImportedHalo2Fixed},
     poly::Expr,
+    sbpir::{ImportedHalo2Advice, ImportedHalo2Fixed},
     util::{uuid, UUID},
 };
 

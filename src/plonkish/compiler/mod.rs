@@ -1,11 +1,11 @@
 use crate::{
-    ast::{query::Queriable, ASTExpr, Circuit as astCircuit, ExposeOffset, StepType, StepTypeUUID},
     field::Field,
     plonkish::ir::{
         assignments::{AssignmentGenerator, Assignments},
         Circuit, Column, Poly, PolyExpr, PolyLookup,
     },
     poly::Expr,
+    sbpir::{query::Queriable, ExposeOffset, StepType, StepTypeUUID, PIR, SBPIR as astCircuit},
     wit_gen::{AutoTraceGenerator, FixedAssignment, TraceGenerator},
 };
 use std::{hash::Hash, rc::Rc};
@@ -371,7 +371,7 @@ fn place_queriable<F: Clone>(
 fn transform_expr<F: Clone>(
     unit: &CompilationUnit<F>,
     step: &StepType<F>,
-    source: &ASTExpr<F>,
+    source: &PIR<F>,
 ) -> PolyExpr<F> {
     match source.clone() {
         Expr::Const(c) => PolyExpr::Const(c),

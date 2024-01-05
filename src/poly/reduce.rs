@@ -166,8 +166,8 @@ mod test {
     use halo2curves::bn256::Fr;
 
     use crate::{
-        ast::{query::Queriable, InternalSignal},
         poly::{Expr::*, ToExpr},
+        sbpir::{query::Queriable, InternalSignal},
     };
 
     use super::{reduce_degre, reduce_degree_mul, SignalFactory};
