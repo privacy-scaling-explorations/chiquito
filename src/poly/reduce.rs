@@ -146,7 +146,7 @@ fn reduce_degree_mul<F: Field, V: Clone + Eq + PartialEq + Hash + Debug, SF: Sig
     assert!(!for_root.is_empty());
     assert!(!to_simplify.is_empty());
 
-    let rest_signal = signal_factory.create("rest expr");
+    let rest_signal = signal_factory.create("rest_expr");
     let mut root_exprs: Vec<_> = for_root.iter().map(|se| se.root_constr.clone()).collect();
     root_exprs.push(Expr::Query(rest_signal.clone()));
     let root_expr = Expr::Mul(root_exprs);
