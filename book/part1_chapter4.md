@@ -19,7 +19,7 @@ When you need to do a rotation on a signal you can use the operators `.next()`, 
  + `when(selector, when_true)`:  Logical imply.
  + `unless(selector, when_false)`: Logical imply when !selector.
  + `cb_not(a)`: Not operator.
- + isz(a): Equal to zero.
+ + `isz(a)`: Equal to zero.
  + `if_next_step(step_type, a)`: If next step is step_type, implies a.
  + `next_step_must_be(step_type)`: Enforces next step must be step_type.
  + `next_step_must_not_be(step_type)`: Enforces next step must not be step_type.
