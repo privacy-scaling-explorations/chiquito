@@ -128,10 +128,10 @@ fn reduce_degree_mul<F: Field, V: Clone + Eq + PartialEq + Hash + Debug, SF: Sig
         .collect();
 
     // for_root will be multipliers that will be included in the root expression
-    let mut for_root: Vec<ConstrDecomp<F, V>> = Default::default();
+    let mut for_root = Vec::new();
     // to_simplify will be multipliers that will be recursively decomposed and subsituted by a
     // virtual signal in the root expression
-    let mut to_simplify: Vec<ConstrDecomp<F, V>> = Default::default();
+    let mut to_simplify = Vec::new();
 
     let mut current_degree = 0;
     for se in ses_reduced {
