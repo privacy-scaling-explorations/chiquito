@@ -437,7 +437,7 @@ mod tests {
 
     #[test]
     fn test_set_num_steps() {
-        let circuit: Circuit<i32, i32> = Circuit::default();
+        let circuit: SBPIR<i32, i32> = SBPIR::default();
         let mut context = CircuitContext {
             circuit,
             tables: Default::default(),
@@ -453,7 +453,7 @@ mod tests {
     #[test]
     fn test_forward() {
         // create circuit context
-        let circuit: Circuit<i32, i32> = Circuit::default();
+        let circuit: SBPIR<i32, i32> = SBPIR::default();
         let mut context = CircuitContext {
             circuit,
             tables: Default::default(),
@@ -472,7 +472,7 @@ mod tests {
     #[test]
     fn test_forward_with_phase() {
         // create circuit context
-        let circuit: Circuit<i32, i32> = Circuit::default();
+        let circuit: SBPIR<i32, i32> = SBPIR::default();
         let mut context = CircuitContext {
             circuit,
             tables: Default::default(),
@@ -491,7 +491,7 @@ mod tests {
     #[test]
     fn test_shared() {
         // create circuit context
-        let circuit: Circuit<i32, i32> = Circuit::default();
+        let circuit: SBPIR<i32, i32> = SBPIR::default();
         let mut context = CircuitContext {
             circuit,
             tables: Default::default(),
@@ -508,7 +508,7 @@ mod tests {
     #[test]
     fn test_shared_with_phase() {
         // create circuit context
-        let circuit: Circuit<i32, i32> = Circuit::default();
+        let circuit: SBPIR<i32, i32> = SBPIR::default();
         let mut context = CircuitContext {
             circuit,
             tables: Default::default(),
@@ -525,7 +525,7 @@ mod tests {
     #[test]
     fn test_fixed() {
         // create circuit context
-        let circuit: Circuit<i32, i32> = Circuit::default();
+        let circuit: SBPIR<i32, i32> = SBPIR::default();
         let mut context = CircuitContext {
             circuit,
             tables: Default::default(),
@@ -541,7 +541,7 @@ mod tests {
     #[test]
     fn test_expose() {
         // create circuit context
-        let circuit: Circuit<i32, i32> = Circuit::default();
+        let circuit: SBPIR<i32, i32> = SBPIR::default();
         let mut context = CircuitContext {
             circuit,
             tables: Default::default(),
@@ -565,7 +565,7 @@ mod tests {
     #[test]
     fn test_step_type() {
         // create circuit context
-        let circuit: Circuit<i32, i32> = Circuit::default();
+        let circuit: SBPIR<i32, i32> = SBPIR::default();
         let mut context = CircuitContext {
             circuit,
             tables: Default::default(),
@@ -584,7 +584,7 @@ mod tests {
     #[test]
     fn test_step_type_def() {
         // create circuit context
-        let circuit: Circuit<i32, i32> = Circuit::default();
+        let circuit: SBPIR<i32, i32> = SBPIR::default();
         let mut context = CircuitContext {
             circuit,
             tables: Default::default(),
@@ -610,7 +610,7 @@ mod tests {
     #[test]
     fn test_step_type_def_pass_handler() {
         // create circuit context
-        let circuit: Circuit<i32, i32> = Circuit::default();
+        let circuit: SBPIR<i32, i32> = SBPIR::default();
         let mut context = CircuitContext {
             circuit,
             tables: Default::default(),
