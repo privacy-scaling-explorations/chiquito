@@ -238,10 +238,16 @@ pub trait SignalFactory<V> {
     fn create<S: Into<String>>(&mut self, annotation: S) -> V;
 }
 
+/// The result of decomposing a PI into several
 #[derive(Debug, Clone)]
 pub struct ConstrDecomp<F, V> {
+    /// The resulting root expression that can be substituted for the orginal expression. This new
+    /// expression will depend on new signals that are constraint by other PI.
     root_constr: Expr<F, V>,
+    /// PI constraint for the new signals introduced.
     constrs: Vec<Expr<F, V>>,
+    /// Expressions for how to create the witness for the generated signals the orginal expression
+    /// has be decomposed into.
     auto_signals: HashMap<V, Expr<F, V>>,
 }
 

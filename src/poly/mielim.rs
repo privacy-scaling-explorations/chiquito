@@ -3,6 +3,8 @@ use std::{fmt::Debug, hash::Hash};
 use super::{ConstrDecomp, Expr, SignalFactory};
 use crate::field::Field;
 
+/// This function eliminates MI operators from the PI expression, by creating new signals that are
+/// constraint to the MI sub-expressions.
 pub fn mi_elimination<F: Field, V: Clone + Eq + PartialEq + Hash + Debug, SF: SignalFactory<V>>(
     constr: Expr<F, V>,
     signal_factory: &mut SF,

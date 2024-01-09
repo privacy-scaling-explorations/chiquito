@@ -7,6 +7,7 @@ use crate::{
 
 use super::{ConstrDecomp, SignalFactory};
 
+/// Reduces the degree of an PI by decomposing it in many PI with a maximum degree.
 pub fn reduce_degre<F: Field, V: Clone + Eq + PartialEq + Hash + Debug, SF: SignalFactory<V>>(
     constr: Expr<F, V>,
     max_degree: usize,
@@ -15,6 +16,21 @@ pub fn reduce_degre<F: Field, V: Clone + Eq + PartialEq + Hash + Debug, SF: Sign
     reduce_degree_recursive(constr, max_degree, max_degree, signal_factory)
 }
 
+/// Actual recursive implementation of `reduce_degre`. Key here to understand the difference
+/// between:  + total_max_degree: maximum degree of the PI the input expression is decomposed of.
+///  + partial_max_degree: maximum degree of the root PI, that can substitute the orginal
+/// expression.
+///
+/// The value of `partial_max_degree` can be less than `total_max_degree` when this
+/// function is called recursively on a PI sub-expression, so the resulting root PI can be included
+/// in a "parent" PI with a degree that is smaller than the maximum. This is only done in
+/// `reduce_degree_mul`: ```
+/// let partial_max_degree = if first {
+///     total_max_degree - 1
+/// } else {
+///    total_max_degree
+/// };
+/// ```
 fn reduce_degree_recursive<
     F: Field,
     V: Clone + Eq + PartialEq + Hash + Debug,
