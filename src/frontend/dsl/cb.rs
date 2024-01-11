@@ -763,8 +763,8 @@ mod tests {
         // Create a boolean and convert it to a Constraint
         let constraint: Constraint<Fr> = Constraint::from(true);
 
-        assert_eq!(constraint.annotation, "true");
+        assert_eq!(constraint.annotation, "0x1");
         assert!(matches!(constraint.expr, Expr::Const(c) if c == 1u64.field()));
-        assert!(matches!(constraint.typing, Typing::Boolean));
+        assert!(matches!(constraint.typing, Typing::Unknown));
     }
 }

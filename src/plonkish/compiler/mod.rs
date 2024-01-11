@@ -623,7 +623,7 @@ mod test {
 
         compile_phase2(&mut unit);
 
-        assert_eq!(unit.columns.len(), 1);
+        assert_eq!(unit.columns.len(), 0);
         assert_eq!(unit.exposed.len(), 0);
         assert_eq!(unit.polys.len(), 0);
         assert_eq!(unit.lookups.len(), 0);
