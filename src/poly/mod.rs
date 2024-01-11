@@ -248,13 +248,16 @@ pub struct ConstrDecomp<F, V> {
     auto_signals: HashMap<V, Expr<F, V>>,
 }
 
-impl<F: Clone, V: Clone + Eq + PartialEq + Hash> ConstrDecomp<F, V> {
-    fn new() -> Self {
+impl<F, V> Default for ConstrDecomp<F, V> {
+    fn default() -> Self {
         Self {
-            constrs: Vec::new(),
-            auto_signals: HashMap::new(),
+            constrs: Default::default(),
+            auto_signals: Default::default(),
         }
     }
+}
+
+impl<F: Clone, V: Clone + Eq + PartialEq + Hash> ConstrDecomp<F, V> {
     fn auto_eq(&mut self, signal: V, expr: Expr<F, V>) {
         self.constrs.push(Expr::Sum(vec![
             expr.clone(),
