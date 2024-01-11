@@ -1,71 +1,44 @@
-use std::{fmt::Debug, hash::Hash};
+use std::{collections::HashMap, fmt::Debug, hash::Hash};
 
 use super::{ConstrDecomp, Expr, SignalFactory};
 use crate::field::Field;
 
-/// This function eliminates MI operators from the PI expression, by creating new signals that are
-/// constraint to the MI sub-expressions.
 pub fn mi_elimination<F: Field, V: Clone + Eq + PartialEq + Hash + Debug, SF: SignalFactory<V>>(
+    ctx: &mut ConstrDecomp<F, V>,
     constr: Expr<F, V>,
     signal_factory: &mut SF,
-) -> ConstrDecomp<F, V> {
+) -> Expr<F, V> {
     use Expr::*;
 
     match constr {
-        Expr::Const(_) => ConstrDecomp::from(constr),
-        Expr::Sum(ses) => {
-            let ses_elim: Vec<_> = ses
-                .iter()
-                .map(|se| mi_elimination(se.clone(), signal_factory))
-                .collect();
-
-            let root_expr = Expr::Sum(ses_elim.iter().map(|r| r.root_constr.clone()).collect());
-
-            ConstrDecomp::merge(root_expr, ses_elim)
-        }
-        Expr::Mul(ses) => {
-            let ses_elim: Vec<_> = ses
-                .iter()
-                .map(|se| mi_elimination(se.clone(), signal_factory))
-                .collect();
-
-            let root_expr = Expr::Mul(ses_elim.iter().map(|r| r.root_constr.clone()).collect());
-
-            ConstrDecomp::merge(root_expr, ses_elim)
-        }
-        Expr::Neg(se) => {
-            let se_elim = mi_elimination(*se, signal_factory);
-
-            let root_expr = Expr::Neg(Box::new(se_elim.root_constr.clone()));
-
-            ConstrDecomp::merge(root_expr, vec![se_elim])
-        }
-        Expr::Pow(se, exp) => {
-            let se_elim = mi_elimination(*se, signal_factory);
-
-            let root_expr = Expr::Pow(Box::new(se_elim.root_constr.clone()), exp);
-
-            ConstrDecomp::merge(root_expr, vec![se_elim])
-        }
-        Expr::Query(_) => ConstrDecomp::from(constr),
-        Expr::Halo2Expr(_) => ConstrDecomp::from(constr),
+        Expr::Const(_) => constr,
+        Expr::Sum(ses) => Expr::Sum(
+            ses.into_iter()
+                .map(|se| mi_elimination(ctx, se, signal_factory))
+                .collect(),
+        ),
+        Expr::Mul(ses) => Expr::Mul(
+            ses.into_iter()
+                .map(|se| mi_elimination(ctx, se, signal_factory))
+                .collect(),
+        ),
+        Expr::Neg(se) => Expr::Neg(Box::new(mi_elimination(ctx, *se, signal_factory))),
+        Expr::Pow(se, exp) => Expr::Pow(Box::new(mi_elimination(ctx, *se, signal_factory)), exp),
+        Expr::Query(_) => constr,
+        Expr::Halo2Expr(_) => constr,
         Expr::MI(se) => {
-            let se_elim = mi_elimination(*se.clone(), signal_factory);
+            let se_elim = mi_elimination(ctx, *se.clone(), signal_factory);
 
             let virtual_mi = signal_factory.create("virtual_inv");
-            let root_expr = Query(virtual_mi.clone());
+            let constr_inv = Query(virtual_mi.clone());
 
-            let mut result = ConstrDecomp::from(root_expr);
-            result.auto_signals.insert(virtual_mi.clone(), MI(se));
+            ctx.auto_signals.insert(virtual_mi.clone(), MI(se));
 
-            let virtual_constr = se_elim.root_constr.clone()
-                * (Const(F::ONE) - (se_elim.root_constr.clone() * Query(virtual_mi)));
+            let virtual_constr =
+                se_elim.clone() * (Const(F::ONE) - (se_elim.clone() * Query(virtual_mi)));
 
-            result.constrs.push(virtual_constr);
-
-            result.expand(vec![se_elim]);
-
-            result
+            ctx.constrs.push(virtual_constr);
+            constr_inv
         }
     }
 }
@@ -105,102 +78,100 @@ mod test {
         let e: Queriable<Fr> = Queriable::Internal(InternalSignal::new("e"));
         let f: Queriable<Fr> = Queriable::Internal(InternalSignal::new("f"));
 
-        let result: ConstrDecomp<Fr, Queriable<Fr>> =
-            mi_elimination(MI(Box::new(Query(a))), &mut TestSignalFactory::default());
+        let constr: Expr<Fr, _> = MI(Box::new(Query(a)));
+        let mut ctx = ConstrDecomp::new();
+        let result = mi_elimination(&mut ctx, constr, &mut TestSignalFactory::default());
 
-        assert_eq!(format!("{:#?}", result.root_constr), "v1");
+        assert_eq!(format!("{:#?}", result), "v1");
         assert_eq!(
-            format!("{:#?}", result.constrs[0]),
+            format!("{:#?}", ctx.constrs[0]),
             "(a * (0x1 + (-(a * v1))))"
         );
-        assert_eq!(result.constrs.len(), 1);
-        assert!(result
+        assert_eq!(ctx.constrs.len(), 1);
+        assert!(ctx
             .auto_signals
             .iter()
             .any(|(s, expr)| format!("{:#?}: {:#?}", s, expr) == "v1: mi(a)"));
-        assert_eq!(result.auto_signals.len(), 1);
+        assert_eq!(ctx.auto_signals.len(), 1);
 
         let constr = a * MI(Box::new(b + c));
-        let result: ConstrDecomp<Fr, Queriable<Fr>> =
-            mi_elimination(constr, &mut TestSignalFactory::default());
+        let mut ctx = ConstrDecomp::new();
+        let result = mi_elimination(&mut ctx, constr, &mut TestSignalFactory::default());
 
-        assert_eq!(format!("{:#?}", result.root_constr), "(a * v1)");
+        assert_eq!(format!("{:#?}", result), "(a * v1)");
         assert_eq!(
-            format!("{:#?}", result.constrs[0]),
+            format!("{:#?}", ctx.constrs[0]),
             "((b + c) * (0x1 + (-((b + c) * v1))))"
         );
-        assert_eq!(result.constrs.len(), 1);
-        assert!(result
+        assert_eq!(ctx.constrs.len(), 1);
+        assert!(ctx
             .auto_signals
             .iter()
             .any(|(s, expr)| format!("{:#?}: {:#?}", s, expr) == "v1: mi((b + c))"));
-        assert_eq!(result.auto_signals.len(), 1);
+        assert_eq!(ctx.auto_signals.len(), 1);
 
         let constr = c + MI(Box::new(a * MI(Box::new(b + c))));
-        let result: ConstrDecomp<Fr, Queriable<Fr>> =
-            mi_elimination(constr.clone(), &mut TestSignalFactory::default());
+        let mut ctx = ConstrDecomp::new();
+        let result = mi_elimination(&mut ctx, constr.clone(), &mut TestSignalFactory::default());
 
-        assert_eq!(format!("{:#?}", result.root_constr), "(c + v2)");
+        assert_eq!(format!("{:#?}", result), "(c + v2)");
         assert_eq!(
-            format!("{:#?}", result.constrs[0]),
-            "(a * v1 * (0x1 + (-(a * v1 * v2))))"
-        );
-        assert_eq!(
-            format!("{:#?}", result.constrs[1]),
+            format!("{:#?}", ctx.constrs[0]),
             "((b + c) * (0x1 + (-((b + c) * v1))))"
         );
-        assert_eq!(result.constrs.len(), 2);
-        assert!(result
+        assert_eq!(
+            format!("{:#?}", ctx.constrs[1]),
+            "(a * v1 * (0x1 + (-(a * v1 * v2))))"
+        );
+        assert_eq!(ctx.constrs.len(), 2);
+        assert!(ctx
             .auto_signals
             .iter()
             .any(|(s, expr)| format!("{:#?}: {:#?}", s, expr) == "v1: mi((b + c))"));
-        assert!(result
+        assert!(ctx
             .auto_signals
             .iter()
             .any(|(s, expr)| format!("{:#?}: {:#?}", s, expr) == "v2: mi((a * mi((b + c))))"));
-        assert_eq!(result.auto_signals.len(), 2);
+        assert_eq!(ctx.auto_signals.len(), 2);
 
         let constr = constr * (f + MI(Box::new(d * MI(Box::new(e + f)))));
-        let result: ConstrDecomp<Fr, Queriable<Fr>> =
-            mi_elimination(constr, &mut TestSignalFactory::default());
+        let mut ctx = ConstrDecomp::new();
+        let result = mi_elimination(&mut ctx, constr, &mut TestSignalFactory::default());
 
+        assert_eq!(format!("{:#?}", result), "((c + v2) * (f + v4))");
         assert_eq!(
-            format!("{:#?}", result.root_constr),
-            "((c + v2) * (f + v4))"
-        );
-        assert_eq!(
-            format!("{:#?}", result.constrs[0]),
-            "(a * v1 * (0x1 + (-(a * v1 * v2))))"
-        );
-        assert_eq!(
-            format!("{:#?}", result.constrs[1]),
+            format!("{:#?}", ctx.constrs[0]),
             "((b + c) * (0x1 + (-((b + c) * v1))))"
         );
         assert_eq!(
-            format!("{:#?}", result.constrs[2]),
-            "(d * v3 * (0x1 + (-(d * v3 * v4))))"
+            format!("{:#?}", ctx.constrs[1]),
+            "(a * v1 * (0x1 + (-(a * v1 * v2))))"
         );
         assert_eq!(
-            format!("{:#?}", result.constrs[3]),
+            format!("{:#?}", ctx.constrs[2]),
             "((e + f) * (0x1 + (-((e + f) * v3))))"
         );
-        assert_eq!(result.constrs.len(), 4);
-        assert!(result
+        assert_eq!(
+            format!("{:#?}", ctx.constrs[3]),
+            "(d * v3 * (0x1 + (-(d * v3 * v4))))"
+        );
+        assert_eq!(ctx.constrs.len(), 4);
+        assert!(ctx
             .auto_signals
             .iter()
             .any(|(s, expr)| format!("{:#?}: {:#?}", s, expr) == "v1: mi((b + c))"));
-        assert!(result
+        assert!(ctx
             .auto_signals
             .iter()
             .any(|(s, expr)| format!("{:#?}: {:#?}", s, expr) == "v2: mi((a * mi((b + c))))"));
-        assert!(result
+        assert!(ctx
             .auto_signals
             .iter()
             .any(|(s, expr)| format!("{:#?}: {:#?}", s, expr) == "v3: mi((e + f))"));
-        assert!(result
+        assert!(ctx
             .auto_signals
             .iter()
             .any(|(s, expr)| format!("{:#?}: {:#?}", s, expr) == "v4: mi((d * mi((e + f))))"));
-        assert_eq!(result.auto_signals.len(), 4);
+        assert_eq!(ctx.auto_signals.len(), 4);
     }
 }
