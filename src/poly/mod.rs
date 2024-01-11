@@ -241,9 +241,6 @@ pub trait SignalFactory<V> {
 /// The result of decomposing a PI into several
 #[derive(Debug, Clone)]
 pub struct ConstrDecomp<F, V> {
-    /// The resulting root expression that can be substituted for the orginal expression. This new
-    /// expression will depend on new signals that are constraint by other PI.
-    root_constr: Expr<F, V>,
     /// PI constraint for the new signals introduced.
     constrs: Vec<Expr<F, V>>,
     /// Expressions for how to create the witness for the generated signals the orginal expression
@@ -251,43 +248,13 @@ pub struct ConstrDecomp<F, V> {
     auto_signals: HashMap<V, Expr<F, V>>,
 }
 
-impl<F, V> From<Expr<F, V>> for ConstrDecomp<F, V> {
-    fn from(value: Expr<F, V>) -> Self {
-        ConstrDecomp {
-            root_constr: value,
-            constrs: Default::default(),
-            auto_signals: Default::default(),
+impl<F: Clone, V: Clone + Eq + PartialEq + Hash> ConstrDecomp<F, V> {
+    fn new() -> Self {
+        Self {
+            constrs: Vec::new(),
+            auto_signals: HashMap::new(),
         }
     }
-}
-
-impl<F: Clone, V: Clone + Eq + PartialEq + Hash> ConstrDecomp<F, V> {
-    fn merge(root_expr: Expr<F, V>, reductions: Vec<ConstrDecomp<F, V>>) -> Self {
-        let mut result = ConstrDecomp::from(root_expr);
-        result.expand(reductions);
-
-        result
-    }
-
-    fn expand(&mut self, reductions: Vec<ConstrDecomp<F, V>>) {
-        self.constrs.extend(
-            reductions
-                .iter()
-                .map(|se| se.constrs.clone())
-                .collect::<Vec<_>>()
-                .concat(),
-        );
-
-        let mut auto_signals: HashMap<V, Expr<F, V>> = Default::default();
-        reductions.iter().for_each(|se| {
-            se.auto_signals.iter().for_each(|(k, v)| {
-                auto_signals.insert(k.clone(), v.clone());
-            })
-        });
-
-        self.auto_signals.extend(auto_signals);
-    }
-
     fn auto_eq(&mut self, signal: V, expr: Expr<F, V>) {
         self.constrs.push(Expr::Sum(vec![
             expr.clone(),
@@ -295,18 +262,6 @@ impl<F: Clone, V: Clone + Eq + PartialEq + Hash> ConstrDecomp<F, V> {
         ]));
 
         self.auto_signals.insert(signal, expr);
-    }
-
-    fn inherit(
-        root_expr: Expr<F, V>,
-        signal: V,
-        mut from: ConstrDecomp<F, V>,
-    ) -> ConstrDecomp<F, V> {
-        from.auto_eq(signal, from.root_constr.clone());
-
-        from.root_constr = root_expr;
-
-        from
     }
 }
 
