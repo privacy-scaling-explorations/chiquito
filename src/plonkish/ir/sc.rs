@@ -1,4 +1,4 @@
-use std::{collections::HashMap, hash::Hash, rc::Rc};
+use std::{collections::HashMap, hash::Hash, rc::Rc, fmt::Debug};
 
 use crate::{field::Field, util::UUID, wit_gen::TraceWitness};
 
@@ -10,6 +10,23 @@ use super::{
 pub struct SuperCircuit<F, MappingArgs> {
     sub_circuits: Vec<Circuit<F>>,
     mapping: MappingGenerator<F, MappingArgs>,
+}
+
+impl<F: Debug, MappingArgs: Debug> Debug for SuperCircuit<F, MappingArgs> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("SuperCircuit")
+            .field("sub_circuits", &self.sub_circuits)
+            .field("mapping", &self.mapping)
+            .finish()
+    }
+}
+
+impl<F: Debug, MappingArgs: Debug> Debug for MappingGenerator<F, MappingArgs> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("MappingGenerator")
+            .field("mapping", &"Function pointer cannot be printed")
+            .finish()
+    }
 }
 
 impl<F, MappingArgs> Default for SuperCircuit<F, MappingArgs> {
@@ -48,6 +65,7 @@ impl<F: Clone, MappingArgs> SuperCircuit<F, MappingArgs> {
 
 pub type SuperAssignments<F> = HashMap<UUID, Assignments<F>>;
 
+#[derive(Clone)]
 pub struct MappingContext<F> {
     assignments: SuperAssignments<F>,
 }
@@ -112,5 +130,96 @@ impl<F: Field + Hash, MappingArgs> MappingGenerator<F, MappingArgs> {
         (self.mapping)(&mut ctx, args);
 
         ctx.get_super_assignments()
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use halo2curves::bn256::Fr;
+
+    use super::*;
+
+    #[test]
+    fn test_default() {
+        let super_circuit: SuperCircuit<Fr, ()> = Default::default();
+
+        assert_eq!(format!("{:#?}", super_circuit.sub_circuits), format!("{:#?}", Vec::<Circuit<Fr>>::default()));
+        assert_eq!(format!("{:#?}", super_circuit.mapping), format!("{:#?}", MappingGenerator::<Fr, ()>::default()));
+    }
+
+    #[test]
+    fn test_add_sub_circuit() {
+        let mut super_circuit: SuperCircuit<Fr, ()> = Default::default();
+
+        let sub_circuit = Circuit::<Fr>::default();
+
+        super_circuit.add_sub_circuit(sub_circuit.clone());
+
+        assert_eq!(super_circuit.sub_circuits.len(), 1);
+        assert_eq!(format!("{:#?}", super_circuit.sub_circuits[0]), format!("{:#?}", sub_circuit));
+    }
+
+    #[test]
+    fn test_get_mapping() {
+        let super_circuit: SuperCircuit<Fr, ()> = Default::default();
+
+        let mapping = super_circuit.get_mapping();
+
+        assert_eq!(format!("{:#?}", mapping), format!("{:#?}", MappingGenerator::<Fr, ()>::default()));
+    }
+
+    #[test]
+    fn test_set_mapping() {
+        let mut super_circuit: SuperCircuit<Fr, ()> = Default::default();
+
+        super_circuit.set_mapping(|ctx, args| {
+            // Your mapping logic here
+            ctx.map(&AssignmentGenerator::<Fr, ()>::default(), args)
+
+        });
+
+        assert_eq!(format!("{:#?}", super_circuit.mapping), format!("{:#?}", MappingGenerator::<Fr, ()>::default()));
+    }
+
+    #[test]
+    fn test_get_sub_circuits() {
+        let super_circuit: SuperCircuit<Fr, ()> = Default::default();
+
+        let sub_circuits = super_circuit.get_sub_circuits();
+
+        assert_eq!(format!("{:#?}", sub_circuits), format!("{:#?}", Vec::<Circuit<Fr>>::default()));
+    }
+
+    #[test]
+    fn test_mapping_context_default() {
+        let ctx = MappingContext::<Fr>::default();
+
+        assert_eq!(format!("{:#?}", ctx.assignments), format!("{:#?}", SuperAssignments::<Fr>::default()));
+    }
+
+    #[test]
+    fn test_mapping_context_map() {
+        let mut ctx = MappingContext::<Fr>::default();
+
+        let gen = AssignmentGenerator::<Fr, ()>::default();
+
+        ctx.map(&gen, ());
+
+        assert_eq!(ctx.assignments.len(), 1);
+        assert_eq!(format!("{:#?}", ctx.assignments[&gen.uuid()]), format!("{:#?}", gen.generate(())));
+    }
+
+    #[test]
+    fn test_mapping_context_map_with_witness() {
+        let mut ctx = MappingContext::<Fr>::default();
+
+        let gen = AssignmentGenerator::<Fr, ()>::default();
+
+        let witness = TraceWitness::<Fr>::default();
+
+        ctx.map_with_witness(&gen, witness.clone());
+
+        assert_eq!(ctx.assignments.len(), 1);
+        assert_eq!(format!("{:#?}", ctx.assignments[&gen.uuid()]), format!("{:#?}", gen.generate_with_witness(witness)));
     }
 }
