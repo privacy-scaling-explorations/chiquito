@@ -562,17 +562,23 @@ mod test {
     use halo2_proofs::plonk::Any;
     use halo2curves::bn256::Fr;
 
-    use super::{*, step_selector::SimpleStepSelectorBuilder, cell_manager::SingleRowCellManager};
+    use super::{cell_manager::SingleRowCellManager, step_selector::SimpleStepSelectorBuilder, *};
 
     #[test]
     fn test_compiler_config_initialization() {
         let cell_manager = SingleRowCellManager::default();
         let step_selector_builder = SimpleStepSelectorBuilder::default();
-        
+
         let config = config(cell_manager.clone(), step_selector_builder.clone());
-        
-        assert_eq!(format!("{:#?}", config.cell_manager), format!("{:#?}", cell_manager));
-        assert_eq!(format!("{:#?}", config.step_selector_builder), format!("{:#?}", step_selector_builder));
+
+        assert_eq!(
+            format!("{:#?}", config.cell_manager),
+            format!("{:#?}", cell_manager)
+        );
+        assert_eq!(
+            format!("{:#?}", config.step_selector_builder),
+            format!("{:#?}", step_selector_builder)
+        );
     }
 
     #[test]
@@ -581,7 +587,7 @@ mod test {
         let step_selector_builder = SimpleStepSelectorBuilder::default();
         let config = config(cell_manager, step_selector_builder);
 
-        let mock_ast_circuit = astCircuit::<Fr, Any >::default();
+        let mock_ast_circuit = astCircuit::<Fr, Any>::default();
 
         let (circuit, assignment_generator) = compile(config, &mock_ast_circuit);
 
@@ -601,7 +607,7 @@ mod test {
         let step_selector_builder = SimpleStepSelectorBuilder::default();
         let config = config(cell_manager, step_selector_builder);
 
-        let mock_ast_circuit = astCircuit::<Fr, Any >::default();
+        let mock_ast_circuit = astCircuit::<Fr, Any>::default();
 
         let (unit, assignment_generator) = compile_phase1(config, &mock_ast_circuit);
 
@@ -617,7 +623,7 @@ mod test {
 
     #[test]
     fn test_compile_phase2() {
-        let mock_ast_circuit = astCircuit::<Fr, Any >::default();
+        let mock_ast_circuit = astCircuit::<Fr, Any>::default();
 
         let mut unit = CompilationUnit::from(&mock_ast_circuit);
 
@@ -633,7 +639,7 @@ mod test {
 
     #[test]
     fn test_add_default_columns() {
-        let mock_ast_circuit = astCircuit::<Fr, Any >::default();
+        let mock_ast_circuit = astCircuit::<Fr, Any>::default();
 
         let mut unit = CompilationUnit::from(&mock_ast_circuit);
         add_default_columns(&mut unit);

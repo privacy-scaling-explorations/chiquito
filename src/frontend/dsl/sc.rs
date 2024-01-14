@@ -119,7 +119,9 @@ where
 mod tests {
     use halo2curves::bn256::Fr;
 
-    use crate::plonkish::compiler::{config, cell_manager::SingleRowCellManager, step_selector::SimpleStepSelectorBuilder};
+    use crate::plonkish::compiler::{
+        cell_manager::SingleRowCellManager, config, step_selector::SimpleStepSelectorBuilder,
+    };
 
     use super::*;
 
@@ -127,10 +129,19 @@ mod tests {
     fn test_super_circuit_context_default() {
         let ctx = SuperCircuitContext::<Fr, ()>::default();
 
-        assert_eq!(format!("{:#?}", ctx.super_circuit), format!("{:#?}", SuperCircuit::<Fr, ()>::default()));
-        assert_eq!(format!("{:#?}", ctx.sub_circuit_phase1), format!("{:#?}", Vec::<CompilationUnit<Fr>>::default()));
+        assert_eq!(
+            format!("{:#?}", ctx.super_circuit),
+            format!("{:#?}", SuperCircuit::<Fr, ()>::default())
+        );
+        assert_eq!(
+            format!("{:#?}", ctx.sub_circuit_phase1),
+            format!("{:#?}", Vec::<CompilationUnit<Fr>>::default())
+        );
         assert_eq!(ctx.sub_circuit_phase1.len(), 0);
-        assert_eq!(format!("{:#?}", ctx.tables), format!("{:#?}", LookupTableRegistry::<Fr>::default()));
+        assert_eq!(
+            format!("{:#?}", ctx.tables),
+            format!("{:#?}", LookupTableRegistry::<Fr>::default())
+        );
     }
 
     #[test]
@@ -138,7 +149,10 @@ mod tests {
         let mut ctx = SuperCircuitContext::<Fr, ()>::default();
 
         let (_, _) = ctx.sub_circuit(
-            config(SingleRowCellManager::default(), SimpleStepSelectorBuilder::default()),
+            config(
+                SingleRowCellManager::default(),
+                SimpleStepSelectorBuilder::default(),
+            ),
             |ctx: &mut CircuitContext<Fr, ()>, _| {
                 ctx.fixed("fixed signal");
             },

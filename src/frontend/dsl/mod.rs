@@ -227,7 +227,7 @@ impl<F> StepTypeContext<F> {
     }
 
     /// DEPRECATED
-    #[deprecated(note = "use step types setup for constraints instead")]
+    // #[deprecated(note = "use step types setup for constraints instead")]
     pub fn constr<C: Into<Constraint<F>>>(&mut self, constraint: C) {
         println!("DEPRECATED constr: use setup for constraints in step types");
 
