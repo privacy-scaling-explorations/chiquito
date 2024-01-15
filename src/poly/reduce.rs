@@ -178,11 +178,15 @@ fn reduce_degree_mul<F: Field, V: Clone + Eq + PartialEq + Hash + Debug, SF: Sig
 
 #[cfg(test)]
 mod test {
+    use halo2_proofs::arithmetic::Field;
     use halo2curves::bn256::Fr;
+    use rand_chacha::{rand_core::SeedableRng, ChaCha20Rng};
+    use std::collections::HashMap;
 
     use crate::{
         poly::{reduce::reduce_degree, ConstrDecomp, Expr::*, ToExpr},
         sbpir::{query::Queriable, InternalSignal},
+        wit_gen::calc_auto_signals,
     };
 
     use super::{reduce_degree_mul, SignalFactory};
@@ -330,5 +334,50 @@ mod test {
             .iter()
             .any(|(s, expr)| format!("{:#?}: {:#?}", s, expr) == "v3: (c * v4)"));
         assert_eq!(decomp.auto_signals.len(), 4);
+    }
+
+    /// Test equality between original expressions and reduced form
+    #[test]
+    fn test_reduce_degree_eq() {
+        let a: Queriable<Fr> = Queriable::Internal(InternalSignal::new("a"));
+        let b: Queriable<Fr> = Queriable::Internal(InternalSignal::new("b"));
+        let c: Queriable<Fr> = Queriable::Internal(InternalSignal::new("c"));
+        let d: Queriable<Fr> = Queriable::Internal(InternalSignal::new("d"));
+        let e: Queriable<Fr> = Queriable::Internal(InternalSignal::new("e"));
+        let f: Queriable<Fr> = Queriable::Internal(InternalSignal::new("f"));
+        let g: Queriable<Fr> = Queriable::Internal(InternalSignal::new("g"));
+        let vars = vec![a, b, c, d, e, f, g];
+        let mut assignments = HashMap::new();
+        let mut rng = ChaCha20Rng::seed_from_u64(0);
+        for v in &vars {
+            assignments.insert(*v, Fr::random(&mut rng));
+        }
+
+        let expressions = [
+            a * b * c * d * e,
+            1.expr() - (a * b * c * d * e),
+            Pow(Box::new(a.expr()), 4) - (b * c * d * e),
+            -(a * b * c * d) * -(a * b * c * d),
+            (a - b) * (c - d) * (e - f) * (g - 1),
+            (1.expr() - (a - (b * c))) * (1.expr() - (d - (e * f))),
+            -(a * -(b * -(c * -d * (-e * -(f * -g))))),
+        ];
+        let degrees = [2, 3, 4];
+
+        for orig in &expressions {
+            for degree in &degrees {
+                let (result, decomp) =
+                    reduce_degree(orig.clone(), *degree, &mut TestSignalFactory::default());
+                let orig_eval = orig.eval(&assignments);
+                let mut assignments_result = assignments.clone();
+                calc_auto_signals(&decomp.auto_signals, &mut assignments_result);
+                let result_eval = result.eval(&assignments_result);
+                assert_eq!(
+                    orig_eval, result_eval,
+                    "reduce degree {} failed on {:#?}",
+                    degree, orig
+                );
+            }
+        }
     }
 }
