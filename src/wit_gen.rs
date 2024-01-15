@@ -196,7 +196,7 @@ pub(crate) fn calc_auto_signals<F: Field + Hash, V: Clone + Eq + PartialEq + Has
                 if let Some(value) = auto_signals
                     .get(s)
                     .expect("auto definition not found")
-                    .eval(&assignments)
+                    .eval(assignments)
                 {
                     assignments.insert(s.clone(), value);
                 }

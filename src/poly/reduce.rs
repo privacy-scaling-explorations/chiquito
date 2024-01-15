@@ -156,7 +156,10 @@ fn reduce_degree_mul<F: Field, V: Clone + Eq + PartialEq + Hash + Debug, SF: Sig
     }
 
     assert!(!for_root.is_empty());
-    assert!(!to_simplify.is_empty());
+
+    if to_simplify.is_empty() {
+        return Expr::Mul(for_root);
+    }
 
     let rest_signal = signal_factory.create("rest_expr");
     for_root.push(Expr::Query(rest_signal.clone()));
@@ -365,18 +368,40 @@ mod test {
         let degrees = [2, 3, 4];
 
         for orig in &expressions {
+            let orig_eval = orig.eval(&assignments).expect("a value");
+            let orig_zero = if orig_eval != Fr::ZERO {
+                Sum(vec![orig.clone(), Neg(Box::new(Const(orig_eval)))])
+            } else {
+                orig.clone()
+            };
             for degree in &degrees {
-                let (result, decomp) =
-                    reduce_degree(orig.clone(), *degree, &mut TestSignalFactory::default());
-                let orig_eval = orig.eval(&assignments);
+                let (result, decomp) = reduce_degree(
+                    orig_zero.clone(),
+                    *degree,
+                    &mut TestSignalFactory::default(),
+                );
+                // let orig_eval = orig.eval(&assignments);
                 let mut assignments_result = assignments.clone();
                 calc_auto_signals(&decomp.auto_signals, &mut assignments_result);
                 let result_eval = result.eval(&assignments_result);
                 assert_eq!(
-                    orig_eval, result_eval,
+                    result_eval,
+                    Some(Fr::ZERO),
                     "reduce degree {} failed on {:#?}",
-                    degree, orig
+                    degree,
+                    orig
                 );
+
+                for constrs in decomp.constrs {
+                    let result_eval = constrs.eval(&assignments_result);
+                    assert_eq!(
+                        result_eval,
+                        Some(Fr::ZERO),
+                        "reduce degree {} failed on {:#?}",
+                        degree,
+                        orig
+                    );
+                }
             }
         }
     }
