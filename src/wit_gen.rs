@@ -3,6 +3,7 @@ use std::{collections::HashMap, fmt, hash::Hash, rc::Rc};
 use crate::{
     field::Field,
     frontend::dsl::StepTypeWGHandler,
+    poly::Expr,
     sbpir::{query::Queriable, StepTypeUUID, PIR, SBPIR},
     util::UUID,
 };
@@ -175,6 +176,44 @@ impl<F: Clone, TraceArgs> From<&SBPIR<F, TraceArgs>> for AutoTraceGenerator<F> {
     }
 }
 
+pub(crate) fn calc_auto_signals<F: Field + Hash, V: Clone + Eq + PartialEq + Hash>(
+    auto_signals: &HashMap<V, Expr<F, V>>,
+    assignments: &mut HashMap<V, F>,
+) {
+    let mut pending = auto_signals
+        .keys()
+        .filter(|s| assignments.get(s).is_none())
+        .cloned()
+        .collect::<Vec<V>>();
+
+    let mut pending_amount = pending.len();
+
+    while pending_amount > 0 {
+        pending = pending
+            .clone()
+            .into_iter()
+            .filter(|s| {
+                if let Some(value) = auto_signals
+                    .get(s)
+                    .expect("auto definition not found")
+                    .eval(&assignments)
+                {
+                    assignments.insert(s.clone(), value);
+                }
+
+                assignments.get(s).is_none()
+            })
+            .collect::<Vec<V>>()
+            .clone();
+
+        // in each round at least one new signal should be assigned
+        if pending.len() == pending_amount {
+            panic!("cannot infer some auto signals")
+        }
+        pending_amount = pending.len()
+    }
+}
+
 impl<F: Field + Eq + PartialEq + Hash + Clone> AutoTraceGenerator<F> {
     pub fn generate(&self, mut witness: TraceWitness<F>) -> TraceWitness<F> {
         for step_instance in witness.step_instances.iter_mut() {
@@ -193,38 +232,7 @@ impl<F: Field + Eq + PartialEq + Hash + Clone> AutoTraceGenerator<F> {
         auto_signals: &HashMap<Queriable<F>, PIR<F>>,
         witness: &mut StepInstance<F>,
     ) {
-        let mut pending = auto_signals
-            .keys()
-            .filter(|s| witness.assignments.get(s).is_none())
-            .copied()
-            .collect::<Vec<Queriable<F>>>();
-
-        let mut pending_amount = pending.len();
-
-        while pending_amount > 0 {
-            pending = pending
-                .clone()
-                .into_iter()
-                .filter(|s| {
-                    if let Some(value) = auto_signals
-                        .get(s)
-                        .expect("auto definition not found")
-                        .eval(&witness.assignments)
-                    {
-                        witness.assign(*s, value)
-                    }
-
-                    witness.assignments.get(s).is_none()
-                })
-                .collect::<Vec<Queriable<F>>>()
-                .clone();
-
-            // in each round at least one new signal should be assigned
-            if pending.len() == pending_amount {
-                panic!("cannot infer some auto signals")
-            }
-            pending_amount = pending.len()
-        }
+        calc_auto_signals(auto_signals, &mut witness.assignments);
     }
 }
 
