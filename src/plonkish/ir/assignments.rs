@@ -10,8 +10,8 @@ use crate::{field::Field, wit_gen::AutoTraceGenerator};
 use halo2_proofs::plonk::{Advice, Column as Halo2Column};
 
 use crate::{
-    ast::{query::Queriable, ForwardSignal, SharedSignal, StepTypeUUID},
     plonkish::compiler::{cell_manager::Placement, step_selector::StepSelector},
+    sbpir::{query::Queriable, ForwardSignal, SharedSignal, StepTypeUUID},
     util::UUID,
     wit_gen::{StepInstance, TraceGenerator, TraceWitness},
 };
