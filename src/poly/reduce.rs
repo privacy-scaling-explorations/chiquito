@@ -368,28 +368,17 @@ mod test {
         let degrees = [2, 3, 4];
 
         for orig in &expressions {
-            let orig_eval = orig.eval(&assignments).expect("a value");
-            let orig_zero = if orig_eval != Fr::ZERO {
-                Sum(vec![orig.clone(), Neg(Box::new(Const(orig_eval)))])
-            } else {
-                orig.clone()
-            };
+            let orig_eval = orig.eval(&assignments);
             for degree in &degrees {
-                let (result, decomp) = reduce_degree(
-                    orig_zero.clone(),
-                    *degree,
-                    &mut TestSignalFactory::default(),
-                );
-                // let orig_eval = orig.eval(&assignments);
+                let (result, decomp) =
+                    reduce_degree(orig.clone(), *degree, &mut TestSignalFactory::default());
                 let mut assignments_result = assignments.clone();
                 calc_auto_signals(&decomp.auto_signals, &mut assignments_result);
                 let result_eval = result.eval(&assignments_result);
                 assert_eq!(
-                    result_eval,
-                    Some(Fr::ZERO),
+                    result_eval, orig_eval,
                     "reduce degree {} failed on {:#?}",
-                    degree,
-                    orig
+                    degree, orig
                 );
 
                 for constrs in decomp.constrs {
