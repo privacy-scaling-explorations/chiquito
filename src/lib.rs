@@ -1,5 +1,6 @@
 pub mod field;
 pub mod frontend;
+pub mod parser;
 pub mod plonkish;
 pub mod poly;
 pub mod sbpir;

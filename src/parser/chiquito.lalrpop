@@ -1,0 +1,180 @@
+use crate::parser::ast::{expression::Expression, statement::Statement, Variable, tl::TLDecl, DebugSymRef};
+use crate::parser::build::*;
+use num_bigint::BigInt;
+
+grammar;
+
+match {
+    r"\s*" => { }, // ignore spaces
+    r"//[^\n\r]*[\n\r]*" => { }, // ignore `// comments`
+    r"/\*[^*]*\*+(?:[^/*][^*]*\*+)*/" => { },  // ignore `/* comments */`
+    _,
+}
+
+// Top Level declaration
+pub TLDecls: Vec<TLDecl<BigInt, Variable>> = {
+    <mut v: TLDecls> <d: ParseTLDecl> => {v.push(d); v},
+    ParseTLDecl => vec![<>],
+}
+
+ParseTLDecl: TLDecl<BigInt, Variable> = {
+    ParseTracer,
+}
+
+ParseTracer: TLDecl<BigInt, Variable> = {
+    "tracer" <id: Identifier> "(" <params: ParseIdDeclList?> ")" <block: StatementsBlock> => TLDecl::TracerDecl(DebugSymRef::new(0,0), id, params.unwrap_or(vec![]), block),
+}
+
+// Statements
+StatementsBlock: Vec<Statement<BigInt, Variable>> = {
+    "{" <v:Statements> "}" => v,
+}
+
+pub Statements: Vec<Statement<BigInt, Variable>> = {
+    <mut v: Statements> <e: ParseStatement> => {v.push(e); v},
+    ParseStatement => vec![<>],
+}
+
+ParseStatement: Statement<BigInt, Variable> = {
+    <s: AssertEq> ";" => s,
+    <a: Assignment> ";" => a,
+    <a: AssignmentAssert> ";" => a,
+    <f: ParseForward> ";" => f,
+    <v: ParseIdDecl> ";" => v,
+    ParseIf,
+    ParseIfElse,
+    ParseStepType,
+}
+
+AssertEq: Statement<BigInt, Variable> = {
+    <lhs:Expression> "===" <rhs:Expression> => Statement::AssertEq(DebugSymRef::new(0,0), lhs, rhs),
+}
+
+AssertNEq: Statement<BigInt, Variable> = {
+    <lhs:Expression> "!==" <rhs:Expression> => Statement::AssertNEq(DebugSymRef::new(0,0), lhs, rhs),
+}
+
+// Basic statements
+Assignment: Statement<BigInt, Variable> = {
+    <id: Identifier> "<--" <e:Expression> => Statement::Assignment(DebugSymRef::new(0,0), Variable(id, 0), e)
+}
+
+AssignmentAssert: Statement<BigInt, Variable> = {
+    <id: Identifier> "<==" <e:Expression> => Statement::AssignmentAssert(DebugSymRef::new(0,0), Variable(id, 0), e)
+}
+
+ParseIf: Statement<BigInt, Variable> = {
+    "if" <cond: ParseLogic> "then" <when_true: StatementsBlock> => Statement::IfThen(DebugSymRef::new(0,0), Box::new(cond), when_true),
+}
+
+ParseIfElse: Statement<BigInt, Variable> = {
+    "if" <cond: ParseLogic> "then" <when_true: StatementsBlock> "else" <when_false: StatementsBlock> => Statement::IfThenElse(DebugSymRef::new(0,0), Box::new(cond), when_true, when_false),
+}
+
+ParseForward: Statement<BigInt, Variable> = {
+    "forward" <id: Identifier> => Statement::ForwardSignalDecl(DebugSymRef::new(0,0), id),
+    "forward" "signal" <id: Identifier> => Statement::ForwardSignalDecl(DebugSymRef::new(0,0), id),
+}
+
+ParseInternal: Statement<BigInt, Variable> = {
+    "internal" <id: Identifier> => Statement::ForwardSignalDecl(DebugSymRef::new(0,0), id),
+    "internal" "signal" <id: Identifier> => Statement::ForwardSignalDecl(DebugSymRef::new(0,0), id),
+}
+
+ParseStepType: Statement<BigInt, Variable> = {
+    "step" <id: Identifier> "(" <params: ParseIdDeclList?> ")" <block: StatementsBlock> => Statement::StepTypeDecl(DebugSymRef::new(0,0), id, params.unwrap_or(vec![]), block)
+}
+
+ParseIdDecl: Statement<BigInt, Variable> = {
+    ParseSignal,
+    ParseVarDecl,
+}
+
+ParseSignal: Statement<BigInt, Variable> = {
+    "signal" <id: Identifier> => Statement::SignalDecl(DebugSymRef::new(0,0), id),
+}
+
+ParseVarDecl: Statement<BigInt, Variable> = {
+    "var" <id: Identifier> => Statement::VarDecl(DebugSymRef::new(0,0), id),
+}
+
+// Expression
+pub Expression = {
+    ParseLogic,
+}
+
+// Logical expressions
+ParseLogic: Expression<BigInt, Variable> = {
+    ParseOr
+}
+
+ParseOr: Expression<BigInt, Variable> =  ParseLogichBinOp<"||", ParseAnd>;
+
+ParseAnd: Expression<BigInt, Variable> =  ParseLogichBinOp<"&&", ParseEq>;
+
+ParseEq: Expression<BigInt, Variable> = {
+    <lhs: ParseArith> "==" <rhs: ParseArith> => build_bin_op("==", lhs, rhs),
+    <lhs: ParseArith> "!=" <rhs: ParseArith> => build_bin_op("!=", lhs, rhs),
+
+    ParseArith
+}
+
+// Arithmetical expressions
+ParseArith: Expression<BigInt, Variable> = {
+    ParseSum
+}
+
+ParseSum: Expression<BigInt, Variable> = ParseArithBinOp<"+", ParseMul>;
+
+ParseMul: Expression<BigInt, Variable> = ParseArithBinOp<"*", ParsePrefixMinus>;
+
+ParsePrefixMinus: Expression<BigInt, Variable> = {
+    "-" <sub: ExpressionTerm> => build_unary_op("-", sub),
+
+    ExpressionTerm
+}
+
+ExpressionTerm: Expression<BigInt, Variable> = {
+    ParseVar,
+    FieldElement,
+    "true" => Expression::True(DebugSymRef::new(0,0)),
+    "false" => Expression::False(DebugSymRef::new(0,0)),
+    "(" <Expression> ")",
+}
+
+ParseLogichBinOp<Op, Next>: Expression<BigInt, Variable> = {
+    <lhs: ParseArithBinOp<Op, Next>> <op: Op> <rhs: Next> => build_bin_op(op, lhs, rhs),
+
+    Next
+}
+
+ParseArithBinOp<Op, Next>: Expression<BigInt, Variable> = {
+    <lhs: ParseArithBinOp<Op, Next>> <op: Op> <rhs: Next> => build_bin_op(op, lhs, rhs),
+
+    Next
+}
+
+ParseVar: Expression<BigInt, Variable> = {
+    <id: Identifier> => Expression::Query(DebugSymRef::new(0,0), Variable(id, 0)),
+}
+
+// Other
+
+ParseIdDeclList: Vec<Statement<BigInt, Variable>> = {
+    <v:(<ParseIdDecl> ",")*> <e: ParseIdDecl> => {
+        let mut v = v;
+        v.push(e);
+        v
+    }
+}
+
+// Terminals
+
+Identifier: String = {
+    r"[a-zA-Z_][a-zA-Z$_0-9@]*" => String::from(<>),
+}
+
+FieldElement: Expression<BigInt, Variable> = {
+    r"[0-9][0-9_]*" => Expression::Const(DebugSymRef::new(0,0), BigInt::parse_bytes(<>.as_bytes(),10).expect("failed to parse base10")),
+    r"0x[0-9A-Fa-f][0-9A-Fa-f_]*" => Expression::Const(DebugSymRef::new(0,0), BigInt::parse_bytes(&(<>.as_bytes()[2..]),16).expect("failed to parse base16")),
+}
