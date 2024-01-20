@@ -7,18 +7,10 @@ use super::{
     Circuit,
 };
 
+#[derive(Debug)]
 pub struct SuperCircuit<F, MappingArgs> {
     sub_circuits: Vec<Circuit<F>>,
     mapping: MappingGenerator<F, MappingArgs>,
-}
-
-impl<F: Debug, MappingArgs: Debug> Debug for SuperCircuit<F, MappingArgs> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("SuperCircuit")
-            .field("sub_circuits", &self.sub_circuits)
-            .field("mapping", &self.mapping)
-            .finish()
-    }
 }
 
 impl<F: Debug, MappingArgs: Debug> Debug for MappingGenerator<F, MappingArgs> {

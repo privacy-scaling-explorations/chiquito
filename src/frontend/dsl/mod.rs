@@ -154,7 +154,7 @@ impl<F, TraceArgs> CircuitContext<F, TraceArgs> {
         self.circuit.last_step = Some(step_type.into().uuid());
     }
 
-    /// Enforce the number of steps by adding a constraint to the circuit. Takes a `usize`
+    /// Enforce the number of step instances by adding a constraint to the circuit. Takes a `usize`
     /// parameter that represents the total number of steps.
     pub fn pragma_num_steps(&mut self, num_steps: usize) {
         self.circuit.num_steps = num_steps;
