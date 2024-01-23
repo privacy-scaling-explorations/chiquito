@@ -120,12 +120,12 @@ pub enum Expression<F, V> {
         sub: Box<Expression<F, V>>,
     },
 
-    Select(
-        DebugSymRef,
-        Box<Expression<F, V>>,
-        Box<Expression<F, V>>,
-        Box<Expression<F, V>>,
-    ),
+    Select {
+        dsym: DebugSymRef,
+        cond: Box<Expression<F, V>>,
+        when_true: Box<Expression<F, V>>,
+        when_false: Box<Expression<F, V>>,
+    },
 
     // Terminals
     Query(DebugSymRef, V),
@@ -140,7 +140,7 @@ impl<F, V> Expression<F, V> {
         match self {
             BinOp { op, .. } => op.is_arith(),
             UnaryOp { op, .. } => op.is_arith(),
-            Select(_, _, _, _) => true,
+            Select { .. } => true,
             Query(_, _) => true,
             Const(_, _) => true,
             True(_) => false,
@@ -160,7 +160,7 @@ impl<F, V> Expression<F, V> {
         match self {
             Expression::BinOp { .. } => true,
             Expression::UnaryOp { .. } => false,
-            Expression::Select(_, _, _, _) => true,
+            Expression::Select { .. } => true,
 
             Expression::Const(_, _) => false,
             Expression::Query(_, _) => false,
@@ -206,7 +206,7 @@ impl<F: Debug, V: Debug> Debug for Expression<F, V> {
 
             Self::Query(_, arg0) => write!(f, "{:?}", arg0),
             Expression::UnaryOp { .. } => todo!(),
-            Expression::Select(_, _, _, _) => todo!(),
+            Expression::Select { .. } => todo!(),
 
             Expression::True(_) => write!(f, "true"),
             Expression::False(_) => write!(f, "false"),
