@@ -34,7 +34,7 @@ Another important piece of Chiquito are the signals. They represent elements of 
 There are several types:
 
  + Internal signals: they are private for a particular step, and cannot be constraints for other steps.
- + Shared signals: they are shared by all steps in the circuit, and they can be constraints for their values on relative step instances (**rotation**). For example, if "a" is a shared signal, you could assert in a step type setup that `a == a.rot(2)` which means that `a` is equal to `a` of the next step (super rotation `+2`).
+ + Shared signals: they are shared by all steps in the circuit, and they can be constraints for their values on relative step instances (**rotation**). For example, if "a" is a shared signal, you could assert in a step type setup that `a == a.rot(2)` which means that `a` is equal to `a` in the _next of the next_ step (super rotation `+2`).
  + Forward signals: They are like shared signals with the restriction that they can only constrain in the current and the next step instances. For example you could assert `a == a.next()` but you could not assert `a == a.prev()`. Forward signal has the advantage of allowing for witness size optimisations.
  + Fixed signals: Their values are set during setup and cannot change.
 
