@@ -54,6 +54,10 @@ AssertNEq: Statement<BigInt, Variable> = {
     <lhs:Expression> "!==" <rhs:Expression> => Statement::AssertNEq(DebugSymRef::new(0,0), lhs, rhs),
 }
 
+Assert: Statement<BigInt, Variable> = {
+    "assert" <e: ParseLogic> => Statement::Assert()
+}
+
 // Basic statements
 Assignment: Statement<BigInt, Variable> = {
     <id: Identifier> "<--" <e:Expression> => Statement::Assignment(DebugSymRef::new(0,0), Variable(id, 0), e)

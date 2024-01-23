@@ -6,6 +6,7 @@ use super::{expression::Expression, DebugSymRef};
 pub enum Statement<F, V> {
     AssertEq(DebugSymRef, Expression<F, V>, Expression<F, V>),
     AssertNEq(DebugSymRef, Expression<F, V>, Expression<F, V>),
+    Assert(DebugSymRef, Expression<F, V>),
     Assignment(DebugSymRef, V, Expression<F, V>),
     AssignmentAssert(DebugSymRef, V, Expression<F, V>),
 
@@ -35,6 +36,7 @@ impl<F: Debug, V: Debug> Debug for Statement<F, V> {
         match self {
             Self::AssertEq(_, arg0, arg1) => write!(f, "{:?} === {:?};", arg0, arg1),
             Self::AssertNEq(_, arg0, arg1) => write!(f, "{:?} !== {:?};", arg0, arg1),
+            Self::Assert(_, arg0) => write!(f, "assert {:?};", arg0),
             Self::Assignment(_, arg0, arg1) => write!(f, "{:?} <-- {:?};", arg0, arg1),
             Self::AssignmentAssert(_, arg0, arg1) => write!(f, "{:?} <== {:?};", arg0, arg1),
             Statement::IfThen(_, arg0, arg1) => write!(
