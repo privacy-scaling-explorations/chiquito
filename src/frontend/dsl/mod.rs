@@ -424,7 +424,7 @@ pub mod sc;
 
 #[cfg(test)]
 mod tests {
-    use crate::ast::ForwardSignal;
+    use crate::sbpir::ForwardSignal;
 
     use super::*;
 
@@ -434,14 +434,14 @@ mod tests {
         TraceArgs: Default,
     {
         CircuitContext {
-            circuit: Circuit::default(),
+            circuit: SBPIR::default(),
             tables: Default::default(),
         }
     }
 
     #[test]
     fn test_circuit_default_initialization() {
-        let circuit: Circuit<i32, i32> = Circuit::default();
+        let circuit: SBPIR<i32, i32> = SBPIR::default();
 
         // Assert default values
         assert!(circuit.step_types.is_empty());
