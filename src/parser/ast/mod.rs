@@ -4,6 +4,7 @@ pub mod expression;
 pub mod statement;
 pub mod tl;
 
+// TODO: scafolding struct that should be implemented fully
 #[derive(Clone, Debug)]
 pub struct DebugSymRef {
     pub start: usize,
