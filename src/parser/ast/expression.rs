@@ -2,7 +2,7 @@ use std::fmt::Debug;
 
 use super::DebugSymRef;
 
-#[derive(Clone)]
+#[derive(Clone, PartialEq, Eq)]
 pub enum BinaryOperator {
     Sum,
     Sub,
@@ -58,7 +58,7 @@ impl From<String> for BinaryOperator {
             "!=" => NEq,
             "&&" => Or,
             "||" => And,
-            &_ => unimplemented!(),
+            &_ => unreachable!(),
         }
     }
 }
