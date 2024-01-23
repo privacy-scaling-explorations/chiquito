@@ -3,7 +3,6 @@ use std::{hash::Hash, rc::Rc};
 use crate::field::Field;
 
 use crate::{
-    ast::Circuit,
     plonkish::{
         compiler::{
             cell_manager::CellManager, compile_phase1, compile_phase2,
@@ -14,6 +13,7 @@ use crate::{
             sc::{MappingContext, SuperCircuit},
         },
     },
+    sbpir::SBPIR,
 };
 
 use super::{lb::LookupTableRegistry, CircuitContext};
@@ -46,7 +46,7 @@ impl<F: Field + Hash, MappingArgs> SuperCircuitContext<F, MappingArgs> {
         D: Fn(&mut CircuitContext<F, TraceArgs>, Imports) -> Exports,
     {
         let mut sub_circuit_context = CircuitContext {
-            circuit: Circuit::default(),
+            circuit: SBPIR::default(),
             tables: self.tables.clone(),
         };
         println!("super circuit table registry 2: {:?}", self.tables);
@@ -66,7 +66,7 @@ impl<F: Field + Hash, MappingArgs> SuperCircuitContext<F, MappingArgs> {
     pub fn sub_circuit_with_ast<CM: CellManager, SSB: StepSelectorBuilder, TraceArgs>(
         &mut self,
         config: CompilerConfig<CM, SSB>,
-        sub_circuit: Circuit<F, TraceArgs>, // directly input ast
+        sub_circuit: SBPIR<F, TraceArgs>, // directly input ast
     ) -> AssignmentGenerator<F, TraceArgs> {
         let (unit, assignment) = compile_phase1(config, &sub_circuit);
         let assignment = assignment.unwrap_or_else(|| AssignmentGenerator::empty(unit.uuid));

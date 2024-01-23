@@ -1,8 +1,8 @@
 use std::{fmt::Debug, hash::Hash};
 
 use crate::{
-    ast::{ImportedHalo2Advice, ImportedHalo2Fixed},
     poly::Expr,
+    sbpir::{ImportedHalo2Advice, ImportedHalo2Fixed},
     util::{uuid, UUID},
 };
 
@@ -159,6 +159,7 @@ impl<F: Clone> PolyExpr<F> {
             PolyExpr::Neg(v) => PolyExpr::Neg(Box::new(v.rotate(rot))),
             PolyExpr::Pow(v, exp) => PolyExpr::Pow(Box::new(v.rotate(rot)), *exp),
             PolyExpr::Halo2Expr(_) => panic!("jarrl: cannot rotate polyexpr that contains halo2"),
+            PolyExpr::MI(v) => PolyExpr::MI(Box::new(v.rotate(rot))),
         }
     }
 }
