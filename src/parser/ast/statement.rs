@@ -48,7 +48,19 @@ impl<F: Debug, V: Debug> Debug for Statement<F, V> {
                     .collect::<Vec<_>>()
                     .join(" ")
             ),
-            Statement::IfThenElse(_, _, _, _) => todo!(),
+            Statement::IfThenElse(_, arg0, arg1, arg2) => write!(
+                f,
+                "if {:?} then {{\n {}\n}} else{{\n {}\n}} \n",
+                arg0,
+                arg1.iter()
+                    .map(|e| format!("{:?}", e))
+                    .collect::<Vec<_>>()
+                    .join(" "),
+                arg2.iter()
+                    .map(|e| format!("{:?}", e))
+                    .collect::<Vec<_>>()
+                    .join(" ")
+            ),
 
             Statement::SignalDecl(_, id) => write!(f, "signal {};", id),
             Statement::ForwardSignalDecl(_, _) => todo!(),

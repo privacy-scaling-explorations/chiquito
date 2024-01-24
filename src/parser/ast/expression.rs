@@ -140,7 +140,15 @@ impl<F, V> Expression<F, V> {
         match self {
             BinOp { op, .. } => op.is_arith(),
             UnaryOp { op, .. } => op.is_arith(),
-            Select { .. } => true,
+            Select {
+                when_true,
+                when_false,
+                ..
+            } => {
+                assert_eq!(when_true.is_arith(), when_false.is_arith());
+
+                when_true.is_arith()
+            }
             Query(_, _) => true,
             Const(_, _) => true,
             True(_) => false,
@@ -152,6 +160,15 @@ impl<F, V> Expression<F, V> {
         match self {
             Expression::BinOp { op, .. } => op.is_logic(),
             Expression::UnaryOp { op, .. } => op.is_logic(),
+            Expression::Select {
+                when_true,
+                when_false,
+                ..
+            } => {
+                assert_eq!(when_true.is_arith(), when_false.is_arith());
+
+                when_true.is_logic()
+            }
             _ => false,
         }
     }

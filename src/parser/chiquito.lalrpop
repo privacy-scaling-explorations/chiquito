@@ -37,10 +37,14 @@ pub Statements: Vec<Statement<BigInt, Variable>> = {
 
 ParseStatement: Statement<BigInt, Variable> = {
     <s: AssertEq> ";" => s,
-    <a: Assignment> ";" => a,
+    <s: AssertNEq> ";" => s,
+    <s: Assert> ";" => s,
     <a: AssignmentAssert> ";" => a,
-    <f: ParseForward> ";" => f,
+    
+    <a: Assignment> ";" => a,
+
     <v: ParseIdDecl> ";" => v,
+
     ParseIf,
     ParseIfElse,
     ParseStepType,
@@ -55,7 +59,7 @@ AssertNEq: Statement<BigInt, Variable> = {
 }
 
 Assert: Statement<BigInt, Variable> = {
-    "assert" <e: ParseLogic> => Statement::Assert()
+    "assert" <e: ParseLogic> => Statement::Assert(DebugSymRef::new(0,0), e),
 }
 
 // Basic statements
@@ -73,16 +77,6 @@ ParseIf: Statement<BigInt, Variable> = {
 
 ParseIfElse: Statement<BigInt, Variable> = {
     "if" <cond: ParseLogic> "then" <when_true: StatementsBlock> "else" <when_false: StatementsBlock> => Statement::IfThenElse(DebugSymRef::new(0,0), Box::new(cond), when_true, when_false),
-}
-
-ParseForward: Statement<BigInt, Variable> = {
-    "forward" <id: Identifier> => Statement::ForwardSignalDecl(DebugSymRef::new(0,0), id),
-    "forward" "signal" <id: Identifier> => Statement::ForwardSignalDecl(DebugSymRef::new(0,0), id),
-}
-
-ParseInternal: Statement<BigInt, Variable> = {
-    "internal" <id: Identifier> => Statement::ForwardSignalDecl(DebugSymRef::new(0,0), id),
-    "internal" "signal" <id: Identifier> => Statement::ForwardSignalDecl(DebugSymRef::new(0,0), id),
 }
 
 ParseStepType: Statement<BigInt, Variable> = {

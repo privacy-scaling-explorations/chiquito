@@ -80,11 +80,30 @@ mod test {
                     signal c;
     
                     a === b + c;
+                    c !== d + e;
+
+                    f <== g;
+                    j <-- k +1;
+
+                    assert l + m == 0 && n * o == 1;
+
+                    if p != q then {
+                        p === 3;
+                    } else {
+                        r === s + t;
+                    }
                 }
             }
         ";
 
         let decls = lang::TLDeclsParser::new().parse(circuit).unwrap();
+
+        assert_eq!(format!("{:?}", decls), "[TracerDecl(DebugSymRef { start: 0, end: 0 }, \"atracer\", [signal a_param;], [signal a;, signal b;, step astep([var another_param;]) { [signal c;, a === b + c;, c !== d + e;, f <== g;, j <-- k + 1;, assert ((l + m) == 0) || ((n * o) == 1);, if p != q then {
+ p === 3;
+} else{
+ r === s + t;
+} 
+           ] }])]");
 
         println!("{:?}", decls);
     }
