@@ -4,11 +4,15 @@ pub mod expression;
 pub mod statement;
 pub mod tl;
 
-// TODO: scafolding struct that should be implemented fully
+/// Debug symbol reference, points to the source file, where a AST node comes from.
+// TODO: scafolding struct that should be implemented fully.
 #[derive(Clone, Debug)]
 pub struct DebugSymRef {
+    /// Start char position on the source file.
     pub start: usize,
+    /// End char position on the source file.
     pub end: usize,
+    // TODO: more fields will be added as needed, like file name, etc...
 }
 
 impl DebugSymRef {
