@@ -4,8 +4,6 @@ use super::{expression::Expression, DebugSymRef};
 
 #[derive(Clone)]
 pub enum Statement<F, V> {
-    AssertEq(DebugSymRef, Expression<F, V>, Expression<F, V>),
-    AssertNEq(DebugSymRef, Expression<F, V>, Expression<F, V>),
     Assert(DebugSymRef, Expression<F, V>),
     Assignment(DebugSymRef, V, Expression<F, V>),
     AssignmentAssert(DebugSymRef, V, Expression<F, V>),
@@ -34,8 +32,6 @@ pub enum Statement<F, V> {
 impl<F: Debug, V: Debug> Debug for Statement<F, V> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::AssertEq(_, arg0, arg1) => write!(f, "{:?} === {:?};", arg0, arg1),
-            Self::AssertNEq(_, arg0, arg1) => write!(f, "{:?} !== {:?};", arg0, arg1),
             Self::Assert(_, arg0) => write!(f, "assert {:?};", arg0),
             Self::Assignment(_, arg0, arg1) => write!(f, "{:?} <-- {:?};", arg0, arg1),
             Self::AssignmentAssert(_, arg0, arg1) => write!(f, "{:?} <== {:?};", arg0, arg1),

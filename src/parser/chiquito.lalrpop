@@ -51,11 +51,11 @@ ParseStatement: Statement<BigInt, Variable> = {
 }
 
 AssertEq: Statement<BigInt, Variable> = {
-    <lhs:Expression> "===" <rhs:Expression> => Statement::AssertEq(DebugSymRef::new(0,0), lhs, rhs),
+    <lhs:Expression> "===" <rhs:Expression> => build_assert_eq(DebugSymRef::new(0,0), lhs, rhs),
 }
 
 AssertNEq: Statement<BigInt, Variable> = {
-    <lhs:Expression> "!==" <rhs:Expression> => Statement::AssertNEq(DebugSymRef::new(0,0), lhs, rhs),
+    <lhs:Expression> "!==" <rhs:Expression> => build_assert_neq(DebugSymRef::new(0,0), lhs, rhs),
 }
 
 Assert: Statement<BigInt, Variable> = {
