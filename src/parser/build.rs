@@ -36,3 +36,15 @@ pub fn build_assert_neq<F, V>(
 ) -> Statement<F, V> {
     Statement::Assert(dsym, build_bin_op("!=", lhs, rhs))
 }
+
+pub fn build_transition_simple<F, V>(dsym: DebugSymRef, id: String) -> Statement<F, V> {
+    Statement::Transition(dsym.clone(), id, Box::new(Statement::Block(dsym, vec![])))
+}
+
+pub fn build_transition<F, V>(
+    dsym: DebugSymRef,
+    id: String,
+    block: Statement<F, V>,
+) -> Statement<F, V> {
+    Statement::Transition(dsym, id, Box::new(block))
+}

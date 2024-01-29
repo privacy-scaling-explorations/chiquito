@@ -1,4 +1,4 @@
-use crate::parser::ast::{expression::Expression, statement::Statement, Variable, tl::TLDecl, DebugSymRef};
+use crate::parser::ast::{expression::Expression, statement::{Statement, TypedIdDecl}, Variable, tl::TLDecl, DebugSymRef};
 use crate::parser::build::*;
 use num_bigint::BigInt;
 
@@ -18,16 +18,17 @@ pub TLDecls: Vec<TLDecl<BigInt, Variable>> = {
 }
 
 ParseTLDecl: TLDecl<BigInt, Variable> = {
-    ParseTracer,
+    ParseMachine,
 }
 
-ParseTracer: TLDecl<BigInt, Variable> = {
-    "tracer" <id: Identifier> "(" <params: ParseIdDeclList?> ")" <block: StatementsBlock> => TLDecl::TracerDecl(DebugSymRef::new(0,0), id, params.unwrap_or(vec![]), block),
+ParseMachine: TLDecl<BigInt, Variable> = {
+    "machine" <id: Identifier> "(" <params: ParseParamsList> ")" <block: StatementsBlock> => TLDecl::MachineDecl{ dsym: DebugSymRef::new(0,0), id, params, result: vec![], block},
+    "machine" <id: Identifier> "(" <params: ParseParamsList> ")" "(" <result: ParseParamsList> ")" <block: StatementsBlock> => TLDecl::MachineDecl{ dsym: DebugSymRef::new(0,0), id, params, result, block},
 }
 
 // Statements
-StatementsBlock: Vec<Statement<BigInt, Variable>> = {
-    "{" <v:Statements> "}" => v,
+StatementsBlock: Statement<BigInt, Variable> = {
+    "{" <v:Statements> "}" => Statement::Block(DebugSymRef::new(0,0), v),
 }
 
 pub Statements: Vec<Statement<BigInt, Variable>> = {
@@ -43,11 +44,17 @@ ParseStatement: Statement<BigInt, Variable> = {
     
     <a: Assignment> ";" => a,
 
-    <v: ParseIdDecl> ";" => v,
+    <v: ParseSignalDecl> ";" => v,
+    <v: ParseVarDecl> ";" => v,
+
+    <t: ParseTransitionSimple> ";" => t,
 
     ParseIf,
     ParseIfElse,
-    ParseStepType,
+
+    ParseState,
+    ParseTransition,
+    
 }
 
 AssertEq: Statement<BigInt, Variable> = {
@@ -64,36 +71,47 @@ Assert: Statement<BigInt, Variable> = {
 
 // Basic statements
 Assignment: Statement<BigInt, Variable> = {
-    <id: Identifier> "<--" <e:Expression> => Statement::Assignment(DebugSymRef::new(0,0), Variable(id, 0), e)
+    <ids: ParseIdsList> "<--" <es:ParseExpressionList> => Statement::Assignment(DebugSymRef::new(0,0), ids.into_iter().map(|id| Variable(id, 0)).collect(), es),
 }
 
 AssignmentAssert: Statement<BigInt, Variable> = {
-    <id: Identifier> "<==" <e:Expression> => Statement::AssignmentAssert(DebugSymRef::new(0,0), Variable(id, 0), e)
+    <ids: ParseIdsList> "<==" <es:ParseExpressionList> => Statement::AssignmentAssert(DebugSymRef::new(0,0), ids.into_iter().map(|id| Variable(id, 0)).collect(), es),
 }
 
 ParseIf: Statement<BigInt, Variable> = {
-    "if" <cond: ParseLogic> "then" <when_true: StatementsBlock> => Statement::IfThen(DebugSymRef::new(0,0), Box::new(cond), when_true),
+    "if" <cond: ParseLogic> <when_true: StatementsBlock> => Statement::IfThen(DebugSymRef::new(0,0), Box::new(cond), Box::new(when_true)),
 }
 
 ParseIfElse: Statement<BigInt, Variable> = {
-    "if" <cond: ParseLogic> "then" <when_true: StatementsBlock> "else" <when_false: StatementsBlock> => Statement::IfThenElse(DebugSymRef::new(0,0), Box::new(cond), when_true, when_false),
+    "if" <cond: ParseLogic> <when_true: StatementsBlock> "else" <when_false: StatementsBlock> => Statement::IfThenElse(DebugSymRef::new(0,0), Box::new(cond), Box::new(when_true), Box::new(when_false)),
 }
 
-ParseStepType: Statement<BigInt, Variable> = {
-    "step" <id: Identifier> "(" <params: ParseIdDeclList?> ")" <block: StatementsBlock> => Statement::StepTypeDecl(DebugSymRef::new(0,0), id, params.unwrap_or(vec![]), block)
+ParseState: Statement<BigInt, Variable> = {
+    "state" <id: Identifier> <block: StatementsBlock> => Statement::StateDecl(DebugSymRef::new(0,0), id, Box::new(block))
 }
 
-ParseIdDecl: Statement<BigInt, Variable> = {
-    ParseSignal,
-    ParseVarDecl,
+ParseTransitionSimple: Statement<BigInt, Variable> = {
+    "->" <id: Identifier> => build_transition_simple(DebugSymRef::new(0,0), id),
 }
 
-ParseSignal: Statement<BigInt, Variable> = {
-    "signal" <id: Identifier> => Statement::SignalDecl(DebugSymRef::new(0,0), id),
+ParseTransition: Statement<BigInt, Variable> = {
+    "->" <id: Identifier> <block: StatementsBlock> => build_transition(DebugSymRef::new(0,0), id, block),
+}
+
+ParseSignalDecl: Statement<BigInt, Variable> = {
+    "signal" <ids: ParseTypedIdList> => Statement::SignalDecl(DebugSymRef::new(0,0), ids),
 }
 
 ParseVarDecl: Statement<BigInt, Variable> = {
-    "var" <id: Identifier> => Statement::VarDecl(DebugSymRef::new(0,0), id),
+    "var" <ids: ParseTypedIdList> => Statement::VarDecl(DebugSymRef::new(0,0), ids),
+}
+
+ParseSignalDeclSingle: Statement<BigInt, Variable> = {
+    "signal" <signal: ParseTypedId> => Statement::SignalDecl(DebugSymRef::new(0,0), vec![signal]),
+}
+
+ParseVarDeclSingle: Statement<BigInt, Variable> = {
+    "var" <var: ParseTypedId> => Statement::VarDecl(DebugSymRef::new(0,0), vec![var]),
 }
 
 // Expression
@@ -156,20 +174,40 @@ ParseVar: Expression<BigInt, Variable> = {
     <id: Identifier> => Expression::Query(DebugSymRef::new(0,0), Variable(id, 0)),
 }
 
+// Lists
+
+Comma<T>: Vec<T> = { // (1)
+    <mut v:(<T> ",")*> <e:T?> => match e { // (2)
+        None => v,
+        Some(e) => {
+            v.push(e);
+            v
+        }
+    }
+};
+
+ParseParamsList = Comma<ParseParamDecl>;
+ParseIdsList = Comma<Identifier>;
+ParseTypedIdList = Comma<ParseTypedId>;
+ParseExpressionList = Comma<Expression>;
+
+
 // Other
 
-ParseIdDeclList: Vec<Statement<BigInt, Variable>> = {
-    <v:(<ParseIdDecl> ",")*> <e: ParseIdDecl> => {
-        let mut v = v;
-        v.push(e);
-        v
-    }
+ParseParamDecl: Statement<BigInt, Variable> = {
+    ParseSignalDeclSingle,
+    ParseVarDeclSingle,
+}
+
+ParseTypedId: TypedIdDecl = {
+    <id: Identifier> ":" <ty: Identifier> => TypedIdDecl { id, ty: Some(ty) },
+    <id: Identifier> => TypedIdDecl { id, ty: None },
 }
 
 // Terminals
 
 Identifier: String = {
-    r"[a-zA-Z_][a-zA-Z$_0-9@]*" => String::from(<>),
+    r"[a-zA-Z_][a-zA-Z$_0-9@]*'?" => String::from(<>),
 }
 
 FieldElement: Expression<BigInt, Variable> = {

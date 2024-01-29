@@ -33,38 +33,35 @@ mod test {
     #[test]
     fn test_parser_statements() {
         let stmts = lang::StatementsParser::new()
-            .parse("if 0 == 22 then { 0 === a; }")
+            .parse("if 0 == 22 { 0 === a; }")
+            .unwrap();
+        assert_eq!(&format!("{:?}", stmts), "[if 0 == 22 {\n 0 === a;\n}\n]");
+        assert_eq!(stmts.len(), 1);
+
+        let stmts = lang::StatementsParser::new()
+            .parse("if 0 == 22 { 0 === a; 1 === b; }")
             .unwrap();
         assert_eq!(
             &format!("{:?}", stmts),
-            "[if 0 == 22 then {\n 0 === a;\n}\n]"
+            "[if 0 == 22 {\n 0 === a; 1 === b;\n}\n]"
         );
         assert_eq!(stmts.len(), 1);
 
         let stmts = lang::StatementsParser::new()
-            .parse("if 0 == 22 then { 0 === a; 1 === b; }")
+            .parse("if 0 == 22 {\n 0 === a; 1 === b; }")
             .unwrap();
         assert_eq!(
             &format!("{:?}", stmts),
-            "[if 0 == 22 then {\n 0 === a; 1 === b;\n}\n]"
+            "[if 0 == 22 {\n 0 === a; 1 === b;\n}\n]"
         );
         assert_eq!(stmts.len(), 1);
 
         let stmts = lang::StatementsParser::new()
-            .parse("if 0 == 22 then {\n 0 === a; 1 === b; }")
+            .parse("if 0 == 22 {\n 0 === a; 1 === b;} b === 1;")
             .unwrap();
         assert_eq!(
             &format!("{:?}", stmts),
-            "[if 0 == 22 then {\n 0 === a; 1 === b;\n}\n]"
-        );
-        assert_eq!(stmts.len(), 1);
-
-        let stmts = lang::StatementsParser::new()
-            .parse("if 0 == 22 then {\n 0 === a; 1 === b;} b === 1;")
-            .unwrap();
-        assert_eq!(
-            &format!("{:?}", stmts),
-            "[if 0 == 22 then {\n 0 === a; 1 === b;\n}\n, b === 1;]"
+            "[if 0 == 22 {\n 0 === a; 1 === b;\n}\n, b === 1;]"
         );
         assert_eq!(stmts.len(), 2);
     }
@@ -72,38 +69,53 @@ mod test {
     #[test]
     fn test_parser_tracer() {
         let circuit = "
-            tracer atracer(signal a_param) {
-                signal a;
-                signal b;
-    
-                step astep(var another_param) {
-                    signal c;
-    
-                    a === b + c;
-                    c !== d + e;
+        machine fibo(signal n) (signal b: field) {
+            // n and be are created automatically as shared
+            // signals
+            signal a: field, i;
 
-                    f <== g;
-                    j <-- k +1;
+            // there is always a state called initial
+            // input signals get binded to the signal
+            // in the initial state (first instance)
+            state initial {
+             signal c;
 
-                    assert l + m == 0 && n * o == 1;
+             i, a, b, c <== 1, 1, 1, 2;
 
-                    if p != q then {
-                        p === 3;
-                    } else {
-                        r === s + t;
-                    }
-                }
+             -> middle {
+              a', b', n' <== b, c, n;
+             }
             }
+
+            state middle {
+             signal c;
+
+             c <== a + b;
+
+             if i + 1 == n {
+              -> final {
+               i', b', n' <== i + 1, c, n;
+              }
+             } else {
+              -> middle {
+               i', a', b', n' <== i + 1, b, c, n;
+              }
+             }
+            }
+
+            // There is always a state called final.
+            // Output signals get automatically bindinded to the signals
+            // with the same name in the final step (last instance).
+            // This state can be implicit if there are no constraints in it.
+           }
         ";
 
         let decls = lang::TLDeclsParser::new().parse(circuit).unwrap();
 
-        assert_eq!(format!("{:?}", decls), "[TracerDecl(DebugSymRef { start: 0, end: 0 }, \"atracer\", [signal a_param;], [signal a;, signal b;, step astep([var another_param;]) { [signal c;, a === b + c;, c !== d + e;, f <== g;, j <-- k + 1;, assert ((l + m) == 0) || ((n * o) == 1);, if p != q then {
- p === 3;
-} else{
- r === s + t;
-} 
-           ] }])]");
+        assert_eq!(
+            format!("{:?}", decls),
+            r#"[machine fibo (signal n;) (signal b;) { signal a, i; state initial { signal c; [i, a, b, c] <== [1, 1, 1, 2]; -> middle { [a', b', n'] <== [b, c, n]; } } state middle { signal c; [c] <== [a + b]; if (i + 1) == n { -> final { [i', b', n'] <== [i + 1, c, n]; } } else { -> middle { [i', a', b', n'] <== [i + 1, b, c, n]; } } } }]"#
+        );
 
         println!("{:?}", decls);
     }
