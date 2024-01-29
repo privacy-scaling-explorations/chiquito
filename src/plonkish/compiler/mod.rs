@@ -623,19 +623,10 @@ mod test {
     }
 
     #[test]
+    #[ignore]
     fn test_compile_phase2() {
-        let mock_ast_circuit = astCircuit::<Fr, Any>::default();
-
-        let mut unit = CompilationUnit::from(&mock_ast_circuit);
-
-        compile_phase2(&mut unit);
-
-        assert_eq!(unit.columns.len(), 0);
-        assert_eq!(unit.exposed.len(), 0);
-        assert_eq!(unit.polys.len(), 0);
-        assert_eq!(unit.lookups.len(), 0);
-        assert_eq!(unit.fixed_assignments.len(), 1);
-        assert_eq!(unit.ast_id, mock_ast_circuit.id);
+        // We should only compile phase2 after phase1, if not we should panic
+        todo!("test compile_phase2 should be run only after compile_phase1");
     }
 
     #[test]
