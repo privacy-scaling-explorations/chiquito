@@ -1,4 +1,4 @@
-use super::ast::{expression::Expression, statement::Statement, DebugSymRef};
+use super::ast::{expression::Expression, statement::Statement, DebugSymRef, Variable};
 
 pub fn build_bin_op<S: Into<String>, F, V>(
     op: S,
@@ -19,6 +19,12 @@ pub fn build_unary_op<S: Into<String>, F, V>(op: S, sub: Expression<F, V>) -> Ex
         op: op.into().into(),
         sub: Box::new(sub),
     }
+}
+
+pub fn build_query<F, S: Into<String>>(dsym: DebugSymRef, id: S) -> Expression<F, Variable> {
+    use Expression::Query;
+
+    Query(dsym, Variable::from(id.into()))
 }
 
 pub fn build_assert_eq<F, V>(

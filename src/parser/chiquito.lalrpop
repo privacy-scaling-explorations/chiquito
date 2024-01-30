@@ -45,7 +45,7 @@ ParseStatement: Statement<BigInt, Variable> = {
     <a: Assignment> ";" => a,
 
     <v: ParseSignalDecl> ";" => v,
-    <v: ParseVarDecl> ";" => v,
+    <v: ParseWGVarDecl> ";" => v,
 
     <t: ParseTransitionSimple> ";" => t,
 
@@ -54,7 +54,6 @@ ParseStatement: Statement<BigInt, Variable> = {
 
     ParseState,
     ParseTransition,
-    
 }
 
 AssertEq: Statement<BigInt, Variable> = {
@@ -102,16 +101,16 @@ ParseSignalDecl: Statement<BigInt, Variable> = {
     "signal" <ids: ParseTypedIdList> => Statement::SignalDecl(DebugSymRef::new(0,0), ids),
 }
 
-ParseVarDecl: Statement<BigInt, Variable> = {
-    "var" <ids: ParseTypedIdList> => Statement::VarDecl(DebugSymRef::new(0,0), ids),
+ParseWGVarDecl: Statement<BigInt, Variable> = {
+    "var" <ids: ParseTypedIdList> => Statement::WGVarDecl(DebugSymRef::new(0,0), ids),
 }
 
 ParseSignalDeclSingle: Statement<BigInt, Variable> = {
     "signal" <signal: ParseTypedId> => Statement::SignalDecl(DebugSymRef::new(0,0), vec![signal]),
 }
 
-ParseVarDeclSingle: Statement<BigInt, Variable> = {
-    "var" <var: ParseTypedId> => Statement::VarDecl(DebugSymRef::new(0,0), vec![var]),
+ParseWGVarDeclSingle: Statement<BigInt, Variable> = {
+    "var" <var: ParseTypedId> => Statement::WGVarDecl(DebugSymRef::new(0,0), vec![var]),
 }
 
 // Expression
@@ -171,13 +170,13 @@ ParseArithBinOp<Op, Next>: Expression<BigInt, Variable> = {
 }
 
 ParseVar: Expression<BigInt, Variable> = {
-    <id: Identifier> => Expression::Query(DebugSymRef::new(0,0), Variable(id, 0)),
+    <id: Identifier> => build_query(DebugSymRef::new(0,0), id),
 }
 
 // Lists
 
-Comma<T>: Vec<T> = { // (1)
-    <mut v:(<T> ",")*> <e:T?> => match e { // (2)
+Comma<T>: Vec<T> = {
+    <mut v:(<T> ",")*> <e:T?> => match e {
         None => v,
         Some(e) => {
             v.push(e);
@@ -191,12 +190,11 @@ ParseIdsList = Comma<Identifier>;
 ParseTypedIdList = Comma<ParseTypedId>;
 ParseExpressionList = Comma<Expression>;
 
-
 // Other
 
 ParseParamDecl: Statement<BigInt, Variable> = {
     ParseSignalDeclSingle,
-    ParseVarDeclSingle,
+    ParseWGVarDeclSingle,
 }
 
 ParseTypedId: TypedIdDecl = {
@@ -207,7 +205,7 @@ ParseTypedId: TypedIdDecl = {
 // Terminals
 
 Identifier: String = {
-    r"[a-zA-Z_][a-zA-Z$_0-9@]*'?" => String::from(<>),
+    r"[a-zA-Z_][a-zA-Z$_0-9@]*" => String::from(<>),
 }
 
 FieldElement: Expression<BigInt, Variable> = {

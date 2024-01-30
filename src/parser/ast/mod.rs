@@ -32,3 +32,66 @@ impl Debug for Variable {
         }
     }
 }
+
+impl From<String> for Variable {
+    fn from(value: String) -> Self {
+        Variable(value.name(), value.rotation())
+    }
+}
+
+impl From<&str> for Variable {
+    fn from(value: &str) -> Self {
+        Variable::from(value.to_string())
+    }
+}
+
+pub trait Identifier {
+    fn rotation(&self) -> i32;
+    fn name(&self) -> Self;
+}
+
+impl Identifier for String {
+    fn rotation(&self) -> i32 {
+        assert!(!self.is_empty());
+        let last = self.chars().last().unwrap();
+
+        if last == '\'' {
+            1
+        } else {
+            0
+        }
+    }
+
+    fn name(&self) -> Self {
+        let rot = self.rotation();
+
+        match rot {
+            0 => self.clone(),
+            1 => {
+                let mut chars = self.chars();
+                chars.next_back();
+
+                chars.as_str().to_string()
+            }
+            _ => unimplemented!(),
+        }
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use crate::parser::ast::Variable;
+
+    #[test]
+    fn test_from_string() {
+        let result = Variable::from("abc");
+
+        assert_eq!(result.0, "abc");
+        assert_eq!(result.1, 0);
+
+        let result = Variable::from("abc'");
+
+        assert_eq!(result.0, "abc");
+        assert_eq!(result.1, 1);
+    }
+}

@@ -27,7 +27,7 @@ pub enum Statement<F, V> {
     ),
 
     SignalDecl(DebugSymRef, Vec<TypedIdDecl>),
-    VarDecl(DebugSymRef, Vec<TypedIdDecl>),
+    WGVarDecl(DebugSymRef, Vec<TypedIdDecl>),
 
     StateDecl(DebugSymRef, String, Box<Statement<F, V>>),
 
@@ -57,7 +57,7 @@ impl<F: Debug, V: Debug> Debug for Statement<F, V> {
                     .collect::<Vec<_>>()
                     .join(", ")
             ),
-            Statement::VarDecl(_, id) => write!(
+            Statement::WGVarDecl(_, id) => write!(
                 f,
                 "var {};",
                 id.iter()
