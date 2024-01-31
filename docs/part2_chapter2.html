@@ -1,13 +1,12 @@
 
-
 <!DOCTYPE html>
 
 
-<html lang="en" data-content_root="" >
+<html lang="en" data-content_root="./" >
 
   <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="generator" content="Docutils 0.18.1: http://docutils.sourceforge.net/" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
     <title>Chapter 2: StepType and Circuit &#8212; Introduction to Chiquito</title>
   
@@ -19,49 +18,53 @@
   </script>
   
   <!-- Loaded before other Sphinx assets -->
-  <link href="_static/styles/theme.css?digest=bd9e20870c6007c4c509" rel="stylesheet" />
-<link href="_static/styles/bootstrap.css?digest=bd9e20870c6007c4c509" rel="stylesheet" />
-<link href="_static/styles/pydata-sphinx-theme.css?digest=bd9e20870c6007c4c509" rel="stylesheet" />
+  <link href="_static/styles/theme.css?digest=8d27b9dea8ad943066ae" rel="stylesheet" />
+<link href="_static/styles/bootstrap.css?digest=8d27b9dea8ad943066ae" rel="stylesheet" />
+<link href="_static/styles/pydata-sphinx-theme.css?digest=8d27b9dea8ad943066ae" rel="stylesheet" />
 
   
-  <link href="_static/vendor/fontawesome/6.5.1/css/all.min.css?digest=bd9e20870c6007c4c509" rel="stylesheet" />
+  <link href="_static/vendor/fontawesome/6.5.1/css/all.min.css?digest=8d27b9dea8ad943066ae" rel="stylesheet" />
   <link rel="preload" as="font" type="font/woff2" crossorigin href="_static/vendor/fontawesome/6.5.1/webfonts/fa-solid-900.woff2" />
 <link rel="preload" as="font" type="font/woff2" crossorigin href="_static/vendor/fontawesome/6.5.1/webfonts/fa-brands-400.woff2" />
 <link rel="preload" as="font" type="font/woff2" crossorigin href="_static/vendor/fontawesome/6.5.1/webfonts/fa-regular-400.woff2" />
 
-    <link rel="stylesheet" type="text/css" href="_static/pygments.css" />
-    <link rel="stylesheet" href="_static/styles/sphinx-book-theme.css?digest=14f4ca6b54d191a8c7657f6c759bf11a5fb86285" type="text/css" />
-    <link rel="stylesheet" type="text/css" href="_static/togglebutton.css" />
-    <link rel="stylesheet" type="text/css" href="_static/copybutton.css" />
+    <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=fa44fd50" />
+    <link rel="stylesheet" type="text/css" href="_static/styles/sphinx-book-theme.css?v=384b581d" />
+    <link rel="stylesheet" type="text/css" href="_static/togglebutton.css?v=13237357" />
+    <link rel="stylesheet" type="text/css" href="_static/copybutton.css?v=76b2166b" />
     <link rel="stylesheet" type="text/css" href="_static/mystnb.4510f1fc1dee50b3e5859aac5469c37c29e427902b24a333a5f9fcb2f0b3ac41.css" />
-    <link rel="stylesheet" type="text/css" href="_static/sphinx-thebe.css" />
-    <link rel="stylesheet" type="text/css" href="_static/design-style.4045f2051d55cab465a707391d5b2007.min.css" />
+    <link rel="stylesheet" type="text/css" href="_static/sphinx-thebe.css?v=4fa983c6" />
+    <link rel="stylesheet" type="text/css" href="_static/design-style.1e8bd061cd6da7fc9cf755528e8ffc24.min.css?v=0a3b3ea7" />
   
   <!-- Pre-loaded scripts that we'll load fully later -->
-  <link rel="preload" as="script" href="_static/scripts/bootstrap.js?digest=bd9e20870c6007c4c509" />
-<link rel="preload" as="script" href="_static/scripts/pydata-sphinx-theme.js?digest=bd9e20870c6007c4c509" />
-  <script src="_static/vendor/fontawesome/6.5.1/js/all.min.js?digest=bd9e20870c6007c4c509"></script>
+  <link rel="preload" as="script" href="_static/scripts/bootstrap.js?digest=8d27b9dea8ad943066ae" />
+<link rel="preload" as="script" href="_static/scripts/pydata-sphinx-theme.js?digest=8d27b9dea8ad943066ae" />
+  <script src="_static/vendor/fontawesome/6.5.1/js/all.min.js?digest=8d27b9dea8ad943066ae"></script>
 
-    <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js"></script>
-    <script src="_static/jquery.js"></script>
-    <script src="_static/underscore.js"></script>
-    <script src="_static/_sphinx_javascript_frameworks_compat.js"></script>
-    <script src="_static/doctools.js"></script>
-    <script src="_static/clipboard.min.js"></script>
-    <script src="_static/copybutton.js"></script>
-    <script src="_static/scripts/sphinx-book-theme.js?digest=5a5c038af52cf7bc1a1ec88eea08e6366ee68824"></script>
+    <script src="_static/documentation_options.js?v=9eb32ce0"></script>
+    <script src="_static/doctools.js?v=888ff710"></script>
+    <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="_static/clipboard.min.js?v=a7894cd8"></script>
+    <script src="_static/copybutton.js?v=f281be69"></script>
+    <script src="_static/scripts/sphinx-book-theme.js?v=efea14e4"></script>
     <script>let toggleHintShow = 'Click to show';</script>
     <script>let toggleHintHide = 'Click to hide';</script>
     <script>let toggleOpenOnPrint = 'true';</script>
-    <script src="_static/togglebutton.js"></script>
+    <script src="_static/togglebutton.js?v=4a39c7ea"></script>
     <script>var togglebuttonSelector = '.toggle, .admonition.dropdown';</script>
-    <script src="_static/design-tabs.js"></script>
+    <script src="_static/design-tabs.js?v=36754332"></script>
     <script>const THEBE_JS_URL = "https://unpkg.com/thebe@0.8.2/lib/index.js"
 const thebe_selector = ".thebe,.cell"
 const thebe_selector_input = "pre"
 const thebe_selector_output = ".output, .cell_output"
 </script>
-    <script async="async" src="_static/sphinx-thebe.js"></script>
+    <script async="async" src="_static/sphinx-thebe.js?v=afe5de03"></script>
+    <script>var togglebuttonSelector = '.toggle, .admonition.dropdown';</script>
+    <script>const THEBE_JS_URL = "https://unpkg.com/thebe@0.8.2/lib/index.js"
+const thebe_selector = ".thebe,.cell"
+const thebe_selector_input = "pre"
+const thebe_selector_output = ".output, .cell_output"
+</script>
     <script>DOCUMENTATION_OPTIONS.pagename = 'part2_chapter2';</script>
     <link rel="index" title="Index" href="genindex.html" />
     <link rel="search" title="Search" href="search.html" />
@@ -79,7 +82,6 @@ const thebe_selector_output = ".output, .cell_output"
   <a id="pst-skip-link" class="skip-link" href="#main-content">Skip to main content</a>
   
   <div id="pst-scroll-pixel-helper"></div>
-
   
   <button type="button" class="btn rounded-pill" id="pst-back-to-top">
     <i class="fa-solid fa-arrow-up"></i>
@@ -119,20 +121,15 @@ const thebe_selector_output = ".output, .cell_output"
   <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd>K</kbd></span>
 </form></div>
   </div>
-
-  <header>
   
-    <div class="bd-header navbar navbar-expand-lg bd-navbar">
-    </div>
+    <header class="bd-header navbar navbar-expand-lg bd-navbar">
+    </header>
   
-  </header>
 
   <div class="bd-container">
     <div class="bd-container__inner bd-page-width">
       
       
-      
-        
       
       <div class="bd-sidebar-primary bd-sidebar">
         
@@ -166,7 +163,18 @@ const thebe_selector_output = ".output, .cell_output"
   
   
 </a></div>
-        <div class="sidebar-primary-item"><nav class="bd-links" id="bd-docs-nav" aria-label="Main">
+        <div class="sidebar-primary-item">
+
+ <script>
+ document.write(`
+   <button class="btn navbar-btn search-button-field search-button__button" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <i class="fa-solid fa-magnifying-glass"></i>
+    <span class="search-button__default-text">Search</span>
+    <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+   </button>
+ `);
+ </script></div>
+        <div class="sidebar-primary-item"><nav class="bd-links bd-docs-nav" aria-label="Main">
     <div class="bd-toc-item navbar-nav active">
         
         <ul class="nav bd-sidenav bd-sidenav__home-link">
@@ -420,10 +428,10 @@ document.write(`
                 <article class="bd-article">
                   
   <section class="tex2jax_ignore mathjax_ignore" id="chapter-2-steptype-and-circuit">
-<h1>Chapter 2: StepType and Circuit<a class="headerlink" href="#chapter-2-steptype-and-circuit" title="Permalink to this heading">#</a></h1>
+<h1>Chapter 2: StepType and Circuit<a class="headerlink" href="#chapter-2-steptype-and-circuit" title="Link to this heading">#</a></h1>
 <p>In this Chapter, we code out the concepts learned in Chapter 1 in PyChiquito, but before that, let’s import the dependencies first.</p>
 <section id="imports">
-<h2>Imports<a class="headerlink" href="#imports" title="Permalink to this heading">#</a></h2>
+<h2>Imports<a class="headerlink" href="#imports" title="Link to this heading">#</a></h2>
 <p>The following imports are required, including:</p>
 <ul class="simple">
 <li><p><code class="docutils literal notranslate"><span class="pre">Circuit</span></code> and <code class="docutils literal notranslate"><span class="pre">StepType</span></code>, the most important data types, from the domain specific language (dsl).</p></li>
@@ -441,7 +449,7 @@ document.write(`
 </div>
 </section>
 <section id="steptype">
-<h2>StepType<a class="headerlink" href="#steptype" title="Permalink to this heading">#</a></h2>
+<h2>StepType<a class="headerlink" href="#steptype" title="Link to this heading">#</a></h2>
 <p>Before putting everything together into a circuit, we need to define the step types first. Remember that the Fibonacci circuit is composed of one single step type, defined as 3 signals “a”, “b”, and “c”, plus three constraints <code class="docutils literal notranslate"><span class="pre">a</span> <span class="pre">+</span> <span class="pre">b</span> <span class="pre">==</span> <span class="pre">c</span></code>, <code class="docutils literal notranslate"><span class="pre">b</span> <span class="pre">==</span> <span class="pre">a.next</span></code>, and <code class="docutils literal notranslate"><span class="pre">c</span> <span class="pre">==</span> <span class="pre">b.next</span></code>, where “next” means the same signal in the next step instance:</p>
 <table class="table">
 <thead>
@@ -519,11 +527,11 @@ document.write(`
 </ul>
 </section>
 <section id="signal-types">
-<h2>Signal Types<a class="headerlink" href="#signal-types" title="Permalink to this heading">#</a></h2>
+<h2>Signal Types<a class="headerlink" href="#signal-types" title="Link to this heading">#</a></h2>
 <p>Now, a bit more on the signals. In Chiquito, there are signals that we can only query for the current step instance, which we call “internal signals”. There are also signals that we can query for non-current step instances, such as the next step instance, which we call “forward signals”. In the example above, “a” and “b” were both queried at the next step instance as <code class="docutils literal notranslate"><span class="pre">a.next</span></code> and <code class="docutils literal notranslate"><span class="pre">b.next</span></code> respectively, and therefore are “forward signals”. “c” is only ever queried at the current step instance, and therefore is called “internal signal”. In Chiquito, querying to a non-current step instance is also referred to as “rotation”, which is a positive or negative number relative to the current step instance. We can call <code class="docutils literal notranslate"><span class="pre">next</span></code> on a forward signal, implying a rotation of <code class="docutils literal notranslate"><span class="pre">+1</span></code>. There are additional Chiquito signal types, such as “shared signal” and “fixed signal”, which allows for arbitrary positive or negative rotation. However, in this Fibonacci example, we will only use forward signals “a” and “b” as well as internal signal “c”.</p>
 </section>
 <section id="fibostep-setup">
-<h2>FiboStep Setup<a class="headerlink" href="#fibostep-setup" title="Permalink to this heading">#</a></h2>
+<h2>FiboStep Setup<a class="headerlink" href="#fibostep-setup" title="Link to this heading">#</a></h2>
 <p>We now define the only step type, <code class="docutils literal notranslate"><span class="pre">FiboStep</span></code>:</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">class</span> <span class="nc">FiboStep</span><span class="p">(</span><span class="n">StepType</span><span class="p">):</span>
     <span class="k">def</span> <span class="nf">setup</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
@@ -545,7 +553,7 @@ document.write(`
 <p>In the code snippet above, forward signals “a” and “b” are expressed as <code class="docutils literal notranslate"><span class="pre">self.circuit.a</span></code> and <code class="docutils literal notranslate"><span class="pre">self.circuit.b</span></code>, whereas internal signal “c” is expressed as <code class="docutils literal notranslate"><span class="pre">self.c</span></code>, because “a” and “b” are at the circuit-level. <code class="docutils literal notranslate"><span class="pre">self.circuit.a.next()</span></code> queries the value of circuit-level signal “a” at the next step instance. <code class="docutils literal notranslate"><span class="pre">eq</span></code> is a constraint builder that enforces equality between the two arguments passed in. It builds the three constraints of <code class="docutils literal notranslate"><span class="pre">FiboStep</span></code>: <code class="docutils literal notranslate"><span class="pre">a</span> <span class="pre">+</span> <span class="pre">b</span> <span class="pre">==</span> <span class="pre">c</span></code>, <code class="docutils literal notranslate"><span class="pre">b</span> <span class="pre">==</span> <span class="pre">a.next</span></code>, and <code class="docutils literal notranslate"><span class="pre">c</span> <span class="pre">==</span> <span class="pre">b.next</span></code>.</p>
 </section>
 <section id="fibostep-witness-generation">
-<h2>FiboStep Witness Generation<a class="headerlink" href="#fibostep-witness-generation" title="Permalink to this heading">#</a></h2>
+<h2>FiboStep Witness Generation<a class="headerlink" href="#fibostep-witness-generation" title="Link to this heading">#</a></h2>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">class</span> <span class="nc">FiboStep</span><span class="p">(</span><span class="n">StepType</span><span class="p">):</span>
     <span class="k">def</span> <span class="nf">setup</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="c1"># ...</span>
@@ -576,7 +584,7 @@ document.write(`
 </div>
 </section>
 <section id="circuit">
-<h2>Circuit<a class="headerlink" href="#circuit" title="Permalink to this heading">#</a></h2>
+<h2>Circuit<a class="headerlink" href="#circuit" title="Link to this heading">#</a></h2>
 <p>Now that we finished constructing the only step type <code class="docutils literal notranslate"><span class="pre">FiboStep</span></code>, we can build a <code class="docutils literal notranslate"><span class="pre">Circuit</span></code> object in PyChiquito. PyChiquito provides a <code class="docutils literal notranslate"><span class="pre">Circuit</span></code> parent class that we can customarily inherit. For each <code class="docutils literal notranslate"><span class="pre">Circuit</span></code>, we need to define two functions:</p>
 <ul class="simple">
 <li><p><code class="docutils literal notranslate"><span class="pre">setup</span></code>, which configures the circuit with signals and step types.</p></li>
@@ -584,7 +592,7 @@ document.write(`
 </ul>
 </section>
 <section id="circuit-setup">
-<h2>Circuit Setup<a class="headerlink" href="#circuit-setup" title="Permalink to this heading">#</a></h2>
+<h2>Circuit Setup<a class="headerlink" href="#circuit-setup" title="Link to this heading">#</a></h2>
 <p>We first define the circuit <code class="docutils literal notranslate"><span class="pre">setup</span></code>:</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">class</span> <span class="nc">Fibonacci</span><span class="p">(</span><span class="n">Circuit</span><span class="p">):</span>
     <span class="k">def</span> <span class="nf">setup</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
@@ -603,7 +611,7 @@ document.write(`
 <p>Finally, we constrain the total number of step instances to 4, by using <code class="docutils literal notranslate"><span class="pre">self.pragma_num_steps</span></code>.</p>
 </section>
 <section id="circuit-trace">
-<h2>Circuit Trace<a class="headerlink" href="#circuit-trace" title="Permalink to this heading">#</a></h2>
+<h2>Circuit Trace<a class="headerlink" href="#circuit-trace" title="Link to this heading">#</a></h2>
 <p>Now we instantiate step types and assign witness values using <code class="docutils literal notranslate"><span class="pre">trace</span></code>:</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">class</span> <span class="nc">Fibonacci</span><span class="p">(</span><span class="n">Circuit</span><span class="p">):</span>
     <span class="k">def</span> <span class="nf">setup</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
@@ -662,7 +670,7 @@ document.write(`
 </div>
 </section>
 <section id="putting-everything-together">
-<h2>Putting Everything Together<a class="headerlink" href="#putting-everything-together" title="Permalink to this heading">#</a></h2>
+<h2>Putting Everything Together<a class="headerlink" href="#putting-everything-together" title="Link to this heading">#</a></h2>
 <p>Everything we went through above defines how the circuit and its step type are configured and witness values assigned to them. To instantiate the circuit, we call the class constructor:</p>
 <div class="cell docutils container">
 <div class="cell_input docutils container">
@@ -681,11 +689,11 @@ document.write(`
 <div class="cell_output docutils container">
 <div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>ASTCircuit(
 	step_types={
-		153190149549110415837877587128080796170: ASTStepType(
-			id=153190149549110415837877587128080796170,
+		34435665390716621492692431471997749770: ASTStepType(
+			id=34435665390716621492692431471997749770,
 			name=&#39;fibo_step&#39;,
 			signals=[
-				InternalSignal(id=153190157709611154808035759961043241482, annotation=&#39;c&#39;)
+				InternalSignal(id=34435673947358173031538530915598338570, annotation=&#39;c&#39;)
 			],
 			constraints=[
 				Constraint(
@@ -699,21 +707,21 @@ document.write(`
 			],
 			lookups=[],
 			annotations={
-				153190157709611154808035759961043241482: c
+				34435673947358173031538530915598338570: c
 			}
 		)
 	},
 	forward_signals=[
-		ForwardSignal(id=153190126335258799158251876259166030346, phase=0, annotation=&#39;a&#39;),
-		ForwardSignal(id=153190141863978651955123486730956179978, phase=0, annotation=&#39;b&#39;)
+		ForwardSignal(id=34435642256093167326960355652299000330, phase=0, annotation=&#39;a&#39;),
+		ForwardSignal(id=34435657943269345150922585655162309130, phase=0, annotation=&#39;b&#39;)
 	],
 	shared_signals=[],
 	fixed_signals=[],
 	exposed=[],
 	annotations={
-		153190126335258799158251876259166030346: a,
-		153190141863978651955123486730956179978: b,
-		153190149549110415837877587128080796170: fibo_step
+		34435642256093167326960355652299000330: a,
+		34435657943269345150922585655162309130: b,
+		34435665390716621492692431471997749770: fibo_step
 	},
 	fixed_assignments=None,
 	first_step=None,
@@ -744,7 +752,7 @@ document.write(`
 <div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>TraceWitness(
 	step_instances={
 		StepInstance(
-			step_type_uuid=153190149549110415837877587128080796170,
+			step_type_uuid=34435665390716621492692431471997749770,
 			assignments={
 				a = 1,
 				b = 1,
@@ -752,7 +760,7 @@ document.write(`
 			},
 		),
 		StepInstance(
-			step_type_uuid=153190149549110415837877587128080796170,
+			step_type_uuid=34435665390716621492692431471997749770,
 			assignments={
 				a = 1,
 				b = 2,
@@ -760,7 +768,7 @@ document.write(`
 			},
 		),
 		StepInstance(
-			step_type_uuid=153190149549110415837877587128080796170,
+			step_type_uuid=34435665390716621492692431471997749770,
 			assignments={
 				a = 2,
 				b = 3,
@@ -768,7 +776,7 @@ document.write(`
 			},
 		),
 		StepInstance(
-			step_type_uuid=153190149549110415837877587128080796170,
+			step_type_uuid=34435665390716621492692431471997749770,
 			assignments={
 				a = 3,
 				b = 5,
@@ -898,7 +906,7 @@ By Leo Lara, Steve Wang
 
   <p class="copyright">
     
-      © Copyright 2022.
+      © Copyright 2023.
       <br/>
     
   </p>
@@ -922,8 +930,8 @@ By Leo Lara, Steve Wang
   </div>
   
   <!-- Scripts loaded after <body> so the DOM is not blocked -->
-  <script src="_static/scripts/bootstrap.js?digest=bd9e20870c6007c4c509"></script>
-<script src="_static/scripts/pydata-sphinx-theme.js?digest=bd9e20870c6007c4c509"></script>
+  <script src="_static/scripts/bootstrap.js?digest=8d27b9dea8ad943066ae"></script>
+<script src="_static/scripts/pydata-sphinx-theme.js?digest=8d27b9dea8ad943066ae"></script>
 
   <footer class="bd-footer">
   </footer>

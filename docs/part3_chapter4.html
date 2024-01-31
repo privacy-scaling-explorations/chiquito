@@ -1,13 +1,12 @@
 
-
 <!DOCTYPE html>
 
 
-<html lang="en" data-content_root="" >
+<html lang="en" data-content_root="./" >
 
   <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="generator" content="Docutils 0.18.1: http://docutils.sourceforge.net/" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
     <title>Chapter 4: Fixed Signals, Lookup Tables, and Super Circuit &#8212; Introduction to Chiquito</title>
   
@@ -19,49 +18,53 @@
   </script>
   
   <!-- Loaded before other Sphinx assets -->
-  <link href="_static/styles/theme.css?digest=bd9e20870c6007c4c509" rel="stylesheet" />
-<link href="_static/styles/bootstrap.css?digest=bd9e20870c6007c4c509" rel="stylesheet" />
-<link href="_static/styles/pydata-sphinx-theme.css?digest=bd9e20870c6007c4c509" rel="stylesheet" />
+  <link href="_static/styles/theme.css?digest=8d27b9dea8ad943066ae" rel="stylesheet" />
+<link href="_static/styles/bootstrap.css?digest=8d27b9dea8ad943066ae" rel="stylesheet" />
+<link href="_static/styles/pydata-sphinx-theme.css?digest=8d27b9dea8ad943066ae" rel="stylesheet" />
 
   
-  <link href="_static/vendor/fontawesome/6.5.1/css/all.min.css?digest=bd9e20870c6007c4c509" rel="stylesheet" />
+  <link href="_static/vendor/fontawesome/6.5.1/css/all.min.css?digest=8d27b9dea8ad943066ae" rel="stylesheet" />
   <link rel="preload" as="font" type="font/woff2" crossorigin href="_static/vendor/fontawesome/6.5.1/webfonts/fa-solid-900.woff2" />
 <link rel="preload" as="font" type="font/woff2" crossorigin href="_static/vendor/fontawesome/6.5.1/webfonts/fa-brands-400.woff2" />
 <link rel="preload" as="font" type="font/woff2" crossorigin href="_static/vendor/fontawesome/6.5.1/webfonts/fa-regular-400.woff2" />
 
-    <link rel="stylesheet" type="text/css" href="_static/pygments.css" />
-    <link rel="stylesheet" href="_static/styles/sphinx-book-theme.css?digest=14f4ca6b54d191a8c7657f6c759bf11a5fb86285" type="text/css" />
-    <link rel="stylesheet" type="text/css" href="_static/togglebutton.css" />
-    <link rel="stylesheet" type="text/css" href="_static/copybutton.css" />
+    <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=fa44fd50" />
+    <link rel="stylesheet" type="text/css" href="_static/styles/sphinx-book-theme.css?v=384b581d" />
+    <link rel="stylesheet" type="text/css" href="_static/togglebutton.css?v=13237357" />
+    <link rel="stylesheet" type="text/css" href="_static/copybutton.css?v=76b2166b" />
     <link rel="stylesheet" type="text/css" href="_static/mystnb.4510f1fc1dee50b3e5859aac5469c37c29e427902b24a333a5f9fcb2f0b3ac41.css" />
-    <link rel="stylesheet" type="text/css" href="_static/sphinx-thebe.css" />
-    <link rel="stylesheet" type="text/css" href="_static/design-style.4045f2051d55cab465a707391d5b2007.min.css" />
+    <link rel="stylesheet" type="text/css" href="_static/sphinx-thebe.css?v=4fa983c6" />
+    <link rel="stylesheet" type="text/css" href="_static/design-style.1e8bd061cd6da7fc9cf755528e8ffc24.min.css?v=0a3b3ea7" />
   
   <!-- Pre-loaded scripts that we'll load fully later -->
-  <link rel="preload" as="script" href="_static/scripts/bootstrap.js?digest=bd9e20870c6007c4c509" />
-<link rel="preload" as="script" href="_static/scripts/pydata-sphinx-theme.js?digest=bd9e20870c6007c4c509" />
-  <script src="_static/vendor/fontawesome/6.5.1/js/all.min.js?digest=bd9e20870c6007c4c509"></script>
+  <link rel="preload" as="script" href="_static/scripts/bootstrap.js?digest=8d27b9dea8ad943066ae" />
+<link rel="preload" as="script" href="_static/scripts/pydata-sphinx-theme.js?digest=8d27b9dea8ad943066ae" />
+  <script src="_static/vendor/fontawesome/6.5.1/js/all.min.js?digest=8d27b9dea8ad943066ae"></script>
 
-    <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js"></script>
-    <script src="_static/jquery.js"></script>
-    <script src="_static/underscore.js"></script>
-    <script src="_static/_sphinx_javascript_frameworks_compat.js"></script>
-    <script src="_static/doctools.js"></script>
-    <script src="_static/clipboard.min.js"></script>
-    <script src="_static/copybutton.js"></script>
-    <script src="_static/scripts/sphinx-book-theme.js?digest=5a5c038af52cf7bc1a1ec88eea08e6366ee68824"></script>
+    <script src="_static/documentation_options.js?v=9eb32ce0"></script>
+    <script src="_static/doctools.js?v=888ff710"></script>
+    <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="_static/clipboard.min.js?v=a7894cd8"></script>
+    <script src="_static/copybutton.js?v=f281be69"></script>
+    <script src="_static/scripts/sphinx-book-theme.js?v=efea14e4"></script>
     <script>let toggleHintShow = 'Click to show';</script>
     <script>let toggleHintHide = 'Click to hide';</script>
     <script>let toggleOpenOnPrint = 'true';</script>
-    <script src="_static/togglebutton.js"></script>
+    <script src="_static/togglebutton.js?v=4a39c7ea"></script>
     <script>var togglebuttonSelector = '.toggle, .admonition.dropdown';</script>
-    <script src="_static/design-tabs.js"></script>
+    <script src="_static/design-tabs.js?v=36754332"></script>
     <script>const THEBE_JS_URL = "https://unpkg.com/thebe@0.8.2/lib/index.js"
 const thebe_selector = ".thebe,.cell"
 const thebe_selector_input = "pre"
 const thebe_selector_output = ".output, .cell_output"
 </script>
-    <script async="async" src="_static/sphinx-thebe.js"></script>
+    <script async="async" src="_static/sphinx-thebe.js?v=afe5de03"></script>
+    <script>var togglebuttonSelector = '.toggle, .admonition.dropdown';</script>
+    <script>const THEBE_JS_URL = "https://unpkg.com/thebe@0.8.2/lib/index.js"
+const thebe_selector = ".thebe,.cell"
+const thebe_selector_input = "pre"
+const thebe_selector_output = ".output, .cell_output"
+</script>
     <script>window.MathJax = {"options": {"processHtmlClass": "tex2jax_process|mathjax_process|math|output_area"}}</script>
     <script defer="defer" src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
     <script>DOCUMENTATION_OPTIONS.pagename = 'part3_chapter4';</script>
@@ -81,7 +84,6 @@ const thebe_selector_output = ".output, .cell_output"
   <a id="pst-skip-link" class="skip-link" href="#main-content">Skip to main content</a>
   
   <div id="pst-scroll-pixel-helper"></div>
-
   
   <button type="button" class="btn rounded-pill" id="pst-back-to-top">
     <i class="fa-solid fa-arrow-up"></i>
@@ -121,20 +123,15 @@ const thebe_selector_output = ".output, .cell_output"
   <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd>K</kbd></span>
 </form></div>
   </div>
-
-  <header>
   
-    <div class="bd-header navbar navbar-expand-lg bd-navbar">
-    </div>
+    <header class="bd-header navbar navbar-expand-lg bd-navbar">
+    </header>
   
-  </header>
 
   <div class="bd-container">
     <div class="bd-container__inner bd-page-width">
       
       
-      
-        
       
       <div class="bd-sidebar-primary bd-sidebar">
         
@@ -168,7 +165,18 @@ const thebe_selector_output = ".output, .cell_output"
   
   
 </a></div>
-        <div class="sidebar-primary-item"><nav class="bd-links" id="bd-docs-nav" aria-label="Main">
+        <div class="sidebar-primary-item">
+
+ <script>
+ document.write(`
+   <button class="btn navbar-btn search-button-field search-button__button" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <i class="fa-solid fa-magnifying-glass"></i>
+    <span class="search-button__default-text">Search</span>
+    <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+   </button>
+ `);
+ </script></div>
+        <div class="sidebar-primary-item"><nav class="bd-links bd-docs-nav" aria-label="Main">
     <div class="bd-toc-item navbar-nav active">
         
         <ul class="nav bd-sidenav bd-sidenav__home-link">
@@ -421,9 +429,9 @@ document.write(`
                 <article class="bd-article">
                   
   <section class="tex2jax_ignore mathjax_ignore" id="chapter-4-fixed-signals-lookup-tables-and-super-circuit">
-<h1>Chapter 4: Fixed Signals, Lookup Tables, and Super Circuit<a class="headerlink" href="#chapter-4-fixed-signals-lookup-tables-and-super-circuit" title="Permalink to this heading">#</a></h1>
+<h1>Chapter 4: Fixed Signals, Lookup Tables, and Super Circuit<a class="headerlink" href="#chapter-4-fixed-signals-lookup-tables-and-super-circuit" title="Link to this heading">#</a></h1>
 <section id="lookup-tables">
-<h2>Lookup Tables<a class="headerlink" href="#lookup-tables" title="Permalink to this heading">#</a></h2>
+<h2>Lookup Tables<a class="headerlink" href="#lookup-tables" title="Link to this heading">#</a></h2>
 <p>It turns out that we have a whole different solution and new feature to introduce! “Lookup table” is a great feature enabled in proof systems with PLONKish arithmetization. They are composed of pre-computed constant values for circuits to “lookup to”. For example, suppose you have a single variable <code class="docutils literal notranslate"><span class="pre">x</span></code> and want to constrain that its value is an integer between 0 and <code class="docutils literal notranslate"><span class="pre">n</span></code>. While you can certainly create a constraint in the form of <span class="math notranslate nohighlight">\((x-0)(x-1)(x-2)...(x-n) = 0\)</span>, you can alternatively create a single column lookup table with all integer values between 0 and <code class="docutils literal notranslate"><span class="pre">n</span></code>, and then “lookup” or try to find the value of <code class="docutils literal notranslate"><span class="pre">x</span></code> in the table. The witness will pass the circuit if and only if you can find <code class="docutils literal notranslate"><span class="pre">x</span></code> in the table, essentially constraining the value of <code class="docutils literal notranslate"><span class="pre">x</span></code> to between 0 to <code class="docutils literal notranslate"><span class="pre">n</span></code> without manually writing a lengthy constraint expression. This use case of lookup table is called range checking, and is used quite extensively in projects like the zkEVM.</p>
 <p>Another common use of the lookup table is to provide pre-computed outputs given some inputs to a known function. A good example is bitwise operations such as <code class="docutils literal notranslate"><span class="pre">xor</span></code>. The following table is an example of a 2-bit <code class="docutils literal notranslate"><span class="pre">xor</span></code> lookup table, where <code class="docutils literal notranslate"><span class="pre">a</span></code> and <code class="docutils literal notranslate"><span class="pre">b</span></code> are two inputs and <code class="docutils literal notranslate"><span class="pre">xor</span></code> is the output column:</p>
 <table class="table">
@@ -538,19 +546,19 @@ document.write(`
 </ul>
 </section>
 <section id="fixed-signals">
-<h2>Fixed Signals<a class="headerlink" href="#fixed-signals" title="Permalink to this heading">#</a></h2>
+<h2>Fixed Signals<a class="headerlink" href="#fixed-signals" title="Link to this heading">#</a></h2>
 <p>Because lookup tables involves columns with pre-computed values that don’t change across witness assignments, they are constructed using a new type of signal called “fixed signal”, which is a concept parallel to “internal signal” and “forward signal” in Chiquito.</p>
 </section>
 <section id="super-circuits">
-<h2>Super Circuits<a class="headerlink" href="#super-circuits" title="Permalink to this heading">#</a></h2>
+<h2>Super Circuits<a class="headerlink" href="#super-circuits" title="Link to this heading">#</a></h2>
 <p>Furthermore, as a lookup table is fixed and can be used across multiple circuits, wouldn’t it be a waste to just construct it within one circuit? That’s why we also introduce the concept of “super circuit”, which essentially groups multiple circuits together so that they can share the inputs and outputs. You can write each circuit separately and group them as a super circuit with simple APIs in Chiquito, while we do all the backend work to convert the super circuit into one giant Halo2 circuit behind the scenes (with more backends to be enabled in the future).</p>
 </section>
 <section id="putting-them-all-together">
-<h2>Putting Them All Together<a class="headerlink" href="#putting-them-all-together" title="Permalink to this heading">#</a></h2>
+<h2>Putting Them All Together<a class="headerlink" href="#putting-them-all-together" title="Link to this heading">#</a></h2>
 <p>Well. Lookup tables, fixed signals, and super circuits. They are quite a mouthful! Putting these all together, we will first construct a lookup table in a singleton circuit, whose only content is the lookup table, so that it can be later shared across other circuits in the super circuit. For now, the super circuit will only contain this lookup table circuit (which we will call the <code class="docutils literal notranslate"><span class="pre">MiMC7Constants</span></code> circuit) AND the <code class="docutils literal notranslate"><span class="pre">MiMC7Circuit</span></code> main circuit that we constructed in prior chapters.</p>
 </section>
 <section id="mimc7constants-sub-circuit-for-lookup-table">
-<h2>MiMC7Constants Sub-Circuit for Lookup Table<a class="headerlink" href="#mimc7constants-sub-circuit-for-lookup-table" title="Permalink to this heading">#</a></h2>
+<h2>MiMC7Constants Sub-Circuit for Lookup Table<a class="headerlink" href="#mimc7constants-sub-circuit-for-lookup-table" title="Link to this heading">#</a></h2>
 <p>Let’s construct the <code class="docutils literal notranslate"><span class="pre">Mimc7Constants</span></code> sub-circuit! A sub-circuit is no different from a regular circuit, except that we will group them to a super circuit at the end. Therefore, it also has the <code class="docutils literal notranslate"><span class="pre">setup()</span></code> and <code class="docutils literal notranslate"><span class="pre">wg()</span></code> functions we need to define. However, because there’s only a lookup table containing only fixed signals in the <code class="docutils literal notranslate"><span class="pre">Mimc7Constants</span></code> sub-circuit that we are creating, no <code class="docutils literal notranslate"><span class="pre">wg()</span></code> function is needed for witness generation. Instead, we need to define the <code class="docutils literal notranslate"><span class="pre">fixed_gen()</span></code> function that assigns values to the fixed signals, similar to how we assign values to internal and forward signals in <code class="docutils literal notranslate"><span class="pre">wg()</span></code> previously.</p>
 <p>Now let’s first define the <code class="docutils literal notranslate"><span class="pre">setup()</span></code> function and you can refer to the code snippet below. Recall that we instantiated forward signals on the circuit level in the <code class="docutils literal notranslate"><span class="pre">setup()</span></code> function. We will also do the same for fixed signals, by invoking the <code class="docutils literal notranslate"><span class="pre">self.fixed()</span></code> function and appending it to the cicuit object like <code class="docutils literal notranslate"><span class="pre">self.lookup_row</span> <span class="pre">=</span> <span class="pre">self.fixed(&quot;constant</span> <span class="pre">row&quot;)</span></code>. Here, the signal object is named <code class="docutils literal notranslate"><span class="pre">lookup_row</span></code> and appended to the circuit, with “constant row” as its annotation. We create another fixed signal for the round constants and append it to the circuit as <code class="docutils literal notranslate"><span class="pre">self.lookup_c</span></code>.</p>
 <p>Next, also under <code class="docutils literal notranslate"><span class="pre">setup()</span></code>, we need to group the two signals into a lookup table, by calling <code class="docutils literal notranslate"><span class="pre">self.new_table()</span></code>. The function takes a table object, which is initiated by calling <code class="docutils literal notranslate"><span class="pre">table()</span></code>. We can then append signals to the table using <code class="docutils literal notranslate"><span class="pre">add()</span></code>, which takes the signals to append. <code class="docutils literal notranslate"><span class="pre">add()</span></code> is called as many times as the number of signals to append and therefore is called twice for fixed signals <code class="docutils literal notranslate"><span class="pre">self.lookup_row</span></code> and <code class="docutils literal notranslate"><span class="pre">self.lookup_c</span></code>. Finally, we append the lookup table to the circuit as well by assigning it to <code class="docutils literal notranslate"><span class="pre">self.lookup_table</span></code>. In summary, <code class="docutils literal notranslate"><span class="pre">table()</span></code> initiates the lookup table, <code class="docutils literal notranslate"><span class="pre">add()</span></code> appends fixed signals to it, <code class="docutils literal notranslate"><span class="pre">new_table()</span></code> adds the lookup table, and we assign the result to <code class="docutils literal notranslate"><span class="pre">self.lookup_table</span></code> or any name you want to assign the table to.</p>
@@ -583,7 +591,7 @@ document.write(`
 </div>
 </section>
 <section id="modifications-to-mimc7circuit-sub-circuit">
-<h2>Modifications to MiMC7Circuit Sub-Circuit<a class="headerlink" href="#modifications-to-mimc7circuit-sub-circuit" title="Permalink to this heading">#</a></h2>
+<h2>Modifications to MiMC7Circuit Sub-Circuit<a class="headerlink" href="#modifications-to-mimc7circuit-sub-circuit" title="Link to this heading">#</a></h2>
 <p>Now, let’s make necessary modifications to the <code class="docutils literal notranslate"><span class="pre">Mimc7Circuit</span></code> sub-circuit, the circuit we created in prior chapters, so that we can lookup witness values to the lookup table we just created. We already have the <code class="docutils literal notranslate"><span class="pre">c</span></code> internal signal corresponding to the round constants that can lookup to the <code class="docutils literal notranslate"><span class="pre">lookup_c</span></code> fixed signal in the table. Therefore, we need another <code class="docutils literal notranslate"><span class="pre">row</span></code> signal to lookup to the <code class="docutils literal notranslate"><span class="pre">lookup_row</span></code> fixed signal in the table. Because recall that we also need to constrain that <code class="docutils literal notranslate"><span class="pre">row</span> <span class="pre">=</span> <span class="pre">row.next</span></code> for all step instances except the last, <code class="docutils literal notranslate"><span class="pre">row</span></code> needs to be a forward signal at the circuit level with transition constraints.</p>
 <p>You might be wondering why do we need two fixed signals <code class="docutils literal notranslate"><span class="pre">lookup_c</span></code> <code class="docutils literal notranslate"><span class="pre">lookup_row</span></code> for the lookup table AND two internal/forward signals <code class="docutils literal notranslate"><span class="pre">c</span></code> <code class="docutils literal notranslate"><span class="pre">row</span></code> for the main circuit. Isn’t that duplicated? The reason is that <code class="docutils literal notranslate"><span class="pre">c</span></code> and <code class="docutils literal notranslate"><span class="pre">row</span></code> are signals for the witness where as <code class="docutils literal notranslate"><span class="pre">lookup_c</span></code> and <code class="docutils literal notranslate"><span class="pre">lookup_row</span></code> are signals for the table and we are constraining that <code class="docutils literal notranslate"><span class="pre">(c,</span> <span class="pre">row)</span></code> tuples we see in the witness appear in <code class="docutils literal notranslate"><span class="pre">(lookup_c,</span> <span class="pre">lookup_row)</span></code> tuples in the lookup table. In general, for <code class="docutils literal notranslate"><span class="pre">n</span></code> signals to lookup, we need <code class="docutils literal notranslate"><span class="pre">n</span></code> signals in the witness and another <code class="docutils literal notranslate"><span class="pre">n</span></code> signals in the lookup table, for a total of <code class="docutils literal notranslate"><span class="pre">2n</span></code> signals.</p>
 <p>With that settled, recall that from prior chapters, we have two step types, <code class="docutils literal notranslate"><span class="pre">Mimc7Step</span></code> and <code class="docutils literal notranslate"><span class="pre">Mimc7LastStep</span></code>. However, we need the additional constraint that <code class="docutils literal notranslate"><span class="pre">row</span> <span class="pre">==</span> <span class="pre">0</span></code> for the first step instance only. Therefore, we need another step type <code class="docutils literal notranslate"><span class="pre">Mimc7FirstStep</span></code>, which is the same as <code class="docutils literal notranslate"><span class="pre">Mimc7Step</span></code> plus this additional constraint. We also need to constrain that <code class="docutils literal notranslate"><span class="pre">row</span> <span class="pre">==</span> <span class="pre">row.next</span></code> for both <code class="docutils literal notranslate"><span class="pre">Mimc7FirstStep</span></code> and <code class="docutils literal notranslate"><span class="pre">Mimc7Step</span></code>, not to mention that we also need to assign value for this new <code class="docutils literal notranslate"><span class="pre">row</span></code> signal in <code class="docutils literal notranslate"><span class="pre">wg()</span></code> for both step types. New contents for <code class="docutils literal notranslate"><span class="pre">Mimc7FirstStep</span></code> compared to our prior chapters is listed in the code snippet below with prior contents abbreviated:</p>
@@ -699,7 +707,7 @@ document.write(`
 </div>
 </section>
 <section id="constructing-the-super-circuit">
-<h2>Constructing the Super Circuit<a class="headerlink" href="#constructing-the-super-circuit" title="Permalink to this heading">#</a></h2>
+<h2>Constructing the Super Circuit<a class="headerlink" href="#constructing-the-super-circuit" title="Link to this heading">#</a></h2>
 <p>So far, we are done implementing two sub-circuits, <code class="docutils literal notranslate"><span class="pre">Mimc7Constants</span></code> which has the lookup table and <code class="docutils literal notranslate"><span class="pre">Mimc7Circuit</span></code> which wires up the core circuit logics. It’s time to combine them into a super circuit!</p>
 <p>Recall at the start of the chapter that super circuit is useful for wiring inputs and outputs among multiple sub-circuits and in our case of using a lookup table, it’s often the best practice to store the table in one sub-circuit, so that it can be used across multiple other sub-circuits.</p>
 <p>Refer to the code snippet below for the following contents. First we need to create the super circuit. Chiquito again provides convenient APIs, so that you can just inherit the <code class="docutils literal notranslate"><span class="pre">SuperCircuit</span></code> class, just as how you created a <code class="docutils literal notranslate"><span class="pre">Circuit</span></code>. Similarly, <code class="docutils literal notranslate"><span class="pre">SuperCircuit</span></code> requires the user to define two functions:</p>
@@ -755,7 +763,7 @@ document.write(`
 </div>
 </section>
 <section id="putting-everything-together">
-<h2>Putting Everything Together<a class="headerlink" href="#putting-everything-together" title="Permalink to this heading">#</a></h2>
+<h2>Putting Everything Together<a class="headerlink" href="#putting-everything-together" title="Link to this heading">#</a></h2>
 <p>You’ve progressed this far! Finally, it’s time to put everything, lookup tables, fixed signals, new sub-circuit, and super circuit, together.</p>
 <div class="cell docutils container">
 <div class="cell_input docutils container">
@@ -1136,7 +1144,7 @@ By Leo Lara, Steve Wang
 
   <p class="copyright">
     
-      © Copyright 2022.
+      © Copyright 2023.
       <br/>
     
   </p>
@@ -1160,8 +1168,8 @@ By Leo Lara, Steve Wang
   </div>
   
   <!-- Scripts loaded after <body> so the DOM is not blocked -->
-  <script src="_static/scripts/bootstrap.js?digest=bd9e20870c6007c4c509"></script>
-<script src="_static/scripts/pydata-sphinx-theme.js?digest=bd9e20870c6007c4c509"></script>
+  <script src="_static/scripts/bootstrap.js?digest=8d27b9dea8ad943066ae"></script>
+<script src="_static/scripts/pydata-sphinx-theme.js?digest=8d27b9dea8ad943066ae"></script>
 
   <footer class="bd-footer">
   </footer>
