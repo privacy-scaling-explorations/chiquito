@@ -49,7 +49,7 @@ pub struct CompilationUnit<F> {
     pub other_sub_circuits: Rc<Vec<CompilationUnit<F>>>,
     pub other_columns: Rc<Vec<Column>>,
 
-    pub compilation_phase: usize,
+    pub compilation_phase: u32,
 }
 
 impl<F> Default for CompilationUnit<F> {
