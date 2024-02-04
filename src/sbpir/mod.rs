@@ -117,6 +117,10 @@ impl<F, TraceArgs> SBPIR<F, TraceArgs> {
     }
 
     pub fn expose(&mut self, signal: Queriable<F>, offset: ExposeOffset) {
+        let existing_signal = self.forward_signals.clone().into_iter().any(|s| s.uuid() == signal.uuid());
+        if !existing_signal {
+            panic!("Signal not found in forward signals.")
+        }
         match signal {
             Queriable::Forward(..) | Queriable::Shared(..) => {
                 self.exposed.push((signal, offset));
@@ -529,5 +533,25 @@ mod tests {
     fn test_q_enable() {
         let circuit: SBPIR<i32, i32> = SBPIR::default();
         assert!(circuit.q_enable);
+    }
+
+    #[test]
+    #[should_panic]
+    fn test_expose_non_existing_signal() {
+        let mut circuit: SBPIR<i32, i32> = SBPIR::default();
+        let signal = Queriable::Forward(ForwardSignal::new_with_phase(0, "signal".to_string()), false);
+        let offset = ExposeOffset::First;
+
+        circuit.expose(signal, offset);
+    }
+
+    #[test]
+    fn test_expose_forward_signal() {
+        let mut circuit: SBPIR<i32, i32> = SBPIR::default();
+        let signal = circuit.add_forward("signal", 0);
+        let offset = ExposeOffset::First;
+        assert_eq!(circuit.exposed.len(), 0);
+        circuit.expose(Queriable::Forward(signal, false), offset);
+        assert_eq!(circuit.exposed.len(), 1);
     }
 }
