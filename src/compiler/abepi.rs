@@ -10,6 +10,7 @@ use crate::{
     poly::Expr,
 };
 
+/// Result of compiling an arbitrary boolean expression into a PI
 pub struct CompilationResult<F, V> {
     #[allow(dead_code)]
     dsym: DebugSymRef,
@@ -19,6 +20,8 @@ pub struct CompilationResult<F, V> {
     one_zero: Expr<F, V>,
 }
 
+/// CompilationUnit for ABE to PI
+// In the future this will include configuration of the cost function for PI.
 pub struct CompilationUnit<F, V> {
     _p: PhantomData<(F, V)>,
 }

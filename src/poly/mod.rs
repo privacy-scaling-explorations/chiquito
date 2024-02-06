@@ -119,16 +119,19 @@ impl<F: Clone, V: Clone> ToExpr<F, V> for Expr<F, V> {
 }
 
 impl<F: Clone + From<u64>, V: Clone> Expr<F, V> {
+    /// Returns (1-self).
     pub fn one_minus(&self) -> Self {
         use Expr::Const;
 
         Const(F::from(1u64)) + (-self.clone())
     }
 
+    /// Casts OneZero representation to anti-booly represenation.
     pub fn cast_anti_booly(&self) -> Self {
         self.one_minus()
     }
 
+    /// Casts anti-booly represation to OneZero represenation.
     pub fn cast_one_zero(&self) -> Self {
         use Expr::MI;
 
