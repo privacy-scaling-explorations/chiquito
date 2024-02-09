@@ -2,7 +2,7 @@
 machine_definition = "machine", "(", params_list ,")", [ "(", params_list ,")" ], machine_block;
 params_list = param, {",", param };
 param = "signal"|"var", identifier;
-machine_block = "{", machine_statement, { machine_statement } "}";
+machine_block = "{", machine_statement, { machine_statement },  "}";
 
 machine_statement = variable_declaration | state_definition;
 variable_declaration = "signal"|"var", identifier, {",", identifier }, ";";
