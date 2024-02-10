@@ -1319,7 +1319,7 @@ fn blake2f_super_circuit<F: PrimeField + Hash>() -> SuperCircuit<F, InputValues>
         // BITS_NUMBER);
 
         let maxwidth_config = config(
-            MaxWidthCellManager::new(2, true),
+            MaxWidthCellManager::new(250, true),
             SimpleStepSelectorBuilder {},
         );
 
@@ -1366,7 +1366,7 @@ fn main() {
     let circuit =
         ChiquitoHalo2SuperCircuit::new(compiled, super_circuit.get_mapping().generate(values));
 
-    let prover = MockProver::run(14, &circuit, Vec::new()).unwrap();
+    let prover = MockProver::run(9, &circuit, Vec::new()).unwrap();
     let result = prover.verify_par();
 
     println!("result = {:#?}", result);
