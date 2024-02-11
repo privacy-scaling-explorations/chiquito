@@ -119,4 +119,66 @@ mod test {
 
         println!("{:?}", decls);
     }
+
+    #[test]
+    #[ignore]
+    fn test_parser_for_modular_exp() {
+        // Modular Exponentiation Example (Low to High Algorithm)
+        // https://en.wikipedia.org/wiki/Modular_exponentiation
+        // Example for 2^4
+        // 2^4 = 2^2 * 2^2 = 4^2 = 16
+        // -------------------------
+        // | a | e | acc |
+        // |---|---|-----|
+        // | 2 | 4 | 1   |
+        // | 4 | 2 | 1   |
+        // | 16| 1 | 1   |
+        // | 16| 0 | 16  |
+        // -------------------------
+        // Example for 3^5
+        // 3^5 = 3^2 * 3^2 * 3 = 9^2 * 3 = 81 * 3 = 243
+        // -------------------------
+        // | a | e | acc |
+        // |---|---|-----|
+        // | 3 | 5 | 1   |
+        // | 9 | 2 | 3   |
+        // | 81| 1 | 3   |
+        // | 81| 0 | 243 |
+        // -------------------------
+
+        let circuit = "
+        machine modular_exp(signal a, signal e) (signal acc: field) {
+            // a, e and acc are created automatically as shared signals
+
+            state initial {
+                acc <== 1;
+                -> middle {
+                    a', e' <== a, e;
+                }
+            }
+
+            state middle {
+                if e == 0 {
+                    -> final {
+                        acc' <== acc;
+                    }
+                } else {
+                    if e % 2 == 0 {
+                        -> middle {
+                            a', e' <== a * a, e / 2;
+                        }
+                    } else {
+                        -> middle {
+                            acc', a', e' <== acc * a, a * a, e / 2;
+                        }
+                    }
+                }
+            }
+        })
+        ";
+
+        let decls = lang::TLDeclsParser::new().parse(circuit).unwrap();
+
+        println!("{:?}", decls);
+    }
 }
