@@ -1,8 +1,11 @@
+# Chiquito EBNF
+
+Expression and terminals are not included.
+
 ```ebnf
 grammar = { machine_definition };
 
 (* MACHINE *)
-
 machine_definition = "machine", identifier, "(", params_list ,")", ["(", params_list ,")" ], machine_block;
 params_list = param, {",", param };
 param = ("signal"|"var"), identifier;
