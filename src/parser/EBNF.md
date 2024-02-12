@@ -50,7 +50,7 @@ expr5 = expr5, "&", expr6 | expr6;
 expr6 = expr6, ("<<", ">>"), expr7 | expr7;
 expr7 = expr7, ("+", "-"), expr8 | expr8;
 expr8 = expr8, ("*", "/", "%"), expr9 | expr9;
-expr9 = ("-", "*", "!"), terminal | terminal;
+expr9 = ("-", "!"), terminal | terminal;
 terminal = constant | var_with_rotation | "(", expression, ")";
 
 (* TERMINALS *)
