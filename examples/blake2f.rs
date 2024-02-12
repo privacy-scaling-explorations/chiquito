@@ -247,8 +247,7 @@ struct InputValues {
     pub f: bool,             // 8bits
 }
 
-fn split_value_4bits<F: PrimeField + Hash>(value: u128, n: usize) -> Vec<F> {
-    let mut value = value;
+fn split_value_4bits<F: PrimeField + Hash>(mut value: u128, n: usize) -> Vec<F> {
     (0..n)
         .map(|_| {
             let v = value % VALUE_4BITS as u128;
