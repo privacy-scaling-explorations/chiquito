@@ -104,7 +104,7 @@ fn blake2f_4bits_table<F: PrimeField + Hash>(
     ctx.pragma_num_steps(BITS_NUMBER);
     ctx.fixed_gen(move |ctx| {
         for i in 0..BITS_NUMBER {
-            ctx.assign(i, lookup_4bits_row, F::from(i as u64));
+            ctx.assign(i, lookup_4bits_row, F::ONE);
             ctx.assign(i, lookup_4bits_value, F::from(i as u64));
         }
     });
@@ -148,7 +148,7 @@ impl CircuitParams {
         ctx: &mut StepTypeSetupContext<F>,
         bits: Queriable<F>,
     ) {
-        ctx.add_lookup(self.bits_table.apply(bits).apply(bits));
+        ctx.add_lookup(self.bits_table.apply(1).apply(bits));
     }
 
     fn check_3bit<F: PrimeField + Hash>(
@@ -156,8 +156,8 @@ impl CircuitParams {
         ctx: &mut StepTypeSetupContext<F>,
         bits: Queriable<F>,
     ) {
-        ctx.add_lookup(self.bits_table.apply(bits).apply(bits));
-        ctx.add_lookup(self.bits_table.apply(bits * 2).apply(bits * 2));
+        ctx.add_lookup(self.bits_table.apply(1).apply(bits));
+        ctx.add_lookup(self.bits_table.apply(1).apply(bits * 2));
     }
 
     fn check_xor<F: PrimeField + Hash>(
@@ -1315,8 +1315,6 @@ fn blake2f_super_circuit<F: PrimeField + Hash>() -> SuperCircuit<F, InputValues>
             blake2f_xor_4bits_table,
             BITS_NUMBER * BITS_NUMBER,
         );
-        // let (_, extend_4bits_table) = ctx.sub_circuit(single_config, blake2f_extend_4bits_table,
-        // BITS_NUMBER);
 
         let maxwidth_config = config(
             MaxWidthCellManager::new(250, true),
