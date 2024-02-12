@@ -158,6 +158,11 @@ mod test {
             }
 
             state middle {
+                signal div;
+
+                div <-- e / 2;
+                div * 2 === e;
+
                 if e == 0 {
                     -> final {
                         acc' <== acc;
@@ -165,11 +170,11 @@ mod test {
                 } else {
                     if e % 2 == 0 {
                         -> middle {
-                            a', e' <== a * a, e / 2;
+                            a', e' <== a * a, div;
                         }
                     } else {
                         -> middle {
-                            acc', a', e' <== acc * a, a * a, e / 2;
+                            acc', a', e' <== acc * a, a * a, div;
                         }
                     }
                 }
