@@ -1,3 +1,6 @@
+#![feature(let_chains)]
+
+pub mod compiler;
 pub mod field;
 pub mod frontend;
 pub mod parser;
