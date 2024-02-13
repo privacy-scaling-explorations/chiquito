@@ -218,6 +218,8 @@ impl<F: From<u64> + Into<u32> + Clone, V: Clone> CompilationUnit<F, V> {
         }
     }
 
+    // my question here is do we really need this function?
+    // Can't we just negate the result of compile_expression_eq?
     fn compile_expression_neq(
         &self,
         _dsym: DebugSymRef,
@@ -231,7 +233,7 @@ impl<F: From<u64> + Into<u32> + Clone, V: Clone> CompilationUnit<F, V> {
         let rhs = self.compile_expression_airth(_rhs);
 
         // In One Zero: 0 is false
-        // lhs != rhs => lhs - rhs == 0F
+        // lhs != rhs => lhs - rhs == 0 is false
         let expr = lhs - rhs;
 
         CompilationResult {
@@ -280,7 +282,34 @@ impl<F: From<u64> + Into<u32> + Clone, V: Clone> CompilationUnit<F, V> {
         _lhs: Expression<F, V>,
         _rhs: Expression<F, V>,
     ) -> CompilationResult<F, V> {
-        todo!()
+        let mut sub = Vec::new();
+
+        flatten_bin_op(BinaryOperator::Or, _lhs, _rhs, &mut sub);
+
+        assert!(sub.iter().all(|se| se.is_logic()));
+
+        let sub = sub
+            .iter()
+            .map(|se| self.compile_expression_logic(se.clone()))
+            .collect::<Vec<_>>();
+
+        // In Anti Booly 0 is true and >0 is false
+        // If a, b, c are 0T => a*b*c = 0T, if at least one of a,b,c is 0T ; if all are >0F => a*b*c
+        // = >0F
+        let anti_booly = sub
+            .iter()
+            .skip(1)
+            .fold(sub[0].anti_booly.clone(), |acc, se| {
+                acc * se.anti_booly.clone()
+            });
+
+        let one_zero = anti_booly.cast_one_zero();
+
+        CompilationResult {
+            dsym: _dsym,
+            anti_booly,
+            one_zero,
+        }
     }
 
     fn compile_expression_not(
