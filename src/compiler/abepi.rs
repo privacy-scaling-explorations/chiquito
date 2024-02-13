@@ -224,7 +224,21 @@ impl<F: From<u64> + Into<u32> + Clone, V: Clone> CompilationUnit<F, V> {
         _lhs: Expression<F, V>,
         _rhs: Expression<F, V>,
     ) -> CompilationResult<F, V> {
-        todo!()
+        assert!(_lhs.is_arith());
+        assert!(_rhs.is_arith());
+
+        let lhs = self.compile_expression_airth(_lhs);
+        let rhs = self.compile_expression_airth(_rhs);
+
+        // In One Zero: 0 is false
+        // lhs != rhs => lhs - rhs == 0F
+        let expr = lhs - rhs;
+
+        CompilationResult {
+            dsym: _dsym,
+            anti_booly: expr.cast_anti_booly(),
+            one_zero: expr.clone(),
+        }
     }
 
     fn compile_expression_and(
