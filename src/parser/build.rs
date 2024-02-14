@@ -1,4 +1,4 @@
-use super::ast::{expression::Expression, statement::Statement, DebugSymRef, Variable};
+use super::ast::{expression::Expression, statement::Statement, DebugSymRef, Identifier};
 
 pub fn build_bin_op<S: Into<String>, F, V>(
     op: S,
@@ -21,10 +21,12 @@ pub fn build_unary_op<S: Into<String>, F, V>(op: S, sub: Expression<F, V>) -> Ex
     }
 }
 
-pub fn build_query<F, S: Into<String>>(dsym: DebugSymRef, id: S) -> Expression<F, Variable> {
-    use Expression::Query;
+pub fn build_query<F>(dsym: DebugSymRef, id: Identifier) -> Expression<F, Identifier> {
+    Expression::Query(dsym, id)
+}
 
-    Query(dsym, Variable::from(id.into()))
+pub fn build_identifier<S: Into<String>>(id: S) -> Identifier {
+    Identifier::from(id.into())
 }
 
 pub fn build_assert_eq<F, V>(
@@ -43,14 +45,14 @@ pub fn build_assert_neq<F, V>(
     Statement::Assert(dsym, build_bin_op("!=", lhs, rhs))
 }
 
-pub fn build_transition_simple<F, V>(dsym: DebugSymRef, id: String) -> Statement<F, V> {
+pub fn build_transition_simple<F>(dsym: DebugSymRef, id: Identifier) -> Statement<F, Identifier> {
     Statement::Transition(dsym.clone(), id, Box::new(Statement::Block(dsym, vec![])))
 }
 
-pub fn build_transition<F, V>(
+pub fn build_transition<F>(
     dsym: DebugSymRef,
-    id: String,
-    block: Statement<F, V>,
-) -> Statement<F, V> {
+    id: Identifier,
+    block: Statement<F, Identifier>,
+) -> Statement<F, Identifier> {
     Statement::Transition(dsym, id, Box::new(block))
 }
