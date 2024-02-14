@@ -14,6 +14,7 @@ use crate::{
     },
 };
 
+/// Category of a symbol
 #[derive(Clone, PartialEq, Debug)]
 enum SymbolCategory {
     Machine,
@@ -31,6 +32,7 @@ enum SymbolCategory {
     InoutWGVar,
 }
 
+/// Category of a scope
 #[derive(Clone, Debug)]
 pub enum ScopeCategory {
     Global,
@@ -38,6 +40,7 @@ pub enum ScopeCategory {
     State,
 }
 
+/// Information about a symbol
 #[derive(Clone, Debug)]
 pub struct SymTableEntry {
     definition_ref: DebugSymRef,
@@ -54,19 +57,21 @@ impl SymTableEntry {
     }
 }
 
+/// Extra information when symbol is found in a scope or a containing scope
 pub struct FoundSymbol {
     symbol: SymTableEntry,
     scope: ScopeCategory,
     level: usize,
 }
 
+/// Contains the symbols of an scope
 #[derive(Clone)]
-pub struct NamespaceTable {
+pub struct ScopeTable {
     symbols: HashMap<String, SymTableEntry>,
     scope: ScopeCategory,
 }
 
-impl Default for NamespaceTable {
+impl Default for ScopeTable {
     fn default() -> Self {
         Self {
             symbols: HashMap::default(),
@@ -75,7 +80,7 @@ impl Default for NamespaceTable {
     }
 }
 
-impl Debug for NamespaceTable {
+impl Debug for ScopeTable {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let symbols = self
             .symbols
@@ -85,16 +90,16 @@ impl Debug for NamespaceTable {
             .collect::<Vec<_>>()
             .join(",");
 
-        f.debug_struct("NamespaceTable")
+        f.debug_struct("ScopeTable")
             .field("symbols", &symbols)
             .field("scope", &self.scope)
             .finish()
     }
 }
 
-impl From<SymTableEntry> for NamespaceTable {
+impl From<SymTableEntry> for ScopeTable {
     fn from(entry: SymTableEntry) -> Self {
-        NamespaceTable {
+        ScopeTable {
             symbols: HashMap::default(),
             scope: match entry.category {
                 SymbolCategory::Machine => ScopeCategory::Machine,
@@ -105,7 +110,7 @@ impl From<SymTableEntry> for NamespaceTable {
     }
 }
 
-impl NamespaceTable {
+impl ScopeTable {
     fn get_symbol(&self, id: String) -> Option<&SymTableEntry> {
         self.symbols.get(&id)
     }
@@ -115,19 +120,17 @@ impl NamespaceTable {
     }
 }
 
+/// Symbol table for a chiquito program
 #[derive(Default)]
 pub struct SymTable {
-    namespaces: HashMap<String, NamespaceTable>,
+    scopes: HashMap<String, ScopeTable>,
 }
 
 impl Display for SymTable {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let result = self
-            .namespaces
-            .iter()
-            .fold("".to_string(), |acc, (ns, table)| {
-                format!("{}{}\n  {:?}\n", acc, ns, table)
-            });
+        let result = self.scopes.iter().fold("".to_string(), |acc, (ns, table)| {
+            format!("{}{}\n  {:?}\n", acc, ns, table)
+        });
 
         write!(f, "{}", result)
     }
@@ -136,10 +139,10 @@ impl Display for SymTable {
 impl Debug for SymTable {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let result = self
-            .namespaces
+            .scopes
             .keys()
             .sorted()
-            .map(|ns| format!("\"{}\": {:?}", ns, self.namespaces[ns]))
+            .map(|ns| format!("\"{}\": {:?}", ns, self.scopes[ns]))
             .collect::<Vec<_>>()
             .join(",");
 
@@ -148,20 +151,23 @@ impl Debug for SymTable {
 }
 
 impl SymTable {
-    pub fn get_symbol(&self, ns: &[String], id: String) -> Option<&SymTableEntry> {
-        self.namespaces
-            .get(&Self::get_key(ns))
-            .expect("namespace not found")
+    /// Get a symbol in a particular scope.
+    /// scope parameter is an array of the scope names on the path.
+    pub fn get_symbol(&self, scope: &[String], id: String) -> Option<&SymTableEntry> {
+        self.scopes
+            .get(&Self::get_key(scope))
+            .expect("scope not found")
             .get_symbol(id)
     }
 
-    pub fn find_symbol(&self, ns: &Vec<String>, id: String) -> Option<FoundSymbol> {
+    /// Finds a symbol in a scope or any of the containing scopes.
+    pub fn find_symbol(&self, scope: &[String], id: String) -> Option<FoundSymbol> {
         let mut level = 0;
-        while level < ns.len() {
+        while level < scope.len() {
             let table = self
-                .namespaces
-                .get(&Self::get_key_level(ns, level))
-                .expect("namespace not found");
+                .scopes
+                .get(&Self::get_key_level(scope, level))
+                .expect("scope not found");
             let symbol = table.get_symbol(id.clone());
 
             if symbol.is_some() {
@@ -178,19 +184,23 @@ impl SymTable {
         None
     }
 
-    pub fn add_symbol(&mut self, ns: &[String], id: String, entry: SymTableEntry) {
-        let ns_key = Self::get_key(ns);
-        self.namespaces
+    /// Add a symbol
+    pub fn add_symbol(&mut self, scope: &[String], id: String, entry: SymTableEntry) {
+        let ns_key = Self::get_key(scope);
+        self.scopes
             .get_mut(&ns_key)
-            .unwrap_or_else(|| panic!("namespace {} not found", &ns_key))
+            .unwrap_or_else(|| panic!("scope {} not found", &ns_key))
             .add_symbol(id.clone(), entry.clone());
 
         if entry.is_scoped() {
-            self.namespaces
-                .insert(format!("{}/{}", &ns_key, id), NamespaceTable::from(entry));
+            self.scopes
+                .insert(format!("{}/{}", &ns_key, id), ScopeTable::from(entry));
         }
     }
 
+    /// Add an output variable symbol.
+    /// This is special because if there is an input variable symbol with the same identifier, it
+    /// should create a Input/Output symbol.
     pub fn add_output_variable(&mut self, ns: &[String], id: String, mut entry: SymTableEntry) {
         let prev_symbol = self.get_symbol(ns, id.clone());
         if let Some(prev_symbol) = prev_symbol {
@@ -234,11 +244,13 @@ impl SymTable {
     }
 }
 
+/// Semantic Analyser message.
 #[derive(Debug)]
 pub enum Message {
     Err { msg: String, dsym: DebugSymRef },
 }
 
+/// Result from running the semantic analyser.
 #[derive(Debug)]
 pub struct AnalysisResult {
     pub symbols: SymTable,
@@ -253,6 +265,9 @@ impl From<Analyser> for AnalysisResult {
         }
     }
 }
+
+// Rule types.
+// Rules are implemented as functions of this types.
 
 type ExpressionRule = fn(analyser: &mut Analyser, expr: &Expression<BigInt, Identifier>);
 type StatementRule = fn(analyser: &mut Analyser, expr: &Statement<BigInt, Identifier>);
@@ -269,6 +284,7 @@ type NewTLSymbolRule = fn(
     symbol: &SymTableEntry,
 );
 
+/// Set of rules used by the semantic analyser.
 pub(self) struct RuleSet {
     expression: Vec<ExpressionRule>,
     statement: Vec<StatementRule>,
@@ -277,6 +293,7 @@ pub(self) struct RuleSet {
 }
 
 impl RuleSet {
+    /// Apply expression rules.
     pub(self) fn apply_expression(
         &self,
         analyser: &mut Analyser,
@@ -285,6 +302,7 @@ impl RuleSet {
         self.expression.iter().for_each(|rule| rule(analyser, expr));
     }
 
+    /// Apply statement rules.
     pub(self) fn apply_statement(
         &self,
         analyser: &mut Analyser,
@@ -293,6 +311,7 @@ impl RuleSet {
         self.statement.iter().for_each(|rule| rule(analyser, stmt));
     }
 
+    /// Apply new symbol top level declaration rules.
     pub(self) fn apply_new_symbol_tldecl(
         &self,
         analyser: &mut Analyser,
@@ -305,6 +324,7 @@ impl RuleSet {
             .for_each(|rule| rule(analyser, tldecl, id, symbol));
     }
 
+    /// Apply new symbol (not top level) rules.
     pub(self) fn apply_new_symbol_statement(
         &self,
         analyser: &mut Analyser,

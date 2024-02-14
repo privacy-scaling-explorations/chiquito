@@ -2,8 +2,7 @@ use num_bigint::BigInt;
 
 use crate::{
     compiler::semantic::{
-        rules::RULES, AnalysisResult, Message, NamespaceTable, SymTable, SymTableEntry,
-        SymbolCategory,
+        rules::RULES, AnalysisResult, Message, ScopeTable, SymTable, SymTableEntry, SymbolCategory,
     },
     parser::ast::{
         expression::Expression, statement::Statement, tl::TLDecl, DebugSymRef, Identifiable,
@@ -11,6 +10,8 @@ use crate::{
     },
 };
 
+/// Public interface to semantic analyser.
+/// Returns symbol table and messages.
 pub fn analyse(program: Vec<TLDecl<BigInt, Identifier>>) -> AnalysisResult {
     let mut analyser = Analyser::default();
 
@@ -19,34 +20,37 @@ pub fn analyse(program: Vec<TLDecl<BigInt, Identifier>>) -> AnalysisResult {
     AnalysisResult::from(analyser)
 }
 
+/// Semantic analyser.
 pub(super) struct Analyser {
     pub(super) symbols: SymTable,
     pub(super) messages: Vec<Message>,
-    pub(super) cur_namespace: Vec<String>,
+    pub(super) cur_scope: Vec<String>,
 }
 
 impl Default for Analyser {
     fn default() -> Self {
         let mut symbols = SymTable::default();
         symbols
-            .namespaces
-            .insert("/".to_string(), NamespaceTable::default());
+            .scopes
+            .insert("/".to_string(), ScopeTable::default());
 
         Self {
             symbols,
             messages: Vec::default(),
-            cur_namespace: vec!["/".to_string()],
+            cur_scope: vec!["/".to_string()],
         }
     }
 }
 
 impl Analyser {
+    /// Analyse chiquito AST.
     fn analyse(&mut self, program: Vec<TLDecl<BigInt, Identifier>>) {
         program
             .into_iter()
             .for_each(|decl| self.analyse_tldcl(decl));
     }
 
+    /// Analyse top level declaration.
     fn analyse_tldcl(&mut self, decl: TLDecl<BigInt, Identifier>) {
         match decl.clone() {
             TLDecl::MachineDecl {
@@ -64,7 +68,7 @@ impl Analyser {
 
                 RULES.apply_new_symbol_tldecl(self, &decl, &id, &sym);
 
-                self.symbols.add_symbol(&self.cur_namespace, id.name(), sym);
+                self.symbols.add_symbol(&self.cur_scope, id.name(), sym);
 
                 self.analyse_machine(id, params, result, block);
             }
@@ -104,8 +108,7 @@ impl Analyser {
 
                 RULES.apply_new_symbol_statement(self, param, &id.id, &sym);
 
-                self.symbols
-                    .add_symbol(&self.cur_namespace, id.id.name(), sym);
+                self.symbols.add_symbol(&self.cur_scope, id.id.name(), sym);
             }),
             Statement::WGVarDecl(dsym, ids) => ids.iter().for_each(|id| {
                 let sym = SymTableEntry {
@@ -116,8 +119,7 @@ impl Analyser {
 
                 RULES.apply_new_symbol_statement(self, param, &id.id, &sym);
 
-                self.symbols
-                    .add_symbol(&self.cur_namespace, id.id.name(), sym);
+                self.symbols.add_symbol(&self.cur_scope, id.id.name(), sym);
             }),
             _ => unreachable!("parser should only produce signals and vars"),
         });
@@ -133,7 +135,7 @@ impl Analyser {
                 RULES.apply_new_symbol_statement(self, param, &id.id, &sym);
 
                 self.symbols
-                    .add_output_variable(&self.cur_namespace, id.id.name(), sym);
+                    .add_output_variable(&self.cur_scope, id.id.name(), sym);
             }),
             Statement::WGVarDecl(dsym, ids) => ids.iter().for_each(|id| {
                 let sym = SymTableEntry {
@@ -145,13 +147,16 @@ impl Analyser {
                 RULES.apply_new_symbol_statement(self, param, &id.id, &sym);
 
                 self.symbols
-                    .add_output_variable(&self.cur_namespace, id.id.name(), sym);
+                    .add_output_variable(&self.cur_scope, id.id.name(), sym);
             }),
             _ => unreachable!("parser should only produce signals and vars"),
         });
-        // TODO: Input/Output params
     }
 
+    /// Add state declarations of a machine.
+    /// This is done before analysing the rest of the machine because you can refer to a state in a
+    /// transition before it is declared. This does not happen with other symbols that need to be
+    /// declared before using.
     fn add_state_decls(&mut self, block: &Statement<BigInt, Identifier>) {
         if let Statement::Block(_, stmts) = block {
             stmts.iter().for_each(|stmt| {
@@ -164,7 +169,7 @@ impl Analyser {
 
                     RULES.apply_new_symbol_statement(self, stmt, id, &sym);
 
-                    self.symbols.add_symbol(&self.cur_namespace, id.name(), sym);
+                    self.symbols.add_symbol(&self.cur_scope, id.name(), sym);
                 }
             })
         } else {
@@ -192,8 +197,7 @@ impl Analyser {
 
                 RULES.apply_new_symbol_statement(self, &stmt, &id.id, &sym);
 
-                self.symbols
-                    .add_symbol(&self.cur_namespace, id.id.name(), sym);
+                self.symbols.add_symbol(&self.cur_scope, id.id.name(), sym);
             }),
             Statement::WGVarDecl(dsym, ids) => ids.into_iter().for_each(|id| {
                 let sym = SymTableEntry {
@@ -204,8 +208,7 @@ impl Analyser {
 
                 RULES.apply_new_symbol_statement(self, &stmt, &id.id, &sym);
 
-                self.symbols
-                    .add_symbol(&self.cur_namespace, id.id.name(), sym);
+                self.symbols.add_symbol(&self.cur_scope, id.id.name(), sym);
             }),
             // State decl symbols are added in
             // add_state_decls
@@ -258,11 +261,11 @@ impl Analyser {
     }
 
     fn enter_new_scope(&mut self, id: String) {
-        self.cur_namespace.push(id)
+        self.cur_scope.push(id)
     }
 
     fn exit_scope(&mut self) {
-        self.cur_namespace.pop();
+        self.cur_scope.pop();
     }
 }
 
@@ -322,7 +325,7 @@ mod test {
 
         assert_eq!(
             format!("{:?}", result),
-            r#"AnalysisResult { symbols: "/": NamespaceTable { symbols: "\"fibo\": SymTableEntry { definition_ref: DebugSymRef { start: 0, end: 0 }, category: Machine, ty: None }", scope: Global },"//fibo": NamespaceTable { symbols: "\"a\": SymTableEntry { definition_ref: DebugSymRef { start: 0, end: 0 }, category: Signal, ty: Some(\"field\") },\"b\": SymTableEntry { definition_ref: DebugSymRef { start: 0, end: 0 }, category: OutputSignal, ty: Some(\"field\") },\"i\": SymTableEntry { definition_ref: DebugSymRef { start: 0, end: 0 }, category: Signal, ty: None },\"initial\": SymTableEntry { definition_ref: DebugSymRef { start: 0, end: 0 }, category: State, ty: None },\"middle\": SymTableEntry { definition_ref: DebugSymRef { start: 0, end: 0 }, category: State, ty: None },\"n\": SymTableEntry { definition_ref: DebugSymRef { start: 0, end: 0 }, category: InputSignal, ty: None }", scope: Machine },"//fibo/initial": NamespaceTable { symbols: "\"c\": SymTableEntry { definition_ref: DebugSymRef { start: 0, end: 0 }, category: Signal, ty: None }", scope: State },"//fibo/middle": NamespaceTable { symbols: "\"c\": SymTableEntry { definition_ref: DebugSymRef { start: 0, end: 0 }, category: Signal, ty: None }", scope: State }, messages: [] }"#
+            r#"AnalysisResult { symbols: "/": ScopeTable { symbols: "\"fibo\": SymTableEntry { definition_ref: DebugSymRef { start: 0, end: 0 }, category: Machine, ty: None }", scope: Global },"//fibo": ScopeTable { symbols: "\"a\": SymTableEntry { definition_ref: DebugSymRef { start: 0, end: 0 }, category: Signal, ty: Some(\"field\") },\"b\": SymTableEntry { definition_ref: DebugSymRef { start: 0, end: 0 }, category: OutputSignal, ty: Some(\"field\") },\"i\": SymTableEntry { definition_ref: DebugSymRef { start: 0, end: 0 }, category: Signal, ty: None },\"initial\": SymTableEntry { definition_ref: DebugSymRef { start: 0, end: 0 }, category: State, ty: None },\"middle\": SymTableEntry { definition_ref: DebugSymRef { start: 0, end: 0 }, category: State, ty: None },\"n\": SymTableEntry { definition_ref: DebugSymRef { start: 0, end: 0 }, category: InputSignal, ty: None }", scope: Machine },"//fibo/initial": ScopeTable { symbols: "\"c\": SymTableEntry { definition_ref: DebugSymRef { start: 0, end: 0 }, category: Signal, ty: None }", scope: State },"//fibo/middle": ScopeTable { symbols: "\"c\": SymTableEntry { definition_ref: DebugSymRef { start: 0, end: 0 }, category: Signal, ty: None }", scope: State }, messages: [] }"#
         )
     }
 }

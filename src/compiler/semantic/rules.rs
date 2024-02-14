@@ -15,7 +15,7 @@ fn undeclared_rule(analyser: &mut Analyser, expr: &Expression<BigInt, Identifier
         Expression::Query(dsym, var) => {
             if analyser
                 .symbols
-                .find_symbol(&analyser.cur_namespace, var.name())
+                .find_symbol(&analyser.cur_scope, var.name())
                 .is_none()
             {
                 analyser.error(format!("use of undeclared variable {}", var.name()), dsym);
@@ -100,6 +100,7 @@ fn state_decl(analyser: &mut Analyser, expr: &Statement<BigInt, Identifier>) {
 }
 
 lazy_static! {
+    /// Global semantic analyser rules.
     pub(super) static ref RULES: RuleSet = RuleSet {
         expression: vec![undeclared_rule],
         statement: vec![state_decl],
