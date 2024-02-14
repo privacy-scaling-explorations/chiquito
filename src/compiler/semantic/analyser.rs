@@ -27,13 +27,13 @@ pub(super) struct Analyser {
 
 impl Default for Analyser {
     fn default() -> Self {
-        let mut global_ns = SymTable::default();
-        global_ns
+        let mut symbols = SymTable::default();
+        symbols
             .namespaces
             .insert("/".to_string(), NamespaceTable::default());
 
         Self {
-            symbols: global_ns,
+            symbols,
             messages: Vec::default(),
             cur_namespace: vec!["/".to_string()],
         }
