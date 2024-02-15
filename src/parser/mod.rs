@@ -159,23 +159,24 @@ mod test {
 
             state middle {
                 signal div;
+                signal new_acc;
 
                 div <-- e / 2;
                 div * 2 === e;
+
+                if e % 2 {
+                    new_acc <== acc;
+                } else {
+                    new_acc <== acc * a;
+                }
 
                 if e == 0 {
                     -> final {
                         acc' <== acc;
                     }
                 } else {
-                    if e % 2 == 0 {
-                        -> middle {
-                            a', e' <== a * a, div;
-                        }
-                    } else {
-                        -> middle {
-                            acc', a', e' <== acc * a, a * a, div;
-                        }
+                    -> middle {
+                        acc', a', e' <== new_acc, a * a, div;
                     }
                 }
             }
