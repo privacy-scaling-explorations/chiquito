@@ -7,8 +7,8 @@ pub enum TLDecl<F, V> {
     MachineDecl {
         dsym: DebugSymRef,
         id: V,
-        params: Vec<Statement<F, V>>,
-        result: Vec<Statement<F, V>>,
+        input_params: Vec<Statement<F, V>>,
+        output_params: Vec<Statement<F, V>>,
         block: Statement<F, V>,
     },
 }
@@ -18,8 +18,8 @@ impl<F: Debug> Debug for TLDecl<F, Identifier> {
         match self {
             Self::MachineDecl {
                 id,
-                params,
-                result,
+                input_params: params,
+                output_params: result,
                 block,
                 ..
             } => write!(

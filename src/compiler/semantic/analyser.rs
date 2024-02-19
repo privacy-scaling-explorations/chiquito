@@ -56,8 +56,8 @@ impl Analyser {
             TLDecl::MachineDecl {
                 dsym,
                 id,
-                params,
-                result,
+                input_params,
+                output_params,
                 block,
             } => {
                 let sym = SymTableEntry {
@@ -70,7 +70,7 @@ impl Analyser {
 
                 self.symbols.add_symbol(&self.cur_scope, id.name(), sym);
 
-                self.analyse_machine(id, params, result, block);
+                self.analyse_machine(id, input_params, output_params, block);
             }
         }
     }
@@ -78,13 +78,14 @@ impl Analyser {
     fn analyse_machine(
         &mut self,
         id: Identifier,
-        params: Vec<Statement<BigInt, Identifier>>,
-        result: Vec<Statement<BigInt, Identifier>>,
+        input_params: Vec<Statement<BigInt, Identifier>>,
+        output_params: Vec<Statement<BigInt, Identifier>>,
         block: Statement<BigInt, Identifier>,
     ) {
         self.enter_new_scope(id.name());
 
-        self.analyse_machine_params(params, result);
+        self.analyse_machine_input_params(input_params);
+        self.analyse_machine_output_params(output_params);
 
         self.add_state_decls(&block);
 
@@ -93,11 +94,7 @@ impl Analyser {
         self.exit_scope();
     }
 
-    fn analyse_machine_params(
-        &mut self,
-        params: Vec<Statement<BigInt, Identifier>>,
-        result: Vec<Statement<BigInt, Identifier>>,
-    ) {
+    fn analyse_machine_input_params(&mut self, params: Vec<Statement<BigInt, Identifier>>) {
         params.iter().for_each(|param| match param {
             Statement::SignalDecl(dsym, ids) => ids.iter().for_each(|id| {
                 let sym = SymTableEntry {
@@ -123,8 +120,10 @@ impl Analyser {
             }),
             _ => unreachable!("parser should only produce signals and vars"),
         });
+    }
 
-        result.iter().for_each(|param| match param {
+    fn analyse_machine_output_params(&mut self, params: Vec<Statement<BigInt, Identifier>>) {
+        params.iter().for_each(|param| match param {
             Statement::SignalDecl(dsym, ids) => ids.iter().for_each(|id| {
                 let sym = SymTableEntry {
                     definition_ref: dsym.clone(),
