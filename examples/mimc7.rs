@@ -6,7 +6,6 @@ use halo2_proofs::{
 };
 
 use chiquito::{
-    ast::query::Queriable,
     frontend::dsl::{lb::LookupTable, super_circuit, CircuitContext},
     plonkish::{
         backend::halo2::{chiquitoSuperCircuit2Halo2, ChiquitoHalo2SuperCircuit},
@@ -15,6 +14,7 @@ use chiquito::{
         },
         ir::sc::SuperCircuit,
     },
+    sbpir::query::Queriable,
 };
 
 use mimc7_constants::ROUND_CONSTANTS;

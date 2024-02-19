@@ -6,3 +6,4 @@ __pycache__
 *.so
 .ipynb_checkpoints
 _build
+.DS_Store

@@ -4,11 +4,11 @@ use std::{collections::HashMap, rc::Rc};
 use halo2_proofs::plonk::{Advice, Column as Halo2Column};
 
 use crate::{
-    ast::{
-        Circuit as astCircuit, FixedSignal, ForwardSignal, ImportedHalo2Advice, ImportedHalo2Fixed,
-        SharedSignal, StepType, StepTypeUUID,
-    },
     plonkish::ir::{assignments::Assignments, Circuit, Column, ColumnType, Poly, PolyLookup},
+    sbpir::{
+        FixedSignal, ForwardSignal, ImportedHalo2Advice, ImportedHalo2Fixed, SharedSignal,
+        StepType, StepTypeUUID, SBPIR as astCircuit,
+    },
     util::{uuid, UUID},
 };
 
@@ -48,6 +48,8 @@ pub struct CompilationUnit<F> {
 
     pub other_sub_circuits: Rc<Vec<CompilationUnit<F>>>,
     pub other_columns: Rc<Vec<Column>>,
+
+    pub compilation_phase: u32,
 }
 
 impl<F> Default for CompilationUnit<F> {
@@ -82,6 +84,8 @@ impl<F> Default for CompilationUnit<F> {
 
             other_sub_circuits: Default::default(),
             other_columns: Default::default(),
+
+            compilation_phase: Default::default(),
         }
     }
 }

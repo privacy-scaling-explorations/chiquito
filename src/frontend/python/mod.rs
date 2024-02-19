@@ -4,10 +4,6 @@ use pyo3::{
 };
 
 use crate::{
-    ast::{
-        query::Queriable, Circuit, Constraint, ExposeOffset, FixedSignal, ForwardSignal,
-        InternalSignal, Lookup, SharedSignal, StepType, StepTypeUUID, TransitionConstraint,
-    },
     frontend::dsl::{StepTypeHandler, SuperCircuitContext},
     pil::backend::powdr_pil::chiquito2Pil,
     plonkish::{
@@ -22,6 +18,10 @@ use crate::{
         ir::{assignments::AssignmentGenerator, sc::MappingContext},
     },
     poly::Expr,
+    sbpir::{
+        query::Queriable, Constraint, ExposeOffset, FixedSignal, ForwardSignal, InternalSignal,
+        Lookup, SharedSignal, StepType, StepTypeUUID, TransitionConstraint, SBPIR,
+    },
     util::{uuid, UUID},
     wit_gen::{StepInstance, TraceContext, TraceWitness},
 };
@@ -32,7 +32,7 @@ use serde::de::{self, Deserialize, Deserializer, IgnoredAny, MapAccess, Visitor}
 use std::{cell::RefCell, collections::HashMap, fmt, rc::Rc};
 
 type CircuitMapStore = (
-    Circuit<Fr, ()>,
+    SBPIR<Fr, ()>,
     ChiquitoHalo2<Fr>,
     Option<AssignmentGenerator<Fr, ()>>,
 );
@@ -47,7 +47,7 @@ thread_local! {
 /// as the key. Return the Rust UUID to Python. The last field of the tuple, `TraceWitness`, is left
 /// as None, for `chiquito_add_witness_to_rust_id` to insert.
 pub fn chiquito_ast_to_halo2(ast_json: &str) -> UUID {
-    let circuit: Circuit<Fr, ()> =
+    let circuit: SBPIR<Fr, ()> =
         serde_json::from_str(ast_json).expect("Json deserialization to Circuit failed.");
 
     let config = config(SingleRowCellManager {}, SimpleStepSelectorBuilder {});
@@ -68,7 +68,7 @@ pub fn chiquito_ast_to_halo2(ast_json: &str) -> UUID {
 // the super circuit only. Parses AST JSON and stores AST in `CIRCUIT_MAP` without compiling it.
 // Compilation is done by `chiquito_super_circuit_halo2_mock_prover`.
 pub fn chiquito_ast_map_store(ast_json: &str) -> UUID {
-    let circuit: Circuit<Fr, ()> =
+    let circuit: SBPIR<Fr, ()> =
         serde_json::from_str(ast_json).expect("Json deserialization to Circuit failed.");
 
     let uuid = uuid();
@@ -189,13 +189,13 @@ pub fn chiquito_halo2_mock_prover(witness_json: &str, rust_id: UUID, k: usize) {
 struct CircuitVisitor;
 
 impl<'de> Visitor<'de> for CircuitVisitor {
-    type Value = Circuit<Fr, ()>;
+    type Value = SBPIR<Fr, ()>;
 
     fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
         formatter.write_str("struct Cricuit")
     }
 
-    fn visit_map<A>(self, mut map: A) -> Result<Circuit<Fr, ()>, A::Error>
+    fn visit_map<A>(self, mut map: A) -> Result<SBPIR<Fr, ()>, A::Error>
     where
         A: MapAccess<'de>,
     {
@@ -330,7 +330,7 @@ impl<'de> Visitor<'de> for CircuitVisitor {
         let q_enable = q_enable.ok_or_else(|| de::Error::missing_field("q_enable"))?;
         let id = id.ok_or_else(|| de::Error::missing_field("id"))?;
 
-        Ok(Circuit {
+        Ok(SBPIR {
             step_types,
             forward_signals,
             shared_signals,
@@ -907,8 +907,8 @@ impl_deserialize!(TraceWitnessVisitor, TraceWitness<Fr>);
 impl_deserialize!(StepInstanceVisitor, StepInstance<Fr>);
 impl_deserialize!(LookupVisitor, Lookup<Fr>);
 
-impl<'de> Deserialize<'de> for Circuit<Fr, ()> {
-    fn deserialize<D>(deserializer: D) -> Result<Circuit<Fr, ()>, D::Error>
+impl<'de> Deserialize<'de> for SBPIR<Fr, ()> {
+    fn deserialize<D>(deserializer: D) -> Result<SBPIR<Fr, ()>, D::Error>
     where
         D: Deserializer<'de>,
     {
@@ -1530,7 +1530,7 @@ mod tests {
             "id": 258867373405797678961444396351437277706
         }
         "#;
-        let circuit: Circuit<Fr, ()> = serde_json::from_str(json).unwrap();
+        let circuit: SBPIR<Fr, ()> = serde_json::from_str(json).unwrap();
         println!("{:?}", circuit);
     }
 
@@ -1833,7 +1833,7 @@ mod tests {
 
 #[pyfunction]
 fn convert_and_print_ast(json: &PyString) {
-    let circuit: Circuit<Fr, ()> =
+    let circuit: SBPIR<Fr, ()> =
         serde_json::from_str(json.to_str().expect("PyString convertion failed."))
             .expect("Json deserialization to Circuit failed.");
     println!("{:?}", circuit);

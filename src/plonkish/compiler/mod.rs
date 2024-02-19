@@ -1,11 +1,11 @@
 use crate::{
-    ast::{query::Queriable, ASTExpr, Circuit as astCircuit, ExposeOffset, StepType, StepTypeUUID},
     field::Field,
     plonkish::ir::{
         assignments::{AssignmentGenerator, Assignments},
         Circuit, Column, Poly, PolyExpr, PolyLookup,
     },
     poly::Expr,
+    sbpir::{query::Queriable, ExposeOffset, StepType, StepTypeUUID, PIR, SBPIR as astCircuit},
     wit_gen::{AutoTraceGenerator, FixedAssignment, TraceGenerator},
 };
 use std::{hash::Hash, rc::Rc};
@@ -95,10 +95,16 @@ pub fn compile_phase1<
         )
     });
 
+    unit.compilation_phase = 1;
+
     (unit, assignment)
 }
 
 pub fn compile_phase2<F: Field + Clone>(unit: &mut CompilationUnit<F>) {
+    if unit.compilation_phase != 1 {
+        panic!("Compilation phase 2 can only be done after compilation phase 1");
+    }
+
     for step in unit.step_types.clone().values() {
         compile_step(unit, step);
     }
@@ -114,6 +120,8 @@ pub fn compile_phase2<F: Field + Clone>(unit: &mut CompilationUnit<F>) {
     if let Some((step_type, q_last)) = &unit.last_step {
         add_q_last(unit, *step_type, q_last.clone());
     }
+
+    unit.compilation_phase = 2;
 }
 
 fn compile_step<F: Field>(unit: &mut CompilationUnit<F>, step: &StepType<F>) {
@@ -371,7 +379,7 @@ fn place_queriable<F: Clone>(
 fn transform_expr<F: Clone>(
     unit: &CompilationUnit<F>,
     step: &StepType<F>,
-    source: &ASTExpr<F>,
+    source: &PIR<F>,
 ) -> PolyExpr<F> {
     match source.clone() {
         Expr::Const(c) => PolyExpr::Const(c),
@@ -389,6 +397,7 @@ fn transform_expr<F: Clone>(
         Expr::Pow(v, exp) => PolyExpr::Pow(Box::new(transform_expr(unit, step, &v)), exp),
         Expr::Query(q) => place_queriable(unit, step, q),
         Expr::Halo2Expr(expr) => PolyExpr::Halo2Expr(expr),
+        Expr::MI(_) => panic!("mi elimination not done"),
     }
 }
 
@@ -555,4 +564,18 @@ fn add_halo2_columns<F, TraceArgs>(unit: &mut CompilationUnit<F>, ast: &astCircu
 
     unit.columns.extend(halo2_advice_columns);
     unit.columns.extend(halo2_fixed_columns);
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use halo2curves::bn256::Fr;
+
+    #[test]
+    #[should_panic]
+    fn test_compile_phase2_before_phase1() {
+        let mut unit = CompilationUnit::<Fr>::default();
+
+        compile_phase2(&mut unit);
+    }
 }

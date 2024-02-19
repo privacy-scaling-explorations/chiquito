@@ -15,7 +15,7 @@ use self::query::Queriable;
 
 /// Circuit
 #[derive(Clone)]
-pub struct Circuit<F, TraceArgs> {
+pub struct SBPIR<F, TraceArgs> {
     pub step_types: HashMap<UUID, Rc<StepType<F>>>,
 
     pub forward_signals: Vec<ForwardSignal>,
@@ -38,7 +38,7 @@ pub struct Circuit<F, TraceArgs> {
     pub id: UUID,
 }
 
-impl<F: Debug, TraceArgs: Debug> Debug for Circuit<F, TraceArgs> {
+impl<F: Debug, TraceArgs: Debug> Debug for SBPIR<F, TraceArgs> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("Circuit")
             .field("step_types", &self.step_types)
@@ -58,7 +58,7 @@ impl<F: Debug, TraceArgs: Debug> Debug for Circuit<F, TraceArgs> {
     }
 }
 
-impl<F, TraceArgs> Default for Circuit<F, TraceArgs> {
+impl<F, TraceArgs> Default for SBPIR<F, TraceArgs> {
     fn default() -> Self {
         Self {
             step_types: Default::default(),
@@ -85,7 +85,7 @@ impl<F, TraceArgs> Default for Circuit<F, TraceArgs> {
     }
 }
 
-impl<F, TraceArgs> Circuit<F, TraceArgs> {
+impl<F, TraceArgs> SBPIR<F, TraceArgs> {
     pub fn add_forward<N: Into<String>>(&mut self, name: N, phase: usize) -> ForwardSignal {
         let name = name.into();
         let signal = ForwardSignal::new_with_phase(phase, name.clone());
@@ -119,6 +119,19 @@ impl<F, TraceArgs> Circuit<F, TraceArgs> {
     pub fn expose(&mut self, signal: Queriable<F>, offset: ExposeOffset) {
         match signal {
             Queriable::Forward(..) | Queriable::Shared(..) => {
+                let existing_forward_signal = self
+                    .forward_signals
+                    .clone()
+                    .iter()
+                    .any(|s| s.uuid() == signal.uuid());
+                let existing_shared_signal = self
+                    .shared_signals
+                    .clone()
+                    .iter()
+                    .any(|s| s.uuid() == signal.uuid());
+                if !existing_forward_signal && !existing_shared_signal {
+                    panic!("Signal not found in forward signals.");
+                }
                 self.exposed.push((signal, offset));
             }
             _ => panic!("Can only expose forward and shared signals."),
@@ -227,7 +240,7 @@ pub struct StepType<F> {
     pub transition_constraints: Vec<TransitionConstraint<F>>,
     pub lookups: Vec<Lookup<F>>,
 
-    pub auto_signals: HashMap<Queriable<F>, ASTExpr<F>>,
+    pub auto_signals: HashMap<Queriable<F>, PIR<F>>,
 
     pub annotations: HashMap<UUID, String>,
 }
@@ -272,13 +285,13 @@ impl<F> StepType<F> {
         signal
     }
 
-    pub fn add_constr(&mut self, annotation: String, expr: ASTExpr<F>) {
+    pub fn add_constr(&mut self, annotation: String, expr: PIR<F>) {
         let condition = Constraint { annotation, expr };
 
         self.constraints.push(condition)
     }
 
-    pub fn add_transition(&mut self, annotation: String, expr: ASTExpr<F>) {
+    pub fn add_transition(&mut self, annotation: String, expr: PIR<F>) {
         let condition = TransitionConstraint { annotation, expr };
 
         self.transition_constraints.push(condition)
@@ -299,26 +312,26 @@ impl<F> core::hash::Hash for StepType<F> {
     }
 }
 
-pub type ASTExpr<F> = Expr<F, Queriable<F>>;
+pub type PIR<F> = Expr<F, Queriable<F>>;
 
 #[derive(Clone, Debug)]
 /// Condition
 pub struct Constraint<F> {
     pub annotation: String,
-    pub expr: ASTExpr<F>,
+    pub expr: PIR<F>,
 }
 
 #[derive(Clone, Debug)]
 /// TransitionCondition
 pub struct TransitionConstraint<F> {
     pub annotation: String,
-    pub expr: ASTExpr<F>,
+    pub expr: PIR<F>,
 }
 
 #[derive(Clone, Debug)]
 pub struct Lookup<F> {
     pub annotation: String,
-    pub exprs: Vec<(Constraint<F>, ASTExpr<F>)>,
+    pub exprs: Vec<(Constraint<F>, PIR<F>)>,
     pub enable: Option<Constraint<F>>,
 }
 
@@ -326,7 +339,7 @@ impl<F> Default for Lookup<F> {
     fn default() -> Self {
         Lookup {
             annotation: String::new(),
-            exprs: Vec::<(Constraint<F>, ASTExpr<F>)>::new(),
+            exprs: Vec::<(Constraint<F>, PIR<F>)>::new(),
             enable: None,
         }
     }
@@ -340,8 +353,8 @@ impl<F: Debug + Clone> Lookup<F> {
     pub fn add(
         &mut self,
         constraint_annotation: String,
-        constraint_expr: ASTExpr<F>,
-        expression: ASTExpr<F>,
+        constraint_expr: PIR<F>,
+        expression: PIR<F>,
     ) {
         let constraint = Constraint {
             annotation: constraint_annotation,
@@ -363,7 +376,7 @@ impl<F: Debug + Clone> Lookup<F> {
 
     // Function: setup the enabler field and multiply all LHS constraints by the enabler if there's
     // no enabler, OR panic if there's an enabler already
-    pub fn enable(&mut self, enable_annotation: String, enable_expr: ASTExpr<F>) {
+    pub fn enable(&mut self, enable_annotation: String, enable_expr: PIR<F>) {
         let enable = Constraint {
             annotation: enable_annotation.clone(),
             expr: enable_expr,
@@ -500,10 +513,10 @@ pub struct InternalSignal {
 }
 
 impl InternalSignal {
-    pub fn new(annotation: String) -> InternalSignal {
+    pub fn new<S: Into<String>>(annotation: S) -> InternalSignal {
         InternalSignal {
             id: uuid(),
-            annotation: Box::leak(annotation.into_boxed_str()),
+            annotation: Box::leak(annotation.into().into_boxed_str()),
         }
     }
 
@@ -549,7 +562,40 @@ mod tests {
 
     #[test]
     fn test_q_enable() {
-        let circuit: Circuit<i32, i32> = Circuit::default();
+        let circuit: SBPIR<i32, i32> = SBPIR::default();
         assert!(circuit.q_enable);
+    }
+
+    #[test]
+    #[should_panic]
+    fn test_expose_non_existing_signal() {
+        let mut circuit: SBPIR<i32, i32> = SBPIR::default();
+        let signal = Queriable::Forward(
+            ForwardSignal::new_with_phase(0, "signal".to_string()),
+            false,
+        );
+        let offset = ExposeOffset::First;
+
+        circuit.expose(signal, offset);
+    }
+
+    #[test]
+    fn test_expose_forward_signal() {
+        let mut circuit: SBPIR<i32, i32> = SBPIR::default();
+        let signal = circuit.add_forward("signal", 0);
+        let offset = ExposeOffset::Last;
+        assert_eq!(circuit.exposed.len(), 0);
+        circuit.expose(Queriable::Forward(signal, false), offset);
+        assert_eq!(circuit.exposed.len(), 1);
+    }
+
+    #[test]
+    fn test_expose_shared_signal() {
+        let mut circuit: SBPIR<i32, i32> = SBPIR::default();
+        let signal = circuit.add_shared("signal", 0);
+        let offset = ExposeOffset::Last;
+        assert_eq!(circuit.exposed.len(), 0);
+        circuit.expose(Queriable::Shared(signal, 10), offset);
+        assert_eq!(circuit.exposed.len(), 1);
     }
 }
