@@ -21,36 +21,39 @@ impl DebugSymRef {
     }
 }
 
-pub struct Variable(pub String, pub i32);
+#[derive(Clone)]
+pub struct Identifier(pub String, pub i32);
 
-impl Debug for Variable {
+impl Debug for Identifier {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         if self.1 == 0 {
             write!(f, "{}", self.0)
+        } else if self.1 == 1 {
+            write!(f, "{}'", self.0)
         } else {
             write!(f, "{}#{}", self.0, self.1)
         }
     }
 }
 
-impl From<String> for Variable {
+impl From<String> for Identifier {
     fn from(value: String) -> Self {
-        Variable(value.name(), value.rotation())
+        Identifier(value.name(), value.rotation())
     }
 }
 
-impl From<&str> for Variable {
+impl From<&str> for Identifier {
     fn from(value: &str) -> Self {
-        Variable::from(value.to_string())
+        Identifier::from(value.to_string())
     }
 }
 
-pub trait Identifier {
+pub trait Identifiable {
     fn rotation(&self) -> i32;
-    fn name(&self) -> Self;
+    fn name(&self) -> String;
 }
 
-impl Identifier for String {
+impl Identifiable for String {
     fn rotation(&self) -> i32 {
         assert!(!self.is_empty());
         let last = self.chars().last().unwrap();
@@ -62,7 +65,7 @@ impl Identifier for String {
         }
     }
 
-    fn name(&self) -> Self {
+    fn name(&self) -> String {
         let rot = self.rotation();
 
         match rot {
@@ -78,18 +81,28 @@ impl Identifier for String {
     }
 }
 
+impl Identifiable for Identifier {
+    fn rotation(&self) -> i32 {
+        self.1
+    }
+
+    fn name(&self) -> String {
+        self.0.clone()
+    }
+}
+
 #[cfg(test)]
 mod test {
-    use crate::parser::ast::Variable;
+    use crate::parser::ast::Identifier;
 
     #[test]
     fn test_from_string() {
-        let result = Variable::from("abc");
+        let result = Identifier::from("abc");
 
         assert_eq!(result.0, "abc");
         assert_eq!(result.1, 0);
 
-        let result = Variable::from("abc'");
+        let result = Identifier::from("abc'");
 
         assert_eq!(result.0, "abc");
         assert_eq!(result.1, 1);

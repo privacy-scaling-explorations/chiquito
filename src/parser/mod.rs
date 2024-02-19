@@ -35,7 +35,7 @@ mod test {
         let stmts = lang::StatementsParser::new()
             .parse("if 0 == 22 { 0 === a; }")
             .unwrap();
-        assert_eq!(&format!("{:?}", stmts), "[if 0 == 22 {\n 0 === a;\n}\n]");
+        assert_eq!(&format!("{:?}", stmts), "[if 0 == 22 { assert 0 == a; }]");
         assert_eq!(stmts.len(), 1);
 
         let stmts = lang::StatementsParser::new()
@@ -43,25 +43,25 @@ mod test {
             .unwrap();
         assert_eq!(
             &format!("{:?}", stmts),
-            "[if 0 == 22 {\n 0 === a; 1 === b;\n}\n]"
+            "[if 0 == 22 { assert 0 == a; assert 1 == b; }]"
         );
         assert_eq!(stmts.len(), 1);
 
         let stmts = lang::StatementsParser::new()
-            .parse("if 0 == 22 {\n 0 === a; 1 === b; }")
+            .parse("if 0 == 22 { 0 === a; 1 === b; }")
             .unwrap();
         assert_eq!(
             &format!("{:?}", stmts),
-            "[if 0 == 22 {\n 0 === a; 1 === b;\n}\n]"
+            "[if 0 == 22 { assert 0 == a; assert 1 == b; }]"
         );
         assert_eq!(stmts.len(), 1);
 
         let stmts = lang::StatementsParser::new()
-            .parse("if 0 == 22 {\n 0 === a; 1 === b;} b === 1;")
+            .parse("if 0 == 22 { 0 === a; 1 === b;} b === 1;")
             .unwrap();
         assert_eq!(
             &format!("{:?}", stmts),
-            "[if 0 == 22 {\n 0 === a; 1 === b;\n}\n, b === 1;]"
+            "[if 0 == 22 { assert 0 == a; assert 1 == b; }, assert b == 1;]"
         );
         assert_eq!(stmts.len(), 2);
     }
