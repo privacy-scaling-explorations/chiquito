@@ -129,9 +129,12 @@ pub struct SymTable {
 
 impl Display for SymTable {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let result = self.scopes.iter().fold("".to_string(), |acc, (ns, table)| {
-            format!("{}{}\n  {:?}\n", acc, ns, table)
-        });
+        let result = self
+            .scopes
+            .iter()
+            .fold("".to_string(), |acc, (scope, table)| {
+                format!("{}{}\n  {:?}\n", acc, scope, table)
+            });
 
         write!(f, "{}", result)
     }
@@ -143,7 +146,7 @@ impl Debug for SymTable {
             .scopes
             .keys()
             .sorted()
-            .map(|ns| format!("\"{}\": {:?}", ns, self.scopes[ns]))
+            .map(|scope| format!("\"{}\": {:?}", scope, self.scopes[scope]))
             .collect::<Vec<_>>()
             .join(",");
 
@@ -187,23 +190,23 @@ impl SymTable {
 
     /// Add a symbol
     pub fn add_symbol(&mut self, scope: &[String], id: String, entry: SymTableEntry) {
-        let ns_key = Self::get_key(scope);
+        let scope_key = Self::get_key(scope);
         self.scopes
-            .get_mut(&ns_key)
-            .unwrap_or_else(|| panic!("scope {} not found", &ns_key))
+            .get_mut(&scope_key)
+            .unwrap_or_else(|| panic!("scope {} not found", &scope_key))
             .add_symbol(id.clone(), entry.clone());
 
         if entry.is_scoped() {
             self.scopes
-                .insert(format!("{}/{}", &ns_key, id), ScopeTable::from(entry));
+                .insert(format!("{}/{}", &scope_key, id), ScopeTable::from(entry));
         }
     }
 
     /// Add an output variable symbol.
     /// This is special because if there is an input variable symbol with the same identifier, it
     /// should create a Input/Output symbol.
-    pub fn add_output_variable(&mut self, ns: &[String], id: String, mut entry: SymTableEntry) {
-        let prev_symbol = self.get_symbol(ns, id.clone());
+    pub fn add_output_variable(&mut self, scope: &[String], id: String, mut entry: SymTableEntry) {
+        let prev_symbol = self.get_symbol(scope, id.clone());
         if let Some(prev_symbol) = prev_symbol {
             match prev_symbol.category {
                 SymbolCategory::InputSignal => {
@@ -223,18 +226,19 @@ impl SymTable {
             }
         }
 
-        self.add_symbol(ns, id, entry);
+        self.add_symbol(scope, id, entry);
     }
 
-    fn get_key(ns: &[String]) -> String {
-        ns.join("/")
+    fn get_key(scope: &[String]) -> String {
+        scope.join("/")
     }
 
-    fn get_key_level(ns: &[String], level: usize) -> String {
+    fn get_key_level(scope: &[String], level: usize) -> String {
         if level == 0 {
-            Self::get_key(ns)
+            Self::get_key(scope)
         } else {
-            ns.iter()
+            scope
+                .iter()
                 .rev()
                 .skip(level)
                 .rev()
