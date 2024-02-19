@@ -45,6 +45,7 @@ pub enum ScopeCategory {
 pub struct SymTableEntry {
     definition_ref: DebugSymRef,
     category: SymbolCategory,
+    /// Type
     ty: Option<String>,
 }
 

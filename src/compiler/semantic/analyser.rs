@@ -186,7 +186,14 @@ impl Analyser {
     }
 
     fn analyse_statement(&mut self, stmt: Statement<BigInt, Identifier>) {
-        // Add new variable symbols
+        self.statement_add_symbols(&stmt);
+
+        RULES.apply_statement(self, &stmt);
+
+        self.analyse_statement_recursive(stmt);
+    }
+
+    fn statement_add_symbols(&mut self, stmt: &Statement<BigInt, Identifier>) {
         match stmt.clone() {
             Statement::SignalDecl(dsym, ids) => ids.into_iter().for_each(|id| {
                 let sym = SymTableEntry {
@@ -195,7 +202,7 @@ impl Analyser {
                     ty: id.ty.map(|ty| ty.name()),
                 };
 
-                RULES.apply_new_symbol_statement(self, &stmt, &id.id, &sym);
+                RULES.apply_new_symbol_statement(self, stmt, &id.id, &sym);
 
                 self.symbols.add_symbol(&self.cur_scope, id.id.name(), sym);
             }),
@@ -206,7 +213,7 @@ impl Analyser {
                     ty: id.ty.map(|ty| ty.name()),
                 };
 
-                RULES.apply_new_symbol_statement(self, &stmt, &id.id, &sym);
+                RULES.apply_new_symbol_statement(self, stmt, &id.id, &sym);
 
                 self.symbols.add_symbol(&self.cur_scope, id.id.name(), sym);
             }),
@@ -215,10 +222,9 @@ impl Analyser {
             Statement::StateDecl(_, _, _) => {}
             _ => {}
         }
+    }
 
-        RULES.apply_statement(self, &stmt);
-
-        // Recursive
+    fn analyse_statement_recursive(&mut self, stmt: Statement<BigInt, Identifier>) {
         match stmt {
             Statement::Assert(_, expr) => self.analyse_expression(expr),
             Statement::Assignment(_, _, exprs) => exprs
