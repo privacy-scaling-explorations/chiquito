@@ -153,7 +153,7 @@ mod test {
             state initial {
                 acc <== 1;
                 -> middle {
-                    a', e' <== a, e;
+                    acc', a', e' <== acc, a, e;
                 }
             }
 
@@ -164,7 +164,10 @@ mod test {
                 div <-- e / 2;
                 div * 2 === e;
 
-                if e % 2 {
+                rem <-- e % 2;
+                div * 2 + rem === e;
+
+                if rem == 0 {
                     new_acc <== acc;
                 } else {
                     new_acc <== acc * a;
