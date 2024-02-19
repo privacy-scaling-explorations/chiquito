@@ -24,6 +24,8 @@ hyperplonk_benchmark = { git = "https://github.com/qwang98/plonkish.git", branch
 plonkish_backend = { git = "https://github.com/qwang98/plonkish.git", branch = "main", package = "plonkish_backend" }
 regex = "1"
 lalrpop-util = { version = "0.20.0", features = ["lexer", "unicode"] }
+lazy_static = "1.4.0"
+itertools = "0.12.1"
 
 [dev-dependencies]
 rand_chacha = "0.3"
