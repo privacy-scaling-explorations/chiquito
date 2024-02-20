@@ -146,7 +146,7 @@ mod test {
         // | 81| 0 | 243 |
         // -------------------------
 
-        let circuit = "
+        let circuit = r"
         machine modular_exp(signal a, signal e) (signal acc: field) {
             // a, e and acc are created automatically as shared signals
 
@@ -158,16 +158,11 @@ mod test {
             }
 
             state middle {
-                signal div;
                 signal new_acc;
+                var rem = e % 2;
+                var div = e \ 2;
 
-                div <-- e / 2;
-                div * 2 === e;
-
-                rem <-- e % 2;
-                div * 2 + rem === e;
-
-                if rem == 0 {
+                if (rem == 0) {
                     new_acc <== acc;
                 } else {
                     new_acc <== acc * a;
