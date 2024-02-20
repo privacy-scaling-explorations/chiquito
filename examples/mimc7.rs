@@ -234,9 +234,10 @@ fn main() {
         .get_mapping()
         .generate_super_trace_witnesses((x_in_value, k_value));
 
-    let pil = chiquitoSuperCircuit2Pil(
-        super_circuit,
+    let pil = chiquitoSuperCircuit2Pil::<Fr, (), ()>(
+        super_circuit.get_super_asts(),
         super_trace_witnesses,
+        super_circuit.get_ast_id_to_ir_id_mapping(),
         vec![String::from("Mimc7Constant"), String::from("Mimc7Circuit")],
     );
 

@@ -204,9 +204,9 @@ impl<F, TraceArgs> SBPIR<F, TraceArgs> {
     }
 }
 
-impl<F: Clone, TraceArgs> Circuit<F, TraceArgs> {
-    pub fn clone_without_trace(&self) -> Circuit<F, ()> {
-        Circuit {
+impl<F: Clone, TraceArgs> SBPIR<F, TraceArgs> {
+    pub fn clone_without_trace(&self) -> SBPIR<F, ()> {
+        SBPIR {
             step_types: self.step_types.clone(),
             forward_signals: self.forward_signals.clone(),
             shared_signals: self.shared_signals.clone(),
@@ -273,6 +273,10 @@ impl<F> StepType<F> {
 
     pub fn uuid(&self) -> StepTypeUUID {
         self.id
+    }
+
+    pub fn name(&self) -> String {
+        self.name.clone()
     }
 
     pub fn add_signal<N: Into<String>>(&mut self, name: N) -> InternalSignal {
@@ -439,6 +443,10 @@ impl ForwardSignal {
     pub fn phase(&self) -> usize {
         self.phase
     }
+
+    pub fn annotation(&self) -> String {
+        self.annotation.to_string()
+    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
@@ -472,6 +480,10 @@ impl SharedSignal {
     pub fn phase(&self) -> usize {
         self.phase
     }
+
+    pub fn annotation(&self) -> String {
+        self.annotation.to_string()
+    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
@@ -497,6 +509,10 @@ impl FixedSignal {
 
     pub fn uuid(&self) -> UUID {
         self.id
+    }
+
+    pub fn annotation(&self) -> String {
+        self.annotation.to_string()
     }
 }
 
@@ -529,6 +545,10 @@ impl InternalSignal {
 
     pub fn uuid(&self) -> UUID {
         self.id
+    }
+
+    pub fn annotation(&self) -> String {
+        self.annotation.to_string()
     }
 }
 

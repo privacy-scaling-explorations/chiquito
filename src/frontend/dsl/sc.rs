@@ -35,7 +35,7 @@ impl<F, MappingArgs> Default for SuperCircuitContext<F, MappingArgs> {
 }
 
 impl<F: Clone, MappingArgs> SuperCircuitContext<F, MappingArgs> {
-    fn add_sub_circuit_ast(&mut self, ast: Circuit<F, ()>) {
+    fn add_sub_circuit_ast(&mut self, ast: SBPIR<F, ()>) {
         self.super_circuit.add_sub_circuit_ast(ast);
     }
 }

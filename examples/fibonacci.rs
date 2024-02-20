@@ -1,7 +1,6 @@
 use std::hash::Hash;
 
 use chiquito::{
-    ast::Circuit as ASTCircuit,
     field::Field,
     frontend::dsl::circuit, // main function for constructing an AST circuit
     plonkish::backend::halo2::{chiquito2Halo2, ChiquitoHalo2Circuit}, /* compiles to
@@ -19,6 +18,7 @@ use chiquito::{
     },
     plonkish::ir::{assignments::AssignmentGenerator, Circuit}, // compiled circuit type
     poly::ToField,
+    sbpir::SBPIR,
 };
 use halo2_proofs::{dev::MockProver, halo2curves::bn256::Fr};
 
@@ -28,11 +28,7 @@ use halo2_proofs::{dev::MockProver, halo2curves::bn256::Fr};
 // 2. empty trace arguments, i.e. (), because there are no external inputs to the Chiquito circuit
 // 3. two witness generation arguments both of u64 type, i.e. (u64, u64)
 
-type FiboReturn<F> = (
-    Circuit<F>,
-    Option<AssignmentGenerator<F, ()>>,
-    ASTCircuit<F, ()>,
-);
+type FiboReturn<F> = (Circuit<F>, Option<AssignmentGenerator<F, ()>>, SBPIR<F, ()>);
 
 fn fibo_circuit<F: Field + From<u64> + Hash>() -> FiboReturn<F> {
     // PLONKish table for the Fibonacci circuit:

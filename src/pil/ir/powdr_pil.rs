@@ -1,29 +1,18 @@
-use crate::{ast::query::Queriable, poly::Expr, util::UUID};
+use crate::pil::compiler::powdr_pil::{PILColumn, PILExpr, PILQuery};
 use std::collections::HashMap;
 extern crate regex;
 
 // PIL circuit IR
-pub struct PilCircuit<F> {
-    // circuit level
+pub struct PILCircuit<F> {
     pub circuit_name: String,
     pub num_steps: usize,
-
-    // circuit level - col witness
-    pub col_witness: Vec<UUID>, // internal signal NOT dedupped
-
-    // circuit level - col fixed
-    pub fixed_signals: HashMap<UUID, Vec<F>>, // fixed signal UUID -> fixed assignments vector
-    pub step_types_instantiations: HashMap<UUID, Vec<usize>>, /* step type UUID -> step
-                                               * instances
-                                               * vector {0, 1}^num_steps */
-    pub first_step: Option<UUID>,
-    pub last_step: Option<UUID>,
-
-    // step type level
-    pub step_types: Vec<UUID>,
-    pub constraints: HashMap<UUID, Vec<Expr<F, Queriable<F>>>>, // step type UUID -> constraints
-    pub transitions: HashMap<UUID, Vec<Expr<F, Queriable<F>>>>,
-    pub lookups: HashMap<UUID, Vec<PilLookup<F>>>, // step type UUID -> lookups vector
+    pub col_witness: Vec<PILColumn>,
+    pub col_fixed: HashMap<PILColumn, Vec<F>>, // column -> assignments
+    pub constraints: Vec<PILExpr<F, PILQuery>>,
+    pub lookups: Vec<PILLookup>,
 }
 
-pub type PilLookup<F> = Vec<(Expr<F, Queriable<F>>, Expr<F, Queriable<F>>)>;
+// lookup in PIL is the format of selector {src1, src2, ..., srcn} -> {dst1, dst2, ..., dstn}
+// PILLookup is a tuple of (selector, Vec<src, dst>) tuples, where selector is converted from
+// Chiquito step type to fixed column
+pub type PILLookup = (PILColumn, Vec<(PILColumn, PILColumn)>);
