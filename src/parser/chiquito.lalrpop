@@ -22,8 +22,8 @@ ParseTLDecl: TLDecl<BigInt, Identifier> = {
 }
 
 ParseMachine: TLDecl<BigInt, Identifier> = {
-    "machine" <id: Identifier> "(" <params: ParseParamsList> ")" <block: StatementsBlock> => TLDecl::MachineDecl{ dsym: DebugSymRef::new(0,0), id, params, result: vec![], block},
-    "machine" <id: Identifier> "(" <params: ParseParamsList> ")" "(" <result: ParseParamsList> ")" <block: StatementsBlock> => TLDecl::MachineDecl{ dsym: DebugSymRef::new(0,0), id, params, result, block},
+    "machine" <id: Identifier> "(" <input_params: ParseParamsList> ")" <block: StatementsBlock> => TLDecl::MachineDecl{ dsym: DebugSymRef::new(0,0), id, input_params, output_params: vec![], block},
+    "machine" <id: Identifier> "(" <input_params: ParseParamsList> ")" "(" <output_params: ParseParamsList> ")" <block: StatementsBlock> => TLDecl::MachineDecl{ dsym: DebugSymRef::new(0,0), id, input_params, output_params, block},
 }
 
 // Statements
