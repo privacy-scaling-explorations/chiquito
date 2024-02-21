@@ -1,7 +1,7 @@
 use crate::{
     field::Field,
     pil::{
-        compiler::powdr_pil::{compile, compile_super_circuits, PILColumn, PILExpr, PILQuery},
+        compiler::{compile, compile_super_circuits, PILColumn, PILExpr, PILQuery},
         ir::powdr_pil::PILCircuit,
     },
     sbpir::SBPIR,

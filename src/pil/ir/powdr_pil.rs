@@ -1,4 +1,4 @@
-use crate::pil::compiler::powdr_pil::{PILColumn, PILExpr, PILQuery};
+use crate::pil::compiler::{PILColumn, PILExpr, PILQuery};
 use std::collections::HashMap;
 extern crate regex;
 
