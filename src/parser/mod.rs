@@ -119,4 +119,76 @@ mod test {
 
         println!("{:?}", decls);
     }
+
+    #[test]
+    #[ignore]
+    fn test_parser_for_modular_exp() {
+        // Modular Exponentiation Example (Low to High Algorithm)
+        // https://en.wikipedia.org/wiki/Modular_exponentiation
+        // Example for 2^4
+        // 2^4 = 2^2 * 2^2 = 4^2 = 16
+        // -------------------------
+        // | a | e | acc |
+        // |---|---|-----|
+        // | 2 | 4 | 1   |
+        // | 4 | 2 | 1   |
+        // | 16| 1 | 1   |
+        // | 16| 0 | 16  |
+        // -------------------------
+        // Example for 3^5
+        // 3^5 = 3^2 * 3^2 * 3 = 9^2 * 3 = 81 * 3 = 243
+        // -------------------------
+        // | a | e | acc |
+        // |---|---|-----|
+        // | 3 | 5 | 1   |
+        // | 9 | 2 | 3   |
+        // | 81| 1 | 3   |
+        // | 81| 0 | 243 |
+        // -------------------------
+
+        let circuit = r"
+        machine modular_exp(signal a, signal e) (signal acc: field) {
+            // a, e and acc are created automatically as shared signals
+
+            state initial {
+                acc <== 1;
+                -> middle {
+                    acc', a', e' <== acc, a, e;
+                }
+            }
+
+            state middle {
+                signal new_acc;
+                signal rem;
+                signal div;
+
+
+                rem <-- e % 2;
+                div <-- e / 2;
+
+                e === div * 2 + rem;
+
+                if (rem == 0) {
+                    new_acc <== acc;
+                } else {
+                    new_acc <== acc * a;
+                }
+
+                if e == 0 {
+                    -> final {
+                        acc' <== acc;
+                    }
+                } else {
+                    -> middle {
+                        acc', a', e' <== new_acc, a * a, div;
+                    }
+                }
+            }
+        })
+        ";
+
+        let decls = lang::TLDeclsParser::new().parse(circuit).unwrap();
+
+        println!("{:?}", decls);
+    }
 }
