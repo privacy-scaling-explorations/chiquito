@@ -159,8 +159,14 @@ mod test {
 
             state middle {
                 signal new_acc;
-                var rem = e % 2;
-                var div = e \ 2;
+                signal rem;
+                signal div;
+
+
+                rem <-- e % 2;
+                div <-- e / 2;
+
+                e === div * 2 + rem;
 
                 if (rem == 0) {
                     new_acc <== acc;
