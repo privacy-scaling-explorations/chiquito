@@ -1,6 +1,6 @@
 use std::{collections::HashMap, fmt::Debug};
 
-use crate::ast::{FixedSignal, ForwardSignal, InternalSignal, SharedSignal, StepTypeUUID};
+use crate::sbpir::{FixedSignal, ForwardSignal, InternalSignal, SharedSignal, StepTypeUUID};
 
 use super::{Column, CompilationUnit};
 
@@ -370,8 +370,8 @@ mod tests {
     use std::rc::Rc;
 
     use crate::{
-        ast::{ForwardSignal, StepType},
         plonkish::compiler::CompilationUnit,
+        sbpir::{ForwardSignal, StepType},
     };
 
     use super::{CellManager, MaxWidthCellManager};

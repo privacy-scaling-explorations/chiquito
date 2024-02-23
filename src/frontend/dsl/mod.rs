@@ -1,6 +1,6 @@
 use crate::{
-    ast::{query::Queriable, ASTExpr, Circuit, ExposeOffset, StepType, StepTypeUUID},
     field::Field,
+    sbpir::{query::Queriable, ExposeOffset, StepType, StepTypeUUID, PIR, SBPIR},
     util::{uuid, UUID},
     wit_gen::{FixedGenContext, StepInstance, TraceContext},
 };
@@ -26,7 +26,7 @@ pub use sc::*;
 /// `TraceArgs` is a generic type representing the arguments passed to the trace function.
 /// `StepArgs` is a generic type representing the arguments passed to the `step_type_def` function.
 pub struct CircuitContext<F, TraceArgs> {
-    circuit: Circuit<F, TraceArgs>,
+    circuit: SBPIR<F, TraceArgs>,
     tables: LookupTableRegistry<F>,
 }
 
@@ -312,11 +312,11 @@ impl<'a, F> StepTypeSetupContext<'a, F> {
 }
 
 impl<'a, F: Eq + PartialEq + Hash + Debug + Clone> StepTypeSetupContext<'a, F> {
-    pub fn auto(&mut self, signal: Queriable<F>, expr: ASTExpr<F>) {
+    pub fn auto(&mut self, signal: Queriable<F>, expr: PIR<F>) {
         self.step_type.auto_signals.insert(signal, expr);
     }
 
-    pub fn auto_eq(&mut self, signal: Queriable<F>, expr: ASTExpr<F>) {
+    pub fn auto_eq(&mut self, signal: Queriable<F>, expr: PIR<F>) {
         self.auto(signal.clone(), expr.clone());
 
         self.constr(eq(signal, expr));
@@ -399,13 +399,13 @@ impl<F, Args, D: Fn(&mut StepInstance<F>, Args) + 'static> StepTypeWGHandler<F, 
 /// functions. This is the main function that users call to define a Chiquito circuit. Currently,
 /// the name is not used for annotation within the function, but it may be used in future
 /// implementations.
-pub fn circuit<F, TraceArgs, D>(_name: &str, def: D) -> Circuit<F, TraceArgs>
+pub fn circuit<F, TraceArgs, D>(_name: &str, def: D) -> SBPIR<F, TraceArgs>
 where
     D: Fn(&mut CircuitContext<F, TraceArgs>),
 {
     // TODO annotate circuit
     let mut context = CircuitContext {
-        circuit: Circuit::default(),
+        circuit: SBPIR::default(),
         tables: LookupTableRegistry::default(),
     };
 
@@ -424,7 +424,7 @@ mod tests {
 
     #[test]
     fn test_disable_q_enable() {
-        let circuit: Circuit<i32, i32> = Circuit::default();
+        let circuit: SBPIR<i32, i32> = SBPIR::default();
         let mut context = CircuitContext {
             circuit,
             tables: Default::default(),
@@ -437,7 +437,7 @@ mod tests {
 
     #[test]
     fn test_set_num_steps() {
-        let circuit: Circuit<i32, i32> = Circuit::default();
+        let circuit: SBPIR<i32, i32> = SBPIR::default();
         let mut context = CircuitContext {
             circuit,
             tables: Default::default(),
@@ -453,7 +453,7 @@ mod tests {
     #[test]
     fn test_forward() {
         // create circuit context
-        let circuit: Circuit<i32, i32> = Circuit::default();
+        let circuit: SBPIR<i32, i32> = SBPIR::default();
         let mut context = CircuitContext {
             circuit,
             tables: Default::default(),
@@ -472,7 +472,7 @@ mod tests {
     #[test]
     fn test_forward_with_phase() {
         // create circuit context
-        let circuit: Circuit<i32, i32> = Circuit::default();
+        let circuit: SBPIR<i32, i32> = SBPIR::default();
         let mut context = CircuitContext {
             circuit,
             tables: Default::default(),
@@ -491,7 +491,7 @@ mod tests {
     #[test]
     fn test_shared() {
         // create circuit context
-        let circuit: Circuit<i32, i32> = Circuit::default();
+        let circuit: SBPIR<i32, i32> = SBPIR::default();
         let mut context = CircuitContext {
             circuit,
             tables: Default::default(),
@@ -508,7 +508,7 @@ mod tests {
     #[test]
     fn test_shared_with_phase() {
         // create circuit context
-        let circuit: Circuit<i32, i32> = Circuit::default();
+        let circuit: SBPIR<i32, i32> = SBPIR::default();
         let mut context = CircuitContext {
             circuit,
             tables: Default::default(),
@@ -525,7 +525,7 @@ mod tests {
     #[test]
     fn test_fixed() {
         // create circuit context
-        let circuit: Circuit<i32, i32> = Circuit::default();
+        let circuit: SBPIR<i32, i32> = SBPIR::default();
         let mut context = CircuitContext {
             circuit,
             tables: Default::default(),
@@ -541,7 +541,7 @@ mod tests {
     #[test]
     fn test_expose() {
         // create circuit context
-        let circuit: Circuit<i32, i32> = Circuit::default();
+        let circuit: SBPIR<i32, i32> = SBPIR::default();
         let mut context = CircuitContext {
             circuit,
             tables: Default::default(),
@@ -565,7 +565,7 @@ mod tests {
     #[test]
     fn test_step_type() {
         // create circuit context
-        let circuit: Circuit<i32, i32> = Circuit::default();
+        let circuit: SBPIR<i32, i32> = SBPIR::default();
         let mut context = CircuitContext {
             circuit,
             tables: Default::default(),
@@ -584,7 +584,7 @@ mod tests {
     #[test]
     fn test_step_type_def() {
         // create circuit context
-        let circuit: Circuit<i32, i32> = Circuit::default();
+        let circuit: SBPIR<i32, i32> = SBPIR::default();
         let mut context = CircuitContext {
             circuit,
             tables: Default::default(),
@@ -610,7 +610,7 @@ mod tests {
     #[test]
     fn test_step_type_def_pass_handler() {
         // create circuit context
-        let circuit: Circuit<i32, i32> = Circuit::default();
+        let circuit: SBPIR<i32, i32> = SBPIR::default();
         let mut context = CircuitContext {
             circuit,
             tables: Default::default(),
