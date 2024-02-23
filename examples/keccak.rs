@@ -1,5 +1,4 @@
 use chiquito::{
-    ast::{query::Queriable, ASTExpr},
     frontend::dsl::{lb::LookupTable, super_circuit, CircuitContext, StepTypeWGHandler},
     plonkish::{
         backend::halo2::{chiquitoSuperCircuit2Halo2, ChiquitoHalo2SuperCircuit},
@@ -11,6 +10,7 @@ use chiquito::{
         ir::sc::SuperCircuit,
     },
     poly::ToExpr,
+    sbpir::query::Queriable,
 };
 use std::{hash::Hash, ops::Neg};
 
@@ -1206,9 +1206,8 @@ fn keccak_circuit<F: PrimeField<Repr = [u8; 32]> + Eq + Hash>(
             }
 
             for s in 0..NUM_WORDS_TO_ABSORB as usize {
-                let mut sum_split_vec: ASTExpr<F> =
-                    setup_split_vec[s][NUM_PER_WORD_BATCH4 as usize - 1] * 1;
-                let mut sum_split_xor_vec: ASTExpr<F> =
+                let mut sum_split_vec = setup_split_vec[s][NUM_PER_WORD_BATCH4 as usize - 1] * 1;
+                let mut sum_split_xor_vec =
                     setup_split_xor_vec[s][NUM_PER_WORD_BATCH4 as usize - 1] * 1;
                 for (&value, &xor_value) in setup_split_vec[s]
                     .iter()
@@ -1462,18 +1461,17 @@ fn keccak_circuit<F: PrimeField<Repr = [u8; 32]> + Eq + Hash>(
                     }
 
                     // Theta
-                    let mut tmp_theta_sum_split_xor_vec: Vec<ASTExpr<F>> = Vec::new();
-                    let mut tmp_theta_sum_move_split_xor_vec: Vec<ASTExpr<F>> = Vec::new();
+                    let mut tmp_theta_sum_split_xor_vec = Vec::new();
+                    let mut tmp_theta_sum_move_split_xor_vec = Vec::new();
                     for s in 0..PART_SIZE as usize {
                         // 1. \sum_y' a[x][y'][z]
                         // 2. xor(sum)
-                        let mut sum_split_vec: ASTExpr<F> =
-                            setup_theta_split_vec[s][NUM_PER_WORD as usize] * 8
-                                + setup_theta_split_vec[s][NUM_PER_WORD as usize - 1];
-                        let mut sum_split_xor_vec: ASTExpr<F> =
+                        let mut sum_split_vec = setup_theta_split_vec[s][NUM_PER_WORD as usize] * 8
+                            + setup_theta_split_vec[s][NUM_PER_WORD as usize - 1];
+                        let mut sum_split_xor_vec =
                             setup_theta_split_xor_vec[s][NUM_PER_WORD as usize] * 8
                                 + setup_theta_split_xor_vec[s][NUM_PER_WORD as usize - 1];
-                        let mut sum_split_xor_move_value_vec: ASTExpr<F> =
+                        let mut sum_split_xor_move_value_vec =
                             setup_theta_split_xor_vec[s][NUM_PER_WORD as usize - 1] * 1;
                         for k in 1..NUM_PER_WORD as usize {
                             sum_split_vec = sum_split_vec * 64
@@ -1536,7 +1534,7 @@ fn keccak_circuit<F: PrimeField<Repr = [u8; 32]> + Eq + Hash>(
                                 );
                             }
 
-                            let mut tmp_theta_sum_split: ASTExpr<F>;
+                            let mut tmp_theta_sum_split;
                             if v % 3 == 0 {
                                 let st = (v / 3) as usize;
                                 if st != 0 {
@@ -1675,7 +1673,7 @@ fn keccak_circuit<F: PrimeField<Repr = [u8; 32]> + Eq + Hash>(
                                 );
                             }
 
-                            let mut tmp_sum_split_chi_vec: ASTExpr<F> = setup_chi_split_value_vec
+                            let mut tmp_sum_split_chi_vec = setup_chi_split_value_vec
                                 [i * PART_SIZE as usize + j]
                                 [NUM_PER_WORD_BATCH3 as usize - 1]
                                 * 1;
@@ -1698,9 +1696,9 @@ fn keccak_circuit<F: PrimeField<Repr = [u8; 32]> + Eq + Hash>(
                                     ));
                                 }
                             } else {
-                                let mut tmp_sum_s_split_vec: ASTExpr<F> =
+                                let mut tmp_sum_s_split_vec =
                                     setup_final_sum_split_vec[NUM_PER_WORD_BATCH4 as usize - 1] * 1;
-                                let mut tmp_sum_s_split_xor_vec: ASTExpr<F> =
+                                let mut tmp_sum_s_split_xor_vec =
                                     setup_final_xor_split_vec[NUM_PER_WORD_BATCH4 as usize - 1] * 1;
                                 ctx.add_lookup(
                                     param
