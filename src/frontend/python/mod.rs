@@ -1825,7 +1825,7 @@ mod tests {
 #[pyfunction]
 fn convert_and_print_ast(json: &PyString) {
     let circuit: SBPIR<Fr, ()> =
-        serde_json::from_str(json.to_str().expect("PyString convertion failed."))
+        serde_json::from_str(json.to_str().expect("PyString conversion failed."))
             .expect("Json deserialization to Circuit failed.");
     println!("{:?}", circuit);
 }
@@ -1833,21 +1833,21 @@ fn convert_and_print_ast(json: &PyString) {
 #[pyfunction]
 fn convert_and_print_trace_witness(json: &PyString) {
     let trace_witness: TraceWitness<Fr> =
-        serde_json::from_str(json.to_str().expect("PyString convertion failed."))
+        serde_json::from_str(json.to_str().expect("PyString conversion failed."))
             .expect("Json deserialization to TraceWitness failed.");
     println!("{:?}", trace_witness);
 }
 
 #[pyfunction]
 fn ast_to_halo2(json: &PyString) -> u128 {
-    let uuid = chiquito_ast_to_halo2(json.to_str().expect("PyString convertion failed."));
+    let uuid = chiquito_ast_to_halo2(json.to_str().expect("PyString conversion failed."));
 
     uuid
 }
 
 #[pyfunction]
 fn ast_map_store(json: &PyString) -> u128 {
-    let uuid = chiquito_ast_map_store(json.to_str().expect("PyString convertion failed."));
+    let uuid = chiquito_ast_map_store(json.to_str().expect("PyString conversion failed."));
 
     uuid
 }
@@ -1855,9 +1855,9 @@ fn ast_map_store(json: &PyString) -> u128 {
 #[pyfunction]
 fn halo2_mock_prover(witness_json: &PyString, rust_id: &PyLong, k: &PyLong) {
     chiquito_halo2_mock_prover(
-        witness_json.to_str().expect("PyString convertion failed."),
-        rust_id.extract().expect("PyLong convertion failed."),
-        k.extract().expect("PyLong convertion failed."),
+        witness_json.to_str().expect("PyString conversion failed."),
+        rust_id.extract().expect("PyLong conversion failed."),
+        k.extract().expect("PyLong conversion failed."),
     );
 }
 
@@ -1870,7 +1870,7 @@ fn super_circuit_halo2_mock_prover(rust_ids: &PyList, super_witness: &PyDict, k:
                 .downcast::<PyLong>()
                 .expect("PyAny downcast failed.")
                 .extract()
-                .expect("PyLong convertion failed.")
+                .expect("PyLong conversion failed.")
         })
         .collect::<Vec<UUID>>();
 
@@ -1881,12 +1881,12 @@ fn super_circuit_halo2_mock_prover(rust_ids: &PyList, super_witness: &PyDict, k:
                 key.downcast::<PyLong>()
                     .expect("PyAny downcast failed.")
                     .extract()
-                    .expect("PyLong convertion failed."),
+                    .expect("PyLong conversion failed."),
                 value
                     .downcast::<PyString>()
                     .expect("PyAny downcast failed.")
                     .to_str()
-                    .expect("PyString convertion failed."),
+                    .expect("PyString conversion failed."),
             )
         })
         .collect::<HashMap<u128, &str>>();
@@ -1894,7 +1894,7 @@ fn super_circuit_halo2_mock_prover(rust_ids: &PyList, super_witness: &PyDict, k:
     chiquito_super_circuit_halo2_mock_prover(
         uuids,
         super_witness,
-        k.extract().expect("PyLong convertion failed."),
+        k.extract().expect("PyLong conversion failed."),
     )
 }
 

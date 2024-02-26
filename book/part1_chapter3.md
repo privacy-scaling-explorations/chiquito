@@ -80,7 +80,7 @@ Step types are part of the setup, which means that they cannot change between pr
 
 Signals represent elements of the witness that have an independent value for each trace step, but in chiquito paradigm you can see them as variables on the trace steps.
 
-Rotation refer to the capability of creating rules that involved the value of signals in other trace steps with an offset relative to the trace step, not just the value of a signal. A rotation of 0, represent the value of the signal in the same trace step, a rotation of 1 in the next step, a rotation of -1 in the previous step, in general any rotation number is posible.
+Rotation refer to the capability of creating rules that involved the value of signals in other trace steps with an offset relative to the trace step, not just the value of a signal. A rotation of 0, represent the value of the signal in the same trace step, a rotation of 1 in the next step, a rotation of -1 in the previous step, in general any rotation number is possible.
 
 ## Types of signals
 
