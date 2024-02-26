@@ -3,7 +3,7 @@ use std::marker::PhantomData;
 
 use crate::{
     parser::ast::{
-        expression::{BinaryOperator, Expression},
+        expression::{BinaryOperator, Expression, UnaryOperator},
         statement::Statement,
         DebugSymRef,
     },
@@ -239,7 +239,7 @@ impl<F: From<u64> + Into<u32> + Clone, V: Clone> CompilationUnit<F, V> {
         CompilationResult {
             dsym: _dsym,
             anti_booly: expr.cast_anti_booly(),
-            one_zero: expr.clone(),
+            one_zero: expr,
         }
     }
 
@@ -284,7 +284,22 @@ impl<F: From<u64> + Into<u32> + Clone, V: Clone> CompilationUnit<F, V> {
     ) -> CompilationResult<F, V> {
         let mut sub = Vec::new();
 
-        flatten_bin_op(BinaryOperator::Or, _lhs, _rhs, &mut sub);
+        // flatten_bin_op(BinaryOperator::And, lhs, rhs, &mut sub);
+
+        flatten_bin_op(
+            BinaryOperator::And,
+            Expression::UnaryOp {
+                dsym: _dsym.clone(),
+                op: UnaryOperator::Not,
+                sub: Box::new(_lhs),
+            },
+            Expression::UnaryOp {
+                dsym: _dsym.clone(),
+                op: UnaryOperator::Not,
+                sub: Box::new(_rhs),
+            },
+            &mut sub,
+        );
 
         assert!(sub.iter().all(|se| se.is_logic()));
 
@@ -293,22 +308,32 @@ impl<F: From<u64> + Into<u32> + Clone, V: Clone> CompilationUnit<F, V> {
             .map(|se| self.compile_expression_logic(se.clone()))
             .collect::<Vec<_>>();
 
-        // In Anti Booly 0 is true and >0 is false
-        // If a, b, c are 0T => a*b*c = 0T, if at least one of a,b,c is 0T ; if all are >0F => a*b*c
-        // = >0F
-        let anti_booly = sub
+        // By De Morgan's law, a or b = not (not a and not b)
+        // In OneZero 0F 1T
+        // If !a, !b are 1T => !a * !b = 1T, if any of !a, !b is 0F => !a * !b = 0F
+        // So we can do the AND of the negated expressions
+        // And then negate the result
+        let one_zero = sub
             .iter()
             .skip(1)
-            .fold(sub[0].anti_booly.clone(), |acc, se| {
-                acc * se.anti_booly.clone()
-            });
+            .fold(sub[0].one_zero.clone(), |acc, se| acc * se.one_zero.clone());
 
-        let one_zero = anti_booly.cast_one_zero();
+        // // In Anti Booly 0 is true and >0 is false
+        // // If a, b, c are 0T => a*b*c = 0T, if at least one of a,b,c is 0T ; if all are >0F =>
+        // a*b*c // = >0F
+        // let anti_booly = sub
+        //     .iter()
+        //     .skip(1)
+        //     .fold(sub[0].anti_booly.clone(), |acc, se| {
+        //         acc * se.anti_booly.clone()
+        //     });
+
+        // let one_zero = anti_booly.cast_one_zero();
 
         CompilationResult {
             dsym: _dsym,
-            anti_booly,
-            one_zero,
+            anti_booly: one_zero.clone(),
+            one_zero: one_zero.one_minus(),
         }
     }
 
