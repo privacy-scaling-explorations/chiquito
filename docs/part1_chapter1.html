@@ -53,18 +53,10 @@
     <script src="_static/togglebutton.js?v=4a39c7ea"></script>
     <script>var togglebuttonSelector = '.toggle, .admonition.dropdown';</script>
     <script src="_static/design-tabs.js?v=36754332"></script>
-    <script>const THEBE_JS_URL = "https://unpkg.com/thebe@0.8.2/lib/index.js"
-const thebe_selector = ".thebe,.cell"
-const thebe_selector_input = "pre"
-const thebe_selector_output = ".output, .cell_output"
-</script>
-    <script async="async" src="_static/sphinx-thebe.js?v=afe5de03"></script>
+    <script>const THEBE_JS_URL = "https://unpkg.com/thebe@0.8.2/lib/index.js"; const thebe_selector = ".thebe,.cell"; const thebe_selector_input = "pre"; const thebe_selector_output = ".output, .cell_output"</script>
+    <script async="async" src="_static/sphinx-thebe.js?v=c100c467"></script>
     <script>var togglebuttonSelector = '.toggle, .admonition.dropdown';</script>
-    <script>const THEBE_JS_URL = "https://unpkg.com/thebe@0.8.2/lib/index.js"
-const thebe_selector = ".thebe,.cell"
-const thebe_selector_input = "pre"
-const thebe_selector_output = ".output, .cell_output"
-</script>
+    <script>const THEBE_JS_URL = "https://unpkg.com/thebe@0.8.2/lib/index.js"; const thebe_selector = ".thebe,.cell"; const thebe_selector_input = "pre"; const thebe_selector_output = ".output, .cell_output"</script>
     <script>DOCUMENTATION_OPTIONS.pagename = 'part1_chapter1';</script>
     <link rel="index" title="Index" href="genindex.html" />
     <link rel="search" title="Search" href="search.html" />
@@ -474,7 +466,7 @@ document.write(`
 <p>As a developer you can see it as a unsigned integer type where the maximum value is a prime minus one (<code class="docutils literal notranslate"><span class="pre">p</span> <span class="pre">-</span> <span class="pre">1</span></code> instead of <code class="docutils literal notranslate"><span class="pre">2^n-1</span></code>) and addition and multiplication overflows as expected, so <code class="docutils literal notranslate"><span class="pre">a</span> <span class="pre">+</span> <span class="pre">b</span> <span class="pre">=</span> <span class="pre">a</span> <span class="pre">+</span> <span class="pre">b</span> <span class="pre">mod</span> <span class="pre">p</span></code> and <code class="docutils literal notranslate"><span class="pre">a</span> <span class="pre">*</span> <span class="pre">b</span> <span class="pre">=</span> <span class="pre">a</span> <span class="pre">*</span> <span class="pre">b</span> <span class="pre">mod</span> <span class="pre">p</span></code>.</p>
 <p>Negative values are obtained by the formula <code class="docutils literal notranslate"><span class="pre">a</span> <span class="pre">+</span> <span class="pre">(-a)</span> <span class="pre">mod</span> <span class="pre">p</span> <span class="pre">=</span> <span class="pre">0</span></code>.</p>
 <p>The prime <code class="docutils literal notranslate"><span class="pre">p</span></code> is usually a very big number when used in ZKP, but we can see an easy example with <code class="docutils literal notranslate"><span class="pre">p</span> <span class="pre">=</span> <span class="pre">7</span></code>.</p>
-<p>The posible values would be <code class="docutils literal notranslate"><span class="pre">0,</span> <span class="pre">1,</span> <span class="pre">2,</span> <span class="pre">3,</span> <span class="pre">4,</span> <span class="pre">5</span></code> and <code class="docutils literal notranslate"><span class="pre">6</span></code>. If we go over <code class="docutils literal notranslate"><span class="pre">p</span></code> it overflows around to <code class="docutils literal notranslate"><span class="pre">0</span></code>. So for example <code class="docutils literal notranslate"><span class="pre">6</span> <span class="pre">+</span> <span class="pre">1</span> <span class="pre">=</span> <span class="pre">0</span></code> or <code class="docutils literal notranslate"><span class="pre">5</span> <span class="pre">+</span> <span class="pre">3</span> <span class="pre">=</span> <span class="pre">1</span></code>.</p>
+<p>The possible values would be <code class="docutils literal notranslate"><span class="pre">0,</span> <span class="pre">1,</span> <span class="pre">2,</span> <span class="pre">3,</span> <span class="pre">4,</span> <span class="pre">5</span></code> and <code class="docutils literal notranslate"><span class="pre">6</span></code>. If we go over <code class="docutils literal notranslate"><span class="pre">p</span></code> it overflows around to <code class="docutils literal notranslate"><span class="pre">0</span></code>. So for example <code class="docutils literal notranslate"><span class="pre">6</span> <span class="pre">+</span> <span class="pre">1</span> <span class="pre">=</span> <span class="pre">0</span></code> or <code class="docutils literal notranslate"><span class="pre">5</span> <span class="pre">+</span> <span class="pre">3</span> <span class="pre">=</span> <span class="pre">1</span></code>.</p>
 <p>Then for example  <code class="docutils literal notranslate"><span class="pre">-3</span> <span class="pre">+</span> <span class="pre">3</span> <span class="pre">mod</span> <span class="pre">7</span> <span class="pre">=</span> <span class="pre">0</span> </code> which is satisfied by <code class="docutils literal notranslate"><span class="pre">4</span> <span class="pre">+</span> <span class="pre">3</span> <span class="pre">mod</span> <span class="pre">7</span> <span class="pre">=</span> <span class="pre">0</span> <span class="pre">=&gt;</span> <span class="pre">-3</span> <span class="pre">=</span> <span class="pre">4</span></code>.</p>
 <p>This is a very short summary of what you need to know about FPFs.</p>
 </section>

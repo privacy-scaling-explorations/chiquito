@@ -53,18 +53,10 @@
     <script src="_static/togglebutton.js?v=4a39c7ea"></script>
     <script>var togglebuttonSelector = '.toggle, .admonition.dropdown';</script>
     <script src="_static/design-tabs.js?v=36754332"></script>
-    <script>const THEBE_JS_URL = "https://unpkg.com/thebe@0.8.2/lib/index.js"
-const thebe_selector = ".thebe,.cell"
-const thebe_selector_input = "pre"
-const thebe_selector_output = ".output, .cell_output"
-</script>
-    <script async="async" src="_static/sphinx-thebe.js?v=afe5de03"></script>
+    <script>const THEBE_JS_URL = "https://unpkg.com/thebe@0.8.2/lib/index.js"; const thebe_selector = ".thebe,.cell"; const thebe_selector_input = "pre"; const thebe_selector_output = ".output, .cell_output"</script>
+    <script async="async" src="_static/sphinx-thebe.js?v=c100c467"></script>
     <script>var togglebuttonSelector = '.toggle, .admonition.dropdown';</script>
-    <script>const THEBE_JS_URL = "https://unpkg.com/thebe@0.8.2/lib/index.js"
-const thebe_selector = ".thebe,.cell"
-const thebe_selector_input = "pre"
-const thebe_selector_output = ".output, .cell_output"
-</script>
+    <script>const THEBE_JS_URL = "https://unpkg.com/thebe@0.8.2/lib/index.js"; const thebe_selector = ".thebe,.cell"; const thebe_selector_input = "pre"; const thebe_selector_output = ".output, .cell_output"</script>
     <script>DOCUMENTATION_OPTIONS.pagename = 'part2_chapter5';</script>
     <link rel="index" title="Index" href="genindex.html" />
     <link rel="search" title="Search" href="search.html" />
@@ -424,7 +416,7 @@ document.write(`
                   
   <section class="tex2jax_ignore mathjax_ignore" id="chapter-5-padding-and-exposing-signals">
 <h1>Chapter 5: Padding and Exposing Signals<a class="headerlink" href="#chapter-5-padding-and-exposing-signals" title="Link to this heading">#</a></h1>
-<p>In prior examples, all Fibonacci circuit witnesses have the same number of step instances. According to our analogy where a circuit is considered a piece of hardware and its witnesses compatible softwares, it’s natural to think that we’d allow for more flexibility for our witnesses. Most immediately, and we shouldn’t limit all Fibonacci circuit witnesses to have the same number of step instances.</p>
+<p>In prior examples, all Fibonacci circuit witnesses have the same number of step instances. According to our analogy where a circuit is considered a piece of hardware and its witnesses compatible software, it’s natural to think that we’d allow for more flexibility for our witnesses. Most immediately, and we shouldn’t limit all Fibonacci circuit witnesses to have the same number of step instances.</p>
 <p>However, you might wonder, doesn’t <code class="docutils literal notranslate"><span class="pre">self.pragma_num_steps(4)</span></code> limit the number of step instances to 4? Besides, doesn’t this function guarantee the Fibonacci circuit’s security, such that we have a fixed circuit setup with a specific number of step instances, thereby making the circuit a piece of “hardware” that cannot be tampered with? How can we allow for BOTH a fixed circuit setup AND flexible witnesses? This problem is frequently encountered in projects like PSE’s zkEVM, where witnesses with very different sizes are passed into the same circuit.</p>
 <section id="padding">
 <h2>Padding<a class="headerlink" href="#padding" title="Link to this heading">#</a></h2>
@@ -1085,7 +1077,7 @@ document.write(`
 <div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>TraceWitness(
 	step_instances={
 		StepInstance(
-			step_type_uuid=259553292529458990963970575266375928330,
+			step_type_uuid=90310249348609010716705617271700720138,
 			assignments={
 				a = 1,
 				b = 1,
@@ -1094,7 +1086,7 @@ document.write(`
 			},
 		),
 		StepInstance(
-			step_type_uuid=259553349177595188660852729550645889546,
+			step_type_uuid=90310299262351394701036885411535391242,
 			assignments={
 				a = 1,
 				b = 2,
@@ -1103,7 +1095,7 @@ document.write(`
 			},
 		),
 		StepInstance(
-			step_type_uuid=259553349177595188660852729550645889546,
+			step_type_uuid=90310299262351394701036885411535391242,
 			assignments={
 				a = 2,
 				b = 3,
@@ -1112,7 +1104,7 @@ document.write(`
 			},
 		),
 		StepInstance(
-			step_type_uuid=259553349177595188660852729550645889546,
+			step_type_uuid=90310299262351394701036885411535391242,
 			assignments={
 				a = 3,
 				b = 5,
@@ -1121,7 +1113,7 @@ document.write(`
 			},
 		),
 		StepInstance(
-			step_type_uuid=259553349177595188660852729550645889546,
+			step_type_uuid=90310299262351394701036885411535391242,
 			assignments={
 				a = 5,
 				b = 8,
@@ -1130,7 +1122,7 @@ document.write(`
 			},
 		),
 		StepInstance(
-			step_type_uuid=259553349177595188660852729550645889546,
+			step_type_uuid=90310299262351394701036885411535391242,
 			assignments={
 				a = 8,
 				b = 13,
@@ -1139,7 +1131,7 @@ document.write(`
 			},
 		),
 		StepInstance(
-			step_type_uuid=259553349177595188660852729550645889546,
+			step_type_uuid=90310299262351394701036885411535391242,
 			assignments={
 				a = 13,
 				b = 21,
@@ -1148,7 +1140,7 @@ document.write(`
 			},
 		),
 		StepInstance(
-			step_type_uuid=259553379046612456540006575092722698762,
+			step_type_uuid=90310331508213538008436392208823355914,
 			assignments={
 				a = 21,
 				b = 34,
@@ -1156,7 +1148,7 @@ document.write(`
 			},
 		),
 		StepInstance(
-			step_type_uuid=259553379046612456540006575092722698762,
+			step_type_uuid=90310331508213538008436392208823355914,
 			assignments={
 				a = 21,
 				b = 34,
@@ -1164,7 +1156,7 @@ document.write(`
 			},
 		),
 		StepInstance(
-			step_type_uuid=259553379046612456540006575092722698762,
+			step_type_uuid=90310331508213538008436392208823355914,
 			assignments={
 				a = 21,
 				b = 34,

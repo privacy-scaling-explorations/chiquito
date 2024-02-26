@@ -53,18 +53,10 @@
     <script src="_static/togglebutton.js?v=4a39c7ea"></script>
     <script>var togglebuttonSelector = '.toggle, .admonition.dropdown';</script>
     <script src="_static/design-tabs.js?v=36754332"></script>
-    <script>const THEBE_JS_URL = "https://unpkg.com/thebe@0.8.2/lib/index.js"
-const thebe_selector = ".thebe,.cell"
-const thebe_selector_input = "pre"
-const thebe_selector_output = ".output, .cell_output"
-</script>
-    <script async="async" src="_static/sphinx-thebe.js?v=afe5de03"></script>
+    <script>const THEBE_JS_URL = "https://unpkg.com/thebe@0.8.2/lib/index.js"; const thebe_selector = ".thebe,.cell"; const thebe_selector_input = "pre"; const thebe_selector_output = ".output, .cell_output"</script>
+    <script async="async" src="_static/sphinx-thebe.js?v=c100c467"></script>
     <script>var togglebuttonSelector = '.toggle, .admonition.dropdown';</script>
-    <script>const THEBE_JS_URL = "https://unpkg.com/thebe@0.8.2/lib/index.js"
-const thebe_selector = ".thebe,.cell"
-const thebe_selector_input = "pre"
-const thebe_selector_output = ".output, .cell_output"
-</script>
+    <script>const THEBE_JS_URL = "https://unpkg.com/thebe@0.8.2/lib/index.js"; const thebe_selector = ".thebe,.cell"; const thebe_selector_input = "pre"; const thebe_selector_output = ".output, .cell_output"</script>
     <script>DOCUMENTATION_OPTIONS.pagename = 'part2_chapter4';</script>
     <link rel="index" title="Index" href="genindex.html" />
     <link rel="search" title="Search" href="search.html" />
@@ -411,7 +403,7 @@ document.write(`
                   
   <section class="tex2jax_ignore mathjax_ignore" id="chapter-4-multiple-steptypes">
 <h1>Chapter 4: Multiple StepTypes<a class="headerlink" href="#chapter-4-multiple-steptypes" title="Link to this heading">#</a></h1>
-<p>To avoid the soundness error from <code class="docutils literal notranslate"><span class="pre">evil_witness</span></code> in Chapter 3, we need to constrain that forward signals “a” and “b” are both 1 in the first step instance. Because this isn’t true for all step instances, we need to create a new step type, called <code class="docutils literal notranslate"><span class="pre">FiboFirstStep</span></code>, which is idential to <code class="docutils literal notranslate"><span class="pre">FiboStep</span></code> except two additional constraints for “a” and “b”:</p>
+<p>To avoid the soundness error from <code class="docutils literal notranslate"><span class="pre">evil_witness</span></code> in Chapter 3, we need to constrain that forward signals “a” and “b” are both 1 in the first step instance. Because this isn’t true for all step instances, we need to create a new step type, called <code class="docutils literal notranslate"><span class="pre">FiboFirstStep</span></code>, which is identical to <code class="docutils literal notranslate"><span class="pre">FiboStep</span></code> except two additional constraints for “a” and “b”:</p>
 <table class="table">
 <thead>
 <tr class="row-odd"><th class="head text-center"><p>Step Type</p></th>
@@ -627,7 +619,10 @@ document.write(`
                         column: DebugColumn {
                             column_type: Advice,
                             index: 0,
-                            annotation: &quot;srcm forward a&quot;,
+                            a
+</pre></div>
+</div>
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>nnotation: &quot;srcm forward a&quot;,
                         },
                         rotation: 0,
                     },
@@ -728,7 +723,7 @@ Constraint 1 (&#39;fibo_first_step::(b == 1) =&gt; (b + (-0x1)) =&gt; Product(Fi
 </div>
 <p>By adding new constraints to eliminate soundness errors, this chapter demonstrated an iterative way of developing zero knowledge circuits. Circuit engineer can proactively generate witnesses in edge cases and if a false positive passes the circuit, add more constraints to prevent these edge cases.</p>
 <p>Besides, we learned that with multiple step types, Chiquito can create step instances with different signals and constraints, thereby allowing great versatility in circuit design.</p>
-<p>Finally, this example shows again that circuit setup and witness generation are separate processes. There can be multiple witnesses for the same circuit setup. As a great analogy, a circuit can be considered a piece of “hardware” whereas its witnesses “softwares” that are compatible with the hardware.</p>
+<p>Finally, this example shows again that circuit setup and witness generation are separate processes. There can be multiple witnesses for the same circuit setup. As a great analogy, a circuit can be considered a piece of “hardware” whereas its witnesses “software” that are compatible with the hardware.</p>
 </section>
 
     <script type="text/x-thebe-config">
