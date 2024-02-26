@@ -284,51 +284,29 @@ impl<F: From<u64> + Into<u32> + Clone, V: Clone> CompilationUnit<F, V> {
     ) -> CompilationResult<F, V> {
         let mut sub = Vec::new();
 
-        // flatten_bin_op(BinaryOperator::And, lhs, rhs, &mut sub);
-
-        flatten_bin_op(
-            BinaryOperator::And,
-            Expression::UnaryOp {
-                dsym: _dsym.clone(),
-                op: UnaryOperator::Not,
-                sub: Box::new(_lhs),
-            },
-            Expression::UnaryOp {
-                dsym: _dsym.clone(),
-                op: UnaryOperator::Not,
-                sub: Box::new(_rhs),
-            },
-            &mut sub,
-        );
-
+        flatten_bin_op(BinaryOperator::Or, _lhs.clone(), _rhs.clone(), &mut sub);
         assert!(sub.iter().all(|se| se.is_logic()));
 
-        let sub = sub
-            .iter()
-            .map(|se| self.compile_expression_logic(se.clone()))
-            .collect::<Vec<_>>();
+        let not_lhs = Expression::UnaryOp {
+            dsym: _dsym.clone(),
+            op: UnaryOperator::Not,
+            sub: Box::new(_lhs),
+        };
+
+        let not_rhs = Expression::UnaryOp {
+            dsym: _dsym.clone(),
+            op: UnaryOperator::Not,
+            sub: Box::new(_rhs),
+        };
 
         // By De Morgan's law, a or b = not (not a and not b)
         // In OneZero 0F 1T
         // If !a, !b are 1T => !a * !b = 1T, if any of !a, !b is 0F => !a * !b = 0F
         // So we can do the AND of the negated expressions
         // And then negate the result
-        let one_zero = sub
-            .iter()
-            .skip(1)
-            .fold(sub[0].one_zero.clone(), |acc, se| acc * se.one_zero.clone());
+        let compiled_and = self.compile_expression_and(_dsym.clone(), not_lhs, not_rhs);
 
-        // // In Anti Booly 0 is true and >0 is false
-        // // If a, b, c are 0T => a*b*c = 0T, if at least one of a,b,c is 0T ; if all are >0F =>
-        // a*b*c // = >0F
-        // let anti_booly = sub
-        //     .iter()
-        //     .skip(1)
-        //     .fold(sub[0].anti_booly.clone(), |acc, se| {
-        //         acc * se.anti_booly.clone()
-        //     });
-
-        // let one_zero = anti_booly.cast_one_zero();
+        let one_zero = compiled_and.one_zero;
 
         CompilationResult {
             dsym: _dsym,
