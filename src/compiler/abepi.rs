@@ -3,7 +3,7 @@ use std::marker::PhantomData;
 
 use crate::{
     parser::ast::{
-        expression::{BinaryOperator, Expression, UnaryOperator},
+        expression::{BinaryOperator, Expression},
         statement::Statement,
         DebugSymRef,
     },
@@ -284,7 +284,7 @@ impl<F: From<u64> + Into<u32> + Clone, V: Clone> CompilationUnit<F, V> {
     ) -> CompilationResult<F, V> {
         let mut sub = Vec::new();
 
-        flatten_bin_op(BinaryOperator::Or, lhs.clone(), rhs.clone(), &mut sub);
+        flatten_bin_op(BinaryOperator::Or, lhs, rhs, &mut sub);
         assert!(sub.iter().all(|se| se.is_logic()));
 
         let sub = sub
@@ -365,14 +365,14 @@ impl<F: From<u64> + Into<u32> + Clone, V: Clone> CompilationUnit<F, V> {
 
     fn compile_statement_if_then_else(
         &self,
-        dsym: DebugSymRef,
+        _dsym: DebugSymRef,
         cond: Expression<F, V>,
-        when_true: Statement<F, V>,
-        when_false: Statement<F, V>,
+        _when_true: Statement<F, V>,
+        _when_false: Statement<F, V>,
     ) -> Vec<CompilationResult<F, V>> {
         assert!(cond.is_logic());
 
-        let cond = self.compile_expression(cond);
+        let _cond = self.compile_expression(cond);
 
         // if A then assert B else assert C
         // (A and B) or (not A and C)
@@ -380,6 +380,7 @@ impl<F: From<u64> + Into<u32> + Clone, V: Clone> CompilationUnit<F, V> {
         // In OneZero 0F 1T
         // Using cond only as OneZero 0F, 1T
         // For OneZero result =>
+        todo!()
     }
 }
 
