@@ -278,38 +278,34 @@ impl<F: From<u64> + Into<u32> + Clone, V: Clone> CompilationUnit<F, V> {
 
     fn compile_expression_or(
         &self,
-        _dsym: DebugSymRef,
-        _lhs: Expression<F, V>,
-        _rhs: Expression<F, V>,
+        dsym: DebugSymRef,
+        lhs: Expression<F, V>,
+        rhs: Expression<F, V>,
     ) -> CompilationResult<F, V> {
         let mut sub = Vec::new();
 
-        flatten_bin_op(BinaryOperator::Or, _lhs.clone(), _rhs.clone(), &mut sub);
+        flatten_bin_op(BinaryOperator::Or, lhs.clone(), rhs.clone(), &mut sub);
         assert!(sub.iter().all(|se| se.is_logic()));
 
-        let not_lhs = Expression::UnaryOp {
-            dsym: _dsym.clone(),
-            op: UnaryOperator::Not,
-            sub: Box::new(_lhs),
-        };
-
-        let not_rhs = Expression::UnaryOp {
-            dsym: _dsym.clone(),
-            op: UnaryOperator::Not,
-            sub: Box::new(_rhs),
-        };
+        let sub = sub
+            .iter()
+            .map(|se| self.compile_expression_logic(se.clone()))
+            .collect::<Vec<_>>();
 
         // By De Morgan's law, a or b = not (not a and not b)
         // In OneZero 0F 1T
-        // If !a, !b are 1T => !a * !b = 1T, if any of !a, !b is 0F => !a * !b = 0F
-        // So we can do the AND of the negated expressions
+        // If !a, !b are 1T => !a * !b = 1T, if any of !a, !b is 0F => !a * !b = 0F => (1-a) * (1-b)
+        // = 0F So we can do the AND of the negated expressions
         // And then negate the result
-        let compiled_and = self.compile_expression_and(_dsym.clone(), not_lhs, not_rhs);
-
-        let one_zero = compiled_and.one_zero;
+        let one_zero = sub
+            .iter()
+            .skip(1)
+            .fold(sub[0].one_zero.clone().one_minus(), |acc, se| {
+                acc * se.one_zero.clone().one_minus()
+            });
 
         CompilationResult {
-            dsym: _dsym,
+            dsym,
             anti_booly: one_zero.clone(),
             one_zero: one_zero.one_minus(),
         }
@@ -349,7 +345,7 @@ impl<F: From<u64> + Into<u32> + Clone, V: Clone> CompilationUnit<F, V> {
         // Using cond only as OneZero 0F, 1T
         // For the OneZero result, only when cond 1T and when_true.one_zero is 0F, 1 - (cond *
         // (1-when_true.one_zero) => 0F, will be 1T in any other case
-        // For the AntiBooly resilt, only when cond 1T and when_true.anti_bool is >0F, cond *
+        // For the AntiBooly result, only when cond 1T and when_true.anti_bool is >0F, cond *
         // when_true.anti_booly => >0F, will be 0F in any other case
         self.compile_statement(when_true)
             .iter()
@@ -369,12 +365,21 @@ impl<F: From<u64> + Into<u32> + Clone, V: Clone> CompilationUnit<F, V> {
 
     fn compile_statement_if_then_else(
         &self,
-        _dsym: DebugSymRef,
-        _cond: Expression<F, V>,
-        _when_true: Statement<F, V>,
-        _when_false: Statement<F, V>,
+        dsym: DebugSymRef,
+        cond: Expression<F, V>,
+        when_true: Statement<F, V>,
+        when_false: Statement<F, V>,
     ) -> Vec<CompilationResult<F, V>> {
-        todo!()
+        assert!(cond.is_logic());
+
+        let cond = self.compile_expression(cond);
+
+        // if A then assert B else assert C
+        // (A and B) or (not A and C)
+
+        // In OneZero 0F 1T
+        // Using cond only as OneZero 0F, 1T
+        // For OneZero result =>
     }
 }
 
