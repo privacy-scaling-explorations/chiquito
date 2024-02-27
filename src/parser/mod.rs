@@ -35,7 +35,7 @@ mod test {
         let stmts = lang::StatementsParser::new()
             .parse("if 0 == 22 { 0 === a; }")
             .unwrap();
-        assert_eq!(&format!("{:?}", stmts), "[if 0 == 22 {\n 0 === a;\n}\n]");
+        assert_eq!(&format!("{:?}", stmts), "[if 0 == 22 { assert 0 == a; }]");
         assert_eq!(stmts.len(), 1);
 
         let stmts = lang::StatementsParser::new()
@@ -43,25 +43,25 @@ mod test {
             .unwrap();
         assert_eq!(
             &format!("{:?}", stmts),
-            "[if 0 == 22 {\n 0 === a; 1 === b;\n}\n]"
+            "[if 0 == 22 { assert 0 == a; assert 1 == b; }]"
         );
         assert_eq!(stmts.len(), 1);
 
         let stmts = lang::StatementsParser::new()
-            .parse("if 0 == 22 {\n 0 === a; 1 === b; }")
+            .parse("if 0 == 22 { 0 === a; 1 === b; }")
             .unwrap();
         assert_eq!(
             &format!("{:?}", stmts),
-            "[if 0 == 22 {\n 0 === a; 1 === b;\n}\n]"
+            "[if 0 == 22 { assert 0 == a; assert 1 == b; }]"
         );
         assert_eq!(stmts.len(), 1);
 
         let stmts = lang::StatementsParser::new()
-            .parse("if 0 == 22 {\n 0 === a; 1 === b;} b === 1;")
+            .parse("if 0 == 22 { 0 === a; 1 === b;} b === 1;")
             .unwrap();
         assert_eq!(
             &format!("{:?}", stmts),
-            "[if 0 == 22 {\n 0 === a; 1 === b;\n}\n, b === 1;]"
+            "[if 0 == 22 { assert 0 == a; assert 1 == b; }, assert b == 1;]"
         );
         assert_eq!(stmts.len(), 2);
     }
@@ -116,6 +116,78 @@ mod test {
             format!("{:?}", decls),
             r#"[machine fibo (signal n;) (signal b;) { signal a, i; state initial { signal c; [i, a, b, c] <== [1, 1, 1, 2]; -> middle { [a', b', n'] <== [b, c, n]; } } state middle { signal c; [c] <== [a + b]; if (i + 1) == n { -> final { [i', b', n'] <== [i + 1, c, n]; } } else { -> middle { [i', a', b', n'] <== [i + 1, b, c, n]; } } } }]"#
         );
+
+        println!("{:?}", decls);
+    }
+
+    #[test]
+    #[ignore]
+    fn test_parser_for_modular_exp() {
+        // Modular Exponentiation Example (Low to High Algorithm)
+        // https://en.wikipedia.org/wiki/Modular_exponentiation
+        // Example for 2^4
+        // 2^4 = 2^2 * 2^2 = 4^2 = 16
+        // -------------------------
+        // | a | e | acc |
+        // |---|---|-----|
+        // | 2 | 4 | 1   |
+        // | 4 | 2 | 1   |
+        // | 16| 1 | 1   |
+        // | 16| 0 | 16  |
+        // -------------------------
+        // Example for 3^5
+        // 3^5 = 3^2 * 3^2 * 3 = 9^2 * 3 = 81 * 3 = 243
+        // -------------------------
+        // | a | e | acc |
+        // |---|---|-----|
+        // | 3 | 5 | 1   |
+        // | 9 | 2 | 3   |
+        // | 81| 1 | 3   |
+        // | 81| 0 | 243 |
+        // -------------------------
+
+        let circuit = r"
+        machine modular_exp(signal a, signal e) (signal acc: field) {
+            // a, e and acc are created automatically as shared signals
+
+            state initial {
+                acc <== 1;
+                -> middle {
+                    acc', a', e' <== acc, a, e;
+                }
+            }
+
+            state middle {
+                signal new_acc;
+                signal rem;
+                signal div;
+
+
+                rem <-- e % 2;
+                div <-- e / 2;
+
+                e === div * 2 + rem;
+
+                if (rem == 0) {
+                    new_acc <== acc;
+                } else {
+                    new_acc <== acc * a;
+                }
+
+                if e == 0 {
+                    -> final {
+                        acc' <== acc;
+                    }
+                } else {
+                    -> middle {
+                        acc', a', e' <== new_acc, a * a, div;
+                    }
+                }
+            }
+        })
+        ";
+
+        let decls = lang::TLDeclsParser::new().parse(circuit).unwrap();
 
         println!("{:?}", decls);
     }
