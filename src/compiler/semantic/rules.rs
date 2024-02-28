@@ -9,6 +9,8 @@ use crate::{
     },
 };
 
+use super::SymbolCategory;
+
 // Cannot use a undeclared variable in a expression.
 fn undeclared_rule(analyser: &mut Analyser, expr: &Expression<BigInt, Identifier>) {
     match expr {
@@ -99,11 +101,39 @@ fn state_decl(analyser: &mut Analyser, expr: &Statement<BigInt, Identifier>) {
     });
 }
 
+// Should only allow to assign or assign and assert signals (and not wg vars).
+fn assignment_rule(analyser: &mut Analyser, expr: &Statement<BigInt, Identifier>) {
+    let ids = match expr {
+        Statement::Assignment(_, id, _) => id,
+        Statement::AssignmentAssert(_, id, _) => id,
+        _ => return,
+    };
+
+    ids.into_iter().for_each(|id| {
+        if let Some(symbol) = analyser.symbols.find_symbol(&analyser.cur_scope, id.name()) {
+            let is_signal = matches!(
+                symbol.symbol.category,
+                SymbolCategory::Signal | SymbolCategory::InputSignal | SymbolCategory::OutputSignal | SymbolCategory::InoutSignal
+            );
+            if !is_signal {
+                analyser.error(
+                    format!(
+                        "Cannot do assignments to variable {} with category {:#?}, you can only assign to signals",
+                        id.name(),
+                        symbol.symbol.category
+                    ),
+                    &expr.get_dsym(),
+                )
+            }
+        }
+    });
+}
+
 lazy_static! {
     /// Global semantic analyser rules.
     pub(super) static ref RULES: RuleSet = RuleSet {
         expression: vec![undeclared_rule],
-        statement: vec![state_decl],
+        statement: vec![state_decl, assignment_rule],
         new_symbol: vec![rotation_decl],
         new_tl_symbol: vec![rotation_decl_tl],
     };
@@ -433,6 +463,61 @@ mod test {
         assert_eq!(
             format!("{:?}", result.messages),
             r#"[Err { msg: "Cannot declare state nested here", dsym: DebugSymRef { start: 0, end: 0 } }]"#
+        );
+    }
+
+    #[test]
+    fn test_assignment_rule() {
+        let circuit = "
+        machine fibo(signal n) (signal b: field) {
+            // n and be are created automatically as shared
+            // signals
+            signal a: field, i;
+
+            // there is always a state called initial
+            // input signals get binded to the signal
+            // in the initial state (first instance)
+            state initial {
+             signal c;
+             var wrong;
+
+             i, a, b, wrong, c <== 1, 1, 1, 3, 2;
+
+             -> middle {
+              a', b', n' <== b, c, n;
+             }
+            }
+
+            state middle {
+             signal c;
+
+             c <== a + b;
+
+             if i + 1 == n {
+              -> final {
+               i', b', n' <== i + 1, c, n;
+              }
+             } else {
+              -> middle {
+               i', a', b', n' <== i + 1, b, c, n;
+              }
+             }
+            }
+
+            // There is always a state called final.
+            // Output signals get automatically bindinded to the signals
+            // with the same name in the final step (last instance).
+            // This state can be implicit if there are no constraints in it.
+           }
+        ";
+
+        let decls = lang::TLDeclsParser::new().parse(circuit).unwrap();
+
+        let result = analyse(decls);
+
+        assert_eq!(
+            format!("{:?}", result.messages),
+            r#"[Err { msg: "Cannot do assignments to variable wrong with category WGVar, you can only assign to signals", dsym: DebugSymRef { start: 0, end: 0 } }]"#
         );
     }
 }
