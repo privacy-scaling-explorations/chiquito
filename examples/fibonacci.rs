@@ -169,7 +169,7 @@ fn main() {
     }
 
     // hyperplonk boilerplate
-    use benchmark::proof_system::{bench_plonkish_backend, System};
+    use hyperplonk_benchmark::proof_system::{bench_plonkish_backend, System};
     use plonkish_backend::{
         backend,
         halo2_curves::bn256::{Bn256, Fr},
