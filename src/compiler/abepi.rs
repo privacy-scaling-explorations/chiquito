@@ -218,8 +218,6 @@ impl<F: From<u64> + Into<u32> + Clone, V: Clone> CompilationUnit<F, V> {
         }
     }
 
-    // my question here is do we really need this function?
-    // Can't we just negate the result of compile_expression_eq?
     fn compile_expression_neq(
         &self,
         _dsym: DebugSymRef,
@@ -232,14 +230,14 @@ impl<F: From<u64> + Into<u32> + Clone, V: Clone> CompilationUnit<F, V> {
         let lhs = self.compile_expression_airth(_lhs);
         let rhs = self.compile_expression_airth(_rhs);
 
-        // In One Zero: 0 is false
-        // lhs != rhs => lhs - rhs == 0 is false
+        // In One Zero: 0 is false, 1 is true
+        // lhs != rhs => lhs - rhs != 0
         let expr = lhs - rhs;
 
         CompilationResult {
             dsym: _dsym,
-            anti_booly: expr.cast_anti_booly(),
-            one_zero: expr,
+            anti_booly: expr.clone(),
+            one_zero: expr.one_minus(),
         }
     }
 
