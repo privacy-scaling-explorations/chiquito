@@ -3,8 +3,8 @@ use std::{collections::HashMap, rc::Rc};
 use halo2_proofs::plonk::{Advice, Column as Halo2Column};
 
 use crate::{
-    ast::{StepType, StepTypeUUID},
     field::Field,
+    sbpir::{StepType, StepTypeUUID},
     util::UUID,
 };
 

@@ -2,7 +2,7 @@
 
 ## ZKP as trace
 
-ZKP generates proofs that an algorithm has been execute correctly.
+ZKP generates proofs that an algorithm has been executed correctly.
 
 The best way we can analyse a particular execution of an algorithm is by its trace.
 
@@ -64,7 +64,7 @@ For example, we can have the step type `set $variable to $value` and the constra
 
 ## ZKP witness as a trace
 
-In the same way, we can see the witness as a the trace of a computation plus some information about the states between the steps.
+In the same way, we can see the witness as the trace of a computation plus some information about the states between the steps.
 
 The programming model in chiquito follows the idea that every zero knowledge proof represents a program (the setup), which can have many computations (the trace) that is proven for a certain input, output and intermediate values (the witness).
 
@@ -72,15 +72,15 @@ The programming model in chiquito follows the idea that every zero knowledge pro
 
 A trace is made of a sequence of step instances or trace steps, that contains the data about that step instance.
 
-Each step instance belong to a step type. A step types contains rules (or constraints) about whether a step instance is valid in relation to its data and the data of other step instances relative to it.
+Each step instance belongs to a step type. A step type contains rules (or constraints) about whether a step instance is valid in relation to its data and the data of other step instances relative to it.
 
 Step types are part of the setup, which means that they cannot change between proofs, but this circuit can proof all possible traces, as they are part of the witness.
 
 ## Signals and rotations
 
-Signals represent are elements of the witness that have a independent value for each trace step, but in chiquito paradigm you can see them as variables on the trace steps.
+Signals represent elements of the witness that have an independent value for each trace step, but in chiquito paradigm you can see them as variables on the trace steps.
 
-Rotation refer to the capability of creating rules that involved the value of signals in other trace steps with an offset relative to the trace step, not just the value of a signal. A rotation of 0, represent the value of the signal in the same trace step, a rotation of 1 in the next step, a rotation of -1 in the previous step, in general any rotation number is posible.
+Rotation refer to the capability of creating rules that involved the value of signals in other trace steps with an offset relative to the trace step, not just the value of a signal. A rotation of 0, represent the value of the signal in the same trace step, a rotation of 1 in the next step, a rotation of -1 in the previous step, in general any rotation number is possible.
 
 ## Types of signals
 
@@ -88,7 +88,7 @@ There are two types of signals that are shared between the step types, **forward
 
 **Internal** signals are not shared between step types, and belong to a specific step type and cannot be rotated.
 
-There is a special type of signal called **fixed**, that is not part of the witness and it is used to contain constants.
+There is a special type of signal called **fixed**, that is not part of the witness and it is used to define constants.
 
 |          | Scope            | Rotation  | Role    |
 | -------- | ---------------- | --------- | ------- |

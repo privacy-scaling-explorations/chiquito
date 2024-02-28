@@ -29,8 +29,8 @@ fn fibo_circuit<F: Field + From<u64> + Hash>() -> (Circuit<F>, Option<Assignment
 // u32 is for external input that indicates the number of fibnoacci iterations
 {
     use chiquito::{
-        ast::ExposeOffset::*, // for exposing witnesses
-        frontend::dsl::cb::*, // functions for constraint building
+        frontend::dsl::cb::*,   // functions for constraint building
+        sbpir::ExposeOffset::*, // for exposing witnesses
     };
 
     let fibo = circuit::<F, u32, _>("fibonacci", |ctx| {

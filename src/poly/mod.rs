@@ -9,6 +9,10 @@ use halo2_proofs::plonk::Expression;
 
 use crate::field::Field;
 
+pub mod mielim;
+pub mod reduce;
+pub mod simplify;
+
 pub trait ToExpr<F, V> {
     fn expr(&self) -> Expr<F, V>;
 }
@@ -26,6 +30,23 @@ pub enum Expr<F, V> {
     Pow(Box<Expr<F, V>>, u32),
     Query(V),
     Halo2Expr(Expression<F>),
+
+    MI(Box<Expr<F, V>>),
+}
+
+impl<F, V> Expr<F, V> {
+    pub fn degree(&self) -> usize {
+        match self {
+            Expr::Const(_) => 0,
+            Expr::Sum(ses) => ses.iter().map(|se| se.degree()).max().unwrap(),
+            Expr::Mul(ses) => ses.iter().fold(0, |acc, se| acc + se.degree()),
+            Expr::Neg(se) => se.degree(),
+            Expr::Pow(se, exp) => se.degree() * (*exp as usize),
+            Expr::Query(_) => 1,
+            Expr::Halo2Expr(_) => panic!("not implemented"),
+            Expr::MI(_) => panic!("not implemented"),
+        }
+    }
 }
 
 impl<F: Debug, V: Debug> Debug for Expr<F, V> {
@@ -63,6 +84,7 @@ impl<F: Debug, V: Debug> Debug for Expr<F, V> {
             Self::Pow(arg0, arg1) => write!(f, "({:?})^{}", arg0, arg1),
             Self::Query(arg0) => write!(f, "{:?}", arg0),
             Self::Halo2Expr(arg0) => write!(f, "halo2({:?})", arg0),
+            Self::MI(arg0) => write!(f, "mi({:?})", arg0),
         }
     }
 }
@@ -82,6 +104,7 @@ impl<F: Field + Hash, V: Eq + PartialEq + Hash> Expr<F, V> {
             Expr::Neg(se) => Some(F::ZERO - se.eval(assignments)?),
             Expr::Pow(se, exp) => Some(se.eval(assignments)?.pow([*exp as u64])),
             Expr::Query(q) => assignments.get(q).copied(),
+            Expr::MI(se) => Some(se.eval(assignments)?.mi()),
 
             // Not implemented, and not necessary for aexpr
             Expr::Halo2Expr(_) => None,
@@ -208,6 +231,40 @@ impl<F, V> From<Expression<F>> for Expr<F, V> {
     #[inline]
     fn from(value: Expression<F>) -> Self {
         Expr::Halo2Expr(value)
+    }
+}
+
+pub trait SignalFactory<V> {
+    fn create<S: Into<String>>(&mut self, annotation: S) -> V;
+}
+
+/// The result of decomposing a PI into several
+#[derive(Debug, Clone)]
+pub struct ConstrDecomp<F, V> {
+    /// PI constraint for the new signals introduced.
+    constrs: Vec<Expr<F, V>>,
+    /// Expressions for how to create the witness for the generated signals the original expression
+    /// has be decomposed into.
+    auto_signals: HashMap<V, Expr<F, V>>,
+}
+
+impl<F, V> Default for ConstrDecomp<F, V> {
+    fn default() -> Self {
+        Self {
+            constrs: Default::default(),
+            auto_signals: Default::default(),
+        }
+    }
+}
+
+impl<F: Clone, V: Clone + Eq + PartialEq + Hash> ConstrDecomp<F, V> {
+    fn auto_eq(&mut self, signal: V, expr: Expr<F, V>) {
+        self.constrs.push(Expr::Sum(vec![
+            expr.clone(),
+            Expr::Neg(Box::new(Expr::Query(signal.clone()))),
+        ]));
+
+        self.auto_signals.insert(signal, expr);
     }
 }
 

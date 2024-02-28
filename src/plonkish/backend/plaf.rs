@@ -233,6 +233,7 @@ impl<F: PrimeField<Repr = [u8; 32]>> ChiquitoPlaf<F> {
                     self.convert_plaf_query(column, rotation, annotation, *index),
                 ))
             }
+            cPolyExpr::MI(_) => panic!("mi elimination not done"),
         }
     }
 

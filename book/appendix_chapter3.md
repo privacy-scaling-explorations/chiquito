@@ -144,7 +144,7 @@ Circuit {
 }
 ```
 
-## Plonkish arithmetization
+## Plonkish arithmatization
 
 This is the arithmetization used by Halo2.
 

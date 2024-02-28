@@ -262,6 +262,7 @@ impl<F: Field + From<u64> + Hash> ChiquitoHalo2<F> {
             }
             PolyExpr::Halo2Expr(e) => e.clone(),
             PolyExpr::Query((column, rotation, _)) => self.convert_query(meta, column, *rotation),
+            PolyExpr::MI(_) => panic!("mi elimination not done"),
         }
     }
 
@@ -297,7 +298,7 @@ impl<F: Field + From<u64> + Hash> ChiquitoHalo2<F> {
                 .advice_columns
                 .get(&column.uuid())
                 .unwrap_or_else(|| panic!("column not found {}", column.annotation)),
-            _ => panic!("worng column type"),
+            _ => panic!("wrong column type"),
         }
     }
 
@@ -307,7 +308,7 @@ impl<F: Field + From<u64> + Hash> ChiquitoHalo2<F> {
                 .fixed_columns
                 .get(&column.uuid())
                 .unwrap_or_else(|| panic!("column not found {}", column.annotation)),
-            _ => panic!("worng column type"),
+            _ => panic!("wrong column type"),
         }
     }
 }

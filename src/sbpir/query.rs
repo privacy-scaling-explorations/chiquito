@@ -5,17 +5,17 @@ use std::{
 };
 
 use crate::{
-    ast::{
+    frontend::dsl::StepTypeHandler,
+    sbpir::{
         FixedSignal, ForwardSignal, ImportedHalo2Advice, ImportedHalo2Fixed, InternalSignal,
         SharedSignal,
     },
-    frontend::dsl::StepTypeHandler,
     util::UUID,
 };
 
 use crate::poly::{Expr, ToExpr};
 
-use super::ASTExpr;
+use super::PIR;
 
 // Queriable
 #[derive(Clone, Copy, PartialEq, Eq, Hash)]
@@ -143,29 +143,29 @@ impl<F> Queriable<F> {
 }
 
 impl<F: Clone> ToExpr<F, Queriable<F>> for Queriable<F> {
-    fn expr(&self) -> ASTExpr<F> {
+    fn expr(&self) -> PIR<F> {
         Expr::Query((*self).clone())
     }
 }
 
-impl<F: Clone, RHS: Into<ASTExpr<F>>> Add<RHS> for Queriable<F> {
-    type Output = ASTExpr<F>;
+impl<F: Clone, RHS: Into<PIR<F>>> Add<RHS> for Queriable<F> {
+    type Output = PIR<F>;
 
     fn add(self, rhs: RHS) -> Self::Output {
         self.expr() + rhs
     }
 }
 
-impl<F: Clone, RHS: Into<ASTExpr<F>>> Sub<RHS> for Queriable<F> {
-    type Output = ASTExpr<F>;
+impl<F: Clone, RHS: Into<PIR<F>>> Sub<RHS> for Queriable<F> {
+    type Output = PIR<F>;
 
     fn sub(self, rhs: RHS) -> Self::Output {
         self.expr() - rhs
     }
 }
 
-impl<F: Clone, RHS: Into<ASTExpr<F>>> Mul<RHS> for Queriable<F> {
-    type Output = ASTExpr<F>;
+impl<F: Clone, RHS: Into<PIR<F>>> Mul<RHS> for Queriable<F> {
+    type Output = PIR<F>;
 
     fn mul(self, rhs: RHS) -> Self::Output {
         self.expr() * rhs
@@ -173,14 +173,14 @@ impl<F: Clone, RHS: Into<ASTExpr<F>>> Mul<RHS> for Queriable<F> {
 }
 
 impl<F: Clone> Neg for Queriable<F> {
-    type Output = ASTExpr<F>;
+    type Output = PIR<F>;
 
     fn neg(self) -> Self::Output {
         self.expr().neg()
     }
 }
 
-impl<F> From<Queriable<F>> for ASTExpr<F> {
+impl<F> From<Queriable<F>> for PIR<F> {
     fn from(value: Queriable<F>) -> Self {
         Expr::Query(value)
     }
