@@ -68,7 +68,7 @@ pub struct AssignmentGenerator<F, TraceArgs> {
     columns: Vec<Column>,
     placement: Placement,
     selector: StepSelector<F>,
-    trace_gen: TraceGenerator<F, TraceArgs>,
+    pub trace_gen: TraceGenerator<F, TraceArgs>,
     auto_trace_gen: AutoTraceGenerator<F>,
 
     num_rows: usize,
@@ -151,38 +151,6 @@ impl<F: Field + Hash, TraceArgs> AssignmentGenerator<F, TraceArgs> {
         assignments
     }
 
-    pub(crate) fn generate_selector_assignments_with_witness(
-        &self,
-        witness: TraceWitness<F>,
-    ) -> Assignments<F> {
-        let mut offset: usize = 0;
-        let mut assignments: Assignments<F> = Default::default();
-
-        let witness = self.auto_trace_gen.generate(witness);
-
-        for step_instance in witness.step_instances.into_iter() {
-            self.assign_selector(&mut offset, &mut assignments, &step_instance);
-        }
-
-        assignments
-    }
-
-    pub(crate) fn generate_non_selector_assignments_with_witness(
-        &self,
-        witness: TraceWitness<F>,
-    ) -> Assignments<F> {
-        let mut offset: usize = 0;
-        let mut assignments: Assignments<F> = Default::default();
-
-        let witness = self.auto_trace_gen.generate(witness);
-
-        for step_instance in witness.step_instances.into_iter() {
-            self.assign_non_selector(&mut offset, &mut assignments, &step_instance);
-        }
-
-        assignments
-    }
-
     pub fn uuid(&self) -> UUID {
         self.ir_id
     }
@@ -193,30 +161,10 @@ impl<F: Field + Hash, TraceArgs> AssignmentGenerator<F, TraceArgs> {
         assignments: &mut Assignments<F>,
         step_instance: &StepInstance<F>,
     ) {
-        self.assign_non_selector(offset, assignments, step_instance);
-
-        self.assign_selector(offset, assignments, step_instance);
-
-        *offset += self.placement.step_height(step_instance.step_type_uuid) as usize;
-    }
-
-    fn assign_non_selector(
-        &self,
-        offset: &mut usize,
-        assignments: &mut Assignments<F>,
-        step_instance: &StepInstance<F>,
-    ) {
         for (lhs, rhs) in step_instance.assignments.iter() {
             self.assign(offset, assignments, step_instance.step_type_uuid, lhs, rhs);
         }
-    }
 
-    fn assign_selector(
-        &self,
-        offset: &mut usize,
-        assignments: &mut Assignments<F>,
-        step_instance: &StepInstance<F>,
-    ) {
         let selector_assignment = self
             .selector
             .get_selector_assignment(step_instance.step_type_uuid);
@@ -229,6 +177,8 @@ impl<F: Field + Hash, TraceArgs> AssignmentGenerator<F, TraceArgs> {
                 _ => panic!("wrong type of expresion is selector assignment"),
             }
         }
+
+        *offset += self.placement.step_height(step_instance.step_type_uuid) as usize;
     }
 
     fn assign(

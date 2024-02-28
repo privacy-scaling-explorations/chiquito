@@ -63,13 +63,13 @@ fn idx_order_by_phase(phases: &Vec<usize>, offset: usize) -> Vec<usize> {
         .collect()
 }
 
-// get vector of non-selector advice column phases
-fn non_selector_advice_phases<F: Field>(circuit: &Circuit<F>) -> Vec<usize> {
+// get vector of advice column phases
+fn advice_phases<F: Field>(circuit: &Circuit<F>) -> Vec<usize> {
     circuit
         .columns
         .iter()
         .filter(|column| {
-            column.ctype == ColumnType::Advice && !column.annotation.starts_with("step selector")
+            column.ctype == ColumnType::Advice
         })
         .map(|column| column.phase)
         .collect::<Vec<usize>>()
@@ -101,9 +101,9 @@ pub struct ChiquitoCircuit<F, TraceArgs> {
     trace_witness: TraceWitness<F>,
     all_uuids: Vec<UUID>,      // the same order as self.circuit.columns
     fixed_uuids: Vec<UUID>,    // the same order as self.circuit.columns
-    selector_uuids: Vec<UUID>, // the same order as self.circuit.columns
-    non_selector_advice_uuids: Vec<UUID>, // the same order as self.circuit.columns
-    non_selector_advice_uuids_by_phase: HashMap<usize, Vec<UUID>>,
+    // selector_uuids: Vec<UUID>, // the same order as self.circuit.columns
+    advice_uuids: Vec<UUID>, // the same order as self.circuit.columns
+    advice_uuids_by_phase: HashMap<usize, Vec<UUID>>,
 }
 
 impl<F: Field + From<u64> + Hash, TraceArgs> ChiquitoCircuit<F, TraceArgs> {
@@ -128,51 +128,50 @@ impl<F: Field + From<u64> + Hash, TraceArgs> ChiquitoCircuit<F, TraceArgs> {
             .map(|column| column.id)
             .collect::<Vec<UUID>>();
 
-        // selectors are advice columns whose annotations start with "step selector"
-        let selector_uuids = circuit
-            .columns
-            .iter()
-            .filter(|column| {
-                column.ctype == ColumnType::Advice && column.annotation.starts_with("step selector")
-            })
-            .map(|column| column.id)
-            .collect::<Vec<UUID>>();
+        // // selectors are advice columns whose annotations start with "step selector"
+        // let selector_uuids = circuit
+        //     .columns
+        //     .iter()
+        //     .filter(|column| {
+        //         column.ctype == ColumnType::Advice && column.annotation.starts_with("step selector")
+        //     })
+        //     .map(|column| column.id)
+        //     .collect::<Vec<UUID>>();
 
         // non-selector advice columns are advice columns whose annotations don't start with "step
         // selector"
-        let non_selector_advice_uuids = circuit
+        let advice_uuids = circuit
             .columns
             .iter()
             .filter(|column| {
                 column.ctype == ColumnType::Advice
-                    && !column.annotation.starts_with("step selector")
             })
             .map(|column| column.id)
             .collect::<Vec<UUID>>();
 
         // check that length of all uuid vectors equals length of all columns
         assert_eq!(
-            fixed_uuids.len() + selector_uuids.len() + non_selector_advice_uuids.len(),
+            fixed_uuids.len() + advice_uuids.len(),
             circuit.columns.len()
         );
 
         // get phase number for all non-selector advice columns
-        let non_selector_advice_phases = non_selector_advice_phases(&circuit);
+        let advice_phases = advice_phases(&circuit);
         // get number of witness polynomials for each phase
-        let num_witness_polys = num_by_phase(&non_selector_advice_phases);
-        let advice_idx_in_phase = idx_in_phase(&non_selector_advice_phases);
+        let num_witness_polys = num_by_phase(&advice_phases);
+        let advice_idx_in_phase = idx_in_phase(&advice_phases);
 
         // given non_selector_advice_phases and non_selector_advice_uuids, which have equal lengths,
         // create hashmap of phase to vector of uuids if phase doesn't exist in map, create
         // a new vector and insert it into map if phase exists in map, insert the uuid to
         // the vector associated with the phase
         assert_eq!(
-            non_selector_advice_phases.len(),
-            non_selector_advice_uuids.len()
+            advice_phases.len(),
+            advice_uuids.len()
         );
-        let non_selector_advice_uuids_by_phase = non_selector_advice_phases
+        let advice_uuids_by_phase = advice_phases
             .iter()
-            .zip(non_selector_advice_uuids.iter())
+            .zip(advice_uuids.iter())
             .fold(HashMap::new(), |mut map, (phase, uuid)| {
                 map.entry(*phase).or_insert_with(Vec::new).push(*uuid);
                 map
@@ -190,9 +189,8 @@ impl<F: Field + From<u64> + Hash, TraceArgs> ChiquitoCircuit<F, TraceArgs> {
             trace_witness,
             all_uuids,
             fixed_uuids,
-            selector_uuids,
-            non_selector_advice_uuids,
-            non_selector_advice_uuids_by_phase,
+            advice_uuids,
+            advice_uuids_by_phase,
         }
     }
 }
@@ -218,13 +216,13 @@ impl<F: Field + Clone + From<u64> + Hash, TraceArgs> PlonkishCircuit<F>
         let num_instances = self.instances.iter().map(Vec::len).collect();
 
         // a vector of zero vectors, each zero vector with 2^k length
-        // number of preprocess is equal to number of fixed columns and selector advice columns
+        // number of preprocess is equal to number of fixed columns
         let preprocess_polys =
-            vec![vec![F::ZERO; 1 << self.k]; self.fixed_uuids.len() + self.selector_uuids.len()];
+            vec![vec![F::ZERO; 1 << self.k]; self.fixed_uuids.len()];
 
         // let column_uuids = column_uuids(&self.circuit);
         let advice_idx = self.advice_idx();
-        let constraints = self
+        let constraints: Vec<Expression<F>> = self
             .circuit
             .polys
             .iter()
@@ -249,18 +247,20 @@ impl<F: Field + Clone + From<u64> + Hash, TraceArgs> PlonkishCircuit<F>
             })
             .collect();
 
+        let max_degree = constraints.iter().map(|constraint| constraint.degree()).max();
+
         Ok(PlonkishCircuitInfo {
             k: self.k,
             num_instances,
             preprocess_polys,
             num_witness_polys: self.num_witness_polys.clone(),
-            num_challenges: Default::default(), /* ??? what is challenges used for? This is in
+            num_challenges: vec![10; self.num_witness_polys.len()], /* ??? what is challenges used for? This is in
                                                  * halo2 and the PlonkishCircuitInfo struct but
                                                  * not in Chiquito */
             constraints,
             lookups,
             permutations: Default::default(), // Chiquito doesn't have permutations
-            max_degree: None,                 // Chiquito doesn't have max degree limit
+            max_degree,
         })
     }
 
@@ -295,26 +295,8 @@ impl<F: Field + Clone + From<u64> + Hash, TraceArgs> PlonkishCircuit<F>
             })
             .collect::<Vec<Vec<F>>>();
 
-        // get selector assignments
-        let selector_assignments_unordered: Assignments<F> = self
-            .assignment_generator
-            .generate_selector_assignments_with_witness(self.trace_witness.clone());
-        let selector_assignments = self
-            .selector_uuids
-            .iter()
-            .map(|uuid| {
-                selector_assignments_unordered
-                    .get(&self.circuit.columns[column_idx(*uuid, &self.all_uuids)])
-                    .unwrap()
-                    .clone()
-            })
-            .collect::<Vec<Vec<F>>>();
-
         // combine fixed assignments and selector assignments
-        circuit_info.preprocess_polys = fixed_assignments
-            .into_iter()
-            .chain(selector_assignments.into_iter())
-            .collect();
+        circuit_info.preprocess_polys = fixed_assignments;
 
         Ok(circuit_info)
     }
@@ -328,32 +310,40 @@ impl<F: Field + Clone + From<u64> + Hash, TraceArgs> PlonkishCircuit<F>
         phase: usize,
         _challenges: &[F],
     ) -> Result<Vec<Vec<F>>, plonkish_backend::Error> {
-        // get non selector assignments
-        let non_selector_assignments_unordered: Assignments<F> = self
+        // get advice assignments
+        let advice_assignments_unordered: Assignments<F> = self
             .assignment_generator
-            .generate_non_selector_assignments_with_witness(self.trace_witness.clone());
+            .generate_with_witness(self.trace_witness.clone());
         // length of non selector assignments is equal to number of non selector advice columns of
         // corresponding phase
-        let non_selector_assignments = self
-            .non_selector_advice_uuids_by_phase
+        let advice_assignments = self
+            .advice_uuids_by_phase
             .get(&phase)
             .expect("synthesize: phase not found")
             .iter()
             .map(|uuid| {
-                non_selector_assignments_unordered
+                // println!("all column uuids: {:#?}", self.all_uuids);
+                // println!("looking for uuid: {:#?}", uuid);
+                // println!("non selector column uuids: {:#?}", self.non_selector_advice_uuids);
+                // // print all entries of non_selector_assignments_unordered map:
+                // for (k, v) in non_selector_assignments_unordered.iter() {
+                //     println!("key: {:#?}, value: {:#?}", k, v);
+                // }
+                advice_assignments_unordered
                     .get(&self.circuit.columns[column_idx(*uuid, &self.all_uuids)])
                     .unwrap()
                     .clone()
             })
             .collect::<Vec<Vec<F>>>();
-        Ok(non_selector_assignments)
+        Ok(advice_assignments)
     }
 }
 
 impl<F: Field, TraceArgs> ChiquitoCircuit<F, TraceArgs> {
     fn advice_idx(self: &ChiquitoCircuit<F, TraceArgs>) -> Vec<usize> {
-        let advice_offset = 1 + self.fixed_uuids.len() + self.selector_uuids.len(); // there's only ever 1 instance column for chiquito
-        idx_order_by_phase(&non_selector_advice_phases(&self.circuit), advice_offset)
+        let advice_offset = 1 + self.fixed_uuids.len(); // there's only ever 1 instance column for chiquito
+        // let advice_offset = self.fixed_uuids.len(); // there's only ever 1 instance column for chiquito
+        idx_order_by_phase(&advice_phases(&self.circuit), advice_offset)
     }
 
     fn convert_query(
@@ -370,20 +360,14 @@ impl<F: Field, TraceArgs> ChiquitoCircuit<F, TraceArgs> {
         // advice + non-selector advice
         if column.ctype == ColumnType::Fixed {
             // there's always only 1 instance column, so the offset is 1
-            let column_idx = 1 + column_idx(column.id, &self.fixed_uuids);
+            // let column_idx = 1 + column_idx(column.id, &self.fixed_uuids);
+            let column_idx = column_idx(column.id, &self.fixed_uuids);
             Query::new(column_idx, Rotation(rotation)).into()
         } else if column.ctype == ColumnType::Advice
-            && column.annotation.starts_with("step selector")
-        {
-            let column_idx =
-                1 + self.fixed_uuids.len() + column_idx(column.id, &self.selector_uuids);
-            Query::new(column_idx, Rotation(rotation)).into()
-        } else if column.ctype == ColumnType::Advice
-            && !column.annotation.starts_with("step selector")
         {
             // advice_idx already takes into account of the offset of instance, fixed, and selector
             // columns
-            let column_idx = advice_indx[column_idx(column.id, &self.non_selector_advice_uuids)];
+            let column_idx = advice_indx[column_idx(column.id, &self.advice_uuids)];
             Query::new(column_idx, Rotation(rotation)).into()
         } else {
             panic!("convert_query: column type not supported")
@@ -436,6 +420,7 @@ impl<F: Field, TraceArgs> ChiquitoCircuit<F, TraceArgs> {
                 }
             }
             PolyExpr::Halo2Expr(_) => panic!("halo2 expressions not supported"),
+            PolyExpr::MI(_) => panic!("MI expressions not supported"),
         }
     }
 }

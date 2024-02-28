@@ -82,7 +82,7 @@ fn fibo_circuit<F: Field + From<u64> + Hash>() -> (Circuit<F>, Option<Assignment
             })
         });
 
-        ctx.pragma_num_steps(11);
+        ctx.pragma_num_steps(16);
 
         // trace function is responsible for adding step instantiations defined in step_type_def
         // function above trace function is Turing complete and allows arbitrary user
@@ -95,7 +95,7 @@ fn fibo_circuit<F: Field + From<u64> + Hash>() -> (Circuit<F>, Option<Assignment
             let mut a = 1;
             let mut b = 2;
 
-            for _i in 1..11 {
+            for _i in 1..16 {
                 ctx.add(&fibo_step, (a, b));
 
                 let prev_a = a;
@@ -162,4 +162,32 @@ fn main() {
             println!("{}", failure);
         }
     }
+
+    use chiquito::plonkish::backend::hyperplonk::ChiquitoCircuit;
+    use benchmark::proof_system::bench_plonkish_backend;
+    use plonkish_backend::{
+        backend::{self, PlonkishBackend, PlonkishCircuit, WitnessEncoding},
+        frontend::halo2::{circuit::VanillaPlonk, CircuitExt, Halo2Circuit},
+        halo2_curves::bn256::{Bn256, Fr},
+        pcs::{multilinear, univariate, CommitmentChunk},
+        util::{
+            end_timer, start_timer,
+            test::std_rng,
+            transcript::{InMemoryTranscript, Keccak256Transcript, TranscriptRead, TranscriptWrite},
+        },
+    };
+    use benchmark::proof_system::System;
+    // hyperplonk boilerplate
+    // get Chiquito ir
+    let (circuit, assignment_generator) = fibo_circuit::<Fr>();
+    // get assignment generator and TraceWitness
+    let assignment_generator = assignment_generator.unwrap();
+    let trace_witness = assignment_generator.trace_gen.generate(());
+    // get hyperplonk circuit
+    let hyperplonk_circuit = ChiquitoCircuit::new(4, circuit, assignment_generator, trace_witness);
+
+    type GeminiKzg = multilinear::Gemini<univariate::UnivariateKzg<Bn256>>;
+    type HyperPlonk = backend::hyperplonk::HyperPlonk<GeminiKzg>;
+    bench_plonkish_backend::<HyperPlonk, Fr>(System::HyperPlonk, 4, &hyperplonk_circuit);
+
 }
