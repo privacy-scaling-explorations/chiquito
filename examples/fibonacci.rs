@@ -3,12 +3,19 @@ use std::hash::Hash;
 use chiquito::{
     field::Field,
     frontend::dsl::circuit, // main function for constructing an AST circuit
-    plonkish::{backend::{halo2::{chiquito2Halo2, ChiquitoHalo2Circuit}, hyperplonk::ChiquitoHyperPlonkCircuit}, compiler::{
-        cell_manager::SingleRowCellManager, // input for constructing the compiler
-        compile,                            // input for constructing the compiler
-        config,
-        step_selector::SimpleStepSelectorBuilder,
-    }, ir::{assignments::AssignmentGenerator, Circuit}}, /* compiles to
+    plonkish::{
+        backend::{
+            halo2::{chiquito2Halo2, ChiquitoHalo2Circuit},
+            hyperplonk::ChiquitoHyperPlonkCircuit,
+        },
+        compiler::{
+            cell_manager::SingleRowCellManager, // input for constructing the compiler
+            compile,                            // input for constructing the compiler
+            config,
+            step_selector::SimpleStepSelectorBuilder,
+        },
+        ir::{assignments::AssignmentGenerator, Circuit},
+    }, /* compiles to
                              * Chiquito Halo2
                              * backend,
                              * which can be

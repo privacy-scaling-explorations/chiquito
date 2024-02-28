@@ -11,49 +11,34 @@ use std::{collections::HashMap, hash::Hash};
 
 // get max phase number + 1 to get number of phases
 // for example, if the phases slice is [0, 1, 0, 1, 2, 2], then the output will be 3
-fn num_phases(phases: &Vec<usize>) -> usize {
-    phases.iter().max().copied().unwrap_or_default() as usize + 1
+fn num_phases(phases: &[usize]) -> usize {
+    phases.iter().max().copied().unwrap_or_default() + 1
 }
 
 // get number of columns for each phase given a vector of phases
 // for example, if the phases slice is [0, 1, 0, 1, 2, 2], then the output vector will be
 // [2, 2, 2]
-fn num_by_phase(phases: &Vec<usize>) -> Vec<usize> {
+fn num_by_phase(phases: &[usize]) -> Vec<usize> {
     phases.iter().copied().fold(
         vec![0usize; num_phases(phases)],
         |mut num_by_phase, phase| {
-            num_by_phase[phase as usize] += 1;
+            num_by_phase[phase] += 1;
             num_by_phase
         },
     )
-}
-
-// This function maps each element in the phases slice to its index within its specific phase.
-// For example, if the phases slice is [0, 1, 0, 1, 2, 2], then the output vector will be
-// [0, 0, 1, 1, 0, 1].
-fn idx_in_phase(phases: &Vec<usize>) -> Vec<usize> {
-    phases
-        .iter()
-        .copied()
-        .scan(vec![0; num_phases(phases)], |state, phase| {
-            let index = state[phase as usize];
-            state[phase as usize] += 1;
-            Some(index)
-        })
-        .collect()
 }
 
 // This function maps each element in the phases slice to its index within the circuit, given an
 // offset For example, if the phases slice is [0, 1, 0, 1, 2, 2], and the offset is 3, then the
 // output vector will be [3, 5, 4, 6, 7, 8], i.e. [3+0+0, 3+2+0, 3+0+1, 3+2+1, 3+4+0, 3+4+1], i.e.
 // [offset+phase_offset+index]
-fn idx_order_by_phase(phases: &Vec<usize>, offset: usize) -> Vec<usize> {
+fn idx_order_by_phase(phases: &[usize], offset: usize) -> Vec<usize> {
     phases
         .iter()
         .copied()
         .scan(phase_offsets(phases), |state, phase| {
-            let index = state[phase as usize];
-            state[phase as usize] += 1;
+            let index = state[phase];
+            state[phase] += 1;
             Some(offset + index)
         })
         .collect()
@@ -72,7 +57,7 @@ fn advice_phases<F: Field>(circuit: &Circuit<F>) -> Vec<usize> {
 // This function computes the offsets for each phase.
 // For example, if the phases slice is [0, 1, 0, 1, 2, 2], then the output vector will be
 // [0, 2, 4].
-fn phase_offsets(phases: &Vec<usize>) -> Vec<usize> {
+fn phase_offsets(phases: &[usize]) -> Vec<usize> {
     num_by_phase(phases)
         .into_iter()
         .scan(0, |state, num| {
@@ -94,7 +79,6 @@ pub struct ChiquitoHyperPlonk<F> {
                              * exposed signals */
     chiquito_ir: Circuit<F>,
     num_witness_polys: Vec<usize>,
-    advice_idx_in_phase: Vec<usize>,
     all_uuids: Vec<UUID>,    // the same order as self.chiquito_ir.columns
     fixed_uuids: Vec<UUID>,  // the same order as self.chiquito_ir.columns
     advice_uuids: Vec<UUID>, // the same order as self.chiquito_ir.columns
@@ -136,7 +120,6 @@ impl<F: Field + From<u64> + Hash> ChiquitoHyperPlonk<F> {
         let advice_phases = advice_phases(&circuit);
         // get number of witness polynomials for each phase
         let num_witness_polys = num_by_phase(&advice_phases);
-        let advice_idx_in_phase = idx_in_phase(&advice_phases);
 
         // given non_selector_advice_phases and non_selector_advice_uuids, which have equal lengths,
         // create hashmap of phase to vector of uuids if phase doesn't exist in map, create
@@ -145,8 +128,8 @@ impl<F: Field + From<u64> + Hash> ChiquitoHyperPlonk<F> {
         assert_eq!(advice_phases.len(), advice_uuids.len());
         let advice_uuids_by_phase = advice_phases.iter().zip(advice_uuids.iter()).fold(
             HashMap::new(),
-            |mut map, (phase, uuid)| {
-                map.entry(*phase).or_insert_with(Vec::new).push(*uuid);
+            |mut map: HashMap<usize, Vec<u128>>, (phase, uuid)| {
+                map.entry(*phase).or_default().push(*uuid);
                 map
             },
         );
@@ -156,7 +139,6 @@ impl<F: Field + From<u64> + Hash> ChiquitoHyperPlonk<F> {
             instances,
             chiquito_ir: circuit,
             num_witness_polys,
-            advice_idx_in_phase,
             all_uuids,
             fixed_uuids,
             advice_uuids,
@@ -178,7 +160,7 @@ impl<F: Field + From<u64> + Hash> ChiquitoHyperPlonkCircuit<F> {
 
 // given column uuid and the vector of all column uuids, get the index or position of the uuid
 // has no offset
-fn column_idx(column_uuid: UUID, column_uuids: &Vec<UUID>) -> usize {
+fn column_idx(column_uuid: UUID, column_uuids: &[UUID]) -> usize {
     column_uuids
         .iter()
         .position(|&uuid| uuid == column_uuid)
@@ -329,7 +311,7 @@ impl<F: Field> ChiquitoHyperPlonk<F> {
         self: &ChiquitoHyperPlonk<F>,
         column: Column,
         rotation: i32,
-        advice_indx: &Vec<usize>,
+        advice_indx: &[usize],
     ) -> Expression<F> {
         // if column type is fixed, query column will be determined by column_idx function and
         // self.fixed_uuids
