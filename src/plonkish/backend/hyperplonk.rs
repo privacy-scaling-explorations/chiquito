@@ -1,10 +1,6 @@
 use crate::{
-    plonkish::ir::{
-        assignments::{AssignmentGenerator, Assignments},
-        Circuit, Column, ColumnType, PolyExpr,
-    },
+    plonkish::ir::{assignments::Assignments, Circuit, Column, ColumnType, PolyExpr},
     util::UUID,
-    wit_gen::TraceWitness,
 };
 use halo2_proofs::arithmetic::Field;
 use plonkish_backend::{
@@ -68,9 +64,7 @@ fn advice_phases<F: Field>(circuit: &Circuit<F>) -> Vec<usize> {
     circuit
         .columns
         .iter()
-        .filter(|column| {
-            column.ctype == ColumnType::Advice
-        })
+        .filter(|column| column.ctype == ColumnType::Advice)
         .map(|column| column.phase)
         .collect::<Vec<usize>>()
 }
@@ -89,30 +83,26 @@ fn phase_offsets(phases: &Vec<usize>) -> Vec<usize> {
         .collect()
 }
 
-pub struct ChiquitoCircuit<F, TraceArgs> {
-    // TraceArgs is for trace_gen, which is not used here; we only care about placement
+pub struct ChiquitoHyperPlonkCircuit<F> {
+    circuit: ChiquitoHyperPlonk<F>,
+    assignments: Option<Assignments<F>>,
+}
+
+pub struct ChiquitoHyperPlonk<F> {
     k: usize,
     instances: Vec<Vec<F>>, /* outter vec has length 1, inner vec has length equal to number of
                              * exposed signals */
-    circuit: Circuit<F>,
+    chiquito_ir: Circuit<F>,
     num_witness_polys: Vec<usize>,
     advice_idx_in_phase: Vec<usize>,
-    assignment_generator: AssignmentGenerator<F, TraceArgs>,
-    trace_witness: TraceWitness<F>,
-    all_uuids: Vec<UUID>,      // the same order as self.circuit.columns
-    fixed_uuids: Vec<UUID>,    // the same order as self.circuit.columns
-    // selector_uuids: Vec<UUID>, // the same order as self.circuit.columns
-    advice_uuids: Vec<UUID>, // the same order as self.circuit.columns
+    all_uuids: Vec<UUID>,    // the same order as self.chiquito_ir.columns
+    fixed_uuids: Vec<UUID>,  // the same order as self.chiquito_ir.columns
+    advice_uuids: Vec<UUID>, // the same order as self.chiquito_ir.columns
     advice_uuids_by_phase: HashMap<usize, Vec<UUID>>,
 }
 
-impl<F: Field + From<u64> + Hash, TraceArgs> ChiquitoCircuit<F, TraceArgs> {
-    pub fn new(
-        k: usize,
-        circuit: Circuit<F>,
-        assignment_generator: AssignmentGenerator<F, TraceArgs>,
-        trace_witness: TraceWitness<F>,
-    ) -> Self {
+impl<F: Field + From<u64> + Hash> ChiquitoHyperPlonk<F> {
+    pub fn new(k: usize, circuit: Circuit<F>, instances: Vec<Vec<F>>) -> Self {
         // get all column uuids
         let all_uuids = circuit
             .columns
@@ -128,24 +118,11 @@ impl<F: Field + From<u64> + Hash, TraceArgs> ChiquitoCircuit<F, TraceArgs> {
             .map(|column| column.id)
             .collect::<Vec<UUID>>();
 
-        // // selectors are advice columns whose annotations start with "step selector"
-        // let selector_uuids = circuit
-        //     .columns
-        //     .iter()
-        //     .filter(|column| {
-        //         column.ctype == ColumnType::Advice && column.annotation.starts_with("step selector")
-        //     })
-        //     .map(|column| column.id)
-        //     .collect::<Vec<UUID>>();
-
-        // non-selector advice columns are advice columns whose annotations don't start with "step
-        // selector"
+        // get advice column uuids (including step selectors)
         let advice_uuids = circuit
             .columns
             .iter()
-            .filter(|column| {
-                column.ctype == ColumnType::Advice
-            })
+            .filter(|column| column.ctype == ColumnType::Advice)
             .map(|column| column.id)
             .collect::<Vec<UUID>>();
 
@@ -155,7 +132,7 @@ impl<F: Field + From<u64> + Hash, TraceArgs> ChiquitoCircuit<F, TraceArgs> {
             circuit.columns.len()
         );
 
-        // get phase number for all non-selector advice columns
+        // get phase number for all advice columns
         let advice_phases = advice_phases(&circuit);
         // get number of witness polynomials for each phase
         let num_witness_polys = num_by_phase(&advice_phases);
@@ -165,32 +142,36 @@ impl<F: Field + From<u64> + Hash, TraceArgs> ChiquitoCircuit<F, TraceArgs> {
         // create hashmap of phase to vector of uuids if phase doesn't exist in map, create
         // a new vector and insert it into map if phase exists in map, insert the uuid to
         // the vector associated with the phase
-        assert_eq!(
-            advice_phases.len(),
-            advice_uuids.len()
-        );
-        let advice_uuids_by_phase = advice_phases
-            .iter()
-            .zip(advice_uuids.iter())
-            .fold(HashMap::new(), |mut map, (phase, uuid)| {
+        assert_eq!(advice_phases.len(), advice_uuids.len());
+        let advice_uuids_by_phase = advice_phases.iter().zip(advice_uuids.iter()).fold(
+            HashMap::new(),
+            |mut map, (phase, uuid)| {
                 map.entry(*phase).or_insert_with(Vec::new).push(*uuid);
                 map
-            });
-
-        let assignments = assignment_generator.generate_with_witness(trace_witness.clone());
+            },
+        );
 
         Self {
             k,
-            instances: vec![circuit.instance(&assignments)],
-            circuit,
+            instances,
+            chiquito_ir: circuit,
             num_witness_polys,
             advice_idx_in_phase,
-            assignment_generator,
-            trace_witness,
             all_uuids,
             fixed_uuids,
             advice_uuids,
             advice_uuids_by_phase,
+        }
+    }
+}
+
+impl<F: Field + From<u64> + Hash> ChiquitoHyperPlonkCircuit<F> {
+    pub fn new(k: usize, circuit: Circuit<F>, assignments: Assignments<F>) -> Self {
+        let instances = vec![circuit.instance(&assignments)];
+        let chiquito_hyper_plonk = ChiquitoHyperPlonk::new(k, circuit, instances);
+        Self {
+            circuit: chiquito_hyper_plonk,
+            assignments: Some(assignments),
         }
     }
 }
@@ -204,33 +185,35 @@ fn column_idx(column_uuid: UUID, column_uuids: &Vec<UUID>) -> usize {
         .unwrap()
 }
 
-impl<F: Field + Clone + From<u64> + Hash, TraceArgs> PlonkishCircuit<F>
-    for ChiquitoCircuit<F, TraceArgs>
-{
+impl<F: Field + Clone + From<u64> + Hash> PlonkishCircuit<F> for ChiquitoHyperPlonkCircuit<F> {
     fn circuit_info_without_preprocess(
         &self,
     ) -> Result<plonkish_backend::backend::PlonkishCircuitInfo<F>, plonkish_backend::Error> {
         // there's only one instance column whose length is equal to the number of exposed signals
         // in chiquito circuit `num_instances` is a vector of length 1, because we only have
         // one instance column
-        let num_instances = self.instances.iter().map(Vec::len).collect();
+        let num_instances = self.circuit.instances.iter().map(Vec::len).collect();
 
         // a vector of zero vectors, each zero vector with 2^k length
         // number of preprocess is equal to number of fixed columns
         let preprocess_polys =
-            vec![vec![F::ZERO; 1 << self.k]; self.fixed_uuids.len()];
+            vec![vec![F::ZERO; 1 << self.circuit.k]; self.circuit.fixed_uuids.len()];
 
-        // let column_uuids = column_uuids(&self.circuit);
-        let advice_idx = self.advice_idx();
+        let advice_idx = self.circuit.advice_idx();
         let constraints: Vec<Expression<F>> = self
             .circuit
+            .chiquito_ir
             .polys
             .iter()
-            .map(|poly| self.convert_expression(poly.expr.clone(), &advice_idx))
+            .map(|poly| {
+                self.circuit
+                    .convert_expression(poly.expr.clone(), &advice_idx)
+            })
             .collect();
 
         let lookups = self
             .circuit
+            .chiquito_ir
             .lookups
             .iter()
             .map(|lookup| {
@@ -239,24 +222,25 @@ impl<F: Field + Clone + From<u64> + Hash, TraceArgs> PlonkishCircuit<F>
                     .iter()
                     .map(|(input, table)| {
                         (
-                            self.convert_expression(input.clone(), &advice_idx),
-                            self.convert_expression(table.clone(), &advice_idx),
+                            self.circuit.convert_expression(input.clone(), &advice_idx),
+                            self.circuit.convert_expression(table.clone(), &advice_idx),
                         )
                     })
                     .collect()
             })
             .collect();
 
-        let max_degree = constraints.iter().map(|constraint| constraint.degree()).max();
+        let max_degree = constraints
+            .iter()
+            .map(|constraint| constraint.degree())
+            .max();
 
         Ok(PlonkishCircuitInfo {
-            k: self.k,
+            k: self.circuit.k,
             num_instances,
             preprocess_polys,
-            num_witness_polys: self.num_witness_polys.clone(),
-            num_challenges: vec![10; self.num_witness_polys.len()], /* ??? what is challenges used for? This is in
-                                                 * halo2 and the PlonkishCircuitInfo struct but
-                                                 * not in Chiquito */
+            num_witness_polys: self.circuit.num_witness_polys.clone(),
+            num_challenges: vec![0; self.circuit.num_witness_polys.len()],
             constraints,
             lookups,
             permutations: Default::default(), // Chiquito doesn't have permutations
@@ -264,16 +248,14 @@ impl<F: Field + Clone + From<u64> + Hash, TraceArgs> PlonkishCircuit<F>
         })
     }
 
-    // preprocessing has three purposes: 1. batch invert fixed assignments, 2. preprocess selectors,
-    // 3. preprocess permutations 1 and 3 don't apply to chiquito; 2 might apply to chiquito but
-    // we choose not to implement it yet therefore, we return the same as
-    // circuit_info_without_preprocess for now
+    // preprocess fixed assignments
     fn circuit_info(
         &self,
     ) -> Result<plonkish_backend::backend::PlonkishCircuitInfo<F>, plonkish_backend::Error> {
         let mut circuit_info = self.circuit_info_without_preprocess()?;
         // make sure all fixed assignments are for fixed column type
         self.circuit
+            .chiquito_ir
             .fixed_assignments
             .iter()
             .for_each(|(column, _)| match column.ctype {
@@ -281,28 +263,33 @@ impl<F: Field + Clone + From<u64> + Hash, TraceArgs> PlonkishCircuit<F>
                 _ => panic!("fixed assignments must be for fixed column type"),
             });
         // get assignments Vec<F> by looking up from fixed_assignments and reorder assignment
-        // vectors according to self.fixed_uuids finally bind all Vec<F> to a Vec<Vec<F>>
-        // here, filter fixed_assigments: HashMap<Column, Vec<F>> by looking up the Column with uuid
+        // vectors according to self.fixed_uuids. finally bind all Vec<F> to a Vec<Vec<F>>.
+        // here, get Vec<F> from fixed_assigments: HashMap<Column, Vec<F>> by looking up the Column
+        // with uuid
         let fixed_assignments = self
+            .circuit
             .fixed_uuids
             .iter()
             .map(|uuid| {
                 self.circuit
+                    .chiquito_ir
                     .fixed_assignments
-                    .get(&self.circuit.columns[column_idx(*uuid, &self.all_uuids)])
+                    .get(
+                        &self.circuit.chiquito_ir.columns
+                            [column_idx(*uuid, &self.circuit.all_uuids)],
+                    )
                     .unwrap()
                     .clone()
             })
             .collect::<Vec<Vec<F>>>();
 
-        // combine fixed assignments and selector assignments
         circuit_info.preprocess_polys = fixed_assignments;
 
         Ok(circuit_info)
     }
 
     fn instances(&self) -> &[Vec<F>] {
-        &self.instances
+        &self.circuit.instances
     }
 
     fn synthesize(
@@ -310,27 +297,20 @@ impl<F: Field + Clone + From<u64> + Hash, TraceArgs> PlonkishCircuit<F>
         phase: usize,
         _challenges: &[F],
     ) -> Result<Vec<Vec<F>>, plonkish_backend::Error> {
-        // get advice assignments
-        let advice_assignments_unordered: Assignments<F> = self
-            .assignment_generator
-            .generate_with_witness(self.trace_witness.clone());
-        // length of non selector assignments is equal to number of non selector advice columns of
-        // corresponding phase
+        let assignments = self.assignments.clone().unwrap();
+
         let advice_assignments = self
+            .circuit
             .advice_uuids_by_phase
             .get(&phase)
             .expect("synthesize: phase not found")
             .iter()
             .map(|uuid| {
-                // println!("all column uuids: {:#?}", self.all_uuids);
-                // println!("looking for uuid: {:#?}", uuid);
-                // println!("non selector column uuids: {:#?}", self.non_selector_advice_uuids);
-                // // print all entries of non_selector_assignments_unordered map:
-                // for (k, v) in non_selector_assignments_unordered.iter() {
-                //     println!("key: {:#?}, value: {:#?}", k, v);
-                // }
-                advice_assignments_unordered
-                    .get(&self.circuit.columns[column_idx(*uuid, &self.all_uuids)])
+                assignments
+                    .get(
+                        &self.circuit.chiquito_ir.columns
+                            [column_idx(*uuid, &self.circuit.all_uuids)],
+                    )
                     .unwrap()
                     .clone()
             })
@@ -339,34 +319,28 @@ impl<F: Field + Clone + From<u64> + Hash, TraceArgs> PlonkishCircuit<F>
     }
 }
 
-impl<F: Field, TraceArgs> ChiquitoCircuit<F, TraceArgs> {
-    fn advice_idx(self: &ChiquitoCircuit<F, TraceArgs>) -> Vec<usize> {
-        let advice_offset = 1 + self.fixed_uuids.len(); // there's only ever 1 instance column for chiquito
-        // let advice_offset = self.fixed_uuids.len(); // there's only ever 1 instance column for chiquito
-        idx_order_by_phase(&advice_phases(&self.circuit), advice_offset)
+impl<F: Field> ChiquitoHyperPlonk<F> {
+    fn advice_idx(self: &ChiquitoHyperPlonk<F>) -> Vec<usize> {
+        let advice_offset = self.fixed_uuids.len();
+        idx_order_by_phase(&advice_phases(&self.chiquito_ir), advice_offset)
     }
 
     fn convert_query(
-        self: &ChiquitoCircuit<F, TraceArgs>,
+        self: &ChiquitoHyperPlonk<F>,
         column: Column,
         rotation: i32,
         advice_indx: &Vec<usize>,
     ) -> Expression<F> {
         // if column type is fixed, query column will be determined by column_idx function and
-        // self.fixed_uuids if column type is non-selector advice, query column will be
-        // determined by column_idx function and self.non_selector_advice_uuids
-        // if column type is selector, query column will be determined by column_idx function and
-        // self.selector_uuids the order of column number is instance + fixed + selector
-        // advice + non-selector advice
+        // self.fixed_uuids
+        // if column type is advice, query column will be
+        // determined by column_idx function and self.advice_uuids
+        // advice columns come after fixed columns
         if column.ctype == ColumnType::Fixed {
-            // there's always only 1 instance column, so the offset is 1
-            // let column_idx = 1 + column_idx(column.id, &self.fixed_uuids);
             let column_idx = column_idx(column.id, &self.fixed_uuids);
             Query::new(column_idx, Rotation(rotation)).into()
-        } else if column.ctype == ColumnType::Advice
-        {
-            // advice_idx already takes into account of the offset of instance, fixed, and selector
-            // columns
+        } else if column.ctype == ColumnType::Advice {
+            // advice_idx already takes into account of the offset of fixed columns
             let column_idx = advice_indx[column_idx(column.id, &self.advice_uuids)];
             Query::new(column_idx, Rotation(rotation)).into()
         } else {
@@ -374,26 +348,14 @@ impl<F: Field, TraceArgs> ChiquitoCircuit<F, TraceArgs> {
         }
     }
 
-    // query column index will be the column's position in the column uuids vector
-    // query column row will be determined by the placement from assignment generator (column and
-    // rotation within a step instance) and trace witness (step instance and offset) ast queriable
-    // rotation is not multiplied by step height yet placement rotation is rotation within a step
-    // instance ir queriable rotation is ast queriable rotation * step height + placement rotation,
-    // i.e. super rotation ir queriable rotation is for step type, not step type instance
-    // selector exprs are already applied to ir poly exprs
-    // do not need to apply step instance offset, i.e. current number of step instances * step
-    // height, to ir queriable rotation step instance offset is only for witness assignments,
-    // not for constraints or lookups
     fn convert_expression(
-        self: &ChiquitoCircuit<F, TraceArgs>,
+        self: &ChiquitoHyperPlonk<F>,
         poly: PolyExpr<F>,
         advice_idx: &Vec<usize>,
     ) -> Expression<F> {
         match poly {
             PolyExpr::Const(constant) => Expression::Constant(constant),
             PolyExpr::Query((column, rotation, _)) => {
-                // let column_idx = column_idx(column.id, &column_uuids);
-                // Query::new(column_idx, Rotation(rotation)).into()
                 self.convert_query(column, rotation, advice_idx)
             }
             PolyExpr::Sum(expressions) => {

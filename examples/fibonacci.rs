@@ -3,20 +3,18 @@ use std::hash::Hash;
 use chiquito::{
     field::Field,
     frontend::dsl::circuit, // main function for constructing an AST circuit
-    plonkish::backend::halo2::{chiquito2Halo2, ChiquitoHalo2Circuit}, /* compiles to
+    plonkish::{backend::{halo2::{chiquito2Halo2, ChiquitoHalo2Circuit}, hyperplonk::ChiquitoHyperPlonkCircuit}, compiler::{
+        cell_manager::SingleRowCellManager, // input for constructing the compiler
+        compile,                            // input for constructing the compiler
+        config,
+        step_selector::SimpleStepSelectorBuilder,
+    }, ir::{assignments::AssignmentGenerator, Circuit}}, /* compiles to
                              * Chiquito Halo2
                              * backend,
                              * which can be
                              * integrated into
                              * Halo2
                              * circuit */
-    plonkish::compiler::{
-        cell_manager::SingleRowCellManager, // input for constructing the compiler
-        compile,                            // input for constructing the compiler
-        config,
-        step_selector::SimpleStepSelectorBuilder,
-    },
-    plonkish::ir::{assignments::AssignmentGenerator, Circuit}, // compiled circuit type
     poly::ToField,
 };
 use halo2_proofs::{dev::MockProver, halo2curves::bn256::Fr};
@@ -163,31 +161,21 @@ fn main() {
         }
     }
 
-    use chiquito::plonkish::backend::hyperplonk::ChiquitoCircuit;
-    use benchmark::proof_system::bench_plonkish_backend;
-    use plonkish_backend::{
-        backend::{self, PlonkishBackend, PlonkishCircuit, WitnessEncoding},
-        frontend::halo2::{circuit::VanillaPlonk, CircuitExt, Halo2Circuit},
-        halo2_curves::bn256::{Bn256, Fr},
-        pcs::{multilinear, univariate, CommitmentChunk},
-        util::{
-            end_timer, start_timer,
-            test::std_rng,
-            transcript::{InMemoryTranscript, Keccak256Transcript, TranscriptRead, TranscriptWrite},
-        },
-    };
-    use benchmark::proof_system::System;
     // hyperplonk boilerplate
+    use benchmark::proof_system::{bench_plonkish_backend, System};
+    use plonkish_backend::{
+        backend,
+        halo2_curves::bn256::{Bn256, Fr},
+        pcs::{multilinear, univariate},
+    };
     // get Chiquito ir
     let (circuit, assignment_generator) = fibo_circuit::<Fr>();
-    // get assignment generator and TraceWitness
-    let assignment_generator = assignment_generator.unwrap();
-    let trace_witness = assignment_generator.trace_gen.generate(());
+    // get assignments
+    let assignments = assignment_generator.unwrap().generate(());
     // get hyperplonk circuit
-    let hyperplonk_circuit = ChiquitoCircuit::new(4, circuit, assignment_generator, trace_witness);
+    let hyperplonk_circuit = ChiquitoHyperPlonkCircuit::new(4, circuit, assignments);
 
     type GeminiKzg = multilinear::Gemini<univariate::UnivariateKzg<Bn256>>;
     type HyperPlonk = backend::hyperplonk::HyperPlonk<GeminiKzg>;
     bench_plonkish_backend::<HyperPlonk, Fr>(System::HyperPlonk, 4, &hyperplonk_circuit);
-
 }
