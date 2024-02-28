@@ -68,7 +68,7 @@ pub struct AssignmentGenerator<F, TraceArgs> {
     columns: Vec<Column>,
     placement: Placement,
     selector: StepSelector<F>,
-    pub trace_gen: TraceGenerator<F, TraceArgs>,
+    trace_gen: TraceGenerator<F, TraceArgs>,
     auto_trace_gen: AutoTraceGenerator<F>,
 
     num_rows: usize,
