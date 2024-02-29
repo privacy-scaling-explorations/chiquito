@@ -180,7 +180,8 @@ fn main() {
     // get assignments
     let assignments = assignment_generator.unwrap().generate(());
     // get hyperplonk circuit
-    let hyperplonk_circuit = ChiquitoHyperPlonkCircuit::new(4, circuit, assignments);
+    let mut hyperplonk_circuit = ChiquitoHyperPlonkCircuit::new(4, circuit);
+    hyperplonk_circuit.set_assignment(assignments);
 
     type GeminiKzg = multilinear::Gemini<univariate::UnivariateKzg<Bn256>>;
     type HyperPlonk = backend::hyperplonk::HyperPlonk<GeminiKzg>;

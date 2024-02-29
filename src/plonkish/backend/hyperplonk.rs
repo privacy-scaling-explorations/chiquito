@@ -1,5 +1,8 @@
 use crate::{
-    plonkish::ir::{assignments::Assignments, Circuit, Column, ColumnType, PolyExpr},
+    plonkish::ir::{
+        assignments::Assignments,
+        Circuit, Column, ColumnType, PolyExpr,
+    },
     util::UUID,
 };
 use halo2_proofs::arithmetic::Field;
@@ -86,7 +89,7 @@ pub struct ChiquitoHyperPlonk<F> {
 }
 
 impl<F: Field + From<u64> + Hash> ChiquitoHyperPlonk<F> {
-    pub fn new(k: usize, circuit: Circuit<F>, instances: Vec<Vec<F>>) -> Self {
+    fn new(k: usize, circuit: Circuit<F>) -> Self {
         // get all column uuids
         let all_uuids = circuit
             .columns
@@ -136,7 +139,7 @@ impl<F: Field + From<u64> + Hash> ChiquitoHyperPlonk<F> {
 
         Self {
             k,
-            instances,
+            instances: Vec::default(),
             chiquito_ir: circuit,
             num_witness_polys,
             all_uuids,
@@ -145,16 +148,25 @@ impl<F: Field + From<u64> + Hash> ChiquitoHyperPlonk<F> {
             advice_uuids_by_phase,
         }
     }
+
+    fn set_instance(&mut self, instance: Vec<Vec<F>>) {
+        self.instances = instance;
+    }
 }
 
 impl<F: Field + From<u64> + Hash> ChiquitoHyperPlonkCircuit<F> {
-    pub fn new(k: usize, circuit: Circuit<F>, assignments: Assignments<F>) -> Self {
-        let instances = vec![circuit.instance(&assignments)];
-        let chiquito_hyper_plonk = ChiquitoHyperPlonk::new(k, circuit, instances);
+    pub fn new(k: usize, circuit: Circuit<F>) -> Self {
+        let chiquito_hyper_plonk = ChiquitoHyperPlonk::new(k, circuit);
         Self {
             circuit: chiquito_hyper_plonk,
-            assignments: Some(assignments),
+            assignments: None,
         }
+    }
+
+    pub fn set_assignment(&mut self, assignments: Assignments<F>) {
+        let instances = vec![self.circuit.chiquito_ir.instance(&assignments)];
+        self.circuit.set_instance(instances);
+        self.assignments = Some(assignments);
     }
 }
 
