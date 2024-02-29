@@ -20,7 +20,7 @@ use halo2_proofs::{
     dev::MockProver,
     halo2curves::{bn256::Fr, group::ff::PrimeField},
 };
-use std::hash::Hash;
+use std::{fmt::Write, hash::Hash};
 
 pub const IV_LEN: usize = 8;
 pub const SIGMA_VECTOR_LENGTH: usize = 16;
@@ -29,7 +29,7 @@ pub const R1: u64 = 32;
 pub const R2: u64 = 24;
 pub const R3: u64 = 16;
 pub const R4: u64 = 63;
-pub const MIXING_ROUND: u64 = 12;
+pub const MIXING_ROUNDS: u64 = 12;
 pub const BITS_NUMBER: u64 = 16;
 pub const VALUE_4BITS: u64 = 16;
 pub const XOR_4BITS_NUMBER: u64 = BITS_NUMBER * BITS_NUMBER;
@@ -74,6 +74,40 @@ pub const XOR_VALUES: [u8; XOR_4BITS_NUMBER as usize] = [
     15, 12, 13, 10, 11, 8, 9, 6, 7, 4, 5, 2, 3, 0, 1, 15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3,
     2, 1, 0,
 ];
+
+pub fn string_to_u64(inputs: [&str; 4]) -> [u64; 4] {
+    inputs
+        .iter()
+        .map(|&input| {
+            assert_eq!(16, input.len());
+            u64::from_le_bytes(
+                (0..input.len())
+                    .step_by(2)
+                    .map(|i| u8::from_str_radix(&input[i..i + 2], 16).unwrap())
+                    .collect::<Vec<u8>>()
+                    .try_into()
+                    .unwrap(),
+            )
+        })
+        .collect::<Vec<u64>>()
+        .try_into()
+        .unwrap()
+}
+
+pub fn u64_to_string(inputs: &[u64; 4]) -> [String; 4] {
+    inputs
+        .iter()
+        .map(|input| {
+            let mut s = String::new();
+            for byte in input.to_le_bytes() {
+                write!(&mut s, "{:02x}", byte).expect("Unable to write");
+            }
+            s
+        })
+        .collect::<Vec<String>>()
+        .try_into()
+        .unwrap()
+}
 
 fn blake2f_iv_table<F: PrimeField + Hash>(
     ctx: &mut CircuitContext<F, ()>,
@@ -698,7 +732,7 @@ fn blake2f_circuit<F: PrimeField + Hash>(
         })
     });
 
-    let blake2f_g_setup_vec: Vec<StepTypeWGHandler<F, _, _>> = (0..MIXING_ROUND as usize)
+    let blake2f_g_setup_vec: Vec<StepTypeWGHandler<F, _, _>> = (0..MIXING_ROUNDS as usize)
         .map(|r| {
             ctx.step_type_def(format!("blake2f_g_setup_{}", r), |ctx| {
                 let v_vec = v_vec.clone();
@@ -885,7 +919,7 @@ fn blake2f_circuit<F: PrimeField + Hash>(
                         ctx.transition(eq(h, h.next()));
                     }
                     // check m_vec m_vec.next()
-                    if r < MIXING_ROUND as usize - 1 {
+                    if r < MIXING_ROUNDS as usize - 1 {
                         for &m in m_vec.iter() {
                             ctx.transition(eq(m, m.next()));
                         }
@@ -1073,7 +1107,7 @@ fn blake2f_circuit<F: PrimeField + Hash>(
                 }
                 ctx.constr(eq(output, final_4bits_sum_value));
             }
-            ctx.constr(eq(round, MIXING_ROUND));
+            ctx.constr(eq(round, MIXING_ROUNDS));
         });
 
         ctx.wg(move |ctx, inputs: FinalInput<F>| {
@@ -1118,7 +1152,7 @@ fn blake2f_circuit<F: PrimeField + Hash>(
 
     ctx.pragma_first_step(&blake2f_pre_step);
     ctx.pragma_last_step(&blake2f_final_step);
-    ctx.pragma_num_steps(MIXING_ROUND as usize + 2);
+    ctx.pragma_num_steps(MIXING_ROUNDS as usize + 2);
 
     ctx.trace(move |ctx, values| {
         let h_vec_values = values.h_vec.to_vec();
@@ -1375,7 +1409,11 @@ fn blake2f_circuit<F: PrimeField + Hash>(
         ctx.add(&blake2f_final_step, final_inputs);
         // ba80a53f981c4d0d, 6a2797b69f12f6e9, 4c212f14685ac4b7, 4b12bb6fdbffa2d1
         // 7d87c5392aab792d, c252d5de4533cc95, 18d38aa8dbf1925a,b92386edd4009923
-        println!("output = {:x?}", output_vec_values);
+        println!(
+            "output = {:?} \n         {:?}",
+            u64_to_string(&output_vec_values[0..4].try_into().unwrap()),
+            u64_to_string(&output_vec_values[4..8].try_into().unwrap())
+        );
     })
 }
 
@@ -1416,29 +1454,86 @@ fn main() {
     let super_circuit = blake2f_super_circuit::<Fr>();
     let compiled = chiquitoSuperCircuit2Halo2(&super_circuit);
 
+    // h[0] = hex"48c9bdf267e6096a 3ba7ca8485ae67bb 2bf894fe72f36e3c f1361d5f3af54fa5";
+    // h[1] = hex"d182e6ad7f520e51 1f6c3e2b8c68059b 6bbd41fbabd9831f 79217e1319cde05b";
+    let h0 = string_to_u64([
+        "48c9bdf267e6096a",
+        "3ba7ca8485ae67bb",
+        "2bf894fe72f36e3c",
+        "f1361d5f3af54fa5",
+    ]);
+    let h1 = string_to_u64([
+        "d182e6ad7f520e51",
+        "1f6c3e2b8c68059b",
+        "6bbd41fbabd9831f",
+        "79217e1319cde05b",
+    ]);
+    // m[0] = hex"6162630000000000 0000000000000000 0000000000000000 0000000000000000";
+    // m[1] = hex"0000000000000000 0000000000000000 0000000000000000 0000000000000000";
+    // m[2] = hex"0000000000000000 0000000000000000 0000000000000000 0000000000000000";
+    // m[3] = hex"0000000000000000 0000000000000000 0000000000000000 0000000000000000";
+    let m0 = string_to_u64([
+        "6162630000000000",
+        "0000000000000000",
+        "0000000000000000",
+        "0000000000000000",
+    ]);
+    let m1 = string_to_u64([
+        "0000000000000000",
+        "0000000000000000",
+        "0000000000000000",
+        "0000000000000000",
+    ]);
+    let m2 = string_to_u64([
+        "0000000000000000",
+        "0000000000000000",
+        "0000000000000000",
+        "0000000000000000",
+    ]);
+    let m3 = string_to_u64([
+        "0000000000000000",
+        "0000000000000000",
+        "0000000000000000",
+        "0000000000000000",
+    ]);
+
     let values = InputValues {
         round: 12,
-        // h[0] = hex"48c9bdf267e6096a 3ba7ca8485ae67bb 2bf894fe72f36e3c f1361d5f3af54fa5";
-        // h[1] = hex"d182e6ad7f520e51 1f6c3e2b8c68059b 6bbd41fbabd9831f 79217e1319cde05b";
+
         h_vec: [
-            0x6a09e667f2bdc948,
-            0xbb67ae8584caa73b,
-            0x3c6ef372fe94f82b,
-            0xa54ff53a5f1d36f1,
-            0x510e527fade682d1,
-            0x9b05688c2b3e6c1f,
-            0x1f83d9abfb41bd6b,
-            0x5be0cd19137e2179,
+            h0[0], // 0x6a09e667f2bdc948,
+            h0[1], // 0xbb67ae8584caa73b,
+            h0[2], // 0x3c6ef372fe94f82b,
+            h0[3], // 0xa54ff53a5f1d36f1,
+            h1[0], // 0x510e527fade682d1,
+            h1[1], // 0x9b05688c2b3e6c1f,
+            h1[2], // 0x1f83d9abfb41bd6b,
+            h1[3], // 0x5be0cd19137e2179,
         ], // 8 * 64bits
-        // m[0] = hex"6162630000000000000000000000000000000000000000000000000000000000";
-        // m[1] = hex"0000000000000000000000000000000000000000000000000000000000000000";
-        // m[2] = hex"0000000000000000000000000000000000000000000000000000000000000000";
-        // m[3] = hex"0000000000000000000000000000000000000000000000000000000000000000";
-        m_vec: [0x636261, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], // 16 * 64bits
-        t0: 3,                                                          // 64bits
-        t1: 0,                                                          // 64bits
-        f: true,                                                        // 8bits
+
+        m_vec: [
+            m0[0], // 0x636261,
+            m0[1], // 0,
+            m0[2], // 0,
+            m0[3], // 0,
+            m1[0], // 0,
+            m1[1], // 0,
+            m1[2], // 0,
+            m1[3], // 0,
+            m2[0], // 0,
+            m2[1], // 0,
+            m2[2], // 0,
+            m2[3], // 0,
+            m3[0], // 0,
+            m3[1], // 0,
+            m3[2], // 0,
+            m3[3], // 0,
+        ], // 16 * 64bits
+        t0: 3,   // 64bits
+        t1: 0,   // 64bits
+        f: true, // 8bits
     };
+
     let circuit =
         ChiquitoHalo2SuperCircuit::new(compiled, super_circuit.get_mapping().generate(values));
 
