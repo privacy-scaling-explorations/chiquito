@@ -118,7 +118,7 @@ fn assignment_rule(analyser: &mut Analyser, expr: &Statement<BigInt, Identifier>
             if !is_signal {
                 analyser.error(
                     format!(
-                        "Cannot do assignments to variable {} with category {:#?}, you can only assign to signals",
+                        "Cannot assign with <-- or <== to variable {} with category {:#?}, you can only assign to signals. Use = instead.",
                         id.name(),
                         symbol.symbol.category
                     ),
@@ -517,7 +517,7 @@ mod test {
 
         assert_eq!(
             format!("{:?}", result.messages),
-            r#"[Err { msg: "Cannot do assignments to variable wrong with category WGVar, you can only assign to signals", dsym: DebugSymRef { start: 0, end: 0 } }]"#
+            r#"[Err { msg: "Cannot assign with <-- or <== to variable wrong with category WGVar, you can only assign to signals. Use = instead.", dsym: DebugSymRef { start: 0, end: 0 } }]"#
         );
     }
 }
