@@ -48,6 +48,8 @@ pub struct CompilationUnit<F> {
 
     pub other_sub_circuits: Rc<Vec<CompilationUnit<F>>>,
     pub other_columns: Rc<Vec<Column>>,
+
+    pub compilation_phase: u32,
 }
 
 impl<F> Default for CompilationUnit<F> {
@@ -82,6 +84,8 @@ impl<F> Default for CompilationUnit<F> {
 
             other_sub_circuits: Default::default(),
             other_columns: Default::default(),
+
+            compilation_phase: Default::default(),
         }
     }
 }

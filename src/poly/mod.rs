@@ -243,7 +243,7 @@ pub trait SignalFactory<V> {
 pub struct ConstrDecomp<F, V> {
     /// PI constraint for the new signals introduced.
     constrs: Vec<Expr<F, V>>,
-    /// Expressions for how to create the witness for the generated signals the orginal expression
+    /// Expressions for how to create the witness for the generated signals the original expression
     /// has be decomposed into.
     auto_signals: HashMap<V, Expr<F, V>>,
 }
