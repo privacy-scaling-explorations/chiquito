@@ -40,9 +40,10 @@ ParseStatement: Statement<BigInt, Identifier> = {
     <s: AssertEq> ";" => s,
     <s: AssertNEq> ";" => s,
     <s: Assert> ";" => s,
-    <a: AssignmentAssert> ";" => a,
+    <a: SignalAssignmentAssert> ";" => a,
     
-    <a: Assignment> ";" => a,
+    <a: SignalAssignment> ";" => a,
+    <a: WGAssignment> ";" => a,
 
     <v: ParseSignalDecl> ";" => v,
     <v: ParseWGVarDecl> ";" => v,
@@ -69,12 +70,16 @@ Assert: Statement<BigInt, Identifier> = {
 }
 
 // Basic statements
-Assignment: Statement<BigInt, Identifier> = {
-    <ids: ParseIdsList> "<--" <es:ParseExpressionList> => Statement::Assignment(DebugSymRef::new(0,0), ids, es),
+SignalAssignment: Statement<BigInt, Identifier> = {
+    <ids: ParseIdsList> "<--" <es:ParseExpressionList> => Statement::SignalAssignment(DebugSymRef::new(0,0), ids, es),
 }
 
-AssignmentAssert: Statement<BigInt, Identifier> = {
-    <ids: ParseIdsList> "<==" <es:ParseExpressionList> => Statement::AssignmentAssert(DebugSymRef::new(0,0), ids, es),
+SignalAssignmentAssert: Statement<BigInt, Identifier> = {
+    <ids: ParseIdsList> "<==" <es:ParseExpressionList> => Statement::SignalAssignmentAssert(DebugSymRef::new(0,0), ids, es),
+}
+
+WGAssignment: Statement<BigInt, Identifier> = {
+    <ids: ParseIdsList> "=" <es:ParseExpressionList> => Statement::WGAssignment(DebugSymRef::new(0,0), ids, es),
 }
 
 ParseIf: Statement<BigInt, Identifier> = {
