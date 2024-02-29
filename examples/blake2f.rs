@@ -22,9 +22,9 @@ use halo2_proofs::{
 };
 use std::hash::Hash;
 
-pub const IV_LENGTH: u64 = 8;
-pub const SIGMA_VECTOR_LENGTH: u64 = 16;
-pub const SIGMA_VECTOR_NUMBER: u64 = 10;
+pub const IV_LEN: usize = 8;
+pub const SIGMA_VECTOR_LENGTH: usize = 16;
+pub const SIGMA_VECTOR_NUMBER: usize = 10;
 pub const R1: u64 = 32;
 pub const R2: u64 = 24;
 pub const R3: u64 = 16;
@@ -33,12 +33,12 @@ pub const MIXING_ROUND: u64 = 12;
 pub const BITS_NUMBER: u64 = 16;
 pub const VALUE_4BITS: u64 = 16;
 pub const XOR_4BITS_NUMBER: u64 = BITS_NUMBER * BITS_NUMBER;
-pub const V_LEN: u64 = 16;
-pub const M_LEN: u64 = 16;
-pub const H_LEN: u64 = 8;
+pub const V_LEN: usize = 16;
+pub const M_LEN: usize = 16;
+pub const H_LEN: usize = 8;
 pub const G_ROUNDS: u64 = 16;
 
-pub const IV_VALUES: [u64; IV_LENGTH as usize] = [
+pub const IV_VALUES: [u64; IV_LEN] = [
     0x6A09E667F3BCC908,
     0xBB67AE8584CAA73B,
     0x3C6EF372FE94F82B,
@@ -49,7 +49,7 @@ pub const IV_VALUES: [u64; IV_LENGTH as usize] = [
     0x5BE0CD19137E2179,
 ];
 
-pub const SIGMA_VALUES: [[usize; SIGMA_VECTOR_LENGTH as usize]; SIGMA_VECTOR_NUMBER as usize] = [
+pub const SIGMA_VALUES: [[usize; SIGMA_VECTOR_LENGTH]; SIGMA_VECTOR_NUMBER] = [
     [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15],
     [14, 10, 4, 8, 9, 15, 13, 6, 1, 12, 0, 2, 11, 7, 5, 3],
     [11, 8, 12, 0, 5, 2, 15, 13, 10, 14, 3, 6, 7, 1, 9, 4],
@@ -83,7 +83,7 @@ fn blake2f_iv_table<F: PrimeField + Hash>(
     let lookup_iv_value: Queriable<F> = ctx.fixed("iv value");
 
     let iv_values = IV_VALUES;
-    ctx.pragma_num_steps(IV_LENGTH as usize);
+    ctx.pragma_num_steps(IV_LEN);
     ctx.fixed_gen(move |ctx| {
         for (i, &value) in iv_values.iter().enumerate() {
             ctx.assign(i, lookup_iv_row, F::from(i as u64));
@@ -236,12 +236,12 @@ struct FinalInput<F> {
 }
 
 struct InputValues {
-    pub round: u32,                   // 32bit
-    pub h_vec: [u64; H_LEN as usize], // 8 * 64bits
-    pub m_vec: [u64; M_LEN as usize], // 16 * 64bits
-    pub t0: u64,                      // 64bits
-    pub t1: u64,                      // 64bits
-    pub f: bool,                      // 8bits
+    pub round: u32,          // 32bit
+    pub h_vec: [u64; H_LEN], // 8 * 64bits
+    pub m_vec: [u64; M_LEN], // 16 * 64bits
+    pub t0: u64,             // 64bits
+    pub t1: u64,             // 64bits
+    pub f: bool,             // 8bits
 }
 
 struct GStepParams<F> {
@@ -353,6 +353,8 @@ fn g_wg<F: PrimeField + Hash>(
     b_3bits_vec.push(F::from(bits % 8))
 }
 
+// We check G function one time by calling twice g_setup function.c
+// Because the G function can be divided into two similar parts.
 fn g_setup<F: PrimeField + Hash>(
     ctx: &mut StepTypeSetupContext<'_, F>,
     params: CircuitParams,
@@ -574,10 +576,10 @@ fn blake2f_circuit<F: PrimeField + Hash>(
             ctx.constr(eq(f * (f - 1), 0));
 
             // check v_vec
-            for i in 0..H_LEN as usize {
+            for i in 0..H_LEN {
                 ctx.constr(eq(v_vec[i], h_vec[i]));
             }
-            for (i, &iv) in v_vec[V_LEN as usize / 2..V_LEN as usize].iter().enumerate() {
+            for (i, &iv) in v_vec[V_LEN / 2..V_LEN].iter().enumerate() {
                 params.check_iv(ctx, i, iv);
             }
 
@@ -811,6 +813,8 @@ fn blake2f_circuit<F: PrimeField + Hash>(
                 let wg_v_xor_b_bit_vec = v_xor_b_bit_vec.clone();
 
                 // b_bit_vec[i] * 8 + b_3bits_vec[i] = v_xor_b_bit_vec[i * 2 + 1][0]
+                // the step of v[b] := (v[b] ^ v[c]) >>> R4 needs to split a 4-bit value to a
+                // one-bit value and a 3-bit value
                 let b_bit_vec: Vec<Queriable<F>> = (0..G_ROUNDS / 2)
                     .map(|i| ctx.internal(format!("b_bit_vec[{}]", i).as_str()))
                     .collect();
@@ -1049,9 +1053,9 @@ fn blake2f_circuit<F: PrimeField + Hash>(
 
             // check split-fields of v[i] ^ v[i+8]
             for (xor_vec, (v1_vec, v2_vec)) in v_xor_split_bit_vec.iter().zip(
-                v_split_bit_vec[0..V_LEN as usize / 2]
+                v_split_bit_vec[0..V_LEN / 2]
                     .iter()
-                    .zip(v_split_bit_vec[V_LEN as usize / 2..V_LEN as usize].iter()),
+                    .zip(v_split_bit_vec[V_LEN / 2..V_LEN].iter()),
             ) {
                 for (&xor, (&v1, &v2)) in xor_vec.iter().zip(v1_vec.iter().zip(v2_vec.iter())) {
                     params.check_xor(ctx, v1, v2, xor);
@@ -1347,7 +1351,7 @@ fn blake2f_circuit<F: PrimeField + Hash>(
             .zip(
                 v_vec_values[0..8]
                     .iter()
-                    .zip(v_vec_values[V_LEN as usize / 2..V_LEN as usize].iter()),
+                    .zip(v_vec_values[V_LEN / 2..V_LEN].iter()),
             )
             .map(|(h, (v1, v2))| h ^ v1 ^ v2)
             .collect();
@@ -1365,9 +1369,9 @@ fn blake2f_circuit<F: PrimeField + Hash>(
                 .iter()
                 .map(|&v| split_value_4bits(v as u128, BITS_NUMBER))
                 .collect(),
-            v_xor_split_bit_vec: v_vec_values[0..V_LEN as usize / 2]
+            v_xor_split_bit_vec: v_vec_values[0..V_LEN / 2]
                 .iter()
-                .zip(v_vec_values[V_LEN as usize / 2..V_LEN as usize].iter())
+                .zip(v_vec_values[V_LEN / 2..V_LEN].iter())
                 .map(|(&v1, &v2)| split_xor_value(v1, v2))
                 .collect(),
             final_split_bit_vec: output_vec_values
@@ -1385,8 +1389,7 @@ fn blake2f_circuit<F: PrimeField + Hash>(
 fn blake2f_super_circuit<F: PrimeField + Hash>() -> SuperCircuit<F, InputValues> {
     super_circuit::<F, InputValues, _>("blake2f", |ctx| {
         let single_config = config(SingleRowCellManager {}, SimpleStepSelectorBuilder {});
-        let (_, iv_table) =
-            ctx.sub_circuit(single_config.clone(), blake2f_iv_table, IV_LENGTH as usize);
+        let (_, iv_table) = ctx.sub_circuit(single_config.clone(), blake2f_iv_table, IV_LEN);
         let (_, bits_table) = ctx.sub_circuit(
             single_config.clone(),
             blake2f_4bits_table,
