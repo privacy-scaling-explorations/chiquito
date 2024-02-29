@@ -203,7 +203,7 @@ impl From<&'static str> for StepTypeDefInput {
 
 impl From<String> for StepTypeDefInput {
     fn from(s: String) -> Self {
-        StepTypeDefInput::String(Box::leak(s.into_boxed_str())) // 将 String 转换为 &'static str
+        StepTypeDefInput::String(Box::leak(s.into_boxed_str()))
     }
 }
 
