@@ -231,9 +231,11 @@ impl<F: From<u64> + Into<u32> + Clone, V: Clone> CompilationUnit<F, V> {
         let rhs = self.compile_expression_airth(_rhs);
 
         // In One Zero: 0 is false, 1 is true
-        // lhs != rhs => lhs - rhs != 0
+        // lhs != rhs => lhs - rhs != 0 so we calculate lhs - rhs and then negate it
         let expr = lhs - rhs;
 
+        // For the anti_booly, the not is the one_zero version of the expression
+        // For the one_zero, the not is 1 - one_zero version of the expression
         CompilationResult {
             dsym: _dsym,
             anti_booly: expr.clone(),
