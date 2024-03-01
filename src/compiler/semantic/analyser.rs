@@ -226,10 +226,13 @@ impl Analyser {
     fn analyse_statement_recursive(&mut self, stmt: Statement<BigInt, Identifier>) {
         match stmt {
             Statement::Assert(_, expr) => self.analyse_expression(expr),
-            Statement::Assignment(_, _, exprs) => exprs
+            Statement::SignalAssignment(_, _, exprs) => exprs
                 .into_iter()
                 .for_each(|expr| self.analyse_expression(expr)),
-            Statement::AssignmentAssert(_, _, exprs) => exprs
+            Statement::SignalAssignmentAssert(_, _, exprs) => exprs
+                .into_iter()
+                .for_each(|expr| self.analyse_expression(expr)),
+            Statement::WGAssignment(_, _, exprs) => exprs
                 .into_iter()
                 .for_each(|expr| self.analyse_expression(expr)),
             Statement::IfThen(_, cond, when_true) => {

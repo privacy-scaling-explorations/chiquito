@@ -13,35 +13,37 @@ pub struct TypedIdDecl<V> {
 
 #[derive(Clone)]
 pub enum Statement<F, V> {
-    Assert(DebugSymRef, Expression<F, V>),
+    Assert(DebugSymRef, Expression<F, V>), // assert x;
 
-    Assignment(DebugSymRef, Vec<V>, Vec<Expression<F, V>>),
-    AssignmentAssert(DebugSymRef, Vec<V>, Vec<Expression<F, V>>),
+    SignalAssignment(DebugSymRef, Vec<V>, Vec<Expression<F, V>>), // x <-- y;
+    SignalAssignmentAssert(DebugSymRef, Vec<V>, Vec<Expression<F, V>>), // x <== y;
+    WGAssignment(DebugSymRef, Vec<V>, Vec<Expression<F, V>>),     // x = y;
 
-    IfThen(DebugSymRef, Box<Expression<F, V>>, Box<Statement<F, V>>),
+    IfThen(DebugSymRef, Box<Expression<F, V>>, Box<Statement<F, V>>), // if x { y }
     IfThenElse(
         DebugSymRef,
         Box<Expression<F, V>>,
         Box<Statement<F, V>>,
         Box<Statement<F, V>>,
-    ),
+    ), // if x { y } else { z }
 
-    SignalDecl(DebugSymRef, Vec<TypedIdDecl<V>>),
-    WGVarDecl(DebugSymRef, Vec<TypedIdDecl<V>>),
+    SignalDecl(DebugSymRef, Vec<TypedIdDecl<V>>), // signal x;
+    WGVarDecl(DebugSymRef, Vec<TypedIdDecl<V>>),  // var x;
 
-    StateDecl(DebugSymRef, V, Box<Statement<F, V>>),
+    StateDecl(DebugSymRef, V, Box<Statement<F, V>>), // state x { y }
 
-    Transition(DebugSymRef, V, Box<Statement<F, V>>),
+    Transition(DebugSymRef, V, Box<Statement<F, V>>), // -> x { y }
 
-    Block(DebugSymRef, Vec<Statement<F, V>>),
+    Block(DebugSymRef, Vec<Statement<F, V>>), // { x }
 }
 
 impl<F: Debug> Debug for Statement<F, Identifier> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::Assert(_, arg0) => write!(f, "assert {:?};", arg0),
-            Self::Assignment(_, arg0, arg1) => write!(f, "{:?} <-- {:?};", arg0, arg1),
-            Self::AssignmentAssert(_, arg0, arg1) => write!(f, "{:?} <== {:?};", arg0, arg1),
+            Self::SignalAssignment(_, arg0, arg1) => write!(f, "{:?} <-- {:?};", arg0, arg1),
+            Self::SignalAssignmentAssert(_, arg0, arg1) => write!(f, "{:?} <== {:?};", arg0, arg1),
+            Self::WGAssignment(_, arg0, arg1) => write!(f, "{:?} = {:?};", arg0, arg1),
             Statement::IfThen(_, arg0, arg1) => {
                 write!(f, "if {:?} {:?}", arg0, arg1)
             }
@@ -90,8 +92,9 @@ impl<F, V> Statement<F, V> {
     pub fn get_dsym(&self) -> DebugSymRef {
         match self {
             Statement::Assert(dsym, _) => dsym.clone(),
-            Statement::Assignment(dsym, _, _) => dsym.clone(),
-            Statement::AssignmentAssert(dsym, _, _) => dsym.clone(),
+            Statement::SignalAssignment(dsym, _, _) => dsym.clone(),
+            Statement::SignalAssignmentAssert(dsym, _, _) => dsym.clone(),
+            Statement::WGAssignment(dsym, _, _) => dsym.clone(),
             Statement::IfThen(dsym, _, _) => dsym.clone(),
             Statement::IfThenElse(dsym, _, _, _) => dsym.clone(),
             Statement::SignalDecl(dsym, _) => dsym.clone(),

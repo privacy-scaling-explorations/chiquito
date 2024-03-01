@@ -104,8 +104,8 @@ fn state_decl(analyser: &mut Analyser, expr: &Statement<BigInt, Identifier>) {
 // Should only allow to assign or assign and assert signals (and not wg vars).
 fn assignment_rule(analyser: &mut Analyser, expr: &Statement<BigInt, Identifier>) {
     let ids = match expr {
-        Statement::Assignment(_, id, _) => id,
-        Statement::AssignmentAssert(_, id, _) => id,
+        Statement::SignalAssignment(_, id, _) => id,
+        Statement::SignalAssignmentAssert(_, id, _) => id,
         _ => return,
     };
 
