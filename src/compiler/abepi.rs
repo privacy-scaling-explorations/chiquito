@@ -36,7 +36,7 @@ impl<F: From<u64> + Into<u32> + Clone, V: Clone> CompilationUnit<F, V> {
     pub fn compile_statement(&self, source: Statement<F, V>) -> Vec<CompilationResult<F, V>> {
         match source {
             Statement::Assert(_, expr) => vec![self.compile_expression(expr)],
-            Statement::AssignmentAssert(dsym, lhs, rhs) => {
+            Statement::SignalAssignmentAssert(dsym, lhs, rhs) => {
                 assert_eq!(lhs.len(), rhs.len());
 
                 lhs.iter()
