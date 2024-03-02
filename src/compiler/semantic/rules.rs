@@ -1,3 +1,5 @@
+use std::{fmt::Debug, vec};
+
 use lazy_static::lazy_static;
 
 use num_bigint::BigInt;
@@ -5,7 +7,8 @@ use num_bigint::BigInt;
 use crate::{
     compiler::semantic::{analyser::Analyser, RuleSet, SymTableEntry},
     parser::ast::{
-        expression::Expression, statement::Statement, tl::TLDecl, Identifiable, Identifier,
+        expression::Expression, statement::Statement, tl::TLDecl, DebugSymRef, Identifiable,
+        Identifier,
     },
 };
 
@@ -101,7 +104,8 @@ fn state_decl(analyser: &mut Analyser, expr: &Statement<BigInt, Identifier>) {
     });
 }
 
-// Should only allow to assign or assign and assert signals (and not wg vars).
+// Should only allow to assign `<--` or assign and assert `<==` signals (and not wg vars).
+// Left hand side should only have signals.
 fn assignment_rule(analyser: &mut Analyser, expr: &Statement<BigInt, Identifier>) {
     let ids = match expr {
         Statement::SignalAssignment(_, id, _) => id,
@@ -129,11 +133,71 @@ fn assignment_rule(analyser: &mut Analyser, expr: &Statement<BigInt, Identifier>
     });
 }
 
+fn assert_rule(analyser: &mut Analyser, stmt: &Statement<BigInt, Identifier>) {
+    let exprs = match stmt {
+        Statement::SignalAssignmentAssert(_, _, exprs) => exprs.clone(),
+        Statement::Assert(_, expr) => vec![expr.clone()],
+        _ => return,
+    };
+
+    exprs.into_iter().for_each(|expr| {
+        check_expr_for_wgvar(analyser, &expr, stmt, &stmt.get_dsym());
+    });
+}
+
+fn check_expr_for_wgvar(
+    analyser: &mut Analyser,
+    expr: &Expression<BigInt, Identifier>,
+    stmt: &Statement<BigInt, Identifier>,
+    dsym: &DebugSymRef,
+) {
+    use Expression::*;
+
+    // Recursive
+    match expr {
+        BinOp { lhs, rhs, .. } => {
+            check_expr_for_wgvar(analyser, lhs, stmt, dsym);
+            check_expr_for_wgvar(analyser, rhs, stmt, dsym);
+        }
+        UnaryOp { sub, .. } => {
+            check_expr_for_wgvar(analyser, sub, stmt, dsym);
+        }
+        Select {
+            cond,
+            when_true,
+            when_false,
+            ..
+        } => {
+            check_expr_for_wgvar(analyser, cond, stmt, dsym);
+            check_expr_for_wgvar(analyser, when_true, stmt, dsym);
+            check_expr_for_wgvar(analyser, when_false, stmt, dsym);
+        }
+        Query(_, id) => {
+            if let Some(symbol) = analyser.symbols.find_symbol(&analyser.cur_scope, id.name()) {
+                let is_wgvar = matches!(
+                    symbol.symbol.category,
+                    SymbolCategory::WGVar
+                        | SymbolCategory::InputWGVar
+                        | SymbolCategory::OutputWGVar
+                        | SymbolCategory::InoutWGVar
+                );
+                if is_wgvar {
+                    analyser.error(
+                        format!("Cannot use wgvar {} in statement {:#?}", id.name(), stmt),
+                        dsym,
+                    )
+                }
+            }
+        }
+        _ => (), // For Const, True, False, do nothing
+    }
+}
+
 lazy_static! {
     /// Global semantic analyser rules.
     pub(super) static ref RULES: RuleSet = RuleSet {
         expression: vec![undeclared_rule],
-        statement: vec![state_decl, assignment_rule],
+        statement: vec![state_decl, assignment_rule, assert_rule],
         new_symbol: vec![rotation_decl],
         new_tl_symbol: vec![rotation_decl_tl],
     };
@@ -519,5 +583,62 @@ mod test {
             format!("{:?}", result.messages),
             r#"[Err { msg: "Cannot assign with <-- or <== to variable wrong with category WGVar, you can only assign to signals. Use = instead.", dsym: DebugSymRef { start: 0, end: 0 } }]"#
         );
+    }
+
+    #[test]
+    fn test_assert_rule() {
+        let circuit = "
+        machine fibo(signal n) (signal b: field) {
+            // n and be are created automatically as shared
+            // signals
+            signal a: field, i;
+
+            // there is always a state called initial
+            // input signals get binded to the signal
+            // in the initial state (first instance)
+            state initial {
+             signal c;
+
+             i, a, b, c <== 1, 1, 1, 2;
+
+             -> middle {
+              a', b', n' <== b, c, n;
+             }
+            }
+
+            state middle {
+             signal c;
+             var wrong;
+
+             assert wrong == 3;
+
+             c <== a + b + wrong;
+
+             if i + 1 == n {
+              -> final {
+               i', b', n' <== i + 1, c, n;
+              }
+             } else {
+              -> middle {
+               i', a', b', n' <== i + 1, b, c, n;
+              }
+             }
+            }
+
+            // There is always a state called final.
+            // Output signals get automatically bindinded to the signals
+            // with the same name in the final step (last instance).
+            // This state can be implicit if there are no constraints in it.
+           }
+        ";
+
+        let decls = lang::TLDeclsParser::new().parse(circuit).unwrap();
+
+        let result = analyse(decls);
+
+        assert_eq!(
+            format!("{:?}", result.messages),
+            r#"[Err { msg: "Cannot use wgvar wrong in statement assert wrong == 3;", dsym: DebugSymRef { start: 0, end: 0 } }, Err { msg: "Cannot use wgvar wrong in statement [c] <== [(a + b) + wrong];", dsym: DebugSymRef { start: 0, end: 0 } }]"#
+        )
     }
 }
