@@ -113,7 +113,7 @@ fn assignment_rule(analyser: &mut Analyser, expr: &Statement<BigInt, Identifier>
         _ => return,
     };
 
-    ids.into_iter().for_each(|id| {
+    ids.iter().for_each(|id| {
         if let Some(symbol) = analyser.symbols.find_symbol(&analyser.cur_scope, id.name()) {
             let is_signal = matches!(
                 symbol.symbol.category,
