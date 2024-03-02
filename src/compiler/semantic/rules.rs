@@ -133,6 +133,7 @@ fn assignment_rule(analyser: &mut Analyser, expr: &Statement<BigInt, Identifier>
     });
 }
 
+// Cannot use wgvars in assert statements.
 fn assert_rule(analyser: &mut Analyser, stmt: &Statement<BigInt, Identifier>) {
     let exprs = match stmt {
         Statement::SignalAssignmentAssert(_, _, exprs) => exprs.clone(),
@@ -145,6 +146,7 @@ fn assert_rule(analyser: &mut Analyser, stmt: &Statement<BigInt, Identifier>) {
     });
 }
 
+// Helper function to check if an expression uses a wgvar recursively.
 fn check_expr_for_wgvar(
     analyser: &mut Analyser,
     expr: &Expression<BigInt, Identifier>,
