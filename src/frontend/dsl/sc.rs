@@ -35,6 +35,12 @@ impl<F, MappingArgs> Default for SuperCircuitContext<F, MappingArgs> {
     }
 }
 
+impl<F: Clone, MappingArgs> SuperCircuitContext<F, MappingArgs> {
+    fn add_sub_circuit_ast(&mut self, ast: SBPIR<F, ()>) {
+        self.super_circuit.add_sub_circuit_ast(ast);
+    }
+}
+
 impl<F: Field + Hash, MappingArgs> SuperCircuitContext<F, MappingArgs> {
     pub fn sub_circuit<CM: CellManager, SSB: StepSelectorBuilder, TraceArgs, Imports, Exports, D>(
         &mut self,
@@ -49,11 +55,12 @@ impl<F: Field + Hash, MappingArgs> SuperCircuitContext<F, MappingArgs> {
             circuit: SBPIR::default(),
             tables: self.tables.clone(),
         };
-        println!("super circuit table registry 2: {:?}", self.tables);
         let exports = sub_circuit_def(&mut sub_circuit_context, imports);
-        println!("super circuit table registry 3: {:?}", self.tables);
 
         let sub_circuit = sub_circuit_context.circuit;
+
+        // ast is used for PIL backend
+        self.add_sub_circuit_ast(sub_circuit.clone_without_trace());
 
         let (unit, assignment) = compile_phase1(config, &sub_circuit);
         let assignment = assignment.unwrap_or_else(|| AssignmentGenerator::empty(unit.uuid));
