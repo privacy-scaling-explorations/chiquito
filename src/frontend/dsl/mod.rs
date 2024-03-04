@@ -362,6 +362,10 @@ impl StepTypeHandler {
     pub fn next<F>(&self) -> Queriable<F> {
         Queriable::StepTypeNext(*self)
     }
+
+    pub fn annotation(&self) -> String {
+        self.annotation.to_string()
+    }
 }
 
 impl<F, Args, D: Fn(&mut StepInstance<F>, Args) + 'static> From<&StepTypeWGHandler<F, Args, D>>
