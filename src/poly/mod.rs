@@ -392,12 +392,12 @@ mod test {
         let a: &str = "a";
         let b: &str = "b";
         let c: Fr = Fr::from(3);
-        let neg_expr: Expr<Fr, &str> = Query(a) * Query(b) * Const(c) - Const(c);
+        let neg_expr: Expr<Fr, &str> = Neg(Box::new(Query(a) * Query(b) * Const(c) - Const(c)));
 
         assert!(
-            matches!(neg_expr, Expr::Sum(_)),
-            "Neg did not create a Sum variant"
-        );
+            matches!(neg_expr, Expr::Neg(_)),
+            "Neg did not create a Neg variant"
+        )
     }
 
     #[test]
@@ -407,13 +407,13 @@ mod test {
         let a: &str = "a";
         let b: &str = "b";
         let c: Fr = Fr::from(3);
-        let neg_expr: Expr<Fr, &str> = Query(a) * Query(b) * Const(c) - Const(c);
+        let neg_expr: Expr<Fr, &str> = Neg(Box::new(Query(a) * Query(b) * Const(c) - Const(c)));
 
         let mut assignments: VarAssignments<Fr, &str> = VarAssignments::default();
         assignments.insert(a, Fr::from(2));
         assignments.insert(b, Fr::from(3));
 
-        assert_eq!(neg_expr.eval(&assignments), Some(Fr::from(15)));
+        assert_eq!(neg_expr.eval(&assignments), Some(-(Fr::from(15))));
     }
 
     #[test]
