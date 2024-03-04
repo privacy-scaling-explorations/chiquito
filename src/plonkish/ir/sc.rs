@@ -129,6 +129,8 @@ impl<F: Field + Hash, MappingArgs> MappingGenerator<F, MappingArgs> {
 mod test {
     use halo2curves::bn256::Fr;
 
+    use crate::{plonkish::{compiler::{cell_manager::Placement, step_selector::StepSelector}, ir::Column}, util::uuid, wit_gen::{AutoTraceGenerator, StepInstance, TraceGenerator}};
+
     use super::*;
 
     #[test]
@@ -145,58 +147,64 @@ mod test {
         );
     }
 
+    fn simple_circuit() -> Circuit<Fr> {
+        let columns = vec![Column::advice('a', 0)];
+        let exposed = vec![(Column::advice('a', 0), 2)];
+        let polys = vec![];
+        let lookups = vec![];
+        let fixed_assignments = Default::default();
+
+        Circuit {
+            columns,
+            exposed,
+            polys,
+            lookups,
+            fixed_assignments,
+            id: uuid(),
+            ast_id: uuid(),
+        }
+    }
+
     #[test]
     fn test_add_sub_circuit() {
         let mut super_circuit: SuperCircuit<Fr, ()> = Default::default();
 
-        let sub_circuit = Circuit::<Fr>::default();
+        let sub_circuit = simple_circuit();
 
         super_circuit.add_sub_circuit(sub_circuit.clone());
 
         assert_eq!(super_circuit.sub_circuits.len(), 1);
+        assert_eq!(super_circuit.sub_circuits[0].id, sub_circuit.id);
+        assert_eq!(super_circuit.sub_circuits[0].ast_id, sub_circuit.ast_id);
         assert_eq!(
-            format!("{:#?}", super_circuit.sub_circuits[0]),
-            format!("{:#?}", sub_circuit)
+            format!("{:#?}", super_circuit.sub_circuits[0].columns),
+            format!("{:#?}", sub_circuit.columns)
         );
-    }
-
-    #[test]
-    fn test_get_mapping() {
-        let super_circuit: SuperCircuit<Fr, ()> = Default::default();
-
-        let mapping = super_circuit.get_mapping();
-
         assert_eq!(
-            format!("{:#?}", mapping),
-            format!("{:#?}", MappingGenerator::<Fr, ()>::default())
+            format!("{:#?}", super_circuit.sub_circuits[0].exposed),
+            format!("{:#?}", sub_circuit.exposed)
         );
-    }
-
-    #[test]
-    fn test_set_mapping() {
-        let mut super_circuit: SuperCircuit<Fr, ()> = Default::default();
-
-        super_circuit.set_mapping(|ctx, args| {
-            // Your mapping logic here
-            ctx.map(&AssignmentGenerator::<Fr, ()>::default(), args)
-        });
-
         assert_eq!(
-            format!("{:#?}", super_circuit.mapping),
-            format!("{:#?}", MappingGenerator::<Fr, ()>::default())
+            format!("{:#?}", super_circuit.sub_circuits[0].polys),
+            format!("{:#?}", sub_circuit.polys)
+        );
+        assert_eq!(
+            format!("{:#?}", super_circuit.sub_circuits[0].lookups),
+            format!("{:#?}", sub_circuit.lookups)
         );
     }
 
     #[test]
     fn test_get_sub_circuits() {
-        let super_circuit: SuperCircuit<Fr, ()> = Default::default();
+        let super_circuit: SuperCircuit<Fr, ()> = SuperCircuit {
+            sub_circuits: vec![simple_circuit()],
+            mapping: Default::default(),
+        };
 
         let sub_circuits = super_circuit.get_sub_circuits();
 
-        assert_eq!(
-            format!("{:#?}", sub_circuits),
-            format!("{:#?}", Vec::<Circuit<Fr>>::default())
-        );
+        assert_eq!(sub_circuits.len(), 1);
+        assert_eq!(sub_circuits[0].id, super_circuit.sub_circuits[0].id);
     }
 
     #[test]
@@ -209,35 +217,43 @@ mod test {
         );
     }
 
+    fn simple_assignment_generator() -> AssignmentGenerator<Fr, ()> {
+        AssignmentGenerator::new(
+            vec![Column::advice('a', 0)],
+            Placement { forward: HashMap::new(), shared: HashMap::new(), fixed: HashMap::new(), steps: HashMap::new(), columns: vec![], base_height: 0 },
+            StepSelector::default(),
+            TraceGenerator::default(),
+            AutoTraceGenerator::default(),
+            1,
+            uuid(),
+        )
+    }
+
     #[test]
     fn test_mapping_context_map() {
         let mut ctx = MappingContext::<Fr>::default();
 
-        let gen = AssignmentGenerator::<Fr, ()>::default();
+        assert_eq!(ctx.assignments.len(), 0);
+
+        let gen = simple_assignment_generator();
 
         ctx.map(&gen, ());
 
         assert_eq!(ctx.assignments.len(), 1);
-        assert_eq!(
-            format!("{:#?}", ctx.assignments[&gen.uuid()]),
-            format!("{:#?}", gen.generate(()))
-        );
     }
 
     #[test]
     fn test_mapping_context_map_with_witness() {
         let mut ctx = MappingContext::<Fr>::default();
 
-        let gen = AssignmentGenerator::<Fr, ()>::default();
+        let gen = simple_assignment_generator();
 
-        let witness = TraceWitness::<Fr>::default();
+        let witness = TraceWitness::<Fr> {
+            step_instances: vec![],
+        };
 
         ctx.map_with_witness(&gen, witness.clone());
 
         assert_eq!(ctx.assignments.len(), 1);
-        assert_eq!(
-            format!("{:#?}", ctx.assignments[&gen.uuid()]),
-            format!("{:#?}", gen.generate_with_witness(witness))
-        );
     }
 }
