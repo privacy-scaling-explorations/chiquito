@@ -129,7 +129,14 @@ impl<F: Field + Hash, MappingArgs> MappingGenerator<F, MappingArgs> {
 mod test {
     use halo2curves::bn256::Fr;
 
-    use crate::{plonkish::{compiler::{cell_manager::Placement, step_selector::StepSelector}, ir::Column}, util::uuid, wit_gen::{AutoTraceGenerator, StepInstance, TraceGenerator}};
+    use crate::{
+        plonkish::{
+            compiler::{cell_manager::Placement, step_selector::StepSelector},
+            ir::Column,
+        },
+        util::uuid,
+        wit_gen::{AutoTraceGenerator, StepInstance, TraceGenerator},
+    };
 
     use super::*;
 
@@ -220,7 +227,14 @@ mod test {
     fn simple_assignment_generator() -> AssignmentGenerator<Fr, ()> {
         AssignmentGenerator::new(
             vec![Column::advice('a', 0)],
-            Placement { forward: HashMap::new(), shared: HashMap::new(), fixed: HashMap::new(), steps: HashMap::new(), columns: vec![], base_height: 0 },
+            Placement {
+                forward: HashMap::new(),
+                shared: HashMap::new(),
+                fixed: HashMap::new(),
+                steps: HashMap::new(),
+                columns: vec![],
+                base_height: 0,
+            },
             StepSelector::default(),
             TraceGenerator::default(),
             AutoTraceGenerator::default(),
