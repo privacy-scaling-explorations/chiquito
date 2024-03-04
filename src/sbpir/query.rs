@@ -210,7 +210,7 @@ mod tests {
 
         let expr5: Expr<Fr, Queriable<Fr>> = Expr::Pow(Box::new(Expr::Const(a)), 2);
         assert_eq!(format!("{:?}", expr5), "(0xa)^2");
-    } 
+    }
 
     #[test]
     fn test_next_for_forward_signal() {
