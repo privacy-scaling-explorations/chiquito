@@ -1174,8 +1174,7 @@ fn blake2f_circuit<F: PrimeField + Hash>(
         let m_split_4bits_vec = split_to_4bits_values::<F>(&m_vec_values);
 
         let mut iv_vec_values = IV_VALUES.to_vec();
-        let iv_split_4bits_vec: Vec<Vec<F>> =
-            split_to_4bits_values::<F>(&iv_vec_values[4..7]);
+        let iv_split_4bits_vec: Vec<Vec<F>> = split_to_4bits_values::<F>(&iv_vec_values[4..7]);
 
         let mut v_vec_values = h_vec_values.clone();
         v_vec_values.append(&mut iv_vec_values);
