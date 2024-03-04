@@ -20,6 +20,7 @@ num-bigint = { version = "0.4", features = ["rand"] }
 uuid = { version = "1.4.0", features = ["v1", "rng"] }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
+regex = "1"
 
 [dev-dependencies]
 rand_chacha = "0.3"
