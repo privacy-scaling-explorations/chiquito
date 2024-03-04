@@ -31,7 +31,7 @@ pub const R3: u64 = 16;
 pub const R4: u64 = 63;
 pub const MIXING_ROUNDS: u64 = 12;
 pub const BITS_NUMBER: u64 = 16;
-pub const VALUE_4BITS: u64 = 16;
+pub const BASE_4BITS: u64 = 16;
 pub const XOR_4BITS_NUMBER: u64 = BITS_NUMBER * BITS_NUMBER;
 pub const V_LEN: usize = 16;
 pub const M_LEN: usize = 16;
@@ -107,6 +107,22 @@ pub fn u64_to_string(inputs: &[u64; 4]) -> [String; 4] {
         .collect::<Vec<String>>()
         .try_into()
         .unwrap()
+}
+
+pub fn split_to_4bits_values<F: PrimeField + Hash>(vec_values: &[u64]) -> Vec<Vec<F>> {
+    vec_values
+        .iter()
+        .map(|&value| {
+            let mut value = value;
+            (0..BITS_NUMBER)
+                .map(|_| {
+                    let v = value % BASE_4BITS;
+                    value >>= 4;
+                    F::from(v)
+                })
+                .collect()
+        })
+        .collect()
 }
 
 fn blake2f_iv_table<F: PrimeField + Hash>(
@@ -198,7 +214,7 @@ impl CircuitParams {
         b2: Queriable<F>,
         xor: Queriable<F>,
     ) {
-        ctx.add_lookup(self.xor_4bits_table.apply(b1 * VALUE_4BITS + b2).apply(xor));
+        ctx.add_lookup(self.xor_4bits_table.apply(b1 * BASE_4BITS + b2).apply(xor));
     }
 
     fn check_not<F: PrimeField + Hash>(
@@ -207,11 +223,7 @@ impl CircuitParams {
         b1: Queriable<F>,
         xor: Queriable<F>,
     ) {
-        ctx.add_lookup(
-            self.xor_4bits_table
-                .apply(b1 * VALUE_4BITS + 0xF)
-                .apply(xor),
-        );
+        ctx.add_lookup(self.xor_4bits_table.apply(b1 * BASE_4BITS + 0xF).apply(xor));
     }
 
     fn check_iv<F: PrimeField + Hash>(
@@ -295,8 +307,8 @@ struct GStepParams<F> {
 fn split_value_4bits<F: PrimeField + Hash>(mut value: u128, n: u64) -> Vec<F> {
     (0..n)
         .map(|_| {
-            let v = value % VALUE_4BITS as u128;
-            value /= VALUE_4BITS as u128;
+            let v = value % BASE_4BITS as u128;
+            value /= BASE_4BITS as u128;
 
             F::from(v as u64)
         })
@@ -398,7 +410,7 @@ fn split_4bit_signals<F: PrimeField + Hash>(
 
         for &bits in split_vec.iter().rev() {
             params.check_4bit(ctx, bits);
-            sum_value = sum_value * VALUE_4BITS + bits;
+            sum_value = sum_value * BASE_4BITS + bits;
         }
         ctx.constr(eq(sum_value, input[i]))
     }
@@ -418,9 +430,9 @@ fn g_setup<F: PrimeField + Hash>(
     let mut a_bits_sum_value = 0.expr() * 1;
     let mut a_bits_sum_mod_value = 0.expr() * 1;
     for (j, &bits) in q_params.v_mid_va_bit_vec.iter().rev().enumerate() {
-        a_bits_sum_value = a_bits_sum_value * VALUE_4BITS + bits;
+        a_bits_sum_value = a_bits_sum_value * BASE_4BITS + bits;
         if j != 0 {
-            a_bits_sum_mod_value = a_bits_sum_mod_value * VALUE_4BITS + bits;
+            a_bits_sum_mod_value = a_bits_sum_mod_value * BASE_4BITS + bits;
         }
         params.check_4bit(ctx, bits);
     }
@@ -435,14 +447,14 @@ fn g_setup<F: PrimeField + Hash>(
     // check d_bits_sum_value = 4bit split of v[b]
     let mut d_bits_sum_value = 0.expr() * 1;
     for &bits in q_params.v_mid_vd_bit_vec.iter().rev() {
-        d_bits_sum_value = d_bits_sum_value * VALUE_4BITS + bits;
+        d_bits_sum_value = d_bits_sum_value * BASE_4BITS + bits;
         params.check_4bit(ctx, bits);
     }
     ctx.constr(eq(d_bits_sum_value, q_params.input_vec[d]));
 
     let mut ad_xor_sum_value = 0.expr() * 1;
     for &bits in q_params.v_xor_d_bit_vec.iter().rev() {
-        ad_xor_sum_value = ad_xor_sum_value * VALUE_4BITS + bits;
+        ad_xor_sum_value = ad_xor_sum_value * BASE_4BITS + bits;
     }
     // check v_xor_d_bit_vec =  4bit split of v[d]
     ctx.constr(eq(ad_xor_sum_value, q_params.output_vec[d]));
@@ -453,7 +465,7 @@ fn g_setup<F: PrimeField + Hash>(
             q_params.v_mid_va_bit_vec[j],
             q_params.v_mid_vd_bit_vec[j],
             q_params.v_xor_d_bit_vec
-                [(j + VALUE_4BITS as usize - move1 as usize) % VALUE_4BITS as usize],
+                [(j + BASE_4BITS as usize - move1 as usize) % BASE_4BITS as usize],
         );
     }
 
@@ -461,9 +473,9 @@ fn g_setup<F: PrimeField + Hash>(
     let mut c_bits_sum_value = 0.expr() * 1;
     let mut c_bits_sum_mod_value = 0.expr() * 1;
     for (j, &bits) in q_params.v_mid_vc_bit_vec.iter().rev().enumerate() {
-        c_bits_sum_value = c_bits_sum_value * VALUE_4BITS + bits;
+        c_bits_sum_value = c_bits_sum_value * BASE_4BITS + bits;
         if j != 0 {
-            c_bits_sum_mod_value = c_bits_sum_mod_value * VALUE_4BITS + bits;
+            c_bits_sum_mod_value = c_bits_sum_mod_value * BASE_4BITS + bits;
         }
         params.check_4bit(ctx, bits);
     }
@@ -477,7 +489,7 @@ fn g_setup<F: PrimeField + Hash>(
 
     let mut b_bits_sum_value = 0.expr() * 1;
     for &bits in q_params.v_mid_vb_bit_vec.iter().rev() {
-        b_bits_sum_value = b_bits_sum_value * VALUE_4BITS + bits;
+        b_bits_sum_value = b_bits_sum_value * BASE_4BITS + bits;
         params.check_4bit(ctx, bits);
     }
 
@@ -490,7 +502,7 @@ fn g_setup<F: PrimeField + Hash>(
             bc_xor_sum_value = q_params.b_3bits * 1;
             ctx.constr(eq(q_params.b_bit * 8 + q_params.b_3bits, bits));
         } else {
-            bc_xor_sum_value = bc_xor_sum_value * VALUE_4BITS + bits;
+            bc_xor_sum_value = bc_xor_sum_value * BASE_4BITS + bits;
         }
         params.check_4bit(ctx, bits);
     }
@@ -511,7 +523,7 @@ fn g_setup<F: PrimeField + Hash>(
             q_params.v_mid_vb_bit_vec[j],
             q_params.v_mid_vc_bit_vec[j],
             q_params.v_xor_b_bit_vec
-                [(j + VALUE_4BITS as usize - move2 as usize) % VALUE_4BITS as usize],
+                [(j + BASE_4BITS as usize - move2 as usize) % BASE_4BITS as usize],
         );
     }
 }
@@ -637,7 +649,7 @@ fn blake2f_circuit<F: PrimeField + Hash>(
                         .zip(t_split_bits_value.iter().rev()),
                 ) {
                     params.check_xor(ctx, iv, t, value);
-                    final_bits_sum_value = final_bits_sum_value * VALUE_4BITS + value;
+                    final_bits_sum_value = final_bits_sum_value * BASE_4BITS + value;
                 }
                 ctx.constr(eq(final_bits_sum_value, v_vec[12 + i].next()))
             }
@@ -650,7 +662,7 @@ fn blake2f_circuit<F: PrimeField + Hash>(
                 .zip(iv_split_4bits_vec[2].iter().rev())
             {
                 params.check_not(ctx, iv, bits);
-                final_bits_sum_value = final_bits_sum_value * VALUE_4BITS + bits;
+                final_bits_sum_value = final_bits_sum_value * BASE_4BITS + bits;
             }
 
             // check v_vec v_vec.next
@@ -1062,7 +1074,7 @@ fn blake2f_circuit<F: PrimeField + Hash>(
             for (&v, v_split) in v_vec.iter().zip(v_split_bit_vec.iter()) {
                 let mut v_4bits_sum_value = 0.expr() * 1;
                 for &bits in v_split.iter().rev() {
-                    v_4bits_sum_value = v_4bits_sum_value * VALUE_4BITS + bits;
+                    v_4bits_sum_value = v_4bits_sum_value * BASE_4BITS + bits;
                     params.check_4bit(ctx, bits);
                 }
                 ctx.constr(eq(v_4bits_sum_value, v));
@@ -1072,7 +1084,7 @@ fn blake2f_circuit<F: PrimeField + Hash>(
             for (&h, h_split) in h_vec.iter().zip(h_split_bit_vec.iter()) {
                 let mut h_4bits_sum_value = 0.expr() * 1;
                 for &bits in h_split.iter().rev() {
-                    h_4bits_sum_value = h_4bits_sum_value * VALUE_4BITS + bits;
+                    h_4bits_sum_value = h_4bits_sum_value * BASE_4BITS + bits;
                     params.check_4bit(ctx, bits);
                 }
                 ctx.constr(eq(h_4bits_sum_value, h));
@@ -1103,7 +1115,7 @@ fn blake2f_circuit<F: PrimeField + Hash>(
             for (final_vec, &output) in final_split_bit_vec.iter().zip(output_vec.iter()) {
                 let mut final_4bits_sum_value = 0.expr() * 1;
                 for &value in final_vec.iter().rev() {
-                    final_4bits_sum_value = final_4bits_sum_value * VALUE_4BITS + value;
+                    final_4bits_sum_value = final_4bits_sum_value * BASE_4BITS + value;
                 }
                 ctx.constr(eq(output, final_4bits_sum_value));
             }
@@ -1156,88 +1168,26 @@ fn blake2f_circuit<F: PrimeField + Hash>(
 
     ctx.trace(move |ctx, values| {
         let h_vec_values = values.h_vec.to_vec();
-        let h_split_4bits_vec = h_vec_values
-            .iter()
-            .map(|&value| {
-                let mut value = value;
-                (0..BITS_NUMBER)
-                    .map(|_| {
-                        let v = value % VALUE_4BITS;
-                        value >>= 4;
-                        F::from(v)
-                    })
-                    .collect()
-            })
-            .collect();
+        let h_split_4bits_vec = split_to_4bits_values::<F>(&h_vec_values);
 
         let m_vec_values = values.m_vec.to_vec();
-        let m_split_4bits_vec = m_vec_values
-            .iter()
-            .map(|&value| {
-                let mut value = value;
-                (0..BITS_NUMBER)
-                    .map(|_| {
-                        let v = value % VALUE_4BITS;
-                        value >>= 4;
-                        F::from(v)
-                    })
-                    .collect()
-            })
-            .collect();
+        let m_split_4bits_vec = split_to_4bits_values::<F>(&m_vec_values);
 
         let mut iv_vec_values = IV_VALUES.to_vec();
-        let iv_split_4bits_vec: Vec<Vec<F>> = iv_vec_values[4..7]
-            .iter()
-            .map(|&value| {
-                let mut value = value;
-                (0..BITS_NUMBER)
-                    .map(|_| {
-                        let v = value % VALUE_4BITS;
-                        value >>= 4;
-                        F::from(v)
-                    })
-                    .collect()
-            })
-            .collect();
+        let iv_split_4bits_vec: Vec<Vec<F>> =
+            split_to_4bits_values::<F>(&iv_vec_values[4..7]);
 
         let mut v_vec_values = h_vec_values.clone();
         v_vec_values.append(&mut iv_vec_values);
 
-        let mut value = values.t0;
-        let t0_split_4bits_vec = (0..BITS_NUMBER)
-            .map(|_| {
-                let v = value % VALUE_4BITS;
-                value >>= 4;
-                F::from(v)
-            })
-            .collect();
-        let mut value = values.t1;
-        let t1_split_4bits_vec = (0..BITS_NUMBER)
-            .map(|_| {
-                let v = value % VALUE_4BITS;
-                value >>= 4;
-                F::from(v)
-            })
-            .collect();
+        let t_split_4bits_vec = split_to_4bits_values::<F>(&[values.t0, values.t1]);
 
         let final_values = vec![
             v_vec_values[12] ^ values.t0,
             v_vec_values[13] ^ values.t1,
             v_vec_values[14] ^ 0xFFFFFFFFFFFFFFFF,
         ];
-        let final_split_bits_vec: Vec<Vec<F>> = final_values
-            .iter()
-            .map(|&value| {
-                let mut value = value;
-                (0..BITS_NUMBER)
-                    .map(|_| {
-                        let v = value % VALUE_4BITS;
-                        value >>= 4;
-                        F::from(v)
-                    })
-                    .collect()
-            })
-            .collect();
+        let final_split_bits_vec = split_to_4bits_values::<F>(&final_values);
 
         let pre_inputs = PreInput {
             round: F::ZERO,
@@ -1249,7 +1199,7 @@ fn blake2f_circuit<F: PrimeField + Hash>(
             v_vec: v_vec_values.iter().map(|&v| F::from(v)).collect(),
             h_split_4bits_vec,
             m_split_4bits_vec,
-            t_split_4bits_vec: vec![t0_split_4bits_vec, t1_split_4bits_vec],
+            t_split_4bits_vec,
             iv_split_4bits_vec,
             final_split_bits_vec,
         };
