@@ -294,11 +294,9 @@ impl<F: From<u64> + Into<u32> + Clone, V: Clone> CompilationUnit<F, V> {
             .map(|se| self.compile_expression_logic(se.clone()))
             .collect::<Vec<_>>();
 
-        // By De Morgan's law, a or b = not (not a and not b)
-        // In OneZero 0F 1T
-        // If !a, !b are 1T => !a * !b = 1T, if any of !a, !b is 0F => !a * !b = 0F => (1-a) * (1-b)
-        // = 0F So we can do the AND of the negated expressions
-        // And then negate the result
+        // By De Morgan's law, A or B = not ((not A) and (not B))
+        // In OneZero not(A) is 1-A. And A and B is A * B. Hence A or B is 1 - ((1-A)*(1-B)).
+        // For AntiBooly, not(A) = A.one_zero
         let one_zero = sub
             .iter()
             .skip(1)
