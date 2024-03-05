@@ -230,16 +230,18 @@ impl<F: From<u64> + Into<u32> + Clone, V: Clone> CompilationUnit<F, V> {
         let lhs = self.compile_expression_airth(_lhs);
         let rhs = self.compile_expression_airth(_rhs);
 
-        // In One Zero: 0 is false, 1 is true
-        // lhs != rhs => lhs - rhs != 0 so we calculate lhs - rhs and then negate it
-        let expr = lhs - rhs;
+        // lhs != rhs is equivalent to not( lhs == rhs)
+        // In OneZero not(A) is 1 - A. And lhs == rhs is (lhs-rhs).cast_one_zero().
+        // Hence OneZero expresion is 1 - (lhs-rhs).cast_one_zero()
+        // In AntiBooly, not(A) = A.one_zero; And before we saw that lhs == rhs in OneZero is 1 -
+        // (lhs-rhs).cast_one_zero()
+        let eq_expr = lhs - rhs;
+        let eq_one_zero = eq_expr.cast_one_zero();
 
-        // For the anti_booly, the not is the one_zero version of the expression
-        // For the one_zero, the not is 1 - one_zero version of the expression
         CompilationResult {
             dsym: _dsym,
-            anti_booly: expr.clone(),
-            one_zero: expr.one_minus(),
+            anti_booly: eq_one_zero.clone(),
+            one_zero: eq_one_zero.one_minus(),
         }
     }
 
