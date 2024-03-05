@@ -201,6 +201,12 @@ impl From<&'static str> for StepTypeDefInput {
     }
 }
 
+impl From<String> for StepTypeDefInput {
+    fn from(s: String) -> Self {
+        StepTypeDefInput::String(Box::leak(s.into_boxed_str()))
+    }
+}
+
 /// A generic structure designed to handle the context of a step type definition.  The struct
 /// contains a `StepType` instance and implements methods to build the step type, add components,
 /// and manipulate the step type. `F` is a generic type representing the field of the step type.
