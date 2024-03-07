@@ -399,7 +399,7 @@ impl<F: From<u64> + Into<u32> + Clone, V: Clone> CompilationUnit<F, V> {
                 // For the AntiBooly if we have a >0F in any of the two results, the result will be
                 // >0F with the sum of the two >0F
                 let one_zero = if_then.one_zero * if_else.one_zero;
-                let anti_booly = if_then.anti_booly + if_else.anti_booly;
+                let anti_booly = one_zero.cast_anti_booly();
 
                 CompilationResult {
                     dsym: dsym.clone(),
