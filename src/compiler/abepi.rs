@@ -396,8 +396,7 @@ impl<F: From<u64> + Into<u32> + Clone, V: Clone> CompilationUnit<F, V> {
             .map(|(if_then, if_else)| {
                 // The AND of the two results
                 // For the OneZero if we have a 0F in any of the two results, the result will be 0F
-                // For the AntiBooly if we have a >0F in any of the two results, the result will be
-                // >0F with the sum of the two >0F
+                // For the AntiBooly we cast the one_zero result
                 let one_zero = if_then.one_zero * if_else.one_zero;
                 let anti_booly = one_zero.cast_anti_booly();
 
