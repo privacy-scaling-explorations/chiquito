@@ -365,22 +365,55 @@ impl<F: From<u64> + Into<u32> + Clone, V: Clone> CompilationUnit<F, V> {
 
     fn compile_statement_if_then_else(
         &self,
-        _dsym: DebugSymRef,
+        dsym: DebugSymRef,
         cond: Expression<F, V>,
-        _when_true: Statement<F, V>,
-        _when_false: Statement<F, V>,
+        when_true: Statement<F, V>,
+        when_false: Statement<F, V>,
     ) -> Vec<CompilationResult<F, V>> {
         assert!(cond.is_logic());
 
-        let _cond = self.compile_expression(cond);
-
         // if A then assert B else assert C
-        // (A and B) or (not A and C)
+        // this is equivalent to (if A then assert B) and (if not A then assert C)
+        // this will be equivalent to (not (A and not B)) and (not (not A and not C))
 
-        // In OneZero 0F 1T
         // Using cond only as OneZero 0F, 1T
-        // For OneZero result =>
-        todo!()
+        // For the OneZero result and we can write this as
+        // (1 - (cond * (1-when_true.one_zero))) * (1 - ((1-cond) * (1-when_false.one_zero)))
+        // For the AntiBooly result we can do
+        // cond * when_true.anti_booly * (1-cond) * when_false.anti_booly
+
+        // First version with the basic relation (if A then assert B) and (if not A then assert C)
+        // Non optimized
+        let if_then_compiled =
+            self.compile_statement_if_then(dsym.clone(), cond.clone(), when_true);
+        let if_else_compiled = self.compile_statement_if_then(
+            dsym.clone(),
+            Expression::UnaryOp {
+                dsym: dsym.clone(),
+                op: crate::parser::ast::expression::UnaryOperator::Not,
+                sub: Box::new(cond),
+            },
+            when_false,
+        );
+
+        if_then_compiled
+            .into_iter()
+            .zip(if_else_compiled.into_iter())
+            .map(|(if_then, if_else)| {
+                // The AND of the two results
+                // For the OneZero if we have a 0F in any of the two results, the result will be 0F
+                // For the AntiBooly if we have a >0F in any of the two results, the result will be
+                // >0F with the sum of the two >0F
+                let one_zero = if_then.one_zero * if_else.one_zero;
+                let anti_booly = if_then.anti_booly + if_else.anti_booly;
+
+                CompilationResult {
+                    dsym: dsym.clone(),
+                    anti_booly,
+                    one_zero,
+                }
+            })
+            .collect()
     }
 }
 
