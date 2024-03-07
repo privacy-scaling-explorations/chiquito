@@ -376,12 +376,6 @@ impl<F: From<u64> + Into<u32> + Clone, V: Clone> CompilationUnit<F, V> {
         // this is equivalent to (if A then assert B) and (if not A then assert C)
         // this will be equivalent to (not (A and not B)) and (not (not A and not C))
 
-        // Using cond only as OneZero 0F, 1T
-        // For the OneZero result and we can write this as
-        // (1 - (cond * (1-when_true.one_zero))) * (1 - ((1-cond) * (1-when_false.one_zero)))
-        // For the AntiBooly result we can do
-        // cond * when_true.anti_booly * (1-cond) * when_false.anti_booly
-
         // First version with the basic relation (if A then assert B) and (if not A then assert C)
         // Non optimized
         let if_then_compiled =
