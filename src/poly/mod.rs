@@ -126,12 +126,12 @@ impl<F: Clone + From<u64>, V: Clone> Expr<F, V> {
         Const(F::from(1u64)) + (-self.clone())
     }
 
-    /// Casts OneZero representation to anti-booly represenation.
+    /// Casts OneZero representation to anti-booly representation.
     pub fn cast_anti_booly(&self) -> Self {
         self.one_minus()
     }
 
-    /// Casts anti-booly represation to OneZero represenation.
+    /// Casts anti-booly represation to OneZero representation.
     pub fn cast_one_zero(&self) -> Self {
         use Expr::MI;
 
