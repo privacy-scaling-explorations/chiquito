@@ -4,12 +4,20 @@ use super::DebugSymRef;
 
 #[derive(Clone, PartialEq, Eq)]
 pub enum BinaryOperator {
+    // Arithmetic
     Sum,
     Sub,
     Mul,
     Pow,
+
+    // Logic
     Eq,
     NEq,
+    Greater,
+    Less,
+    GreaterEq,
+    LessEq,
+    
     And,
     Or,
 }
@@ -22,6 +30,10 @@ impl BinaryOperator {
             NEq => true,
             And => true,
             Or => true,
+            Greater => true,
+            Less => true,
+            GreaterEq => true,
+            LessEq => true,
             Sum => false,
             _ => false,
         }
@@ -43,6 +55,10 @@ impl Debug for BinaryOperator {
             Self::NEq => write!(f, "!="),
             Self::And => write!(f, "&&"),
             Self::Or => write!(f, "||"),
+            Self::Greater => write!(f, ">"),
+            Self::Less => write!(f, "<"),
+            Self::GreaterEq => write!(f, ">="),
+            Self::LessEq => write!(f, "<="),
         }
     }
 }
@@ -56,6 +72,10 @@ impl From<String> for BinaryOperator {
             "^" => Pow,
             "==" => Eq,
             "!=" => NEq,
+            ">" => Greater,
+            "<" => Less,
+            ">=" => GreaterEq,
+            "<=" => LessEq,
             "&&" => Or,
             "||" => And,
             &_ => unreachable!(),

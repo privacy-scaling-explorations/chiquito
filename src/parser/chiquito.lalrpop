@@ -136,6 +136,11 @@ ParseEq: Expression<BigInt, Identifier> = {
     <lhs: ParseArith> "==" <rhs: ParseArith> => build_bin_op("==", lhs, rhs),
     <lhs: ParseArith> "!=" <rhs: ParseArith> => build_bin_op("!=", lhs, rhs),
 
+    <lhs: ParseArith> "<" <rhs: ParseArith> => build_bin_op("<", lhs, rhs),
+    <lhs: ParseArith> "<=" <rhs: ParseArith> => build_bin_op("<=", lhs, rhs),
+    <lhs: ParseArith> ">" <rhs: ParseArith> => build_bin_op(">", lhs, rhs),
+    <lhs: ParseArith> ">=" <rhs: ParseArith> => build_bin_op(">=", lhs, rhs),
+
     ParseArith
 }
 

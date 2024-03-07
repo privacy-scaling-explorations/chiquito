@@ -28,6 +28,36 @@ mod test {
             .unwrap();
         assert_eq!(&format!("{:?}", expr), "0 == (22 + ((44 + 66) * a))");
         assert!(expr.is_logic());
+
+        let expr = lang::ExpressionParser::new()
+            .parse("0 < 22 + 44 + 66 * a")
+            .unwrap();
+        assert_eq!(&format!("{:?}", expr), "0 < ((22 + 44) + (66 * a))");
+        assert!(expr.is_logic());
+
+        let expr = lang::ExpressionParser::new()
+            .parse("0 > 22 + (44 + 66) * a")
+            .unwrap();
+        assert_eq!(
+            &format!("{:?}", expr),
+            "0 > (22 + ((44 + 66) * a))"
+        );
+        assert!(expr.is_logic());
+
+        let expr = lang::ExpressionParser::new()
+            .parse("0 >= 22 + 44 + 66 * a")
+            .unwrap();
+        assert_eq!(&format!("{:?}", expr), "0 >= ((22 + 44) + (66 * a))");
+        assert!(expr.is_logic());
+
+        let expr = lang::ExpressionParser::new()
+            .parse("0 <= 22 + (44 + 66) * a")
+            .unwrap();
+        assert_eq!(
+            &format!("{:?}", expr),
+            "0 <= (22 + ((44 + 66) * a))"
+        );
+        assert!(expr.is_logic());
     }
 
     #[test]
