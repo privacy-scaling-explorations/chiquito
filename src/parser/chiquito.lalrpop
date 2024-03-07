@@ -149,9 +149,20 @@ ParseArith: Expression<BigInt, Identifier> = {
     ParseSum
 }
 
-ParseSum: Expression<BigInt, Identifier> = ParseArithBinOp<"+", ParseMul>;
+ParseSum: Expression<BigInt, Identifier> = ParseArithBinOp<"+", ParseSub>;
 
-ParseMul: Expression<BigInt, Identifier> = ParseArithBinOp<"*", ParsePrefixMinus>;
+ParseSub: Expression<BigInt, Identifier> = ParseArithBinOp<"-", ParseMul>;
+
+ParseMul: Expression<BigInt, Identifier> = ParseArithBinOp<"*", ParsePow>;
+
+ParsePow: Expression<BigInt, Identifier> = ParseArithBinOp<"^", ParseDiv>;
+
+ParseDiv: Expression<BigInt, Identifier> = ParseArithBinOp<"/", ParseDivRem>;
+
+ParseDivRem: Expression<BigInt, Identifier> = ParseArithBinOp<"%", ParseMulInv>;
+
+ParseMulInv: Expression<BigInt, Identifier> = ParseArithBinOp<"\\", ParsePrefixMinus>;
+
 
 ParsePrefixMinus: Expression<BigInt, Identifier> = {
     "-" <sub: ExpressionTerm> => build_unary_op("-", sub),

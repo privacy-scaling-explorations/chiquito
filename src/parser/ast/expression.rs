@@ -9,6 +9,9 @@ pub enum BinaryOperator {
     Sub,
     Mul,
     Pow,
+    MulInv,
+    Div,
+    DivRem,
 
     // Logic
     Eq,
@@ -17,7 +20,7 @@ pub enum BinaryOperator {
     Less,
     GreaterEq,
     LessEq,
-    
+
     And,
     Or,
 }
@@ -51,6 +54,9 @@ impl Debug for BinaryOperator {
             Self::Sub => write!(f, "-"),
             Self::Mul => write!(f, "*"),
             Self::Pow => write!(f, "^"),
+            Self::Div => write!(f, "/"),
+            Self::DivRem => write!(f, "%"),
+            Self::MulInv => write!(f, "\\"),
             Self::Eq => write!(f, "=="),
             Self::NEq => write!(f, "!="),
             Self::And => write!(f, "&&"),
@@ -68,8 +74,12 @@ impl From<String> for BinaryOperator {
         use BinaryOperator::*;
         match value.as_str() {
             "+" => Sum,
+            "-" => Sub,
             "*" => Mul,
             "^" => Pow,
+            "/" => Div,
+            "%" => DivRem,
+            "\\" => MulInv,
             "==" => Eq,
             "!=" => NEq,
             ">" => Greater,
