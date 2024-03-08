@@ -1,4 +1,4 @@
-use std::fmt::Debug;
+use std::fmt::{write, Debug};
 
 use super::DebugSymRef;
 
@@ -13,6 +13,9 @@ pub enum BinaryOperator {
     Div,
     DivRem,
 
+    RightShift,
+    LeftShift,
+
     // Logic
     Eq,
     NEq,
@@ -23,6 +26,10 @@ pub enum BinaryOperator {
 
     And,
     Or,
+
+    BitAnd,
+    BitOr,
+    BitXor,
 }
 
 impl BinaryOperator {
@@ -37,6 +44,9 @@ impl BinaryOperator {
             Less => true,
             GreaterEq => true,
             LessEq => true,
+            BitAnd => true,
+            BitOr => true,
+            BitXor => true,
             Sum => false,
             _ => false,
         }
@@ -53,7 +63,7 @@ impl Debug for BinaryOperator {
             Self::Sum => write!(f, "+"),
             Self::Sub => write!(f, "-"),
             Self::Mul => write!(f, "*"),
-            Self::Pow => write!(f, "^"),
+            Self::Pow => write!(f, "**"),
             Self::Div => write!(f, "/"),
             Self::DivRem => write!(f, "%"),
             Self::MulInv => write!(f, "\\"),
@@ -65,6 +75,11 @@ impl Debug for BinaryOperator {
             Self::Less => write!(f, "<"),
             Self::GreaterEq => write!(f, ">="),
             Self::LessEq => write!(f, "<="),
+            Self::BitAnd => write!(f, "&"),
+            Self::BitOr => write!(f, "|"),
+            Self::BitXor => write!(f, "^"),
+            Self::RightShift => write!(f, ">>"),
+            Self::LeftShift => write!(f, "<<"),
         }
     }
 }
@@ -76,7 +91,7 @@ impl From<String> for BinaryOperator {
             "+" => Sum,
             "-" => Sub,
             "*" => Mul,
-            "^" => Pow,
+            "**" => Pow,
             "/" => Div,
             "%" => DivRem,
             "\\" => MulInv,
@@ -86,8 +101,13 @@ impl From<String> for BinaryOperator {
             "<" => Less,
             ">=" => GreaterEq,
             "<=" => LessEq,
-            "&&" => Or,
-            "||" => And,
+            "||" => Or,
+            "&&" => And,
+            "&" => BitAnd,
+            "|" => BitOr,
+            "^" => BitXor,
+            ">>" => RightShift,
+            "<<" => LeftShift,
             &_ => unreachable!(),
         }
     }
@@ -95,8 +115,14 @@ impl From<String> for BinaryOperator {
 
 #[derive(Clone)]
 pub enum UnaryOperator {
+    // Logic
     Not,
+
+    // Arithmetic
     Neg,
+
+    // Bitwise
+    Complement,
 }
 
 impl UnaryOperator {
@@ -105,6 +131,7 @@ impl UnaryOperator {
         match self {
             Not => true,
             Neg => false,
+            Complement => false,
         }
     }
 
@@ -119,6 +146,7 @@ impl Debug for UnaryOperator {
         match self {
             Not => write!(f, "!"),
             Neg => write!(f, "-"),
+            Complement => write!(f, "~"),
         }
     }
 }
@@ -129,6 +157,7 @@ impl From<String> for UnaryOperator {
         match value.as_str() {
             "!" => Not,
             "-" => Neg,
+            "~" => Complement,
             &_ => unimplemented!(),
         }
     }
@@ -252,7 +281,18 @@ impl<F: Debug, V: Debug> Debug for Expression<F, V> {
             }
 
             Self::Query(_, arg0) => write!(f, "{:?}", arg0),
-            Expression::UnaryOp { .. } => todo!(),
+            Self::UnaryOp { op, sub, .. } => {
+                write!(
+                    f,
+                    "({:?}{})",
+                    op,
+                    if sub.is_composed() {
+                        format!("({:?})", sub)
+                    } else {
+                        format!("{:?}", sub)
+                    }
+                )
+            }
             Expression::Select { .. } => todo!(),
 
             Expression::True(_) => write!(f, "true"),

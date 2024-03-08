@@ -141,31 +141,46 @@ ParseEq: Expression<BigInt, Identifier> = {
     <lhs: ParseArith> ">" <rhs: ParseArith> => build_bin_op(">", lhs, rhs),
     <lhs: ParseArith> ">=" <rhs: ParseArith> => build_bin_op(">=", lhs, rhs),
 
-    ParseArith
+    ParseBitOr
 }
+
+ParseBitOr: Expression<BigInt, Identifier> =  ParseLogichBinOp<"|", ParseBitXor>;
+
+ParseBitXor: Expression<BigInt, Identifier> =  ParseLogichBinOp<"^", ParseBitAnd>;
+
+ParseBitAnd: Expression<BigInt, Identifier> =  ParseLogichBinOp<"&", ParseArith>;
 
 // Arithmetical expressions
 ParseArith: Expression<BigInt, Identifier> = {
-    ParseSum
+    ParseLeftShift
 }
 
-ParseSum: Expression<BigInt, Identifier> = ParseArithBinOp<"+", ParseSub>;
+ParseLeftShift: Expression<BigInt, Identifier> = ParseArithBinOp<"<<", ParseRightShift>;
 
-ParseSub: Expression<BigInt, Identifier> = ParseArithBinOp<"-", ParseMul>;
+ParseRightShift: Expression<BigInt, Identifier> = ParseArithBinOp<">>", ParseSub>;
+
+ParseSub: Expression<BigInt, Identifier> = ParseArithBinOp<"-", ParseSum>;
+
+ParseSum: Expression<BigInt, Identifier> = ParseArithBinOp<"+", ParseDivRem>;
+
+ParseDivRem: Expression<BigInt, Identifier> = ParseArithBinOp<"%", ParseDiv>;
+
+ParseDiv: Expression<BigInt, Identifier> = ParseArithBinOp<"/", ParseMulInv>;
+
+ParseMulInv: Expression<BigInt, Identifier> = ParseArithBinOp<"\\", ParseMul>;
 
 ParseMul: Expression<BigInt, Identifier> = ParseArithBinOp<"*", ParsePow>;
 
-ParsePow: Expression<BigInt, Identifier> = ParseArithBinOp<"^", ParseDiv>;
-
-ParseDiv: Expression<BigInt, Identifier> = ParseArithBinOp<"/", ParseDivRem>;
-
-ParseDivRem: Expression<BigInt, Identifier> = ParseArithBinOp<"%", ParseMulInv>;
-
-ParseMulInv: Expression<BigInt, Identifier> = ParseArithBinOp<"\\", ParsePrefixMinus>;
-
+ParsePow: Expression<BigInt, Identifier> = ParseArithBinOp<"**", ParsePrefixMinus>;
 
 ParsePrefixMinus: Expression<BigInt, Identifier> = {
     "-" <sub: ExpressionTerm> => build_unary_op("-", sub),
+
+    ParsePrefixComp
+}
+
+ParsePrefixComp: Expression<BigInt, Identifier> = {
+    "~" <sub: ExpressionTerm> => build_unary_op("~", sub),
 
     ExpressionTerm
 }
