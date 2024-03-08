@@ -1,4 +1,4 @@
-use std::fmt::{write, Debug};
+use std::fmt::Debug;
 
 use super::DebugSymRef;
 
