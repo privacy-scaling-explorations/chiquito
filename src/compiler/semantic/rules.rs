@@ -687,6 +687,12 @@ mod test {
             signal n; // cannot redeclare n
 
             state middle {
+                -> final {
+                    i', n' <== i + 1, n;
+                }
+            }
+
+            state middle {
              signal c;
              signal c; // cannot redeclare c
 
@@ -716,7 +722,7 @@ mod test {
 
         assert_eq!(
             format!("{:?}", result.messages),
-            r#"[Err { msg: "Cannot redeclare n in the same scope [\"/\", \"fibo\"]", dsym: DebugSymRef { start: 0, end: 0 } }, Err { msg: "Cannot redeclare c in the same scope [\"/\", \"fibo\", \"middle\"]", dsym: DebugSymRef { start: 0, end: 0 } }]"#
+            r#"[Err { msg: "Cannot redeclare middle in the same scope [\"/\", \"fibo\"]", dsym: DebugSymRef { start: 0, end: 0 } }, Err { msg: "Cannot redeclare n in the same scope [\"/\", \"fibo\"]", dsym: DebugSymRef { start: 0, end: 0 } }, Err { msg: "Cannot redeclare c in the same scope [\"/\", \"fibo\", \"middle\"]", dsym: DebugSymRef { start: 0, end: 0 } }]"#
         );
     }
 }
