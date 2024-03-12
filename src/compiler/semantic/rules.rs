@@ -1,4 +1,4 @@
-use std::{fmt::Debug, vec};
+use std::vec;
 
 use lazy_static::lazy_static;
 
@@ -195,13 +195,50 @@ fn check_expr_for_wgvar(
     }
 }
 
+// Cannot declare other than states, wgvars and signals in the machine.
+fn machine_decl_tl(
+    analyser: &mut Analyser,
+    decl: &TLDecl<BigInt, Identifier>,
+    _id: &Identifier,
+    _symbol: &SymTableEntry,
+) {
+    match decl {
+        TLDecl::MachineDecl { dsym, .. } => {
+            let block = match decl {
+                TLDecl::MachineDecl { block, .. } => block,
+            };
+
+            if let Statement::Block(_, block) = block {
+                block.into_iter().for_each(|stmt| {
+                    match stmt {
+                        Statement::SignalDecl(_, _) => (),
+                        Statement::WGVarDecl(_, _) => (),
+                        Statement::StateDecl(..) => (),
+                        _ => analyser.error(
+                            format!(
+                                "Cannot declare {:?} in the machine, only states, wgvars and signals are allowed",
+                                stmt
+                            ),
+                            dsym,
+                        ),
+                        
+                    }
+                })
+            } else {
+                unreachable!("parser only generates blocks in this context");
+            }
+        }
+        
+    }
+}
+
 lazy_static! {
     /// Global semantic analyser rules.
     pub(super) static ref RULES: RuleSet = RuleSet {
         expression: vec![undeclared_rule],
         statement: vec![state_decl, assignment_rule, assert_rule],
         new_symbol: vec![rotation_decl],
-        new_tl_symbol: vec![rotation_decl_tl],
+        new_tl_symbol: vec![rotation_decl_tl, machine_decl_tl],
     };
 }
 
@@ -642,5 +679,67 @@ mod test {
             format!("{:?}", result.messages),
             r#"[Err { msg: "Cannot use wgvar wrong in statement assert wrong == 3;", dsym: DebugSymRef { start: 0, end: 0 } }, Err { msg: "Cannot use wgvar wrong in statement [c] <== [(a + b) + wrong];", dsym: DebugSymRef { start: 0, end: 0 } }]"#
         )
+    }
+
+    #[test]
+    fn test_machine_decl_rule() {
+        let circuit = "
+        machine fibo(signal n) (signal b: field) {
+            // n and be are created automatically as shared
+            // signals
+            signal a: field, i;
+
+            i, a, b, c <== 1, 1, 1, 2; // this cannot be here
+
+            // there is always a state called initial
+            // input signals get binded to the signal
+            // in the initial state (first instance)
+            state initial {
+             signal c;
+
+             i, a, b, c <== 1, 1, 1, 2;
+
+             -> middle {
+              a', b', n' <== b, c, n;
+             }
+            }
+
+            if i + 1 == n { // this cannot be here
+              a <-- 3;
+            } else {
+              b <== 3;
+            }
+
+            state middle {
+             signal c;
+
+             c <== a + b;
+
+             if i + 1 == n {
+              -> final {
+               i', b', n' <== i + 1, c, n;
+              }
+             } else {
+              -> middle {
+               i', a', b', n' <== i + 1, b, c, n;
+              }
+             }
+            }
+
+            // There is always a state called final.
+            // Output signals get automatically bindinded to the signals
+            // with the same name in the final step (last instance).
+            // This state can be implicit if there are no constraints in it.
+           }
+        ";
+
+        let decls = lang::TLDeclsParser::new().parse(circuit).unwrap();
+
+        let result = analyse(decls);
+
+        assert_eq!(
+            format!("{:?}", result.messages),
+            r#"[Err { msg: "Cannot declare [i, a, b, c] <== [1, 1, 1, 2]; in the machine, only states, wgvars and signals are allowed", dsym: DebugSymRef { start: 0, end: 0 } }, Err { msg: "Cannot declare if (i + 1) == n { [a] <-- [3]; } else { [b] <== [3]; } in the machine, only states, wgvars and signals are allowed", dsym: DebugSymRef { start: 0, end: 0 } }]"#
+        );
     }
 }
