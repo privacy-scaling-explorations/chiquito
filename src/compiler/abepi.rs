@@ -226,7 +226,25 @@ impl<F: From<u64> + Into<u32> + Clone, V: Clone> CompilationUnit<F, V> {
         _lhs: Expression<F, V>,
         _rhs: Expression<F, V>,
     ) -> CompilationResult<F, V> {
-        todo!()
+        assert!(_lhs.is_arith());
+        assert!(_rhs.is_arith());
+
+        let lhs = self.compile_expression_airth(_lhs);
+        let rhs = self.compile_expression_airth(_rhs);
+
+        // lhs != rhs is equivalent to not( lhs == rhs)
+        // In OneZero not(A) is 1 - A. And lhs == rhs is (lhs-rhs).cast_one_zero().
+        // Hence OneZero expresion is 1 - (lhs-rhs).cast_one_zero()
+        // In AntiBooly, not(A) = A.one_zero; And before we saw that lhs == rhs in OneZero is 1 -
+        // (lhs-rhs).cast_one_zero()
+        let eq_expr = lhs - rhs;
+        let eq_one_zero = eq_expr.cast_one_zero();
+
+        CompilationResult {
+            dsym: _dsym,
+            anti_booly: eq_one_zero.clone(),
+            one_zero: eq_one_zero.one_minus(),
+        }
     }
 
     fn compile_expression_and(
@@ -264,11 +282,35 @@ impl<F: From<u64> + Into<u32> + Clone, V: Clone> CompilationUnit<F, V> {
 
     fn compile_expression_or(
         &self,
-        _dsym: DebugSymRef,
-        _lhs: Expression<F, V>,
-        _rhs: Expression<F, V>,
+        dsym: DebugSymRef,
+        lhs: Expression<F, V>,
+        rhs: Expression<F, V>,
     ) -> CompilationResult<F, V> {
-        todo!()
+        let mut sub = Vec::new();
+
+        flatten_bin_op(BinaryOperator::Or, lhs, rhs, &mut sub);
+        assert!(sub.iter().all(|se| se.is_logic()));
+
+        let sub = sub
+            .iter()
+            .map(|se| self.compile_expression_logic(se.clone()))
+            .collect::<Vec<_>>();
+
+        // By De Morgan's law, A or B = not ((not A) and (not B))
+        // In OneZero not(A) is 1-A. And A and B is A * B. Hence A or B is 1 - ((1-A)*(1-B)).
+        // For AntiBooly, not(A) = A.one_zero
+        let one_zero = sub
+            .iter()
+            .skip(1)
+            .fold(sub[0].one_zero.clone().one_minus(), |acc, se| {
+                acc * se.one_zero.clone().one_minus()
+            });
+
+        CompilationResult {
+            dsym,
+            anti_booly: one_zero.clone(),
+            one_zero: one_zero.one_minus(),
+        }
     }
 
     fn compile_expression_not(
@@ -305,7 +347,7 @@ impl<F: From<u64> + Into<u32> + Clone, V: Clone> CompilationUnit<F, V> {
         // Using cond only as OneZero 0F, 1T
         // For the OneZero result, only when cond 1T and when_true.one_zero is 0F, 1 - (cond *
         // (1-when_true.one_zero) => 0F, will be 1T in any other case
-        // For the AntiBooly resilt, only when cond 1T and when_true.anti_bool is >0F, cond *
+        // For the AntiBooly result, only when cond 1T and when_true.anti_bool is >0F, cond *
         // when_true.anti_booly => >0F, will be 0F in any other case
         self.compile_statement(when_true)
             .iter()
@@ -325,12 +367,48 @@ impl<F: From<u64> + Into<u32> + Clone, V: Clone> CompilationUnit<F, V> {
 
     fn compile_statement_if_then_else(
         &self,
-        _dsym: DebugSymRef,
-        _cond: Expression<F, V>,
-        _when_true: Statement<F, V>,
-        _when_false: Statement<F, V>,
+        dsym: DebugSymRef,
+        cond: Expression<F, V>,
+        when_true: Statement<F, V>,
+        when_false: Statement<F, V>,
     ) -> Vec<CompilationResult<F, V>> {
-        todo!()
+        assert!(cond.is_logic());
+
+        // if A then assert B else assert C
+        // this is equivalent to (if A then assert B) and (if not A then assert C)
+        // this will be equivalent to (not (A and not B)) and (not (not A and not C))
+
+        // First version with the basic relation (if A then assert B) and (if not A then assert C)
+        // Non optimized
+        let if_then_compiled =
+            self.compile_statement_if_then(dsym.clone(), cond.clone(), when_true);
+        let if_else_compiled = self.compile_statement_if_then(
+            dsym.clone(),
+            Expression::UnaryOp {
+                dsym: dsym.clone(),
+                op: crate::parser::ast::expression::UnaryOperator::Not,
+                sub: Box::new(cond),
+            },
+            when_false,
+        );
+
+        if_then_compiled
+            .into_iter()
+            .zip(if_else_compiled.into_iter())
+            .map(|(if_then, if_else)| {
+                // The AND of the two results
+                // For the OneZero if we have a 0F in any of the two results, the result will be 0F
+                // For the AntiBooly we cast the one_zero result
+                let one_zero = if_then.one_zero * if_else.one_zero;
+                let anti_booly = one_zero.cast_anti_booly();
+
+                CompilationResult {
+                    dsym: dsym.clone(),
+                    anti_booly,
+                    one_zero,
+                }
+            })
+            .collect()
     }
 }
 
