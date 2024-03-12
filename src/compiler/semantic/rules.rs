@@ -195,7 +195,7 @@ fn check_expr_for_wgvar(
     }
 }
 
-// Cannot redeclare a variable (wgvar or signal) in the same scope.
+// Cannot redeclare a variable (wgvar, signal) or state in the same scope.
 fn redeclare_rule(
     analyser: &mut Analyser,
     expr: &Statement<BigInt, Identifier>,
