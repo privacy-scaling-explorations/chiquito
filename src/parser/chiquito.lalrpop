@@ -152,34 +152,36 @@ ParseBitAnd: Expression<BigInt, Identifier> =  ParseLogichBinOp<"&", ParseArith>
 
 // Arithmetical expressions
 ParseArith: Expression<BigInt, Identifier> = {
-    ParseLeftShift
+    ParseShift
 }
 
-ParseLeftShift: Expression<BigInt, Identifier> = ParseArithBinOp<"<<", ParseRightShift>;
+ParseShift: Expression<BigInt, Identifier> = {
+    <lhs: ParseShift> "<<" <rhs: ParseSumSub> => build_bin_op("<<", lhs, rhs),
+    <lhs: ParseShift> ">>" <rhs: ParseSumSub> => build_bin_op(">>", lhs, rhs),
 
-ParseRightShift: Expression<BigInt, Identifier> = ParseArithBinOp<">>", ParseSub>;
+    ParseSumSub
+}
 
-ParseSub: Expression<BigInt, Identifier> = ParseArithBinOp<"-", ParseSum>;
+ParseSumSub: Expression<BigInt, Identifier> = {
+    <lhs: ParseSumSub> "-" <rhs: ParseMulDiv> => build_bin_op("-", lhs, rhs),
+    <lhs: ParseSumSub> "+" <rhs: ParseMulDiv> => build_bin_op("+", lhs, rhs),
 
-ParseSum: Expression<BigInt, Identifier> = ParseArithBinOp<"+", ParseDivRem>;
+    ParseMulDiv
+}
 
-ParseDivRem: Expression<BigInt, Identifier> = ParseArithBinOp<"%", ParseDiv>;
+ParseMulDiv: Expression<BigInt, Identifier> = {
+    <lhs: ParseMulDiv> "%" <rhs: ParsePow> => build_bin_op("%", lhs, rhs),
+    <lhs: ParseMulDiv> "/" <rhs: ParsePow> => build_bin_op("/", lhs, rhs),
+    <lhs: ParseMulDiv> "\\" <rhs: ParsePow> => build_bin_op("\\", lhs, rhs),
+    <lhs: ParseMulDiv> "*" <rhs: ParsePow> => build_bin_op("*", lhs, rhs),
 
-ParseDiv: Expression<BigInt, Identifier> = ParseArithBinOp<"/", ParseMulInv>;
+    ParsePow
+}
 
-ParseMulInv: Expression<BigInt, Identifier> = ParseArithBinOp<"\\", ParseMul>;
+ParsePow: Expression<BigInt, Identifier> = ParseArithBinOp<"**", ParsePrefix>;
 
-ParseMul: Expression<BigInt, Identifier> = ParseArithBinOp<"*", ParsePow>;
-
-ParsePow: Expression<BigInt, Identifier> = ParseArithBinOp<"**", ParsePrefixMinus>;
-
-ParsePrefixMinus: Expression<BigInt, Identifier> = {
+ParsePrefix: Expression<BigInt, Identifier> = {
     "-" <sub: ExpressionTerm> => build_unary_op("-", sub),
-
-    ParsePrefixComp
-}
-
-ParsePrefixComp: Expression<BigInt, Identifier> = {
     "~" <sub: ExpressionTerm> => build_unary_op("~", sub),
 
     ExpressionTerm
