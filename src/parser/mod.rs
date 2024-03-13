@@ -28,6 +28,43 @@ mod test {
             .unwrap();
         assert_eq!(&format!("{:?}", expr), "0 == (22 + ((44 + 66) * a))");
         assert!(expr.is_logic());
+
+        let expr = lang::ExpressionParser::new()
+            .parse("a == 12 && b == 22 + 44 + 66 * a")
+            .unwrap();
+        assert_eq!(
+            &format!("{:?}", expr),
+            "(a == 12) && (b == ((22 + 44) + (66 * a)))"
+        );
+        assert!(expr.is_logic());
+
+        let expr = lang::ExpressionParser::new()
+            .parse("true || false && a == 12")
+            .unwrap();
+        assert_eq!(&format!("{:?}", expr), "true || (false && (a == 12))");
+        assert!(expr.is_logic());
+
+        let expr = lang::ExpressionParser::new()
+            .parse("12 * a**2 / 3 < 12 << 2")
+            .unwrap();
+        assert_eq!(&format!("{:?}", expr), "((12 * (a ** 2)) / 3) < (12 << 2)");
+        assert!(expr.is_logic());
+
+        let expr = lang::ExpressionParser::new().parse("a << 2 & b").unwrap();
+        assert_eq!(&format!("{:?}", expr), "(a << 2) & b");
+        assert!(expr.is_logic());
+
+        let expr = lang::ExpressionParser::new()
+            .parse("a << 2 & ~b | c")
+            .unwrap();
+        assert_eq!(&format!("{:?}", expr), "((a << 2) & (~b)) | c");
+        assert!(expr.is_logic());
+
+        let expr = lang::ExpressionParser::new()
+            .parse("a << 2 * -(b + ~c)")
+            .unwrap();
+        assert_eq!(&format!("{:?}", expr), "a << (2 * (-(b + (~c))))");
+        assert!(expr.is_arith());
     }
 
     #[test]

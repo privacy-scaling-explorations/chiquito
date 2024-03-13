@@ -85,6 +85,7 @@ impl<F: From<u64> + Into<u32> + Clone, V: Clone> CompilationUnit<F, V> {
             UnaryOp { dsym, op, sub } => match op {
                 Not => self.compile_expression_not(dsym, *sub),
                 Neg => unreachable!(),
+                Complement => unreachable!(),
             },
             True(dsym) => self.compile_expression_true(dsym),
             False(dsym) => self.compile_expression_false(dsym),
@@ -149,6 +150,7 @@ impl<F: From<u64> + Into<u32> + Clone, V: Clone> CompilationUnit<F, V> {
                     Expr::Neg(Box::new(sub))
                 }
                 Not => unreachable!(),
+                Complement => unreachable!(),
             },
             Query(_, v) => Expr::Query(v),
             Const(_, c) => Expr::Const(c),
