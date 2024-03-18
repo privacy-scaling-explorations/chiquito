@@ -14,14 +14,6 @@ pub struct SuperCircuit<F, MappingArgs> {
     sub_circuit_asts: Vec<SBPIR<F, ()>>,
 }
 
-impl<F: Debug, MappingArgs: Debug> Debug for MappingGenerator<F, MappingArgs> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("MappingGenerator")
-            .field("mapping", &"Function pointer cannot be printed")
-            .finish()
-    }
-}
-
 impl<F, MappingArgs> Default for SuperCircuit<F, MappingArgs> {
     fn default() -> Self {
         Self {
@@ -140,6 +132,12 @@ impl<F, MappingArgs> Clone for MappingGenerator<F, MappingArgs> {
     }
 }
 
+impl<F, MappingArgs> std::fmt::Debug for MappingGenerator<F, MappingArgs> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "MappingGenerator")
+    }
+}
+
 impl<F, MappingArgs> Default for MappingGenerator<F, MappingArgs> {
     fn default() -> Self {
         Self {
@@ -252,6 +250,7 @@ mod test {
         let super_circuit: SuperCircuit<Fr, ()> = SuperCircuit {
             sub_circuits: vec![simple_circuit()],
             mapping: Default::default(),
+            sub_circuit_asts: Default::default(),
         };
 
         let sub_circuits = super_circuit.get_sub_circuits();
