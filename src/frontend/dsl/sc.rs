@@ -242,4 +242,60 @@ mod tests {
             "'step selector for sum should be 10'"
         );
     }
+
+    #[test]
+    fn test_super_circuit_sub_circuit_with_ast() {
+        use crate::frontend::dsl::circuit;
+        let mut ctx = SuperCircuitContext::<Fr, ()>::default();
+
+        let simple_circuit_with_ast = circuit("simple circuit", |ctx| {
+            use crate::frontend::dsl::cb::*;
+    
+            let x = ctx.forward("x");
+            let y = ctx.forward("y");
+    
+            let step_type = ctx.step_type_def("sum should be 10", |ctx| {
+                ctx.setup(move |ctx| {
+                    ctx.constr(eq(x + y, 10));
+                });
+    
+                ctx.wg(move |ctx, (x_value, y_value): (u32, u32)| {
+                    ctx.assign(x, x_value.field());
+                    ctx.assign(y, y_value.field());
+                })
+            });
+    
+            ctx.pragma_num_steps(1);
+    
+            ctx.trace(move |ctx, ()| {
+                ctx.add(&step_type, (2, 8));
+            });
+        });
+
+        ctx.sub_circuit_with_ast(
+            config(SingleRowCellManager {}, SimpleStepSelectorBuilder {}),
+            simple_circuit_with_ast,
+        );
+
+        let super_circuit = ctx.compile();
+
+        assert_eq!(super_circuit.get_sub_circuits().len(), 1);
+        assert_eq!(super_circuit.get_sub_circuits()[0].columns.len(), 4);
+        assert_eq!(
+            super_circuit.get_sub_circuits()[0].columns[0].annotation,
+            "srcm forward x"
+        );
+        assert_eq!(
+            super_circuit.get_sub_circuits()[0].columns[1].annotation,
+            "srcm forward y"
+        );
+        assert_eq!(
+            super_circuit.get_sub_circuits()[0].columns[2].annotation,
+            "q_enable"
+        );
+        assert_eq!(
+            super_circuit.get_sub_circuits()[0].columns[3].annotation,
+            "'step selector for sum should be 10'"
+        );
+    }
 }

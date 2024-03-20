@@ -179,7 +179,7 @@ mod test {
             ir::Column,
         },
         util::uuid,
-        wit_gen::{AutoTraceGenerator, StepInstance, TraceGenerator},
+        wit_gen::{AutoTraceGenerator, TraceGenerator},
     };
 
     use super::*;
