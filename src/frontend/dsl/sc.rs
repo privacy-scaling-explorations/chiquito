@@ -124,10 +124,13 @@ where
 
 #[cfg(test)]
 mod tests {
-    use halo2curves::bn256::Fr;
+    use halo2curves::{bn256::Fr, ff::PrimeField};
 
-    use crate::plonkish::compiler::{
-        cell_manager::SingleRowCellManager, config, step_selector::SimpleStepSelectorBuilder,
+    use crate::{
+        plonkish::compiler::{
+            cell_manager::SingleRowCellManager, config, step_selector::SimpleStepSelectorBuilder,
+        },
+        poly::ToField,
     };
 
     use super::*;
@@ -151,22 +154,92 @@ mod tests {
         );
     }
 
+    fn simple_circuit<F: PrimeField + Eq + Hash>(ctx: &mut CircuitContext<F, ()>, _: ()) {
+        use crate::frontend::dsl::cb::*;
+
+        let x = ctx.forward("x");
+        let y = ctx.forward("y");
+
+        let step_type = ctx.step_type_def("sum should be 10", |ctx| {
+            ctx.setup(move |ctx| {
+                ctx.constr(eq(x + y, 10));
+            });
+
+            ctx.wg(move |ctx, (x_value, y_value): (u32, u32)| {
+                ctx.assign(x, x_value.field());
+                ctx.assign(y, y_value.field());
+            })
+        });
+
+        ctx.pragma_num_steps(1);
+
+        ctx.trace(move |ctx, ()| {
+            ctx.add(&step_type, (2, 8));
+        })
+    }
+
     #[test]
     fn test_super_circuit_context_sub_circuit() {
         let mut ctx = SuperCircuitContext::<Fr, ()>::default();
 
-        let (_, _) = ctx.sub_circuit(
-            config(
-                SingleRowCellManager::default(),
-                SimpleStepSelectorBuilder::default(),
-            ),
-            |ctx: &mut CircuitContext<Fr, ()>, _| {
-                ctx.fixed("fixed signal");
-            },
+        // simple circuit to check if the sum of two inputs are 10
+        ctx.sub_circuit(
+            config(SingleRowCellManager {}, SimpleStepSelectorBuilder {}),
+            simple_circuit,
             (),
         );
 
+        // ensure phase 1 was done correctly for the sub circuit
         assert_eq!(ctx.sub_circuit_phase1.len(), 1);
-        assert_eq!(ctx.sub_circuit_phase1[0].columns.len(), 2);
+        assert_eq!(ctx.sub_circuit_phase1[0].columns.len(), 4);
+        assert_eq!(
+            ctx.sub_circuit_phase1[0].columns[0].annotation,
+            "srcm forward x"
+        );
+        assert_eq!(
+            ctx.sub_circuit_phase1[0].columns[1].annotation,
+            "srcm forward y"
+        );
+        assert_eq!(ctx.sub_circuit_phase1[0].columns[2].annotation, "q_enable");
+        assert_eq!(
+            ctx.sub_circuit_phase1[0].columns[3].annotation,
+            "'step selector for sum should be 10'"
+        );
+        assert_eq!(ctx.sub_circuit_phase1[0].forward_signals.len(), 2);
+        assert_eq!(ctx.sub_circuit_phase1[0].step_types.len(), 1);
+        assert_eq!(ctx.sub_circuit_phase1[0].compilation_phase, 1);
+    }
+
+    #[test]
+    fn test_super_circuit_compile() {
+        let mut ctx = SuperCircuitContext::<Fr, ()>::default();
+
+        // simple circuit to check if the sum of two inputs are 10
+        ctx.sub_circuit(
+            config(SingleRowCellManager {}, SimpleStepSelectorBuilder {}),
+            simple_circuit,
+            (),
+        );
+
+        let super_circuit = ctx.compile();
+
+        assert_eq!(super_circuit.get_sub_circuits().len(), 1);
+        assert_eq!(super_circuit.get_sub_circuits()[0].columns.len(), 4);
+        assert_eq!(
+            super_circuit.get_sub_circuits()[0].columns[0].annotation,
+            "srcm forward x"
+        );
+        assert_eq!(
+            super_circuit.get_sub_circuits()[0].columns[1].annotation,
+            "srcm forward y"
+        );
+        assert_eq!(
+            super_circuit.get_sub_circuits()[0].columns[2].annotation,
+            "q_enable"
+        );
+        assert_eq!(
+            super_circuit.get_sub_circuits()[0].columns[3].annotation,
+            "'step selector for sum should be 10'"
+        );
     }
 }
