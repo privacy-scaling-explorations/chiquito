@@ -198,27 +198,27 @@ mod test {
         );
     }
 
-    fn simple_circuit() -> Circuit<Fr> {
-        let columns = vec![Column::advice('a', 0)];
-        let exposed = vec![(Column::advice('a', 0), 2)];
-        let polys = vec![];
-        let lookups = vec![];
-        let fixed_assignments = Default::default();
-
-        Circuit {
-            columns,
-            exposed,
-            polys,
-            lookups,
-            fixed_assignments,
-            id: uuid(),
-            ast_id: uuid(),
-        }
-    }
-
     #[test]
     fn test_add_sub_circuit() {
         let mut super_circuit: SuperCircuit<Fr, ()> = Default::default();
+
+        fn simple_circuit() -> Circuit<Fr> {
+            let columns = vec![Column::advice('a', 0)];
+            let exposed = vec![(Column::advice('a', 0), 2)];
+            let polys = vec![];
+            let lookups = vec![];
+            let fixed_assignments = Default::default();
+    
+            Circuit {
+                columns,
+                exposed,
+                polys,
+                lookups,
+                fixed_assignments,
+                id: uuid(),
+                ast_id: uuid(),
+            }
+        }
 
         let sub_circuit = simple_circuit();
 
@@ -247,6 +247,24 @@ mod test {
 
     #[test]
     fn test_get_sub_circuits() {
+        fn simple_circuit() -> Circuit<Fr> {
+            let columns = vec![Column::advice('a', 0)];
+            let exposed = vec![(Column::advice('a', 0), 2)];
+            let polys = vec![];
+            let lookups = vec![];
+            let fixed_assignments = Default::default();
+    
+            Circuit {
+                columns,
+                exposed,
+                polys,
+                lookups,
+                fixed_assignments,
+                id: uuid(),
+                ast_id: uuid(),
+            }
+        }
+        
         let super_circuit: SuperCircuit<Fr, ()> = SuperCircuit {
             sub_circuits: vec![simple_circuit()],
             mapping: Default::default(),

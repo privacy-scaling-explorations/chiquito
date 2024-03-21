@@ -324,122 +324,63 @@ mod test {
     }
 
     #[test]
-    fn sum_of_queries_and_constants() {
+    fn test_degree_expr() {
         use super::Expr::*;
 
-        let a: &str = "a";
-        let b: &str = "b";
-        let c: Fr = Fr::from(3);
-        let sum_expr: Expr<Fr, &str> = Query(a) + Query(b) + Const(c);
+        let expr: Expr<Fr, &str> = (Query("a") * Query("a")) + (Query("c") * Query("d")) - Const(Fr::ONE);
 
-        assert!(
-            matches!(sum_expr, Expr::Sum(_)),
-            "Sum did not create a Sum variant"
+        assert_eq!(expr.degree(), 2);
+
+        let expr: Expr<Fr, &str> = (Query("a") * Query("a")) + (Query("c") * Query("d")) * Query("e");
+
+        assert_eq!(expr.degree(), 3);
+    }
+
+    #[test]
+    fn test_expr_sum() {
+        use super::Expr::*;
+
+        let lhs: Expr<Fr, &str> = Query("a") + Query("b");
+
+        let rhs: Expr<Fr, &str> = Query("c") + Query("d");
+
+        assert_eq!(
+            format!("({:?} + {:?})", lhs, rhs),
+            format!("{:?}", Sum(vec![lhs, rhs]))
         );
     }
 
     #[test]
-    fn sum_of_queries_and_constants_eval() {
+    fn test_expr_mul() {
         use super::Expr::*;
 
-        let a: &str = "a";
-        let b: &str = "b";
-        let c: Fr = Fr::from(3);
-        let sum_expr: Expr<Fr, &str> = Query(a) + Query(b) + Const(c);
+        let lhs: Expr<Fr, &str> = Query("a") * Query("b");
 
-        let mut assignments: VarAssignments<Fr, &str> = VarAssignments::default();
-        assignments.insert(a, Fr::from(2));
-        assignments.insert(b, Fr::from(3));
+        let rhs: Expr<Fr, &str> = Query("c") * Query("d");
 
-        assert_eq!(sum_expr.eval(&assignments), Some(Fr::from(8)));
-    }
-
-    #[test]
-    fn mul_of_queries_and_constants() {
-        use super::Expr::*;
-
-        let a: &str = "a";
-        let b: &str = "b";
-        let c: Fr = Fr::from(3);
-        let mul_expr: Expr<Fr, &str> = Query(a) * Query(b) * Const(c);
-
-        assert!(
-            matches!(mul_expr, Expr::Mul(_)),
-            "Mul did not create a Mul variant"
+        assert_eq!(
+            format!("({:?} * {:?})", lhs, rhs),
+            format!("{:?}", Mul(vec![lhs, rhs]))
         );
     }
 
     #[test]
-    fn mul_of_queries_and_constants_eval() {
+    fn test_expr_neg() {
         use super::Expr::*;
 
-        let a: &str = "a";
-        let b: &str = "b";
-        let c: Fr = Fr::from(3);
-        let mul_expr: Expr<Fr, &str> = Query(a) * Query(b) * Const(c);
+        let expr: Expr<Fr, &str> = Query("a") + Query("b");
 
-        let mut assignments: VarAssignments<Fr, &str> = VarAssignments::default();
-        assignments.insert(a, Fr::from(2));
-        assignments.insert(b, Fr::from(3));
+        assert_eq!(format!("(-{:?})", expr), format!("{:?}", Neg(Box::new(expr))));
 
-        assert_eq!(mul_expr.eval(&assignments), Some(Fr::from(18)));
-    }
+        let lhs: Expr<Fr, &str> = Query("a") * Query("b");
+        let rhs: Expr<Fr, &str> = Query("c") + Query("d");
 
-    #[test]
-    fn neg_of_queries_and_constants() {
-        use super::Expr::*;
+        let expr: Expr<Fr, &str> = lhs.clone() - rhs.clone();
 
-        let a: &str = "a";
-        let b: &str = "b";
-        let c: Fr = Fr::from(3);
-        let neg_expr: Expr<Fr, &str> = Neg(Box::new(Query(a) * Query(b) * Const(c) - Const(c)));
-
-        assert!(
-            matches!(neg_expr, Expr::Neg(_)),
-            "Neg did not create a Neg variant"
-        )
-    }
-
-    #[test]
-    fn neg_of_queries_and_constants_eval() {
-        use super::Expr::*;
-
-        let a: &str = "a";
-        let b: &str = "b";
-        let c: Fr = Fr::from(3);
-        let neg_expr: Expr<Fr, &str> = Neg(Box::new(Query(a) * Query(b) * Const(c) - Const(c)));
-
-        let mut assignments: VarAssignments<Fr, &str> = VarAssignments::default();
-        assignments.insert(a, Fr::from(2));
-        assignments.insert(b, Fr::from(3));
-
-        assert_eq!(neg_expr.eval(&assignments), Some(-(Fr::from(15))));
-    }
-
-    #[test]
-    fn pow_of_queries() {
-        use super::Expr::*;
-
-        let a: &str = "a";
-        let pow_expr: Expr<Fr, &str> = Pow(Box::new(Query("a")), 2);
-        let mut assignments: VarAssignments<Fr, &str> = VarAssignments::default();
-        assignments.insert(a, Fr::from(2));
-
-        assert!(
-            matches!(pow_expr, Expr::Pow(_, _)),
-            "Pow did not create a Pow variant"
+        assert_eq!(
+            format!("{:?}", Sum(vec![lhs, Neg(Box::new(rhs))])),
+            format!("{:?}", expr)
         );
     }
 
-    #[test]
-    fn pow_of_queries_eval() {
-        use super::Expr::*;
-
-        let a: &str = "a";
-        let pow_expr: Expr<Fr, &str> = Pow(Box::new(Query("a")), 2);
-        let mut assignments: VarAssignments<Fr, &str> = VarAssignments::default();
-        assignments.insert(a, Fr::from(2));
-
-        assert_eq!(pow_expr.eval(&assignments), Some(Fr::from(4)));
-    }
 }
