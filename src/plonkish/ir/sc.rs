@@ -329,7 +329,7 @@ mod test {
             step_instances: vec![],
         };
 
-        ctx.map_with_witness(&gen, witness.clone());
+        ctx.map_with_witness(&gen, witness);
 
         assert_eq!(ctx.assignments.len(), 1);
     }
