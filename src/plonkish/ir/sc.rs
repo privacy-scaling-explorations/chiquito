@@ -208,7 +208,7 @@ mod test {
             let polys = vec![];
             let lookups = vec![];
             let fixed_assignments = Default::default();
-    
+
             Circuit {
                 columns,
                 exposed,
@@ -253,7 +253,7 @@ mod test {
             let polys = vec![];
             let lookups = vec![];
             let fixed_assignments = Default::default();
-    
+
             Circuit {
                 columns,
                 exposed,
@@ -264,7 +264,7 @@ mod test {
                 ast_id: uuid(),
             }
         }
-        
+
         let super_circuit: SuperCircuit<Fr, ()> = SuperCircuit {
             sub_circuits: vec![simple_circuit()],
             mapping: Default::default(),

@@ -160,23 +160,23 @@ mod tests {
 
         fn simple_circuit<F: PrimeField + Eq + Hash>(ctx: &mut CircuitContext<F, ()>, _: ()) {
             use crate::frontend::dsl::cb::*;
-    
+
             let x = ctx.forward("x");
             let y = ctx.forward("y");
-    
+
             let step_type = ctx.step_type_def("sum should be 10", |ctx| {
                 ctx.setup(move |ctx| {
                     ctx.constr(eq(x + y, 10));
                 });
-    
+
                 ctx.wg(move |ctx, (x_value, y_value): (u32, u32)| {
                     ctx.assign(x, x_value.field());
                     ctx.assign(y, y_value.field());
                 })
             });
-    
+
             ctx.pragma_num_steps(1);
-    
+
             ctx.trace(move |ctx, ()| {
                 ctx.add(&step_type, (2, 8));
             })
@@ -216,23 +216,23 @@ mod tests {
 
         fn simple_circuit<F: PrimeField + Eq + Hash>(ctx: &mut CircuitContext<F, ()>, _: ()) {
             use crate::frontend::dsl::cb::*;
-    
+
             let x = ctx.forward("x");
             let y = ctx.forward("y");
-    
+
             let step_type = ctx.step_type_def("sum should be 10", |ctx| {
                 ctx.setup(move |ctx| {
                     ctx.constr(eq(x + y, 10));
                 });
-    
+
                 ctx.wg(move |ctx, (x_value, y_value): (u32, u32)| {
                     ctx.assign(x, x_value.field());
                     ctx.assign(y, y_value.field());
                 })
             });
-    
+
             ctx.pragma_num_steps(1);
-    
+
             ctx.trace(move |ctx, ()| {
                 ctx.add(&step_type, (2, 8));
             })
@@ -274,23 +274,23 @@ mod tests {
 
         let simple_circuit_with_ast = circuit("simple circuit", |ctx| {
             use crate::frontend::dsl::cb::*;
-    
+
             let x = ctx.forward("x");
             let y = ctx.forward("y");
-    
+
             let step_type = ctx.step_type_def("sum should be 10", |ctx| {
                 ctx.setup(move |ctx| {
                     ctx.constr(eq(x + y, 10));
                 });
-    
+
                 ctx.wg(move |ctx, (x_value, y_value): (u32, u32)| {
                     ctx.assign(x, x_value.field());
                     ctx.assign(y, y_value.field());
                 })
             });
-    
+
             ctx.pragma_num_steps(1);
-    
+
             ctx.trace(move |ctx, ()| {
                 ctx.add(&step_type, (2, 8));
             });
