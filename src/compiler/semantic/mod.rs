@@ -56,6 +56,13 @@ impl SymTableEntry {
             SymbolCategory::Machine | SymbolCategory::State
         )
     }
+
+    fn get_type(&self) -> &str {
+        match &self.ty {
+            Some(_ty) => self.ty.as_deref().unwrap(),
+            None => "field",
+        }
+    }
 }
 
 /// Extra information when symbol is found in a scope or a containing scope
