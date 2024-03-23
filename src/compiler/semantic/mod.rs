@@ -59,7 +59,7 @@ impl SymTableEntry {
 
     fn get_type(&self) -> &str {
         match &self.ty {
-            Some(_ty) => self.ty.as_deref().unwrap(),
+            Some(ty) => ty,
             None => "field",
         }
     }
