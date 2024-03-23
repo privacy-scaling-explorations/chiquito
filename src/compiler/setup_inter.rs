@@ -9,7 +9,7 @@ use crate::{
 
 use super::{abepi::CompilationUnit, semantic::SymTable};
 
-pub fn interpret(
+pub(super) fn interpret(
     ast: &[TLDecl<BigInt, Identifier>],
     _symbols: &SymTable,
 ) -> Setup<BigInt, Identifier> {
