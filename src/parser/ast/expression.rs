@@ -219,6 +219,7 @@ impl<F, V> Expression<F, V> {
         match self {
             Expression::BinOp { op, .. } => op.is_logic(),
             Expression::UnaryOp { op, .. } => op.is_logic(),
+            Expression::Query(_, _) => true,
             Expression::Select {
                 when_true,
                 when_false,

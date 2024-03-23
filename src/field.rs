@@ -4,6 +4,8 @@ use core::{
     ops::{Add, AddAssign, Mul, MulAssign, Neg, Sub, SubAssign},
 };
 
+use num_bigint::BigInt;
+
 pub trait Field:
     Sized
     + Eq
@@ -47,4 +49,6 @@ pub trait Field:
     /// Exponentiates `self` by `exp`, where `exp` is a little-endian order integer
     /// exponent.
     fn pow<S: AsRef<[u64]>>(&self, exp: S) -> Self;
+
+    fn from_big_int(value: &BigInt) -> Self;
 }
