@@ -1,0 +1,252 @@
+use crate::parser::ast::{expression::Expression, statement::{Statement, TypedIdDecl}, Identifier, tl::TLDecl, DebugSymRef};
+use crate::parser::build::*;
+use num_bigint::BigInt;
+
+grammar;
+
+match {
+    r"\s*" => { }, // ignore spaces
+    r"//[^\n\r]*[\n\r]*" => { }, // ignore `// comments`
+    r"/\*[^*]*\*+(?:[^/*][^*]*\*+)*/" => { },  // ignore `/* comments */`
+    _,
+}
+
+// Top Level declaration
+pub TLDecls: Vec<TLDecl<BigInt, Identifier>> = {
+    <mut v: TLDecls> <d: ParseTLDecl> => {v.push(d); v},
+    ParseTLDecl => vec![<>],
+}
+
+ParseTLDecl: TLDecl<BigInt, Identifier> = {
+    ParseMachine,
+}
+
+ParseMachine: TLDecl<BigInt, Identifier> = {
+    "machine" <id: Identifier> "(" <input_params: ParseParamsList> ")" <block: StatementsBlock> => TLDecl::MachineDecl{ dsym: DebugSymRef::new(0,0), id, input_params, output_params: vec![], block},
+    "machine" <id: Identifier> "(" <input_params: ParseParamsList> ")" "(" <output_params: ParseParamsList> ")" <block: StatementsBlock> => TLDecl::MachineDecl{ dsym: DebugSymRef::new(0,0), id, input_params, output_params, block},
+}
+
+// Statements
+StatementsBlock: Statement<BigInt, Identifier> = {
+    "{" <v:Statements> "}" => Statement::Block(DebugSymRef::new(0,0), v),
+}
+
+pub Statements: Vec<Statement<BigInt, Identifier>> = {
+    <mut v: Statements> <e: ParseStatement> => {v.push(e); v},
+    ParseStatement => vec![<>],
+}
+
+ParseStatement: Statement<BigInt, Identifier> = {
+    <s: AssertEq> ";" => s,
+    <s: AssertNEq> ";" => s,
+    <s: Assert> ";" => s,
+    <a: SignalAssignmentAssert> ";" => a,
+    
+    <a: SignalAssignment> ";" => a,
+    <a: WGAssignment> ";" => a,
+
+    <v: ParseSignalDecl> ";" => v,
+    <v: ParseWGVarDecl> ";" => v,
+
+    <t: ParseTransitionSimple> ";" => t,
+
+    ParseIf,
+    ParseIfElse,
+
+    ParseState,
+    ParseTransition,
+}
+
+AssertEq: Statement<BigInt, Identifier> = {
+    <lhs:Expression> "===" <rhs:Expression> => build_assert_eq(DebugSymRef::new(0,0), lhs, rhs),
+}
+
+AssertNEq: Statement<BigInt, Identifier> = {
+    <lhs:Expression> "!==" <rhs:Expression> => build_assert_neq(DebugSymRef::new(0,0), lhs, rhs),
+}
+
+Assert: Statement<BigInt, Identifier> = {
+    "assert" <e: ParseLogic> => Statement::Assert(DebugSymRef::new(0,0), e),
+}
+
+// Basic statements
+SignalAssignment: Statement<BigInt, Identifier> = {
+    <ids: ParseIdsList> "<--" <es:ParseExpressionList> => Statement::SignalAssignment(DebugSymRef::new(0,0), ids, es),
+}
+
+SignalAssignmentAssert: Statement<BigInt, Identifier> = {
+    <ids: ParseIdsList> "<==" <es:ParseExpressionList> => Statement::SignalAssignmentAssert(DebugSymRef::new(0,0), ids, es),
+}
+
+WGAssignment: Statement<BigInt, Identifier> = {
+    <ids: ParseIdsList> "=" <es:ParseExpressionList> => Statement::WGAssignment(DebugSymRef::new(0,0), ids, es),
+}
+
+ParseIf: Statement<BigInt, Identifier> = {
+    "if" <cond: ParseLogic> <when_true: StatementsBlock> => Statement::IfThen(DebugSymRef::new(0,0), Box::new(cond), Box::new(when_true)),
+}
+
+ParseIfElse: Statement<BigInt, Identifier> = {
+    "if" <cond: ParseLogic> <when_true: StatementsBlock> "else" <when_false: StatementsBlock> => Statement::IfThenElse(DebugSymRef::new(0,0), Box::new(cond), Box::new(when_true), Box::new(when_false)),
+}
+
+ParseState: Statement<BigInt, Identifier> = {
+    "state" <id: Identifier> <block: StatementsBlock> => Statement::StateDecl(DebugSymRef::new(0,0), id, Box::new(block))
+}
+
+ParseTransitionSimple: Statement<BigInt, Identifier> = {
+    "->" <id: Identifier> => build_transition_simple(DebugSymRef::new(0,0), id),
+}
+
+ParseTransition: Statement<BigInt, Identifier> = {
+    "->" <id: Identifier> <block: StatementsBlock> => build_transition(DebugSymRef::new(0,0), id, block),
+}
+
+ParseSignalDecl: Statement<BigInt, Identifier> = {
+    "signal" <ids: ParseTypedIdList> => Statement::SignalDecl(DebugSymRef::new(0,0), ids),
+}
+
+ParseWGVarDecl: Statement<BigInt, Identifier> = {
+    "var" <ids: ParseTypedIdList> => Statement::WGVarDecl(DebugSymRef::new(0,0), ids),
+}
+
+ParseSignalDeclSingle: Statement<BigInt, Identifier> = {
+    "signal" <signal: ParseTypedId> => Statement::SignalDecl(DebugSymRef::new(0,0), vec![signal]),
+}
+
+ParseWGVarDeclSingle: Statement<BigInt, Identifier> = {
+    "var" <var: ParseTypedId> => Statement::WGVarDecl(DebugSymRef::new(0,0), vec![var]),
+}
+
+// Expression
+pub Expression = {
+    ParseLogic,
+}
+
+// Logical expressions
+ParseLogic: Expression<BigInt, Identifier> = {
+    ParseOr
+}
+
+ParseOr: Expression<BigInt, Identifier> =  ParseLogichBinOp<"||", ParseAnd>;
+
+ParseAnd: Expression<BigInt, Identifier> =  ParseLogichBinOp<"&&", ParseEq>;
+
+ParseEq: Expression<BigInt, Identifier> = {
+    <lhs: ParseArith> "==" <rhs: ParseArith> => build_bin_op("==", lhs, rhs),
+    <lhs: ParseArith> "!=" <rhs: ParseArith> => build_bin_op("!=", lhs, rhs),
+
+    <lhs: ParseArith> "<" <rhs: ParseArith> => build_bin_op("<", lhs, rhs),
+    <lhs: ParseArith> "<=" <rhs: ParseArith> => build_bin_op("<=", lhs, rhs),
+    <lhs: ParseArith> ">" <rhs: ParseArith> => build_bin_op(">", lhs, rhs),
+    <lhs: ParseArith> ">=" <rhs: ParseArith> => build_bin_op(">=", lhs, rhs),
+
+    ParseBitOr
+}
+
+ParseBitOr: Expression<BigInt, Identifier> =  ParseLogichBinOp<"|", ParseBitXor>;
+
+ParseBitXor: Expression<BigInt, Identifier> =  ParseLogichBinOp<"^", ParseBitAnd>;
+
+ParseBitAnd: Expression<BigInt, Identifier> =  ParseLogichBinOp<"&", ParseArith>;
+
+// Arithmetical expressions
+ParseArith: Expression<BigInt, Identifier> = {
+    ParseShift
+}
+
+ParseShift: Expression<BigInt, Identifier> = {
+    <lhs: ParseShift> "<<" <rhs: ParseSumSub> => build_bin_op("<<", lhs, rhs),
+    <lhs: ParseShift> ">>" <rhs: ParseSumSub> => build_bin_op(">>", lhs, rhs),
+
+    ParseSumSub
+}
+
+ParseSumSub: Expression<BigInt, Identifier> = {
+    <lhs: ParseSumSub> "-" <rhs: ParseMulDiv> => build_bin_op("-", lhs, rhs),
+    <lhs: ParseSumSub> "+" <rhs: ParseMulDiv> => build_bin_op("+", lhs, rhs),
+
+    ParseMulDiv
+}
+
+ParseMulDiv: Expression<BigInt, Identifier> = {
+    <lhs: ParseMulDiv> "%" <rhs: ParsePow> => build_bin_op("%", lhs, rhs),
+    <lhs: ParseMulDiv> "/" <rhs: ParsePow> => build_bin_op("/", lhs, rhs),
+    <lhs: ParseMulDiv> "\\" <rhs: ParsePow> => build_bin_op("\\", lhs, rhs),
+    <lhs: ParseMulDiv> "*" <rhs: ParsePow> => build_bin_op("*", lhs, rhs),
+
+    ParsePow
+}
+
+ParsePow: Expression<BigInt, Identifier> = ParseArithBinOp<"**", ParsePrefix>;
+
+ParsePrefix: Expression<BigInt, Identifier> = {
+    "-" <sub: ExpressionTerm> => build_unary_op("-", sub),
+    "~" <sub: ExpressionTerm> => build_unary_op("~", sub),
+
+    ExpressionTerm
+}
+
+ExpressionTerm: Expression<BigInt, Identifier> = {
+    ParseVar,
+    FieldElement,
+    "true" => Expression::True(DebugSymRef::new(0,0)),
+    "false" => Expression::False(DebugSymRef::new(0,0)),
+    "(" <Expression> ")",
+}
+
+ParseLogichBinOp<Op, Next>: Expression<BigInt, Identifier> = {
+    <lhs: ParseArithBinOp<Op, Next>> <op: Op> <rhs: Next> => build_bin_op(op, lhs, rhs),
+
+    Next
+}
+
+ParseArithBinOp<Op, Next>: Expression<BigInt, Identifier> = {
+    <lhs: ParseArithBinOp<Op, Next>> <op: Op> <rhs: Next> => build_bin_op(op, lhs, rhs),
+
+    Next
+}
+
+ParseVar: Expression<BigInt, Identifier> = {
+    <id: Identifier> => build_query(DebugSymRef::new(0,0), id),
+}
+
+// Lists
+
+Comma<T>: Vec<T> = {
+    <mut v:(<T> ",")*> <e:T?> => match e {
+        None => v,
+        Some(e) => {
+            v.push(e);
+            v
+        }
+    }
+};
+
+ParseParamsList = Comma<ParseParamDecl>;
+ParseIdsList = Comma<Identifier>;
+ParseTypedIdList = Comma<ParseTypedId>;
+ParseExpressionList = Comma<Expression>;
+
+// Other
+
+ParseParamDecl: Statement<BigInt, Identifier> = {
+    ParseSignalDeclSingle,
+    ParseWGVarDeclSingle,
+}
+
+ParseTypedId: TypedIdDecl<Identifier> = {
+    <id: Identifier> ":" <ty: Identifier> => TypedIdDecl { id, ty: Some(ty) },
+    <id: Identifier> => TypedIdDecl { id, ty: None },
+}
+
+// Terminals
+
+Identifier: Identifier = {
+    r"[a-zA-Z_][a-zA-Z$_0-9@]*[\']?" => build_identifier(<>),
+}
+
+FieldElement: Expression<BigInt, Identifier> = {
+    r"[0-9][0-9_]*" => Expression::Const(DebugSymRef::new(0,0), BigInt::parse_bytes(<>.as_bytes(),10).expect("failed to parse base10")),
+    r"0x[0-9A-Fa-f][0-9A-Fa-f_]*" => Expression::Const(DebugSymRef::new(0,0), BigInt::parse_bytes(&(<>.as_bytes()[2..]),16).expect("failed to parse base16")),
+}
