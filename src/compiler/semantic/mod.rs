@@ -14,9 +14,14 @@ use crate::{
     },
 };
 
+use super::Message;
+
+pub mod analyser;
+pub mod rules;
+
 /// Category of a symbol
 #[derive(Clone, PartialEq, Debug)]
-enum SymbolCategory {
+pub enum SymbolCategory {
     Machine,
     State,
 
@@ -43,26 +48,36 @@ pub enum ScopeCategory {
 /// Information about a symbol
 #[derive(Clone, Debug)]
 pub struct SymTableEntry {
-    definition_ref: DebugSymRef,
-    category: SymbolCategory,
+    pub definition_ref: DebugSymRef,
+    pub category: SymbolCategory,
     /// Type
-    ty: Option<String>,
+    pub ty: Option<String>,
 }
 
 impl SymTableEntry {
-    fn is_scoped(&self) -> bool {
+    pub fn is_scoped(&self) -> bool {
         matches!(
             self.category,
             SymbolCategory::Machine | SymbolCategory::State
+        )
+    }
+
+    pub fn is_signal(&self) -> bool {
+        matches!(
+            self.category,
+            SymbolCategory::Signal
+                | SymbolCategory::InputSignal
+                | SymbolCategory::OutputSignal
+                | SymbolCategory::InoutSignal
         )
     }
 }
 
 /// Extra information when symbol is found in a scope or a containing scope
 pub struct FoundSymbol {
-    symbol: SymTableEntry,
-    scope: ScopeCategory,
-    level: usize,
+    pub symbol: SymTableEntry,
+    pub scope: ScopeCategory,
+    pub level: usize,
 }
 
 /// Contains the symbols of an scope
@@ -114,6 +129,14 @@ impl From<SymTableEntry> for ScopeTable {
 impl ScopeTable {
     fn get_symbol(&self, id: String) -> Option<&SymTableEntry> {
         self.symbols.get(&id)
+    }
+
+    pub fn get_category(&self) -> ScopeCategory {
+        self.scope.clone()
+    }
+
+    pub fn get_symbols(&self) -> &HashMap<String, SymTableEntry> {
+        &self.symbols
     }
 
     fn add_symbol(&mut self, id: String, entry: SymTableEntry) {
@@ -188,6 +211,13 @@ impl SymTable {
         None
     }
 
+    pub fn get_scope(&self, scope: &[String]) -> Option<&ScopeTable> {
+        let scope_key = Self::get_key(scope);
+        println!("scope_key: {}", scope_key);
+
+        self.scopes.get(&scope_key)
+    }
+
     /// Add a symbol
     pub fn add_symbol(&mut self, scope: &[String], id: String, entry: SymTableEntry) {
         let scope_key = Self::get_key(scope);
@@ -247,12 +277,6 @@ impl SymTable {
                 .join("/")
         }
     }
-}
-
-/// Semantic Analyser message.
-#[derive(Debug)]
-pub enum Message {
-    Err { msg: String, dsym: DebugSymRef },
 }
 
 /// Result from running the semantic analyser.
@@ -342,6 +366,3 @@ impl RuleSet {
             .for_each(|rule| rule(analyser, stmt, id, symbol));
     }
 }
-
-pub mod analyser;
-pub mod rules;

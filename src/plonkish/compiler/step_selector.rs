@@ -1,4 +1,4 @@
-use std::{collections::HashMap, rc::Rc};
+use std::collections::HashMap;
 
 use halo2_proofs::plonk::{Advice, Column as Halo2Column};
 
@@ -132,15 +132,19 @@ impl StepSelectorBuilder for TwoStepsSelectorBuilder {
                 .expect("step not found");
 
             let one_uuid = hint_one.uuid();
-            let step_one = unit.step_types.get(&one_uuid).expect("step not found");
+            let step_one = unit
+                .step_types
+                .get(&one_uuid)
+                .expect("step not found")
+                .clone();
             let step_zero = other_step_type(unit, one_uuid).expect("step not found");
-            (step_zero, step_one.clone())
+            (step_zero, step_one)
         } else {
             let mut iter = unit.step_types.values();
 
             (
-                Rc::clone(iter.next().expect("step not found")),
-                Rc::clone(iter.next().expect("step not found")),
+                iter.next().expect("step not found").clone(),
+                iter.next().expect("step not found").clone(),
             )
         };
 
@@ -246,10 +250,10 @@ impl StepSelectorBuilder for LogNSelectorBuilder {
     }
 }
 
-fn other_step_type<F>(unit: &CompilationUnit<F>, uuid: UUID) -> Option<Rc<StepType<F>>> {
+fn other_step_type<F: Clone>(unit: &CompilationUnit<F>, uuid: UUID) -> Option<StepType<F>> {
     for step_type in unit.step_types.values() {
         if step_type.uuid() != uuid {
-            return Some(Rc::clone(step_type));
+            return Some(step_type.clone());
         }
     }
 
@@ -272,7 +276,7 @@ mod tests {
             let uuid_value = Uuid::now_v1(&[1, 2, 3, 4, 5, 6]).as_u128();
             unit.step_types.insert(
                 uuid_value,
-                Rc::new(StepType::new(uuid_value, format!("StepType{}", i))),
+                StepType::new(uuid_value, format!("StepType{}", i)),
             );
         }
     }
