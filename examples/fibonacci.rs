@@ -182,7 +182,7 @@ fn main() {
         pcs::{multilinear, univariate},
     };
     // get Chiquito ir
-    let (circuit, assignment_generator) = fibo_circuit::<Fr>();
+    let (circuit, assignment_generator, _) = fibo_circuit::<Fr>();
     // get assignments
     let assignments = assignment_generator.unwrap().generate(());
     // get hyperplonk circuit
