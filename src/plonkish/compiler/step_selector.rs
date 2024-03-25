@@ -290,6 +290,99 @@ mod tests {
     }
 
     #[test]
+    fn test_default_step_selector() {
+        let unit = mock_compilation_unit::<Fr>();
+        assert_eq!(unit.selector.columns.len(), 0);
+        assert_eq!(unit.selector.selector_expr.len(), 0);
+        assert_eq!(unit.selector.selector_expr_not.len(), 0);
+        assert_eq!(unit.selector.selector_assignment.len(), 0);
+    }
+
+    #[test]
+    fn test_select_step_selector() {
+        let mut unit = mock_compilation_unit::<Fr>();
+        let step_type = Rc::new(StepType::new(Uuid::nil().as_u128(), "StepType".to_string()));
+        unit.step_types.insert(step_type.uuid(), step_type.clone());
+
+        let builder = SimpleStepSelectorBuilder {};
+        builder.build(&mut unit);
+
+        let selector = &unit.selector;
+        let constraint = PolyExpr::Const(Fr::ONE);
+
+        let step_uuid = step_type.uuid();
+        let selector_expr = selector
+            .selector_expr
+            .get(&step_uuid)
+            .expect("Step not found")
+            .clone();
+        let expected_expr = PolyExpr::Mul(vec![selector_expr, constraint.clone()]);
+
+        assert_eq!(
+            format!("{:#?}", selector.select(step_uuid, &constraint)),
+            format!("{:#?}", expected_expr)
+        );
+    }
+
+    #[test]
+    fn test_next_step_selector() {
+        let mut unit = mock_compilation_unit::<Fr>();
+        let step_type = Rc::new(StepType::new(Uuid::nil().as_u128(), "StepType".to_string()));
+        unit.step_types.insert(step_type.uuid(), step_type.clone());
+
+        let builder = SimpleStepSelectorBuilder {};
+        builder.build(&mut unit);
+
+        let selector = &unit.selector;
+        let step_uuid = step_type.uuid();
+        let step_height = 1;
+        let expected_expr = selector
+            .selector_expr
+            .get(&step_uuid)
+            .expect("Step not found")
+            .clone()
+            .rotate(step_height);
+
+        assert_eq!(
+            format!("{:#?}", selector.next_expr(step_uuid, step_height as u32)),
+            format!("{:#?}", expected_expr)
+        );
+    }
+
+    #[test]
+    fn test_unselect_step_selector() {
+        let mut unit = mock_compilation_unit::<Fr>();
+        let step_type = Rc::new(StepType::new(Uuid::nil().as_u128(), "StepType".to_string()));
+        unit.step_types.insert(step_type.uuid(), step_type.clone());
+
+        let builder = SimpleStepSelectorBuilder {};
+        builder.build(&mut unit);
+
+        let selector = &unit.selector;
+        let step_uuid = step_type.uuid();
+        let expected_expr = selector
+            .selector_expr_not
+            .get(&step_uuid)
+            .expect("Step not found")
+            .clone();
+
+        assert_eq!(
+            format!("{:#?}", selector.unselect(step_uuid)),
+            format!("{:#?}", expected_expr)
+        );
+    }
+
+    #[test]
+    fn test_simple_step_selector_builder() {
+        let builder = SimpleStepSelectorBuilder {};
+        let mut unit = mock_compilation_unit::<Fr>();
+
+        add_step_types_to_unit(&mut unit, 2);
+        builder.build(&mut unit);
+        assert_common_tests(&unit, 2);
+    }
+
+    #[test]
     fn test_log_n_selector_builder_3_step_types() {
         let builder = LogNSelectorBuilder {};
         let mut unit = mock_compilation_unit::<Fr>();

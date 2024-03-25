@@ -51,7 +51,7 @@ Negative values are obtained by the formula `a + (-a) mod p = 0`.
 
 The prime `p` is usually a very big number when used in ZKP, but we can see an easy example with `p = 7`.
 
-The posible values would be `0, 1, 2, 3, 4, 5` and `6`. If we go over `p` it overflows around to `0`. So for example `6 + 1 = 0` or `5 + 3 = 1`.
+The possible values would be `0, 1, 2, 3, 4, 5` and `6`. If we go over `p` it overflows around to `0`. So for example `6 + 1 = 0` or `5 + 3 = 1`.
 
 Then for example  `-3 + 3 mod 7 = 0 ` which is satisfied by `4 + 3 mod 7 = 0 => -3 = 4`.
 

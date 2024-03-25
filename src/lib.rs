@@ -3,6 +3,7 @@
 pub mod compiler;
 pub mod field;
 pub mod frontend;
+pub mod pil;
 pub mod parser;
 pub mod plonkish;
 pub mod poly;

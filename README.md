@@ -159,7 +159,7 @@ maturin develop
 
 **API documentation**: `cargo doc --no-deps --package chiquito --open`
 
-Also auto-published here for the latest commit to main: [apidocs.pecadorplonkish.xyz/](apidocs.pecadorplonkish.xyz/)
+Also auto-published here for the latest commit to main: [docs.pecadorplonkish.xyz/](https://docs.pecadorplonkish.xyz/)
 
 # Licenses
 

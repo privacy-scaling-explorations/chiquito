@@ -317,7 +317,7 @@ impl<F: Field + From<u64> + Hash> ChiquitoHalo2<F> {
                 .advice_columns
                 .get(&column.uuid())
                 .unwrap_or_else(|| panic!("column not found {}", column.annotation)),
-            _ => panic!("worng column type"),
+            _ => panic!("wrong column type"),
         }
     }
 
@@ -327,7 +327,7 @@ impl<F: Field + From<u64> + Hash> ChiquitoHalo2<F> {
                 .fixed_columns
                 .get(&column.uuid())
                 .unwrap_or_else(|| panic!("column not found {}", column.annotation)),
-            _ => panic!("worng column type"),
+            _ => panic!("wrong column type"),
         }
     }
 }

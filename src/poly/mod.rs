@@ -264,7 +264,7 @@ pub trait SignalFactory<V> {
 pub struct ConstrDecomp<F, V> {
     /// PI constraint for the new signals introduced.
     constrs: Vec<Expr<F, V>>,
-    /// Expressions for how to create the witness for the generated signals the orginal expression
+    /// Expressions for how to create the witness for the generated signals the original expression
     /// has be decomposed into.
     auto_signals: HashMap<V, Expr<F, V>>,
 }
@@ -342,5 +342,70 @@ mod test {
         assignments.insert("c", Fr::from(4));
 
         assert_eq!(experiment.eval(&assignments), None)
+    }
+
+    #[test]
+    fn test_degree_expr() {
+        use super::Expr::*;
+
+        let expr: Expr<Fr, &str> =
+            (Query("a") * Query("a")) + (Query("c") * Query("d")) - Const(Fr::ONE);
+
+        assert_eq!(expr.degree(), 2);
+
+        let expr: Expr<Fr, &str> =
+            (Query("a") * Query("a")) + (Query("c") * Query("d")) * Query("e");
+
+        assert_eq!(expr.degree(), 3);
+    }
+
+    #[test]
+    fn test_expr_sum() {
+        use super::Expr::*;
+
+        let lhs: Expr<Fr, &str> = Query("a") + Query("b");
+
+        let rhs: Expr<Fr, &str> = Query("c") + Query("d");
+
+        assert_eq!(
+            format!("({:?} + {:?})", lhs, rhs),
+            format!("{:?}", Sum(vec![lhs, rhs]))
+        );
+    }
+
+    #[test]
+    fn test_expr_mul() {
+        use super::Expr::*;
+
+        let lhs: Expr<Fr, &str> = Query("a") * Query("b");
+
+        let rhs: Expr<Fr, &str> = Query("c") * Query("d");
+
+        assert_eq!(
+            format!("({:?} * {:?})", lhs, rhs),
+            format!("{:?}", Mul(vec![lhs, rhs]))
+        );
+    }
+
+    #[test]
+    fn test_expr_neg() {
+        use super::Expr::*;
+
+        let expr: Expr<Fr, &str> = Query("a") + Query("b");
+
+        assert_eq!(
+            format!("(-{:?})", expr),
+            format!("{:?}", Neg(Box::new(expr)))
+        );
+
+        let lhs: Expr<Fr, &str> = Query("a") * Query("b");
+        let rhs: Expr<Fr, &str> = Query("c") + Query("d");
+
+        let expr: Expr<Fr, &str> = lhs.clone() - rhs.clone();
+
+        assert_eq!(
+            format!("{:?}", Sum(vec![lhs, Neg(Box::new(rhs))])),
+            format!("{:?}", expr)
+        );
     }
 }

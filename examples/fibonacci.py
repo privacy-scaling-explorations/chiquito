@@ -84,3 +84,5 @@ fibo.halo2_mock_prover(
 )  # 2^k specifies the number of PLONKish table rows in Halo2
 another_fibo_witness = fibo.gen_witness(4)
 fibo.halo2_mock_prover(another_fibo_witness, k=7)
+
+fibo.to_pil(fibo_witness, "FiboCircuit")

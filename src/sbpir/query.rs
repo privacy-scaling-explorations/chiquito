@@ -211,4 +211,161 @@ mod tests {
         let expr5: Expr<Fr, Queriable<Fr>> = Expr::Pow(Box::new(Expr::Const(a)), 2);
         assert_eq!(format!("{:?}", expr5), "(0xa)^2");
     }
+
+    #[test]
+    fn test_next_for_forward_signal() {
+        let forward_signal = ForwardSignal {
+            id: 0,
+            phase: 0,
+            annotation: "",
+        };
+        let queriable: Queriable<Fr> = Queriable::Forward(forward_signal, false);
+        let next_queriable = queriable.next();
+
+        assert_eq!(next_queriable, Queriable::Forward(forward_signal, true));
+    }
+
+    #[test]
+    #[should_panic(expected = "jarrl: cannot rotate next(forward)")]
+    fn test_next_for_forward_signal_panic() {
+        let forward_signal = ForwardSignal {
+            id: 0,
+            phase: 0,
+            annotation: "",
+        };
+        let queriable: Queriable<Fr> = Queriable::Forward(forward_signal, true);
+        let _ = queriable.next(); // This should panic
+    }
+
+    #[test]
+    fn test_next_for_shared_signal() {
+        let shared_signal = SharedSignal {
+            id: 0,
+            phase: 0,
+            annotation: "",
+        };
+        let queriable: Queriable<Fr> = Queriable::Shared(shared_signal, 0);
+        let next_queriable = queriable.next();
+
+        assert_eq!(next_queriable, Queriable::Shared(shared_signal, 1));
+    }
+
+    #[test]
+    fn test_next_for_fixed_signal() {
+        let fixed_signal = FixedSignal {
+            id: 0,
+            annotation: "",
+        };
+        let queriable: Queriable<Fr> = Queriable::Fixed(fixed_signal, 0);
+        let next_queriable = queriable.next();
+
+        assert_eq!(next_queriable, Queriable::Fixed(fixed_signal, 1));
+    }
+
+    #[test]
+    #[should_panic(expected = "can only next a forward, shared, fixed, or halo2 column")]
+    fn test_next_for_internal_signal_panic() {
+        let internal_signal = InternalSignal {
+            id: 0,
+            annotation: "",
+        };
+        let queriable: Queriable<Fr> = Queriable::Internal(internal_signal);
+        let _ = queriable.next(); // This should panic
+    }
+
+    #[test]
+    fn test_prev_for_shared_signal() {
+        let shared_signal = SharedSignal {
+            id: 0,
+            phase: 0,
+            annotation: "",
+        };
+        let queriable: Queriable<Fr> = Queriable::Shared(shared_signal, 1);
+        let prev_queriable = queriable.prev();
+
+        assert_eq!(prev_queriable, Queriable::Shared(shared_signal, 0));
+    }
+
+    #[test]
+    fn test_prev_for_fixed_signal() {
+        let fixed_signal = FixedSignal {
+            id: 0,
+            annotation: "",
+        };
+        let queriable: Queriable<Fr> = Queriable::Fixed(fixed_signal, 1);
+        let prev_queriable = queriable.prev();
+
+        assert_eq!(prev_queriable, Queriable::Fixed(fixed_signal, 0));
+    }
+
+    #[test]
+    #[should_panic(expected = "can only prev a shared or fixed column")]
+    fn test_prev_for_forward_signal_panic() {
+        let forward_signal = ForwardSignal {
+            id: 0,
+            phase: 0,
+            annotation: "",
+        };
+        let queriable: Queriable<Fr> = Queriable::Forward(forward_signal, true);
+        let _ = queriable.prev(); // This should panic
+    }
+
+    #[test]
+    #[should_panic(expected = "can only prev a shared or fixed column")]
+    fn test_prev_for_internal_signal_panic() {
+        let internal_signal = InternalSignal {
+            id: 0,
+            annotation: "",
+        };
+        let queriable: Queriable<Fr> = Queriable::Internal(internal_signal);
+        let _ = queriable.prev(); // This should panic
+    }
+
+    #[test]
+    fn test_rot_for_shared_signal() {
+        let shared_signal = SharedSignal {
+            id: 0,
+            phase: 0,
+            annotation: "",
+        };
+        let queriable: Queriable<Fr> = Queriable::Shared(shared_signal, 1);
+        let rot_queriable = queriable.rot(2);
+
+        assert_eq!(rot_queriable, Queriable::Shared(shared_signal, 3));
+    }
+
+    #[test]
+    fn test_rot_for_fixed_signal() {
+        let fixed_signal = FixedSignal {
+            id: 0,
+            annotation: "",
+        };
+        let queriable: Queriable<Fr> = Queriable::Fixed(fixed_signal, 1);
+        let rot_queriable = queriable.rot(2);
+
+        assert_eq!(rot_queriable, Queriable::Fixed(fixed_signal, 3));
+    }
+
+    #[test]
+    #[should_panic(expected = "can only rot a shared or fixed column")]
+    fn test_rot_for_forward_signal_panic() {
+        let forward_signal = ForwardSignal {
+            id: 0,
+            phase: 0,
+            annotation: "",
+        };
+        let queriable: Queriable<Fr> = Queriable::Forward(forward_signal, true);
+        let _ = queriable.rot(2); // This should panic
+    }
+
+    #[test]
+    #[should_panic(expected = "can only rot a shared or fixed column")]
+    fn test_rot_for_internal_signal_panic() {
+        let internal_signal = InternalSignal {
+            id: 0,
+            annotation: "",
+        };
+        let queriable: Queriable<Fr> = Queriable::Internal(internal_signal);
+        let _ = queriable.rot(2); // This should panic
+    }
 }
