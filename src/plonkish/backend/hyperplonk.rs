@@ -1,8 +1,5 @@
 use crate::{
-    plonkish::ir::{
-        assignments::Assignments,
-        Circuit, Column, ColumnType, PolyExpr,
-    },
+    plonkish::ir::{assignments::Assignments, Circuit, Column, ColumnType, PolyExpr},
     util::UUID,
 };
 use halo2_proofs::arithmetic::Field;
