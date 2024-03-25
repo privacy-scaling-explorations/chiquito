@@ -716,4 +716,51 @@ mod tests {
                 matches!(v[1], Expr::Const(c) if c == 40u64.field())) &&
             matches!(v[1], Expr::Const(c) if c == 10u64.field())));
     }
+
+    #[test]
+    fn test_constraint_from_queriable() {
+        // Create a Queriable instance and convert it to a Constraint
+        let queriable = Queriable::StepTypeNext(StepTypeHandler::new("test_step".to_owned()));
+        let constraint: Constraint<Fr> = Constraint::from(queriable);
+
+        assert_eq!(constraint.annotation, "test_step");
+        assert!(
+            matches!(constraint.expr, Expr::Query(Queriable::StepTypeNext(s)) if
+            matches!(s, StepTypeHandler {id: _id, annotation: "test_step"}))
+        );
+        assert!(matches!(constraint.typing, Typing::Boolean));
+    }
+
+    #[test]
+    fn test_constraint_from_expr() {
+        // Create an expression and convert it to a Constraint
+        let expr = <u64 as ToExpr<Fr, Queriable<Fr>>>::expr(&10) * 20u64.expr();
+        let constraint: Constraint<Fr> = Constraint::from(expr);
+
+        // returns "10 * 20"
+        assert!(matches!(constraint.expr, Expr::Mul(v) if v.len() == 2 &&
+            matches!(v[0], Expr::Const(c) if c == 10u64.field()) &&
+            matches!(v[1], Expr::Const(c) if c == 20u64.field())));
+        assert!(matches!(constraint.typing, Typing::Unknown));
+    }
+
+    #[test]
+    fn test_constraint_from_int() {
+        // Create an integer and convert it to a Constraint
+        let constraint: Constraint<Fr> = Constraint::from(10);
+
+        // returns "10"
+        assert!(matches!(constraint.expr, Expr::Const(c) if c == 10u64.field()));
+        assert!(matches!(constraint.typing, Typing::Unknown));
+    }
+
+    #[test]
+    fn test_constraint_from_bool() {
+        // Create a boolean and convert it to a Constraint
+        let constraint: Constraint<Fr> = Constraint::from(true);
+
+        assert_eq!(constraint.annotation, "0x1");
+        assert!(matches!(constraint.expr, Expr::Const(c) if c == 1u64.field()));
+        assert!(matches!(constraint.typing, Typing::Unknown));
+    }
 }

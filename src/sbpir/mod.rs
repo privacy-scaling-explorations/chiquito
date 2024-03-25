@@ -204,6 +204,28 @@ impl<F, TraceArgs> SBPIR<F, TraceArgs> {
     }
 }
 
+impl<F: Clone, TraceArgs> SBPIR<F, TraceArgs> {
+    pub fn clone_without_trace(&self) -> SBPIR<F, ()> {
+        SBPIR {
+            step_types: self.step_types.clone(),
+            forward_signals: self.forward_signals.clone(),
+            shared_signals: self.shared_signals.clone(),
+            fixed_signals: self.fixed_signals.clone(),
+            halo2_advice: self.halo2_advice.clone(),
+            halo2_fixed: self.halo2_fixed.clone(),
+            exposed: self.exposed.clone(),
+            annotations: self.annotations.clone(),
+            trace: None, // Remove the trace.
+            fixed_assignments: self.fixed_assignments.clone(),
+            first_step: self.first_step,
+            last_step: self.last_step,
+            num_steps: self.num_steps,
+            q_enable: self.q_enable,
+            id: self.id,
+        }
+    }
+}
+
 pub type FixedGen<F> = dyn Fn(&mut FixedGenContext<F>) + 'static;
 
 pub type StepTypeUUID = UUID;
@@ -251,6 +273,10 @@ impl<F> StepType<F> {
 
     pub fn uuid(&self) -> StepTypeUUID {
         self.id
+    }
+
+    pub fn name(&self) -> String {
+        self.name.clone()
     }
 
     pub fn add_signal<N: Into<String>>(&mut self, name: N) -> InternalSignal {
@@ -417,6 +443,10 @@ impl ForwardSignal {
     pub fn phase(&self) -> usize {
         self.phase
     }
+
+    pub fn annotation(&self) -> String {
+        self.annotation.to_string()
+    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
@@ -450,6 +480,10 @@ impl SharedSignal {
     pub fn phase(&self) -> usize {
         self.phase
     }
+
+    pub fn annotation(&self) -> String {
+        self.annotation.to_string()
+    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
@@ -475,6 +509,10 @@ impl FixedSignal {
 
     pub fn uuid(&self) -> UUID {
         self.id
+    }
+
+    pub fn annotation(&self) -> String {
+        self.annotation.to_string()
     }
 }
 
@@ -507,6 +545,10 @@ impl InternalSignal {
 
     pub fn uuid(&self) -> UUID {
         self.id
+    }
+
+    pub fn annotation(&self) -> String {
+        self.annotation.to_string()
     }
 }
 
