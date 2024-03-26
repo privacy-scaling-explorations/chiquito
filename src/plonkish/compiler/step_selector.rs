@@ -205,7 +205,7 @@ impl StepSelectorBuilder for LogNSelectorBuilder {
 
         let mut annotation;
         for index in 0..n_cols {
-            annotation = format!("'binary selector column {}'", index);
+            annotation = format!("'step selector for binary column {}'", index);
 
             let column = Column::advice(annotation.clone(), 0);
             selector.columns.push(column.clone());
