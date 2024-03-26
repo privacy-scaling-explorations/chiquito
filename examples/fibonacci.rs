@@ -25,7 +25,7 @@ use chiquito::{
     poly::ToField,
     sbpir::SBPIR,
 };
-use halo2_proofs::{dev::MockProver, halo2curves::bn256::Fr};
+use halo2_proofs::dev::MockProver;
 
 // the main circuit function: returns the compiled IR of a Chiquito circuit
 // Generic types F, (), (u64, 64) stand for:
