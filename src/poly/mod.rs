@@ -91,7 +91,7 @@ impl<F: Debug, V: Debug> Debug for Expr<F, V> {
 
 pub type VarAssignments<F, V> = HashMap<V, F>;
 
-impl<F: Field + Hash, V: Eq + PartialEq + Hash> Expr<F, V> {
+impl<F: Field + Hash + std::ops::Try, V: Eq + PartialEq + Hash> Expr<F, V> {
     pub fn eval(&self, assignments: &VarAssignments<F, V>) -> Option<F> {
         match self {
             Expr::Const(v) => Some(*v),
