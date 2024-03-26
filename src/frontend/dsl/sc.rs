@@ -124,7 +124,7 @@ where
 
 #[cfg(test)]
 mod tests {
-    use halo2curves::{bn256::Fr, ff::PrimeField};
+    use halo2_proofs::halo2curves::{bn256::Fr, ff::PrimeField};
 
     use crate::{
         plonkish::compiler::{

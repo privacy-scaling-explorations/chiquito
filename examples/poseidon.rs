@@ -11,7 +11,7 @@ use chiquito::{
     },
     sbpir::query::Queriable,
 };
-// use halo2curves::ff::Field;
+
 use std::hash::Hash;
 
 use halo2_proofs::{
@@ -712,7 +712,7 @@ fn main() {
 
     let prover = MockProver::<Fr>::run(12, &circuit, Vec::new()).unwrap();
 
-    let result = prover.verify_par();
+    let result = prover.verify();
 
     println!("result = {:#?}", result);
 

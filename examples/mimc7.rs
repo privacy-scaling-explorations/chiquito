@@ -210,7 +210,7 @@ fn main() {
 
     let prover = MockProver::<Fr>::run(10, &circuit, circuit.instance()).unwrap();
 
-    let result = prover.verify_par();
+    let result = prover.verify();
 
     println!("result = {:#?}", result);
 

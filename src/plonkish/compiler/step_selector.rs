@@ -258,7 +258,7 @@ fn other_step_type<F>(unit: &CompilationUnit<F>, uuid: UUID) -> Option<Rc<StepTy
 
 #[cfg(test)]
 mod tests {
-    use halo2curves::bn256::Fr;
+    use halo2_proofs::halo2curves::bn256::Fr;
     use uuid::Uuid;
 
     use super::*;

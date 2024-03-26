@@ -142,7 +142,7 @@ pub fn chiquito_super_circuit_halo2_mock_prover(
 
     let prover = MockProver::<Fr>::run(k as u32, &circuit, circuit.instance()).unwrap();
 
-    let result = prover.verify_par();
+    let result = prover.verify();
 
     println!("result = {:#?}", result);
 
@@ -175,7 +175,7 @@ pub fn chiquito_halo2_mock_prover(witness_json: &str, rust_id: UUID, k: usize) {
 
     let prover = MockProver::<Fr>::run(k as u32, &circuit, circuit.instance()).unwrap();
 
-    let result = prover.verify_par();
+    let result = prover.verify();
 
     println!("{:#?}", result);
 
