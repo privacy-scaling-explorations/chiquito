@@ -91,16 +91,16 @@ impl<F: Debug, V: Debug> Debug for Expr<F, V> {
 
 pub type VarAssignments<F, V> = HashMap<V, F>;
 
-impl<F: Field + Hash + std::ops::Try, V: Eq + PartialEq + Hash> Expr<F, V> {
+impl<F: Field + Hash, V: Eq + PartialEq + Hash> Expr<F, V> {
     pub fn eval(&self, assignments: &VarAssignments<F, V>) -> Option<F> {
         match self {
             Expr::Const(v) => Some(*v),
             Expr::Sum(ses) => ses
                 .iter()
-                .try_fold(F::ZERO, |acc, se| Some(acc? + se.eval(assignments)?)),
+                .fold(Some(F::ZERO), |acc, se| Some(acc? + se.eval(assignments)?)),
             Expr::Mul(ses) => ses
                 .iter()
-                .try_fold(F::ONE, |acc, se| Some(acc? * se.eval(assignments)?)),
+                .fold(Some(F::ONE), |acc, se| Some(acc? * se.eval(assignments)?)),
             Expr::Neg(se) => Some(F::ZERO - se.eval(assignments)?),
             Expr::Pow(se, exp) => Some(se.eval(assignments)?.pow([*exp as u64])),
             Expr::Query(q) => assignments.get(q).copied(),
