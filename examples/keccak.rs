@@ -182,7 +182,7 @@ fn convert_field_to_vec_bits<F: PrimeField>(value: F) -> Vec<u8> {
     v_vec[0..64].to_vec()
 }
 
-fn convert_bits_to_f<F: PrimeField<Repr = [u8; 32]>>(value_vec: &Vec<u8>) -> F {
+fn convert_bits_to_f<F: PrimeField<Repr = [u8; 32]>>(value_vec: &[u8]) -> F {
     assert_eq!(value_vec.len(), NUM_BITS_PER_WORD as usize);
     let mut sum_value_arr: Vec<u8> = (0..24)
         .map(|t| {
@@ -1398,9 +1398,9 @@ fn keccak_circuit<F: PrimeField<Repr = [u8; 32]> + Eq + Hash>(
                 let mut hash_rlc = data_rlc;
                 let mut next_round = round;
                 if last == 0 {
-                    next_round = ctx.internal(&format!("next_round"));
+                    next_round = ctx.internal("next_round");
                 } else {
-                    hash_rlc = ctx.internal(&format!("hash_rlc"));
+                    hash_rlc = ctx.internal("hash_rlc");
                 }
 
                 let mut squeeze_split_vec: Vec<Vec<Queriable<F>>> = Vec::new();
