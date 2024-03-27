@@ -132,8 +132,12 @@ impl<F: Field + Hash, TraceArgs> AssignmentGenerator<F, TraceArgs> {
         }
     }
 
+    pub fn generate_trace_witness(&self, args: TraceArgs) -> TraceWitness<F> {
+        self.trace_gen.generate(args)
+    }
+
     pub fn generate(&self, args: TraceArgs) -> Assignments<F> {
-        let witness = self.trace_gen.generate(args);
+        let witness = self.generate_trace_witness(args);
 
         self.generate_with_witness(witness)
     }
