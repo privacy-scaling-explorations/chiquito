@@ -285,6 +285,7 @@ fn check_true_false(
             analyser.error(format!("Cannot use false in expression {:#?}", expr), dsym)
         }
     }
+    true_false_rule(analyser, sub_expr)
 }
 
 lazy_static! {
@@ -893,7 +894,10 @@ mod test {
 
              c <== a + b;
 
-             if i + 1 == true {
+             if i + 1 {
+                if 1 * true ^ false - 123 && 0 + false * false {
+                    a <== 1;
+                }
               -> final {
                i', b', n' <== i + 1, c, n;
               }
@@ -915,9 +919,11 @@ mod test {
 
         let result = analyse(decls);
 
+        println!("{:?}", result.messages);
+
         assert_eq!(
             format!("{:?}", result.messages),
-            r#"[Err { msg: "Cannot use true in expression 2 + true", dsym: DebugSymRef { start: 0, end: 0 } }]"#
+            r#"[Err { msg: "Cannot use true in expression 2 + true", dsym: DebugSymRef { start: 0, end: 0 } }, Err { msg: "Cannot use true in expression 1 * true", dsym: DebugSymRef { start: 0, end: 0 } }, Err { msg: "Cannot use false in expression false - 123", dsym: DebugSymRef { start: 0, end: 0 } }, Err { msg: "Cannot use false in expression false * false", dsym: DebugSymRef { start: 0, end: 0 } }, Err { msg: "Cannot use false in expression false * false", dsym: DebugSymRef { start: 0, end: 0 } }]"#
         );
     }
 }
