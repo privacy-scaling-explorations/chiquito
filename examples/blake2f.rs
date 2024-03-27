@@ -1487,7 +1487,7 @@ fn main() {
         ChiquitoHalo2SuperCircuit::new(compiled, super_circuit.get_mapping().generate(values));
 
     let prover = MockProver::run(9, &circuit, Vec::new()).unwrap();
-    let result = prover.verify_par();
+    let result = prover.verify();
 
     println!("result = {:#?}", result);
 

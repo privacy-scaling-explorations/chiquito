@@ -181,8 +181,7 @@ fn reduce_degree_mul<F: Field, V: Clone + Eq + PartialEq + Hash + Debug, SF: Sig
 
 #[cfg(test)]
 mod test {
-    use halo2_proofs::arithmetic::Field;
-    use halo2curves::bn256::Fr;
+    use halo2_proofs::{arithmetic::Field, halo2curves::bn256::Fr};
     use rand_chacha::{rand_core::SeedableRng, ChaCha20Rng};
     use std::collections::HashMap;
 

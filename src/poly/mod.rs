@@ -270,7 +270,7 @@ impl<F: Clone, V: Clone + Eq + PartialEq + Hash> ConstrDecomp<F, V> {
 
 #[cfg(test)]
 mod test {
-    use halo2curves::bn256::Fr;
+    use halo2_proofs::halo2curves::bn256::Fr;
 
     use crate::{field::Field, poly::VarAssignments};
 

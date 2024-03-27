@@ -48,7 +48,7 @@ pub fn simplify_mul<F: Field, V: Clone + Eq + PartialEq + Hash>(
 
 #[cfg(test)]
 mod test {
-    use halo2curves::bn256::Fr;
+    use halo2_proofs::halo2curves::bn256::Fr;
 
     use crate::{
         poly::{
