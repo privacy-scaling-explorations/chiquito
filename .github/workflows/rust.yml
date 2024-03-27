@@ -49,7 +49,7 @@ jobs:
         uses: actions-rs/toolchain@v1
         with:
           profile: minimal
-          toolchain: nightly-2023-04-24
+          toolchain: nightly-2024-02-14
           components: clippy
           override: true
       - name: Run Clippy
