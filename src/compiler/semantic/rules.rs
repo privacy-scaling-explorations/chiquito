@@ -251,13 +251,51 @@ fn redeclare_rule(
     }
 }
 
+
+// Can only declare field and bool for every signal and var.
+fn types_rule(
+    analyser: &mut Analyser,
+    expr: &Statement<BigInt, Identifier>,
+    id: &Identifier,
+    symbol: &SymTableEntry,
+) {
+    if symbol.get_type() != "field" && symbol.get_type() != "bool" {
+        analyser.error(
+            format!(
+                "Cannot declare {} with type {}, only field and bool are allowed.",
+                id.name(),
+                symbol.get_type()
+            ),
+            &expr.get_dsym(),
+        )
+    }
+}
+
+fn types_rule_tl(
+    analyser: &mut Analyser,
+    decl: &TLDecl<BigInt, Identifier>,
+    id: &Identifier,
+    symbol: &SymTableEntry,
+) {
+    if symbol.get_type() != "field" && symbol.get_type() != "bool" {
+        analyser.error(
+            format!(
+                "Cannot declare {} with type {}, only field and bool are allowed.",
+                id.name(),
+                symbol.get_type()
+            ),
+            &decl.get_dsym(),
+        )
+    }
+}
+
 lazy_static! {
     /// Global semantic analyser rules.
     pub(super) static ref RULES: RuleSet = RuleSet {
         expression: vec![undeclared_rule],
         statement: vec![state_decl, assignment_rule, assert_rule],
-        new_symbol: vec![rotation_decl, redeclare_rule],
-        new_tl_symbol: vec![rotation_decl_tl, machine_decl_tl],
+        new_symbol: vec![rotation_decl, redeclare_rule, types_rule],
+        new_tl_symbol: vec![rotation_decl_tl, machine_decl_tl, types_rule_tl],
     };
 }
 
@@ -822,6 +860,60 @@ mod test {
         assert_eq!(
             format!("{:?}", result.messages),
             r#"[SemErr { msg: "Cannot redeclare middle in the same scope [\"/\", \"fibo\"]", dsym: DebugSymRef { start: 0, end: 0 } }, SemErr { msg: "Cannot redeclare n in the same scope [\"/\", \"fibo\"]", dsym: DebugSymRef { start: 0, end: 0 } }, SemErr { msg: "Cannot redeclare c in the same scope [\"/\", \"fibo\", \"middle\"]", dsym: DebugSymRef { start: 0, end: 0 } }]"#
+        );
+    }
+
+    #[test]
+    fn test_types_rule() {
+        let circuit = "
+        machine fibo(signal n: uint) (signal b: field) {
+            // n and be are created automatically as shared
+            // signals
+            signal a: field, i;
+
+            // there is always a state called initial
+            // input signals get binded to the signal
+            // in the initial state (first instance)
+            state initial {
+             signal c;
+
+             i, a, b, c <== 1, 1, 1, 2;
+
+             -> middle {
+              a', b', n' <== b, c, n;
+             }
+            }
+
+            state middle {
+             signal c: int; // wrong type
+
+             c <== a + b;
+
+             if i + 1 == n {
+              -> final {
+               i', b', n' <== i + 1, c, n;
+              }
+             } else {
+              -> middle {
+               i', a', b', n' <== i + 1, b, c, n;
+              }
+             }
+            }
+
+            // There is always a state called final.
+            // Output signals get automatically bindinded to the signals
+            // with the same name in the final step (last instance).
+            // This state can be implicit if there are no constraints in it.
+           }
+        ";
+
+        let decls = lang::TLDeclsParser::new().parse(circuit).unwrap();
+
+        let result = analyse(&decls);
+
+        assert_eq!(
+            format!("{:?}", result.messages),
+            r#"[SemErr { msg: "Cannot declare n with type uint, only field and bool are allowed.", dsym: DebugSymRef { start: 0, end: 0 } }, SemErr { msg: "Cannot declare c with type int, only field and bool are allowed.", dsym: DebugSymRef { start: 0, end: 0 } }]"#
         );
     }
 }
