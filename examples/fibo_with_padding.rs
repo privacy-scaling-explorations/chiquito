@@ -206,7 +206,7 @@ fn main() {
 
     let prover = MockProver::<Fr>::run(7, &circuit, circuit.instance()).unwrap();
 
-    let result = prover.verify_par();
+    let result = prover.verify();
 
     println!("{:#?}", result);
 
@@ -237,7 +237,7 @@ fn main() {
     // same as halo2 boilerplate above
     let prover_plaf = MockProver::<Fr>::run(8, &plaf_circuit, plaf_circuit.instance()).unwrap();
 
-    let result_plaf = prover_plaf.verify_par();
+    let result_plaf = prover_plaf.verify();
 
     println!("result = {:#?}", result_plaf);
 

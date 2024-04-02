@@ -394,7 +394,7 @@ impl<F: From<u64> + Into<u32> + Clone, V: Clone> CompilationUnit<F, V> {
 
         if_then_compiled
             .into_iter()
-            .zip(if_else_compiled.into_iter())
+            .zip(if_else_compiled)
             .map(|(if_then, if_else)| {
                 // The AND of the two results
                 // For the OneZero if we have a 0F in any of the two results, the result will be 0F
@@ -418,12 +418,16 @@ fn flatten_bin_op<F: Clone, V: Clone>(
     rhs: Expression<F, V>,
     sub: &mut Vec<Expression<F, V>>,
 ) {
-    if let Expression::BinOp { op, lhs, rhs, .. } = lhs.clone() && op == op_ {
+    if let Expression::BinOp { op, lhs, rhs, .. } = lhs.clone()
+        && op == op_
+    {
         flatten_bin_op(op, *lhs, *rhs, sub);
     } else {
         sub.push(lhs);
     }
-    if let Expression::BinOp { op, lhs, rhs, .. } = rhs.clone() && op == op_ {
+    if let Expression::BinOp { op, lhs, rhs, .. } = rhs.clone()
+        && op == op_
+    {
         flatten_bin_op(op, *lhs, *rhs, sub);
     } else {
         sub.push(rhs);
