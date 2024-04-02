@@ -568,8 +568,7 @@ fn add_halo2_columns<F, TraceArgs>(unit: &mut CompilationUnit<F>, ast: &astCircu
 
 #[cfg(test)]
 mod test {
-    use halo2_proofs::plonk::Any;
-    use halo2curves::bn256::Fr;
+    use halo2_proofs::{halo2curves::bn256::Fr, plonk::Any};
 
     use super::{cell_manager::SingleRowCellManager, step_selector::SimpleStepSelectorBuilder, *};
 
