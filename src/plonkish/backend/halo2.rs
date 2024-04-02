@@ -3,13 +3,13 @@ use std::{collections::HashMap, hash::Hash};
 use halo2_proofs::{
     arithmetic::Field,
     circuit::{Cell, Layouter, Region, RegionIndex, SimpleFloorPlanner, Value},
+    halo2curves::ff::PrimeField,
     plonk::{
         Advice, Any, Circuit as h2Circuit, Column, ConstraintSystem, Error, Expression, FirstPhase,
         Fixed, Instance, SecondPhase, ThirdPhase, VirtualCells,
     },
     poly::Rotation,
 };
-use halo2curves::ff::PrimeField;
 
 use crate::{
     field::Field as ChiquitoField,

@@ -754,7 +754,7 @@ mod test {
 
         let decls = lang::TLDeclsParser::new().parse(circuit).unwrap();
 
-        let result = analyse(decls);
+        let result = analyse(&decls);
 
         assert_eq!(
             format!("{:?}", result.messages),
@@ -817,7 +817,7 @@ mod test {
 
         let decls = lang::TLDeclsParser::new().parse(circuit).unwrap();
 
-        let result = analyse(decls);
+        let result = analyse(&decls);
 
         assert_eq!(
             format!("{:?}", result.messages),

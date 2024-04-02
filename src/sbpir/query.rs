@@ -122,7 +122,7 @@ impl<F> Queriable<F> {
                     s.annotation.to_string()
                 }
             }
-            Queriable::StepTypeNext(s) => format!("next_step({})", s.annotation.to_string()),
+            Queriable::StepTypeNext(s) => format!("next_step({})", s.annotation),
             Queriable::Halo2AdviceQuery(s, rot) => {
                 if *rot != 0 {
                     format!("{}(rot {})", s.annotation, rot)

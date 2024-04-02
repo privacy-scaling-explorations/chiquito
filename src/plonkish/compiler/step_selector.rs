@@ -305,7 +305,7 @@ mod tests {
     #[test]
     fn test_select_step_selector() {
         let mut unit = mock_compilation_unit::<Fr>();
-        let step_type = Rc::new(StepType::new(Uuid::nil().as_u128(), "StepType".to_string()));
+        let step_type = StepType::new(Uuid::nil().as_u128(), "StepType".to_string());
         unit.step_types.insert(step_type.uuid(), step_type.clone());
 
         let builder = SimpleStepSelectorBuilder {};
@@ -331,7 +331,7 @@ mod tests {
     #[test]
     fn test_next_step_selector() {
         let mut unit = mock_compilation_unit::<Fr>();
-        let step_type = Rc::new(StepType::new(Uuid::nil().as_u128(), "StepType".to_string()));
+        let step_type = StepType::new(Uuid::nil().as_u128(), "StepType".to_string());
         unit.step_types.insert(step_type.uuid(), step_type.clone());
 
         let builder = SimpleStepSelectorBuilder {};
@@ -356,7 +356,7 @@ mod tests {
     #[test]
     fn test_unselect_step_selector() {
         let mut unit = mock_compilation_unit::<Fr>();
-        let step_type = Rc::new(StepType::new(Uuid::nil().as_u128(), "StepType".to_string()));
+        let step_type = StepType::new(Uuid::nil().as_u128(), "StepType".to_string());
         unit.step_types.insert(step_type.uuid(), step_type.clone());
 
         let builder = SimpleStepSelectorBuilder {};
