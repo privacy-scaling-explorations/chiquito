@@ -2316,7 +2316,7 @@ fn keccak_plaf(circuit_param: KeccakCircuit, k: u32) {
         let (plaf, plaf_wit_gen) = chiquito2Plaf(circuit, k, false);
 
         let mut plaf = plaf;
-        plaf.set_challange_alias(0, "r_keccak".to_string());
+        plaf.set_challenge_alias(0, "r_keccak".to_string());
         let wit = plaf_wit_gen.generate(Some(wit_gen));
         write_files("keccak_output", &plaf, &wit).unwrap();
     }
@@ -2333,7 +2333,7 @@ fn keccak_run(circuit_param: KeccakCircuit, k: u32) -> bool {
     );
 
     let prover = MockProver::<Fr>::run(k, &circuit, Vec::new()).unwrap();
-    let result = prover.verify_par();
+    let result = prover.verify();
 
     println!("result = {:#?}", result);
 
