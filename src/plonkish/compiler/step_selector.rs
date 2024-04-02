@@ -1,4 +1,4 @@
-use std::{collections::HashMap, rc::Rc};
+use std::collections::HashMap;
 
 use halo2_proofs::plonk::{Advice, Column as Halo2Column};
 
@@ -132,15 +132,19 @@ impl StepSelectorBuilder for TwoStepsSelectorBuilder {
                 .expect("step not found");
 
             let one_uuid = hint_one.uuid();
-            let step_one = unit.step_types.get(&one_uuid).expect("step not found");
+            let step_one = unit
+                .step_types
+                .get(&one_uuid)
+                .expect("step not found")
+                .clone();
             let step_zero = other_step_type(unit, one_uuid).expect("step not found");
-            (step_zero, step_one.clone())
+            (step_zero, step_one)
         } else {
             let mut iter = unit.step_types.values();
 
             (
-                Rc::clone(iter.next().expect("step not found")),
-                Rc::clone(iter.next().expect("step not found")),
+                iter.next().expect("step not found").clone(),
+                iter.next().expect("step not found").clone(),
             )
         };
 
@@ -202,10 +206,10 @@ impl StepSelectorBuilder for LogNSelectorBuilder {
 
         let n_step_types = unit.step_types.len() as u64;
         let n_cols = (n_step_types as f64 + 1.0).log2().ceil() as u64;
-
+        println!("n_step_types = {}, n_cols = {}", n_step_types, n_cols);
         let mut annotation;
         for index in 0..n_cols {
-            annotation = format!("'binary selector column {}'", index);
+            annotation = format!("'step selector for binary column {}'", index);
 
             let column = Column::advice(annotation.clone(), 0);
             selector.columns.push(column.clone());
@@ -246,10 +250,10 @@ impl StepSelectorBuilder for LogNSelectorBuilder {
     }
 }
 
-fn other_step_type<F>(unit: &CompilationUnit<F>, uuid: UUID) -> Option<Rc<StepType<F>>> {
+fn other_step_type<F: Clone>(unit: &CompilationUnit<F>, uuid: UUID) -> Option<StepType<F>> {
     for step_type in unit.step_types.values() {
         if step_type.uuid() != uuid {
-            return Some(Rc::clone(step_type));
+            return Some(step_type.clone());
         }
     }
 
@@ -258,7 +262,7 @@ fn other_step_type<F>(unit: &CompilationUnit<F>, uuid: UUID) -> Option<Rc<StepTy
 
 #[cfg(test)]
 mod tests {
-    use halo2curves::bn256::Fr;
+    use halo2_proofs::halo2curves::bn256::Fr;
     use uuid::Uuid;
 
     use super::*;
@@ -272,7 +276,7 @@ mod tests {
             let uuid_value = Uuid::now_v1(&[1, 2, 3, 4, 5, 6]).as_u128();
             unit.step_types.insert(
                 uuid_value,
-                Rc::new(StepType::new(uuid_value, format!("StepType{}", i))),
+                StepType::new(uuid_value, format!("StepType{}", i)),
             );
         }
     }
@@ -287,6 +291,99 @@ mod tests {
                 .contains_key(&step_type.uuid()));
             assert!(unit.selector.selector_expr.contains_key(&step_type.uuid()));
         }
+    }
+
+    #[test]
+    fn test_default_step_selector() {
+        let unit = mock_compilation_unit::<Fr>();
+        assert_eq!(unit.selector.columns.len(), 0);
+        assert_eq!(unit.selector.selector_expr.len(), 0);
+        assert_eq!(unit.selector.selector_expr_not.len(), 0);
+        assert_eq!(unit.selector.selector_assignment.len(), 0);
+    }
+
+    #[test]
+    fn test_select_step_selector() {
+        let mut unit = mock_compilation_unit::<Fr>();
+        let step_type = StepType::new(Uuid::nil().as_u128(), "StepType".to_string());
+        unit.step_types.insert(step_type.uuid(), step_type.clone());
+
+        let builder = SimpleStepSelectorBuilder {};
+        builder.build(&mut unit);
+
+        let selector = &unit.selector;
+        let constraint = PolyExpr::Const(Fr::ONE);
+
+        let step_uuid = step_type.uuid();
+        let selector_expr = selector
+            .selector_expr
+            .get(&step_uuid)
+            .expect("Step not found")
+            .clone();
+        let expected_expr = PolyExpr::Mul(vec![selector_expr, constraint.clone()]);
+
+        assert_eq!(
+            format!("{:#?}", selector.select(step_uuid, &constraint)),
+            format!("{:#?}", expected_expr)
+        );
+    }
+
+    #[test]
+    fn test_next_step_selector() {
+        let mut unit = mock_compilation_unit::<Fr>();
+        let step_type = StepType::new(Uuid::nil().as_u128(), "StepType".to_string());
+        unit.step_types.insert(step_type.uuid(), step_type.clone());
+
+        let builder = SimpleStepSelectorBuilder {};
+        builder.build(&mut unit);
+
+        let selector = &unit.selector;
+        let step_uuid = step_type.uuid();
+        let step_height = 1;
+        let expected_expr = selector
+            .selector_expr
+            .get(&step_uuid)
+            .expect("Step not found")
+            .clone()
+            .rotate(step_height);
+
+        assert_eq!(
+            format!("{:#?}", selector.next_expr(step_uuid, step_height as u32)),
+            format!("{:#?}", expected_expr)
+        );
+    }
+
+    #[test]
+    fn test_unselect_step_selector() {
+        let mut unit = mock_compilation_unit::<Fr>();
+        let step_type = StepType::new(Uuid::nil().as_u128(), "StepType".to_string());
+        unit.step_types.insert(step_type.uuid(), step_type.clone());
+
+        let builder = SimpleStepSelectorBuilder {};
+        builder.build(&mut unit);
+
+        let selector = &unit.selector;
+        let step_uuid = step_type.uuid();
+        let expected_expr = selector
+            .selector_expr_not
+            .get(&step_uuid)
+            .expect("Step not found")
+            .clone();
+
+        assert_eq!(
+            format!("{:#?}", selector.unselect(step_uuid)),
+            format!("{:#?}", expected_expr)
+        );
+    }
+
+    #[test]
+    fn test_simple_step_selector_builder() {
+        let builder = SimpleStepSelectorBuilder {};
+        let mut unit = mock_compilation_unit::<Fr>();
+
+        add_step_types_to_unit(&mut unit, 2);
+        builder.build(&mut unit);
+        assert_common_tests(&unit, 2);
     }
 
     #[test]

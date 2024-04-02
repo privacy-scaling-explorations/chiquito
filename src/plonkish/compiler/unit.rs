@@ -21,7 +21,7 @@ use super::{
 pub struct CompilationUnit<F> {
     pub placement: Placement,
     pub selector: StepSelector<F>,
-    pub step_types: HashMap<UUID, Rc<StepType<F>>>,
+    pub step_types: HashMap<UUID, StepType<F>>,
     pub forward_signals: Vec<ForwardSignal>,
     pub shared_signals: Vec<SharedSignal>,
     pub fixed_signals: Vec<FixedSignal>,
@@ -48,6 +48,8 @@ pub struct CompilationUnit<F> {
 
     pub other_sub_circuits: Rc<Vec<CompilationUnit<F>>>,
     pub other_columns: Rc<Vec<Column>>,
+
+    pub compilation_phase: u32,
 }
 
 impl<F> Default for CompilationUnit<F> {
@@ -82,6 +84,8 @@ impl<F> Default for CompilationUnit<F> {
 
             other_sub_circuits: Default::default(),
             other_columns: Default::default(),
+
+            compilation_phase: Default::default(),
         }
     }
 }
@@ -196,7 +200,7 @@ impl<F> CompilationUnit<F> {
     }
 }
 
-impl<F, TraceArgs> From<&astCircuit<F, TraceArgs>> for CompilationUnit<F> {
+impl<F: Clone, TraceArgs> From<&astCircuit<F, TraceArgs>> for CompilationUnit<F> {
     fn from(ast: &astCircuit<F, TraceArgs>) -> Self {
         CompilationUnit::<F> {
             annotations: {

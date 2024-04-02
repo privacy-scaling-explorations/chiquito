@@ -3,6 +3,7 @@ use std::{collections::HashMap, hash::Hash};
 use halo2_proofs::{
     arithmetic::Field,
     circuit::{Cell, Layouter, Region, RegionIndex, SimpleFloorPlanner, Value},
+    halo2curves::ff::PrimeField,
     plonk::{
         Advice, Any, Circuit as h2Circuit, Column, ConstraintSystem, Error, Expression, FirstPhase,
         Fixed, Instance, SecondPhase, ThirdPhase, VirtualCells,
@@ -23,7 +24,7 @@ use crate::{
     util::UUID,
 };
 
-impl<T: Field + From<u64>> ChiquitoField for T {
+impl<T: PrimeField + From<u64>> ChiquitoField for T {
     const ZERO: Self = <Self as Field>::ZERO;
     const ONE: Self = <Self as Field>::ONE;
 
@@ -34,15 +35,19 @@ impl<T: Field + From<u64>> ChiquitoField for T {
     fn pow<S: AsRef<[u64]>>(&self, exp: S) -> Self {
         Field::pow(self, exp)
     }
+
+    fn from_big_int(value: &num_bigint::BigInt) -> Self {
+        PrimeField::from_str_vartime(value.to_string().as_str()).expect("field value")
+    }
 }
 
 #[allow(non_snake_case)]
-pub fn chiquito2Halo2<F: Field + From<u64> + Hash>(circuit: Circuit<F>) -> ChiquitoHalo2<F> {
+pub fn chiquito2Halo2<F: PrimeField + From<u64> + Hash>(circuit: Circuit<F>) -> ChiquitoHalo2<F> {
     ChiquitoHalo2::new(circuit)
 }
 
 #[allow(non_snake_case)]
-pub fn chiquitoSuperCircuit2Halo2<F: Field + From<u64> + Hash, MappingArgs>(
+pub fn chiquitoSuperCircuit2Halo2<F: PrimeField + From<u64> + Hash, MappingArgs>(
     super_circuit: &SuperCircuit<F, MappingArgs>,
 ) -> Vec<ChiquitoHalo2<F>> {
     super_circuit
@@ -53,7 +58,7 @@ pub fn chiquitoSuperCircuit2Halo2<F: Field + From<u64> + Hash, MappingArgs>(
 }
 
 #[derive(Clone, Debug, Default)]
-pub struct ChiquitoHalo2<F: Field + From<u64>> {
+pub struct ChiquitoHalo2<F: PrimeField + From<u64>> {
     pub debug: bool,
 
     circuit: Circuit<F>,
@@ -65,7 +70,7 @@ pub struct ChiquitoHalo2<F: Field + From<u64>> {
     ir_id: UUID,
 }
 
-impl<F: Field + From<u64> + Hash> ChiquitoHalo2<F> {
+impl<F: PrimeField + From<u64> + Hash> ChiquitoHalo2<F> {
     pub fn new(circuit: Circuit<F>) -> ChiquitoHalo2<F> {
         let ir_id = circuit.id;
         ChiquitoHalo2 {
@@ -215,25 +220,6 @@ impl<F: Field + From<u64> + Hash> ChiquitoHalo2<F> {
         Ok(())
     }
 
-    fn instance(&self, witness: &Assignments<F>) -> Vec<F> {
-        let mut instance_values = Vec::new();
-        for (column, rotation) in &self.circuit.exposed {
-            let values = witness
-                .get(column)
-                .unwrap_or_else(|| panic!("exposed column not found: {}", column.annotation));
-
-            if let Some(value) = values.get(*rotation as usize) {
-                instance_values.push(*value);
-            } else {
-                panic!(
-                    "assignment index out of bounds for column: {}",
-                    column.annotation
-                );
-            }
-        }
-        instance_values
-    }
-
     fn annotate_circuit(&self, region: &mut Region<F>) {
         for column in self.circuit.columns.iter() {
             match column.ctype {
@@ -317,7 +303,7 @@ impl<F: Field + From<u64> + Hash> ChiquitoHalo2<F> {
                 .advice_columns
                 .get(&column.uuid())
                 .unwrap_or_else(|| panic!("column not found {}", column.annotation)),
-            _ => panic!("worng column type"),
+            _ => panic!("wrong column type"),
         }
     }
 
@@ -327,7 +313,7 @@ impl<F: Field + From<u64> + Hash> ChiquitoHalo2<F> {
                 .fixed_columns
                 .get(&column.uuid())
                 .unwrap_or_else(|| panic!("column not found {}", column.annotation)),
-            _ => panic!("worng column type"),
+            _ => panic!("wrong column type"),
         }
     }
 }
@@ -353,7 +339,7 @@ fn new_cell(column: Column<Any>, offset: usize) -> Cell {
     unsafe { std::mem::transmute::<_Cell, Cell>(cell) }
 }
 
-pub fn to_halo2_advice<F: Field>(
+pub fn to_halo2_advice<F: PrimeField>(
     meta: &mut ConstraintSystem<F>,
     column: &cColumn,
 ) -> Column<Advice> {
@@ -366,12 +352,12 @@ pub fn to_halo2_advice<F: Field>(
 }
 
 #[derive(Clone, Default)]
-pub struct ChiquitoHalo2Circuit<F: Field + From<u64>> {
+pub struct ChiquitoHalo2Circuit<F: PrimeField + From<u64>> {
     compiled: ChiquitoHalo2<F>,
     witness: Option<Assignments<F>>,
 }
 
-impl<F: Field + From<u64> + Hash> ChiquitoHalo2Circuit<F> {
+impl<F: PrimeField + From<u64> + Hash> ChiquitoHalo2Circuit<F> {
     pub fn new(compiled: ChiquitoHalo2<F>, witness: Option<Assignments<F>>) -> Self {
         Self { compiled, witness }
     }
@@ -379,14 +365,14 @@ impl<F: Field + From<u64> + Hash> ChiquitoHalo2Circuit<F> {
     pub fn instance(&self) -> Vec<Vec<F>> {
         if !self.compiled.circuit.exposed.is_empty() {
             if let Some(witness) = &self.witness {
-                return vec![self.compiled.instance(witness)];
+                return vec![self.compiled.circuit.instance(witness)];
             }
         }
         Vec::new()
     }
 }
 
-impl<F: Field + From<u64> + Hash> h2Circuit<F> for ChiquitoHalo2Circuit<F> {
+impl<F: PrimeField + From<u64> + Hash> h2Circuit<F> for ChiquitoHalo2Circuit<F> {
     type Config = ChiquitoHalo2<F>;
 
     type FloorPlanner = SimpleFloorPlanner;
@@ -426,12 +412,12 @@ impl<F: Field + From<u64> + Hash> h2Circuit<F> for ChiquitoHalo2Circuit<F> {
 }
 
 #[derive(Debug, Default)]
-pub struct ChiquitoHalo2SuperCircuit<F: Field + From<u64>> {
+pub struct ChiquitoHalo2SuperCircuit<F: PrimeField + From<u64>> {
     sub_circuits: Vec<ChiquitoHalo2<F>>,
     witness: SuperAssignments<F>,
 }
 
-impl<F: Field + From<u64> + Hash> ChiquitoHalo2SuperCircuit<F> {
+impl<F: PrimeField + From<u64> + Hash> ChiquitoHalo2SuperCircuit<F> {
     pub fn new(sub_circuits: Vec<ChiquitoHalo2<F>>, witness: SuperAssignments<F>) -> Self {
         Self {
             sub_circuits,
@@ -444,7 +430,7 @@ impl<F: Field + From<u64> + Hash> ChiquitoHalo2SuperCircuit<F> {
 
         for sub_circuit in &self.sub_circuits {
             if !sub_circuit.circuit.exposed.is_empty() {
-                let instance_values = sub_circuit.instance(
+                let instance_values = sub_circuit.circuit.instance(
                     self.witness
                         .get(&sub_circuit.ir_id)
                         .expect("No matching witness found for given UUID."),
@@ -457,7 +443,7 @@ impl<F: Field + From<u64> + Hash> ChiquitoHalo2SuperCircuit<F> {
     }
 }
 
-impl<F: Field + From<u64> + Hash> h2Circuit<F> for ChiquitoHalo2SuperCircuit<F> {
+impl<F: PrimeField + From<u64> + Hash> h2Circuit<F> for ChiquitoHalo2SuperCircuit<F> {
     type Config = Vec<ChiquitoHalo2<F>>;
 
     type FloorPlanner = SimpleFloorPlanner;

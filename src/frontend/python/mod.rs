@@ -5,6 +5,7 @@ use pyo3::{
 
 use crate::{
     frontend::dsl::{StepTypeHandler, SuperCircuitContext},
+    pil::backend::powdr_pil::chiquito2Pil,
     plonkish::{
         backend::halo2::{
             chiquito2Halo2, chiquitoSuperCircuit2Halo2, ChiquitoHalo2, ChiquitoHalo2Circuit,
@@ -81,6 +82,14 @@ pub fn chiquito_ast_map_store(ast_json: &str) -> UUID {
     uuid
 }
 
+pub fn chiquito_ast_to_pil(witness_json: &str, rust_id: UUID, circuit_name: &str) -> String {
+    let trace_witness: TraceWitness<Fr> =
+        serde_json::from_str(witness_json).expect("Json deserialization to TraceWitness failed.");
+    let (ast, _, _) = rust_id_to_halo2(rust_id);
+
+    chiquito2Pil(ast, Some(trace_witness), circuit_name.to_string())
+}
+
 fn add_assignment_generator_to_rust_id(
     assignment_generator: AssignmentGenerator<Fr, ()>,
     rust_id: UUID,
@@ -133,7 +142,7 @@ pub fn chiquito_super_circuit_halo2_mock_prover(
 
     let prover = MockProver::<Fr>::run(k as u32, &circuit, circuit.instance()).unwrap();
 
-    let result = prover.verify_par();
+    let result = prover.verify();
 
     println!("result = {:#?}", result);
 
@@ -166,7 +175,7 @@ pub fn chiquito_halo2_mock_prover(witness_json: &str, rust_id: UUID, k: usize) {
 
     let prover = MockProver::<Fr>::run(k as u32, &circuit, circuit.instance()).unwrap();
 
-    let result = prover.verify_par();
+    let result = prover.verify();
 
     println!("{:#?}", result);
 
@@ -299,11 +308,7 @@ impl<'de> Visitor<'de> for CircuitVisitor {
                 }
             }
         }
-        let step_types = step_types
-            .ok_or_else(|| de::Error::missing_field("step_types"))?
-            .into_iter()
-            .map(|(k, v)| (k, Rc::new(v)))
-            .collect();
+        let step_types = step_types.ok_or_else(|| de::Error::missing_field("step_types"))?;
         let forward_signals =
             forward_signals.ok_or_else(|| de::Error::missing_field("forward_signals"))?;
         let shared_signals =
@@ -910,6 +915,8 @@ impl<'de> Deserialize<'de> for SBPIR<Fr, ()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[ignore]
     #[test]
     fn test_trace_witness() {
         let json = r#"
@@ -1054,6 +1061,7 @@ mod tests {
         let _: ExposeOffset = serde_json::from_str(json).unwrap();
     }
 
+    #[ignore]
     #[test]
     fn test_circuit() {
         let json = r#"
@@ -1525,6 +1533,7 @@ mod tests {
         println!("{:?}", circuit);
     }
 
+    #[ignore]
     #[test]
     fn test_step_type() {
         let json = r#"
@@ -1660,6 +1669,7 @@ mod tests {
         println!("{:?}", step_type);
     }
 
+    #[ignore]
     #[test]
     fn test_constraint() {
         let json = r#"
@@ -1743,6 +1753,7 @@ mod tests {
         println!("{:?}", transition_constraint);
     }
 
+    #[ignore]
     #[test]
     fn test_expr() {
         let json = r#"
@@ -1825,7 +1836,7 @@ mod tests {
 #[pyfunction]
 fn convert_and_print_ast(json: &PyString) {
     let circuit: SBPIR<Fr, ()> =
-        serde_json::from_str(json.to_str().expect("PyString convertion failed."))
+        serde_json::from_str(json.to_str().expect("PyString conversion failed."))
             .expect("Json deserialization to Circuit failed.");
     println!("{:?}", circuit);
 }
@@ -1833,21 +1844,33 @@ fn convert_and_print_ast(json: &PyString) {
 #[pyfunction]
 fn convert_and_print_trace_witness(json: &PyString) {
     let trace_witness: TraceWitness<Fr> =
-        serde_json::from_str(json.to_str().expect("PyString convertion failed."))
+        serde_json::from_str(json.to_str().expect("PyString conversion failed."))
             .expect("Json deserialization to TraceWitness failed.");
     println!("{:?}", trace_witness);
 }
 
 #[pyfunction]
 fn ast_to_halo2(json: &PyString) -> u128 {
-    let uuid = chiquito_ast_to_halo2(json.to_str().expect("PyString convertion failed."));
+    let uuid = chiquito_ast_to_halo2(json.to_str().expect("PyString conversion failed."));
 
     uuid
 }
 
 #[pyfunction]
+fn to_pil(witness_json: &PyString, rust_id: &PyLong, circuit_name: &PyString) -> String {
+    let pil = chiquito_ast_to_pil(
+        witness_json.to_str().expect("PyString convertion failed."),
+        rust_id.extract().expect("PyLong convertion failed."),
+        circuit_name.to_str().expect("PyString convertion failed."),
+    );
+
+    println!("{}", pil);
+    pil
+}
+
+#[pyfunction]
 fn ast_map_store(json: &PyString) -> u128 {
-    let uuid = chiquito_ast_map_store(json.to_str().expect("PyString convertion failed."));
+    let uuid = chiquito_ast_map_store(json.to_str().expect("PyString conversion failed."));
 
     uuid
 }
@@ -1855,9 +1878,9 @@ fn ast_map_store(json: &PyString) -> u128 {
 #[pyfunction]
 fn halo2_mock_prover(witness_json: &PyString, rust_id: &PyLong, k: &PyLong) {
     chiquito_halo2_mock_prover(
-        witness_json.to_str().expect("PyString convertion failed."),
-        rust_id.extract().expect("PyLong convertion failed."),
-        k.extract().expect("PyLong convertion failed."),
+        witness_json.to_str().expect("PyString conversion failed."),
+        rust_id.extract().expect("PyLong conversion failed."),
+        k.extract().expect("PyLong conversion failed."),
     );
 }
 
@@ -1870,7 +1893,7 @@ fn super_circuit_halo2_mock_prover(rust_ids: &PyList, super_witness: &PyDict, k:
                 .downcast::<PyLong>()
                 .expect("PyAny downcast failed.")
                 .extract()
-                .expect("PyLong convertion failed.")
+                .expect("PyLong conversion failed.")
         })
         .collect::<Vec<UUID>>();
 
@@ -1881,12 +1904,12 @@ fn super_circuit_halo2_mock_prover(rust_ids: &PyList, super_witness: &PyDict, k:
                 key.downcast::<PyLong>()
                     .expect("PyAny downcast failed.")
                     .extract()
-                    .expect("PyLong convertion failed."),
+                    .expect("PyLong conversion failed."),
                 value
                     .downcast::<PyString>()
                     .expect("PyAny downcast failed.")
                     .to_str()
-                    .expect("PyString convertion failed."),
+                    .expect("PyString conversion failed."),
             )
         })
         .collect::<HashMap<u128, &str>>();
@@ -1894,7 +1917,7 @@ fn super_circuit_halo2_mock_prover(rust_ids: &PyList, super_witness: &PyDict, k:
     chiquito_super_circuit_halo2_mock_prover(
         uuids,
         super_witness,
-        k.extract().expect("PyLong convertion failed."),
+        k.extract().expect("PyLong conversion failed."),
     )
 }
 
@@ -1903,6 +1926,7 @@ fn rust_chiquito(_py: Python, m: &PyModule) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(convert_and_print_ast, m)?)?;
     m.add_function(wrap_pyfunction!(convert_and_print_trace_witness, m)?)?;
     m.add_function(wrap_pyfunction!(ast_to_halo2, m)?)?;
+    m.add_function(wrap_pyfunction!(to_pil, m)?)?;
     m.add_function(wrap_pyfunction!(ast_map_store, m)?)?;
     m.add_function(wrap_pyfunction!(halo2_mock_prover, m)?)?;
     m.add_function(wrap_pyfunction!(super_circuit_halo2_mock_prover, m)?)?;

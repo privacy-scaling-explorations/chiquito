@@ -11,7 +11,7 @@ use chiquito::{
     },
     sbpir::query::Queriable,
 };
-// use halo2curves::ff::Field;
+
 use std::hash::Hash;
 
 use halo2_proofs::{
@@ -484,7 +484,6 @@ fn poseidon_circuit<F: PrimeField + Eq + Hash>(
                 x_value
             })
             .collect();
-
         let mut sbox_values: Vec<F> = x_values
             .iter()
             .map(|x_value| *x_value * x_value * x_value * x_value * x_value)
@@ -513,7 +512,6 @@ fn poseidon_circuit<F: PrimeField + Eq + Hash>(
             out_values: outputs.clone(),
             round: F::ZERO,
         };
-
         ctx.add(&poseidon_step_first_round, round_values);
         inputs = outputs;
 
@@ -712,7 +710,7 @@ fn main() {
 
     let prover = MockProver::<Fr>::run(12, &circuit, Vec::new()).unwrap();
 
-    let result = prover.verify_par();
+    let result = prover.verify();
 
     println!("result = {:#?}", result);
 

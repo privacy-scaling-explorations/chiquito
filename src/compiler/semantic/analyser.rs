@@ -1,8 +1,11 @@
 use num_bigint::BigInt;
 
 use crate::{
-    compiler::semantic::{
-        rules::RULES, AnalysisResult, Message, ScopeTable, SymTable, SymTableEntry, SymbolCategory,
+    compiler::{
+        semantic::{
+            rules::RULES, AnalysisResult, ScopeTable, SymTable, SymTableEntry, SymbolCategory,
+        },
+        Message,
     },
     parser::ast::{
         expression::Expression, statement::Statement, tl::TLDecl, DebugSymRef, Identifiable,
@@ -12,7 +15,7 @@ use crate::{
 
 /// Public interface to semantic analyser.
 /// Returns symbol table and messages.
-pub fn analyse(program: Vec<TLDecl<BigInt, Identifier>>) -> AnalysisResult {
+pub fn analyse(program: &[TLDecl<BigInt, Identifier>]) -> AnalysisResult {
     let mut analyser = Analyser::default();
 
     analyser.analyse(program);
@@ -44,14 +47,12 @@ impl Default for Analyser {
 
 impl Analyser {
     /// Analyse chiquito AST.
-    fn analyse(&mut self, program: Vec<TLDecl<BigInt, Identifier>>) {
-        program
-            .into_iter()
-            .for_each(|decl| self.analyse_tldcl(decl));
+    fn analyse(&mut self, program: &[TLDecl<BigInt, Identifier>]) {
+        program.iter().for_each(|decl| self.analyse_tldcl(decl));
     }
 
     /// Analyse top level declaration.
-    fn analyse_tldcl(&mut self, decl: TLDecl<BigInt, Identifier>) {
+    fn analyse_tldcl(&mut self, decl: &TLDecl<BigInt, Identifier>) {
         match decl.clone() {
             TLDecl::MachineDecl {
                 dsym,
@@ -66,7 +67,7 @@ impl Analyser {
                     ty: None,
                 };
 
-                RULES.apply_new_symbol_tldecl(self, &decl, &id, &sym);
+                RULES.apply_new_symbol_tldecl(self, decl, &id, &sym);
 
                 self.symbols.add_symbol(&self.cur_scope, id.name(), sym);
 
@@ -174,6 +175,29 @@ impl Analyser {
         } else {
             unreachable!("the parser should produce machine declaration with a block");
         }
+
+        if self
+            .symbols
+            .get_symbol(&self.cur_scope, "final".to_string())
+            .is_none()
+        {
+            let id = Identifier("final".to_string(), 0);
+            let stmt = Statement::StateDecl(
+                DebugSymRef::new(0, 0),
+                id.clone(),
+                Box::new(Statement::Block(DebugSymRef::new(0, 0), vec![])),
+            );
+
+            let sym = SymTableEntry {
+                definition_ref: DebugSymRef::new(0, 0),
+                category: SymbolCategory::State,
+                ty: None,
+            };
+
+            RULES.apply_new_symbol_statement(self, &stmt, &id, &sym);
+
+            self.symbols.add_symbol(&self.cur_scope, id.name(), sym);
+        }
     }
 
     fn analyse_state(&mut self, id: Identifier, block: Statement<BigInt, Identifier>) {
@@ -262,7 +286,7 @@ impl Analyser {
     }
 
     pub(super) fn error<S: Into<String>>(&mut self, msg: S, dsym: &DebugSymRef) {
-        self.messages.push(Message::Err {
+        self.messages.push(Message::SemErr {
             msg: msg.into(),
             dsym: dsym.clone(),
         })
@@ -329,7 +353,7 @@ mod test {
 
         let decls = lang::TLDeclsParser::new().parse(circuit).unwrap();
 
-        let result = analyse(decls);
+        let result = analyse(&decls);
 
         assert_eq!(
             format!("{:?}", result),

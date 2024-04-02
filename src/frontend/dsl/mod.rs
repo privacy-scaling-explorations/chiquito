@@ -17,7 +17,7 @@ use self::{
 
 pub use sc::*;
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 /// A generic structure designed to handle the context of a circuit for generic types
 /// `F`, `TraceArgs` and `StepArgs`.
 /// The struct contains a `Circuit` instance and implements methods to build the circuit,
@@ -154,6 +154,8 @@ impl<F, TraceArgs> CircuitContext<F, TraceArgs> {
         self.circuit.last_step = Some(step_type.into().uuid());
     }
 
+    /// Enforce the number of step instances by adding a constraint to the circuit. Takes a `usize`
+    /// parameter that represents the total number of steps.
     pub fn pragma_num_steps(&mut self, num_steps: usize) {
         self.circuit.num_steps = num_steps;
     }
@@ -201,6 +203,12 @@ impl From<&'static str> for StepTypeDefInput {
     }
 }
 
+impl From<String> for StepTypeDefInput {
+    fn from(s: String) -> Self {
+        StepTypeDefInput::String(Box::leak(s.into_boxed_str()))
+    }
+}
+
 /// A generic structure designed to handle the context of a step type definition.  The struct
 /// contains a `StepType` instance and implements methods to build the step type, add components,
 /// and manipulate the step type. `F` is a generic type representing the field of the step type.
@@ -225,6 +233,7 @@ impl<F> StepTypeContext<F> {
     }
 
     /// DEPRECATED
+    // #[deprecated(note = "use step types setup for constraints instead")]
     pub fn constr<C: Into<Constraint<F>>>(&mut self, constraint: C) {
         println!("DEPRECATED constr: use setup for constraints in step types");
 
@@ -235,6 +244,7 @@ impl<F> StepTypeContext<F> {
     }
 
     /// DEPRECATED
+    #[deprecated(note = "use step types setup for constraints instead")]
     pub fn transition<C: Into<Constraint<F>>>(&mut self, constraint: C) {
         println!("DEPRECATED transition: use setup for constraints in step types");
 
@@ -245,9 +255,9 @@ impl<F> StepTypeContext<F> {
     }
 
     /// Define step constraints.
-    pub fn setup<D>(&mut self, def: D)
+    pub fn setup<D>(&mut self, mut def: D)
     where
-        D: Fn(&mut StepTypeSetupContext<F>),
+        D: FnMut(&mut StepTypeSetupContext<F>),
     {
         let mut ctx = StepTypeSetupContext {
             step_type: &mut self.step_type,
@@ -358,6 +368,10 @@ impl StepTypeHandler {
     pub fn next<F>(&self) -> Queriable<F> {
         Queriable::StepTypeNext(*self)
     }
+
+    pub fn annotation(&self) -> String {
+        self.annotation.to_string()
+    }
 }
 
 impl<F, Args, D: Fn(&mut StepInstance<F>, Args) + 'static> From<&StepTypeWGHandler<F, Args, D>>
@@ -399,9 +413,9 @@ impl<F, Args, D: Fn(&mut StepInstance<F>, Args) + 'static> StepTypeWGHandler<F, 
 /// functions. This is the main function that users call to define a Chiquito circuit. Currently,
 /// the name is not used for annotation within the function, but it may be used in future
 /// implementations.
-pub fn circuit<F, TraceArgs, D>(_name: &str, def: D) -> SBPIR<F, TraceArgs>
+pub fn circuit<F, TraceArgs, D>(_name: &str, mut def: D) -> SBPIR<F, TraceArgs>
 where
-    D: Fn(&mut CircuitContext<F, TraceArgs>),
+    D: FnMut(&mut CircuitContext<F, TraceArgs>),
 {
     // TODO annotate circuit
     let mut context = CircuitContext {
@@ -420,28 +434,49 @@ pub mod sc;
 
 #[cfg(test)]
 mod tests {
+    use crate::sbpir::ForwardSignal;
+
     use super::*;
+
+    fn setup_circuit_context<F, TraceArgs>() -> CircuitContext<F, TraceArgs>
+    where
+        F: Default,
+        TraceArgs: Default,
+    {
+        CircuitContext {
+            circuit: SBPIR::default(),
+            tables: Default::default(),
+        }
+    }
+
+    #[test]
+    fn test_circuit_default_initialization() {
+        let circuit: SBPIR<i32, i32> = SBPIR::default();
+
+        // Assert default values
+        assert!(circuit.step_types.is_empty());
+        assert!(circuit.forward_signals.is_empty());
+        assert!(circuit.shared_signals.is_empty());
+        assert!(circuit.fixed_signals.is_empty());
+        assert!(circuit.exposed.is_empty());
+        assert!(circuit.annotations.is_empty());
+        assert!(circuit.trace.is_none());
+        assert!(circuit.first_step.is_none());
+        assert!(circuit.last_step.is_none());
+        assert!(circuit.num_steps == 0);
+        assert!(circuit.q_enable);
+    }
 
     #[test]
     fn test_disable_q_enable() {
-        let circuit: SBPIR<i32, i32> = SBPIR::default();
-        let mut context = CircuitContext {
-            circuit,
-            tables: Default::default(),
-        };
-
+        let mut context = setup_circuit_context::<i32, i32>();
         context.pragma_disable_q_enable();
-
         assert!(!context.circuit.q_enable);
     }
 
     #[test]
     fn test_set_num_steps() {
-        let circuit: SBPIR<i32, i32> = SBPIR::default();
-        let mut context = CircuitContext {
-            circuit,
-            tables: Default::default(),
-        };
+        let mut context = setup_circuit_context::<i32, i32>();
 
         context.pragma_num_steps(3);
         assert_eq!(context.circuit.num_steps, 3);
@@ -451,13 +486,28 @@ mod tests {
     }
 
     #[test]
+    fn test_set_first_step() {
+        let mut context = setup_circuit_context::<i32, i32>();
+
+        let step_type: StepTypeHandler = context.step_type("step_type");
+
+        context.pragma_first_step(step_type);
+        assert_eq!(context.circuit.first_step, Some(step_type.uuid()));
+    }
+
+    #[test]
+    fn test_set_last_step() {
+        let mut context = setup_circuit_context::<i32, i32>();
+
+        let step_type: StepTypeHandler = context.step_type("step_type");
+
+        context.pragma_last_step(step_type);
+        assert_eq!(context.circuit.last_step, Some(step_type.uuid()));
+    }
+
+    #[test]
     fn test_forward() {
-        // create circuit context
-        let circuit: SBPIR<i32, i32> = SBPIR::default();
-        let mut context = CircuitContext {
-            circuit,
-            tables: Default::default(),
-        };
+        let mut context = setup_circuit_context::<i32, i32>();
 
         // set forward signals
         let forward_a: Queriable<i32> = context.forward("forward_a");
@@ -470,13 +520,20 @@ mod tests {
     }
 
     #[test]
+    fn test_adding_duplicate_signal_names() {
+        let mut context = setup_circuit_context::<i32, i32>();
+        context.forward("duplicate_name");
+        context.forward("duplicate_name");
+        // Assert how the system should behave. Does it override the previous signal, throw an
+        // error, or something else?
+        // TODO: Should we let the user know that they are adding a duplicate signal name? And let
+        // the circuit have two signals with the same name?
+        assert_eq!(context.circuit.forward_signals.len(), 2);
+    }
+
+    #[test]
     fn test_forward_with_phase() {
-        // create circuit context
-        let circuit: SBPIR<i32, i32> = SBPIR::default();
-        let mut context = CircuitContext {
-            circuit,
-            tables: Default::default(),
-        };
+        let mut context = setup_circuit_context::<i32, i32>();
 
         // set forward signals with specified phase
         context.forward_with_phase("forward_a", 1);
@@ -490,12 +547,7 @@ mod tests {
 
     #[test]
     fn test_shared() {
-        // create circuit context
-        let circuit: SBPIR<i32, i32> = SBPIR::default();
-        let mut context = CircuitContext {
-            circuit,
-            tables: Default::default(),
-        };
+        let mut context = setup_circuit_context::<i32, i32>();
 
         // set shared signal
         let shared_a: Queriable<i32> = context.shared("shared_a");
@@ -507,12 +559,7 @@ mod tests {
 
     #[test]
     fn test_shared_with_phase() {
-        // create circuit context
-        let circuit: SBPIR<i32, i32> = SBPIR::default();
-        let mut context = CircuitContext {
-            circuit,
-            tables: Default::default(),
-        };
+        let mut context = setup_circuit_context::<i32, i32>();
 
         // set shared signal with specified phase
         context.shared_with_phase("shared_a", 2);
@@ -524,12 +571,7 @@ mod tests {
 
     #[test]
     fn test_fixed() {
-        // create circuit context
-        let circuit: SBPIR<i32, i32> = SBPIR::default();
-        let mut context = CircuitContext {
-            circuit,
-            tables: Default::default(),
-        };
+        let mut context = setup_circuit_context::<i32, i32>();
 
         // set fixed signal
         context.fixed("fixed_a");
@@ -540,12 +582,7 @@ mod tests {
 
     #[test]
     fn test_expose() {
-        // create circuit context
-        let circuit: SBPIR<i32, i32> = SBPIR::default();
-        let mut context = CircuitContext {
-            circuit,
-            tables: Default::default(),
-        };
+        let mut context = setup_circuit_context::<i32, i32>();
 
         // set forward signal and step to expose
         let forward_a: Queriable<i32> = context.forward("forward_a");
@@ -563,13 +600,20 @@ mod tests {
     }
 
     #[test]
+    #[ignore]
+    #[should_panic(expected = "Signal not found")]
+    fn test_expose_non_existing_signal() {
+        let mut context = setup_circuit_context::<i32, i32>();
+        let non_existing_signal =
+            Queriable::Forward(ForwardSignal::new_with_phase(0, "".to_owned()), false); // Create a signal not added to the circuit
+        context.expose(non_existing_signal, ExposeOffset::First);
+
+        todo!("remove the ignore after fixing the check for non existing signals")
+    }
+
+    #[test]
     fn test_step_type() {
-        // create circuit context
-        let circuit: SBPIR<i32, i32> = SBPIR::default();
-        let mut context = CircuitContext {
-            circuit,
-            tables: Default::default(),
-        };
+        let mut context = setup_circuit_context::<i32, i32>();
 
         // create a step type
         let handler: StepTypeHandler = context.step_type("fibo_first_step");
@@ -583,12 +627,7 @@ mod tests {
 
     #[test]
     fn test_step_type_def() {
-        // create circuit context
-        let circuit: SBPIR<i32, i32> = SBPIR::default();
-        let mut context = CircuitContext {
-            circuit,
-            tables: Default::default(),
-        };
+        let mut context = setup_circuit_context::<i32, i32>();
 
         // create a step type including its definition
         let simple_step = context.step_type_def("simple_step", |context| {
@@ -609,12 +648,7 @@ mod tests {
 
     #[test]
     fn test_step_type_def_pass_handler() {
-        // create circuit context
-        let circuit: SBPIR<i32, i32> = SBPIR::default();
-        let mut context = CircuitContext {
-            circuit,
-            tables: Default::default(),
-        };
+        let mut context = setup_circuit_context::<i32, i32>();
 
         // create a step type handler
         let handler: StepTypeHandler = context.step_type("simple_step");
@@ -634,5 +668,24 @@ mod tests {
             simple_step.uuid(),
             context.circuit.step_types[&simple_step.uuid()].uuid()
         );
+    }
+
+    #[test]
+    fn test_trace() {
+        let mut context = setup_circuit_context::<i32, i32>();
+
+        // set trace function
+        context.trace(|_, _: i32| {});
+
+        // assert trace function was set
+        assert!(context.circuit.trace.is_some());
+    }
+
+    #[test]
+    #[should_panic(expected = "circuit cannot have more than one trace generator")]
+    fn test_setting_trace_multiple_times() {
+        let mut context = setup_circuit_context::<i32, i32>();
+        context.trace(|_, _| {});
+        context.trace(|_, _| {});
     }
 }

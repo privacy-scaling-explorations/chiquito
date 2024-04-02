@@ -209,7 +209,7 @@ fn machine_decl_tl(
             };
 
             if let Statement::Block(_, block) = block {
-                block.into_iter().for_each(|stmt| {
+                block.iter().for_each(|stmt| {
                     match stmt {
                         Statement::SignalDecl(_, _) => (),
                         Statement::WGVarDecl(_, _) => (),
@@ -237,7 +237,7 @@ fn redeclare_rule(
     id: &Identifier,
     _symbol: &SymTableEntry,
 ) {
-    if let Some(_) = analyser.symbols.find_symbol(&analyser.cur_scope, id.name()) {
+    if analyser.symbols.find_symbol(&analyser.cur_scope, id.name()).is_some() {
         analyser.error(
             format!(
                 "Cannot redeclare {} in the same scope {:?}",
@@ -348,7 +348,7 @@ mod test {
 
         let decls = lang::TLDeclsParser::new().parse(circuit).unwrap();
 
-        let result = analyse(decls);
+        let result = analyse(&decls);
 
         assert_eq!(
             format!("{:?}", result.messages),
@@ -402,7 +402,7 @@ mod test {
 
         let decls = lang::TLDeclsParser::new().parse(circuit).unwrap();
 
-        let result = analyse(decls);
+        let result = analyse(&decls);
 
         assert_eq!(
             format!("{:?}", result.messages),
@@ -453,7 +453,7 @@ mod test {
 
         let decls = lang::TLDeclsParser::new().parse(circuit).unwrap();
 
-        let result = analyse(decls);
+        let result = analyse(&decls);
 
         assert_eq!(
             format!("{:?}", result.messages),
@@ -504,7 +504,7 @@ mod test {
 
         let decls = lang::TLDeclsParser::new().parse(circuit).unwrap();
 
-        let result = analyse(decls);
+        let result = analyse(&decls);
 
         assert_eq!(
             format!("{:?}", result.messages),
@@ -562,7 +562,7 @@ mod test {
 
         let decls = lang::TLDeclsParser::new().parse(circuit).unwrap();
 
-        let result = analyse(decls);
+        let result = analyse(&decls);
 
         assert_eq!(
             format!("{:?}", result.messages),
@@ -617,7 +617,7 @@ mod test {
 
         let decls = lang::TLDeclsParser::new().parse(circuit).unwrap();
 
-        let result = analyse(decls);
+        let result = analyse(&decls);
 
         assert_eq!(
             format!("{:?}", result.messages),
@@ -672,7 +672,7 @@ mod test {
 
         let decls = lang::TLDeclsParser::new().parse(circuit).unwrap();
 
-        let result = analyse(decls);
+        let result = analyse(&decls);
 
         assert_eq!(
             format!("{:?}", result.messages),
@@ -729,7 +729,7 @@ mod test {
 
         let decls = lang::TLDeclsParser::new().parse(circuit).unwrap();
 
-        let result = analyse(decls);
+        let result = analyse(&decls);
 
         assert_eq!(
             format!("{:?}", result.messages),
@@ -791,7 +791,7 @@ mod test {
 
         let decls = lang::TLDeclsParser::new().parse(circuit).unwrap();
 
-        let result = analyse(decls);
+        let result = analyse(&decls);
 
         assert_eq!(
             format!("{:?}", result.messages),
@@ -854,7 +854,7 @@ mod test {
 
         let decls = lang::TLDeclsParser::new().parse(circuit).unwrap();
 
-        let result = analyse(decls);
+        let result = analyse(&decls);
 
         assert_eq!(
             format!("{:?}", result.messages),

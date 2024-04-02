@@ -367,8 +367,6 @@ impl CellManager for MaxWidthCellManager {
 
 #[cfg(test)]
 mod tests {
-    use std::rc::Rc;
-
     use crate::{
         plonkish::compiler::CompilationUnit,
         sbpir::{ForwardSignal, StepType},
@@ -393,11 +391,8 @@ mod tests {
         let mut step2 = StepType::new(1501, "step2".to_string());
         step2.add_signal("c2");
 
-        let step1 = Rc::new(step1);
-        let step2 = Rc::new(step2);
-
-        unit.step_types.insert(1500, Rc::clone(&step1));
-        unit.step_types.insert(1501, Rc::clone(&step2));
+        unit.step_types.insert(1500, step1.clone());
+        unit.step_types.insert(1501, step2.clone());
 
         // forward signals: a, b; step1 internal: c1, d, e; step2 internal c2
 
@@ -463,11 +458,8 @@ mod tests {
         let mut step2 = StepType::new(1501, "step2".to_string());
         step2.add_signal("c2");
 
-        let step1 = Rc::new(step1);
-        let step2 = Rc::new(step2);
-
-        unit.step_types.insert(1500, Rc::clone(&step1));
-        unit.step_types.insert(1501, Rc::clone(&step2));
+        unit.step_types.insert(1500, step1.clone());
+        unit.step_types.insert(1501, step2.clone());
 
         // forward signals: a, b; step1 internal: c1, d, e; step2 internal c2
 

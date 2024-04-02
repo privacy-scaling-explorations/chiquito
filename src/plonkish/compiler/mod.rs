@@ -95,10 +95,16 @@ pub fn compile_phase1<
         )
     });
 
+    unit.compilation_phase = 1;
+
     (unit, assignment)
 }
 
 pub fn compile_phase2<F: Field + Clone>(unit: &mut CompilationUnit<F>) {
+    if unit.compilation_phase != 1 {
+        panic!("Compilation phase 2 can only be done after compilation phase 1");
+    }
+
     for step in unit.step_types.clone().values() {
         compile_step(unit, step);
     }
@@ -114,6 +120,8 @@ pub fn compile_phase2<F: Field + Clone>(unit: &mut CompilationUnit<F>) {
     if let Some((step_type, q_last)) = &unit.last_step {
         add_q_last(unit, *step_type, q_last.clone());
     }
+
+    unit.compilation_phase = 2;
 }
 
 fn compile_step<F: Field>(unit: &mut CompilationUnit<F>, step: &StepType<F>) {
@@ -556,4 +564,91 @@ fn add_halo2_columns<F, TraceArgs>(unit: &mut CompilationUnit<F>, ast: &astCircu
 
     unit.columns.extend(halo2_advice_columns);
     unit.columns.extend(halo2_fixed_columns);
+}
+
+#[cfg(test)]
+mod test {
+    use halo2_proofs::{halo2curves::bn256::Fr, plonk::Any};
+
+    use super::{cell_manager::SingleRowCellManager, step_selector::SimpleStepSelectorBuilder, *};
+
+    #[test]
+    fn test_compiler_config_initialization() {
+        let cell_manager = SingleRowCellManager::default();
+        let step_selector_builder = SimpleStepSelectorBuilder::default();
+
+        let config = config(cell_manager.clone(), step_selector_builder.clone());
+
+        assert_eq!(
+            format!("{:#?}", config.cell_manager),
+            format!("{:#?}", cell_manager)
+        );
+        assert_eq!(
+            format!("{:#?}", config.step_selector_builder),
+            format!("{:#?}", step_selector_builder)
+        );
+    }
+
+    #[test]
+    fn test_compile() {
+        let cell_manager = SingleRowCellManager::default();
+        let step_selector_builder = SimpleStepSelectorBuilder::default();
+        let config = config(cell_manager, step_selector_builder);
+
+        let mock_ast_circuit = astCircuit::<Fr, Any>::default();
+
+        let (circuit, assignment_generator) = compile(config, &mock_ast_circuit);
+
+        assert_eq!(circuit.columns.len(), 1);
+        assert_eq!(circuit.exposed.len(), 0);
+        assert_eq!(circuit.polys.len(), 0);
+        assert_eq!(circuit.lookups.len(), 0);
+        assert_eq!(circuit.fixed_assignments.len(), 1);
+        assert_eq!(circuit.ast_id, mock_ast_circuit.id);
+
+        assert!(assignment_generator.is_none());
+    }
+
+    #[test]
+    fn test_compile_phase1() {
+        let cell_manager = SingleRowCellManager::default();
+        let step_selector_builder = SimpleStepSelectorBuilder::default();
+        let config = config(cell_manager, step_selector_builder);
+
+        let mock_ast_circuit = astCircuit::<Fr, Any>::default();
+
+        let (unit, assignment_generator) = compile_phase1(config, &mock_ast_circuit);
+
+        assert_eq!(unit.columns.len(), 1);
+        assert_eq!(unit.exposed.len(), 0);
+        assert_eq!(unit.polys.len(), 0);
+        assert_eq!(unit.lookups.len(), 0);
+        assert_eq!(unit.fixed_assignments.len(), 0);
+        assert_eq!(unit.ast_id, mock_ast_circuit.id);
+
+        assert!(assignment_generator.is_none());
+    }
+
+    #[test]
+    #[should_panic]
+    fn test_compile_phase2_before_phase1() {
+        let mut unit = CompilationUnit::<Fr>::default();
+
+        compile_phase2(&mut unit);
+    }
+
+    #[test]
+    fn test_add_default_columns() {
+        let mock_ast_circuit = astCircuit::<Fr, Any>::default();
+
+        let mut unit = CompilationUnit::from(&mock_ast_circuit);
+        add_default_columns(&mut unit);
+
+        assert_eq!(unit.columns.len(), 1);
+        assert_eq!(unit.exposed.len(), 0);
+        assert_eq!(unit.polys.len(), 0);
+        assert_eq!(unit.lookups.len(), 0);
+        assert_eq!(unit.fixed_assignments.len(), 0);
+        assert_eq!(unit.ast_id, mock_ast_circuit.id);
+    }
 }
