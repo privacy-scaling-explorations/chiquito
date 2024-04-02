@@ -681,11 +681,11 @@ document.write(`
 <div class="cell_output docutils container">
 <div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>ASTCircuit(
 	step_types={
-		219921835281011408458991367497043282442: ASTStepType(
-			id=219921835281011408458991367497043282442,
+		20825630523101428809161567031207266826: ASTStepType(
+			id=20825630523101428809161567031207266826,
 			name=&#39;fibo_step&#39;,
 			signals=[
-				InternalSignal(id=219921846214497835429951438800789572106, annotation=&#39;c&#39;)
+				InternalSignal(id=20825637099038917496451139518211951114, annotation=&#39;c&#39;)
 			],
 			constraints=[
 				Constraint(
@@ -699,21 +699,21 @@ document.write(`
 			],
 			lookups=[],
 			annotations={
-				219921846214497835429951438800789572106: c
+				20825637099038917496451139518211951114: c
 			}
 		)
 	},
 	forward_signals=[
-		ForwardSignal(id=219921816979305867666547382146776566282, phase=0, annotation=&#39;a&#39;),
-		ForwardSignal(id=219921828863530244805491800461802080778, phase=0, annotation=&#39;b&#39;)
+		ForwardSignal(id=20825610161463662642432201631157848586, phase=0, annotation=&#39;a&#39;),
+		ForwardSignal(id=20825623867935777611214758777205688842, phase=0, annotation=&#39;b&#39;)
 	],
 	shared_signals=[],
 	fixed_signals=[],
 	exposed=[],
 	annotations={
-		219921816979305867666547382146776566282: a,
-		219921828863530244805491800461802080778: b,
-		219921835281011408458991367497043282442: fibo_step
+		20825610161463662642432201631157848586: a,
+		20825623867935777611214758777205688842: b,
+		20825630523101428809161567031207266826: fibo_step
 	},
 	fixed_assignments=None,
 	first_step=None,
@@ -744,7 +744,7 @@ document.write(`
 <div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>TraceWitness(
 	step_instances={
 		StepInstance(
-			step_type_uuid=219921835281011408458991367497043282442,
+			step_type_uuid=20825630523101428809161567031207266826,
 			assignments={
 				a = 1,
 				b = 1,
@@ -752,7 +752,7 @@ document.write(`
 			},
 		),
 		StepInstance(
-			step_type_uuid=219921835281011408458991367497043282442,
+			step_type_uuid=20825630523101428809161567031207266826,
 			assignments={
 				a = 1,
 				b = 2,
@@ -760,7 +760,7 @@ document.write(`
 			},
 		),
 		StepInstance(
-			step_type_uuid=219921835281011408458991367497043282442,
+			step_type_uuid=20825630523101428809161567031207266826,
 			assignments={
 				a = 2,
 				b = 3,
@@ -768,7 +768,7 @@ document.write(`
 			},
 		),
 		StepInstance(
-			step_type_uuid=219921835281011408458991367497043282442,
+			step_type_uuid=20825630523101428809161567031207266826,
 			assignments={
 				a = 3,
 				b = 5,
@@ -789,9 +789,22 @@ document.write(`
 </div>
 </div>
 <div class="cell_output docutils container">
-<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>Ok(
-    (),
-)
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>thread &#39;&lt;unnamed&gt;&#39; panicked at src/frontend/python/mod.rs:169:44:
+Json deserialization to TraceWitness failed.: Error(&quot;invalid type: sequence, expected a hex encoded string&quot;, line: 17, column: 20)
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+</pre></div>
+</div>
+<div class="output traceback highlight-ipythontb notranslate"><div class="highlight"><pre><span></span><span class="gt">---------------------------------------------------------------------------</span>
+<span class="ne">PanicException</span><span class="g g-Whitespace">                            </span>Traceback (most recent call last)
+<span class="n">Cell</span> <span class="n">In</span><span class="p">[</span><span class="mi">7</span><span class="p">],</span> <span class="n">line</span> <span class="mi">1</span>
+<span class="ne">----&gt; </span><span class="mi">1</span> <span class="n">fibo</span><span class="o">.</span><span class="n">halo2_mock_prover</span><span class="p">(</span><span class="n">fibo_witness</span><span class="p">)</span>
+
+<span class="nn">File ~/work/chiquito/chiquito/src/frontend/python/chiquito/dsl.py:226,</span> in <span class="ni">Circuit.halo2_mock_prover</span><span class="nt">(self, witness, k)</span>
+<span class="g g-Whitespace">    </span><span class="mi">224</span>     <span class="bp">self</span><span class="o">.</span><span class="n">rust_id</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="n">rust_chiquito</span><span class="o">.</span><span class="n">ast_to_halo2</span><span class="p">(</span><span class="n">ast_json</span><span class="p">)</span>
+<span class="g g-Whitespace">    </span><span class="mi">225</span> <span class="n">witness_json</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="n">witness</span><span class="o">.</span><span class="n">get_witness_json</span><span class="p">()</span>
+<span class="ne">--&gt; </span><span class="mi">226</span> <span class="n">rust_chiquito</span><span class="o">.</span><span class="n">halo2_mock_prover</span><span class="p">(</span><span class="n">witness_json</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">rust_id</span><span class="p">,</span> <span class="n">k</span><span class="p">)</span>
+
+<span class="ne">PanicException</span>: Json deserialization to TraceWitness failed.: Error(&quot;invalid type: sequence, expected a hex encoded string&quot;, line: 17, column: 20)
 </pre></div>
 </div>
 </div>

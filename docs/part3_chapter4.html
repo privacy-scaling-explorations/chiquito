@@ -1028,9 +1028,41 @@ document.write(`
 </div>
 </div>
 <div class="cell_output docutils container">
-<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>result = Ok(
-    (),
-)
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>thread &#39;&lt;unnamed&gt;&#39; panicked at src/frontend/python/mod.rs:72:40:
+Json deserialization to Circuit failed.: Error(&quot;invalid type: sequence, expected a hex encoded string&quot;, line: 32, column: 16)
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+</pre></div>
+</div>
+<div class="output traceback highlight-ipythontb notranslate"><div class="highlight"><pre><span></span><span class="gt">---------------------------------------------------------------------------</span>
+<span class="ne">PanicException</span><span class="g g-Whitespace">                            </span>Traceback (most recent call last)
+<span class="n">Cell</span> <span class="n">In</span><span class="p">[</span><span class="mi">2</span><span class="p">],</span> <span class="n">line</span> <span class="mi">1</span>
+<span class="ne">----&gt; </span><span class="mi">1</span> <span class="n">mimc7</span> <span class="o">=</span> <span class="n">Mimc7SuperCircuit</span><span class="p">()</span>
+<span class="g g-Whitespace">      </span><span class="mi">2</span> <span class="n">mimc7_super_witness</span> <span class="o">=</span> <span class="n">mimc7</span><span class="o">.</span><span class="n">gen_witness</span><span class="p">(</span><span class="n">F</span><span class="p">(</span><span class="mi">1</span><span class="p">),</span> <span class="n">F</span><span class="p">(</span><span class="mi">2</span><span class="p">))</span>
+<span class="g g-Whitespace">      </span><span class="mi">3</span> <span class="n">mimc7</span><span class="o">.</span><span class="n">halo2_mock_prover</span><span class="p">(</span><span class="n">mimc7_super_witness</span><span class="p">)</span>
+
+<span class="nn">File ~/work/chiquito/chiquito/src/frontend/python/chiquito/dsl.py:39,</span> in <span class="ni">SuperCircuit.__init__</span><span class="nt">(self, **kwargs)</span>
+<span class="g g-Whitespace">     </span><span class="mi">37</span> <span class="bp">self</span><span class="o">.</span><span class="n">ast</span> <span class="o">=</span> <span class="n">ASTSuperCircuit</span><span class="p">()</span>
+<span class="g g-Whitespace">     </span><span class="mi">38</span> <span class="bp">self</span><span class="o">.</span><span class="n">mode</span> <span class="o">=</span> <span class="n">SuperCircuitMode</span><span class="o">.</span><span class="n">SETUP</span>
+<span class="ne">---&gt; </span><span class="mi">39</span> <span class="bp">self</span><span class="o">.</span><span class="n">setup</span><span class="p">()</span>
+<span class="g g-Whitespace">     </span><span class="mi">40</span> <span class="bp">self</span><span class="o">.</span><span class="n">mode</span> <span class="o">=</span> <span class="n">SuperCircuitMode</span><span class="o">.</span><span class="n">NoMode</span>
+
+<span class="nn">Cell In[1], line 249,</span> in <span class="ni">Mimc7SuperCircuit.setup</span><span class="nt">(self)</span>
+<span class="g g-Whitespace">    </span><span class="mi">248</span> <span class="k">def</span> <span class="nf">setup</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="ne">--&gt; </span><span class="mi">249</span>     <span class="bp">self</span><span class="o">.</span><span class="n">mimc7_constants</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">sub_circuit</span><span class="p">(</span><span class="n">Mimc7Constants</span><span class="p">(</span><span class="bp">self</span><span class="p">))</span>
+<span class="g g-Whitespace">    </span><span class="mi">250</span>     <span class="bp">self</span><span class="o">.</span><span class="n">mimc7_circuit</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">sub_circuit</span><span class="p">(</span>
+<span class="g g-Whitespace">    </span><span class="mi">251</span>         <span class="n">Mimc7Circuit</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">constants_table</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">mimc7_constants</span><span class="o">.</span><span class="n">lookup_table</span><span class="p">)</span>
+<span class="g g-Whitespace">    </span><span class="mi">252</span>     <span class="p">)</span>
+
+<span class="nn">File ~/work/chiquito/chiquito/src/frontend/python/chiquito/dsl.py:50,</span> in <span class="ni">SuperCircuit.sub_circuit</span><span class="nt">(self, sub_circuit)</span>
+<span class="g g-Whitespace">     </span><span class="mi">46</span>     <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+<span class="g g-Whitespace">     </span><span class="mi">47</span>         <span class="s2">&quot;SuperCircuit: sub_circuit() cannot be called twice on the same circuit.&quot;</span>
+<span class="g g-Whitespace">     </span><span class="mi">48</span>     <span class="p">)</span>
+<span class="g g-Whitespace">     </span><span class="mi">49</span> <span class="n">ast_json</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="n">sub_circuit</span><span class="o">.</span><span class="n">get_ast_json</span><span class="p">()</span>
+<span class="ne">---&gt; </span><span class="mi">50</span> <span class="n">sub_circuit</span><span class="o">.</span><span class="n">rust_id</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="n">rust_chiquito</span><span class="o">.</span><span class="n">ast_map_store</span><span class="p">(</span><span class="n">ast_json</span><span class="p">)</span>
+<span class="g g-Whitespace">     </span><span class="mi">51</span> <span class="bp">self</span><span class="o">.</span><span class="n">ast</span><span class="o">.</span><span class="n">sub_circuits</span><span class="p">[</span><span class="n">sub_circuit</span><span class="o">.</span><span class="n">rust_id</span><span class="p">]</span> <span class="o">=</span> <span class="n">sub_circuit</span><span class="o">.</span><span class="n">ast</span>
+<span class="g g-Whitespace">     </span><span class="mi">52</span> <span class="k">return</span> <span class="n">sub_circuit</span>
+
+<span class="ne">PanicException</span>: Json deserialization to Circuit failed.: Error(&quot;invalid type: sequence, expected a hex encoded string&quot;, line: 32, column: 16)
 </pre></div>
 </div>
 </div>

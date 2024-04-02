@@ -1077,7 +1077,7 @@ document.write(`
 <div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>TraceWitness(
 	step_instances={
 		StepInstance(
-			step_type_uuid=223712697497921720038929835191721134602,
+			step_type_uuid=24780294113796131396753837411241953802,
 			assignments={
 				a = 1,
 				b = 1,
@@ -1086,7 +1086,7 @@ document.write(`
 			},
 		),
 		StepInstance(
-			step_type_uuid=223712744163309440940672810010125404682,
+			step_type_uuid=24780359318573880636717445113677744650,
 			assignments={
 				a = 1,
 				b = 2,
@@ -1095,7 +1095,7 @@ document.write(`
 			},
 		),
 		StepInstance(
-			step_type_uuid=223712744163309440940672810010125404682,
+			step_type_uuid=24780359318573880636717445113677744650,
 			assignments={
 				a = 2,
 				b = 3,
@@ -1104,7 +1104,7 @@ document.write(`
 			},
 		),
 		StepInstance(
-			step_type_uuid=223712744163309440940672810010125404682,
+			step_type_uuid=24780359318573880636717445113677744650,
 			assignments={
 				a = 3,
 				b = 5,
@@ -1113,7 +1113,7 @@ document.write(`
 			},
 		),
 		StepInstance(
-			step_type_uuid=223712744163309440940672810010125404682,
+			step_type_uuid=24780359318573880636717445113677744650,
 			assignments={
 				a = 5,
 				b = 8,
@@ -1122,7 +1122,7 @@ document.write(`
 			},
 		),
 		StepInstance(
-			step_type_uuid=223712744163309440940672810010125404682,
+			step_type_uuid=24780359318573880636717445113677744650,
 			assignments={
 				a = 8,
 				b = 13,
@@ -1131,7 +1131,7 @@ document.write(`
 			},
 		),
 		StepInstance(
-			step_type_uuid=223712744163309440940672810010125404682,
+			step_type_uuid=24780359318573880636717445113677744650,
 			assignments={
 				a = 13,
 				b = 21,
@@ -1140,7 +1140,7 @@ document.write(`
 			},
 		),
 		StepInstance(
-			step_type_uuid=223712775220749146533003589520571632138,
+			step_type_uuid=24780388712222173425187190316307450378,
 			assignments={
 				a = 21,
 				b = 34,
@@ -1148,7 +1148,7 @@ document.write(`
 			},
 		),
 		StepInstance(
-			step_type_uuid=223712775220749146533003589520571632138,
+			step_type_uuid=24780388712222173425187190316307450378,
 			assignments={
 				a = 21,
 				b = 34,
@@ -1156,7 +1156,7 @@ document.write(`
 			},
 		),
 		StepInstance(
-			step_type_uuid=223712775220749146533003589520571632138,
+			step_type_uuid=24780388712222173425187190316307450378,
 			assignments={
 				a = 21,
 				b = 34,
@@ -1177,9 +1177,24 @@ document.write(`
 </div>
 </div>
 <div class="cell_output docutils container">
-<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>Ok(
-    (),
-)
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>thread &#39;&lt;unnamed&gt;&#39; panicked at src/frontend/python/mod.rs:51:40:
+Json deserialization to Circuit failed.: Error(&quot;invalid type: sequence, expected a hex encoded string&quot;, line: 29, column: 45)
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+</pre></div>
+</div>
+<div class="output traceback highlight-ipythontb notranslate"><div class="highlight"><pre><span></span><span class="gt">---------------------------------------------------------------------------</span>
+<span class="ne">PanicException</span><span class="g g-Whitespace">                            </span>Traceback (most recent call last)
+<span class="n">Cell</span> <span class="n">In</span><span class="p">[</span><span class="mi">3</span><span class="p">],</span> <span class="n">line</span> <span class="mi">1</span>
+<span class="ne">----&gt; </span><span class="mi">1</span> <span class="n">fibo</span><span class="o">.</span><span class="n">halo2_mock_prover</span><span class="p">(</span><span class="n">fibo_witness</span><span class="p">)</span>
+
+<span class="nn">File ~/work/chiquito/chiquito/src/frontend/python/chiquito/dsl.py:224,</span> in <span class="ni">Circuit.halo2_mock_prover</span><span class="nt">(self, witness, k)</span>
+<span class="g g-Whitespace">    </span><span class="mi">222</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">rust_id</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+<span class="g g-Whitespace">    </span><span class="mi">223</span>     <span class="n">ast_json</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_ast_json</span><span class="p">()</span>
+<span class="ne">--&gt; </span><span class="mi">224</span>     <span class="bp">self</span><span class="o">.</span><span class="n">rust_id</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="n">rust_chiquito</span><span class="o">.</span><span class="n">ast_to_halo2</span><span class="p">(</span><span class="n">ast_json</span><span class="p">)</span>
+<span class="g g-Whitespace">    </span><span class="mi">225</span> <span class="n">witness_json</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="n">witness</span><span class="o">.</span><span class="n">get_witness_json</span><span class="p">()</span>
+<span class="g g-Whitespace">    </span><span class="mi">226</span> <span class="n">rust_chiquito</span><span class="o">.</span><span class="n">halo2_mock_prover</span><span class="p">(</span><span class="n">witness_json</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">rust_id</span><span class="p">,</span> <span class="n">k</span><span class="p">)</span>
+
+<span class="ne">PanicException</span>: Json deserialization to Circuit failed.: Error(&quot;invalid type: sequence, expected a hex encoded string&quot;, line: 29, column: 45)
 </pre></div>
 </div>
 </div>

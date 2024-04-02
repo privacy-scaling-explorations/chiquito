@@ -803,9 +803,24 @@ document.write(`
 </div>
 </div>
 <div class="cell_output docutils container">
-<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>Ok(
-    (),
-)
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>thread &#39;&lt;unnamed&gt;&#39; panicked at src/frontend/python/mod.rs:169:44:
+Json deserialization to TraceWitness failed.: Error(&quot;invalid type: sequence, expected a hex encoded string&quot;, line: 17, column: 20)
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+</pre></div>
+</div>
+<div class="output traceback highlight-ipythontb notranslate"><div class="highlight"><pre><span></span><span class="gt">---------------------------------------------------------------------------</span>
+<span class="ne">PanicException</span><span class="g g-Whitespace">                            </span>Traceback (most recent call last)
+<span class="n">Cell</span> <span class="n">In</span><span class="p">[</span><span class="mi">2</span><span class="p">],</span> <span class="n">line</span> <span class="mi">3</span>
+<span class="g g-Whitespace">      </span><span class="mi">1</span> <span class="n">mimc7_circuit</span> <span class="o">=</span> <span class="n">Mimc7Circuit</span><span class="p">()</span>
+<span class="g g-Whitespace">      </span><span class="mi">2</span> <span class="n">mimc7_circuit_witness</span> <span class="o">=</span> <span class="n">mimc7_circuit</span><span class="o">.</span><span class="n">gen_witness</span><span class="p">(</span><span class="n">F</span><span class="p">(</span><span class="mi">1</span><span class="p">),</span> <span class="n">F</span><span class="p">(</span><span class="mi">2</span><span class="p">))</span>
+<span class="ne">----&gt; </span><span class="mi">3</span> <span class="n">mimc7_circuit</span><span class="o">.</span><span class="n">halo2_mock_prover</span><span class="p">(</span><span class="n">mimc7_circuit_witness</span><span class="p">)</span>
+
+<span class="nn">File ~/work/chiquito/chiquito/src/frontend/python/chiquito/dsl.py:226,</span> in <span class="ni">Circuit.halo2_mock_prover</span><span class="nt">(self, witness, k)</span>
+<span class="g g-Whitespace">    </span><span class="mi">224</span>     <span class="bp">self</span><span class="o">.</span><span class="n">rust_id</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="n">rust_chiquito</span><span class="o">.</span><span class="n">ast_to_halo2</span><span class="p">(</span><span class="n">ast_json</span><span class="p">)</span>
+<span class="g g-Whitespace">    </span><span class="mi">225</span> <span class="n">witness_json</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="n">witness</span><span class="o">.</span><span class="n">get_witness_json</span><span class="p">()</span>
+<span class="ne">--&gt; </span><span class="mi">226</span> <span class="n">rust_chiquito</span><span class="o">.</span><span class="n">halo2_mock_prover</span><span class="p">(</span><span class="n">witness_json</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">rust_id</span><span class="p">,</span> <span class="n">k</span><span class="p">)</span>
+
+<span class="ne">PanicException</span>: Json deserialization to TraceWitness failed.: Error(&quot;invalid type: sequence, expected a hex encoded string&quot;, line: 17, column: 20)
 </pre></div>
 </div>
 </div>
