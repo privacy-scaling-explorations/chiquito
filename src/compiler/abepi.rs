@@ -1,4 +1,5 @@
 /// Arbitrary boolean expression to Polynomial Identity compiler
+use std::fmt::Debug;
 use std::marker::PhantomData;
 
 use crate::{
@@ -10,14 +11,15 @@ use crate::{
     poly::Expr,
 };
 
+#[derive(Debug)]
 /// Result of compiling an arbitrary boolean expression into a PI
 pub struct CompilationResult<F, V> {
     #[allow(dead_code)]
-    dsym: DebugSymRef,
+    pub dsym: DebugSymRef,
     // 0 is true, !=0 is false
-    anti_booly: Expr<F, V>,
+    pub anti_booly: Expr<F, V>,
     // 1 is true, 0 is false, other values are invalid
-    one_zero: Expr<F, V>,
+    pub one_zero: Expr<F, V>,
 }
 
 /// CompilationUnit for ABE to PI
@@ -32,10 +34,10 @@ impl<F, V> Default for CompilationUnit<F, V> {
     }
 }
 
-impl<F: From<u64> + Into<u32> + Clone, V: Clone> CompilationUnit<F, V> {
+impl<F: From<u64> + TryInto<u32> + Clone + Debug, V: Clone + Debug> CompilationUnit<F, V> {
     pub fn compile_statement(&self, source: Statement<F, V>) -> Vec<CompilationResult<F, V>> {
         match source {
-            Statement::Assert(_, expr) => vec![self.compile_expression(expr)],
+            Statement::Assert(_, expr) => self.compile_expression(expr),
             Statement::SignalAssignmentAssert(dsym, lhs, rhs) => {
                 assert_eq!(lhs.len(), rhs.len());
 
@@ -60,26 +62,29 @@ impl<F: From<u64> + Into<u32> + Clone, V: Clone> CompilationUnit<F, V> {
                 .into_iter()
                 .flat_map(|stmt| self.compile_statement(stmt))
                 .collect(),
+            Statement::Transition(dsym, id, stmt) => {
+                self.compiler_statement_transition(dsym, id, *stmt)
+            }
             _ => vec![],
         }
     }
 
-    pub fn compile_expression(&self, source: Expression<F, V>) -> CompilationResult<F, V> {
+    pub fn compile_expression(&self, source: Expression<F, V>) -> Vec<CompilationResult<F, V>> {
         assert!(source.is_logic());
 
         self.compile_expression_logic(source)
     }
 
-    fn compile_expression_logic(&self, source: Expression<F, V>) -> CompilationResult<F, V> {
+    fn compile_expression_logic(&self, source: Expression<F, V>) -> Vec<CompilationResult<F, V>> {
         use crate::parser::ast::expression::{BinaryOperator::*, Expression::*, UnaryOperator::*};
         match source {
             BinOp {
                 dsym, op, lhs, rhs, ..
             } => match op {
-                Eq => self.compile_expression_eq(dsym, *lhs, *rhs),
-                NEq => self.compile_expression_neq(dsym, *lhs, *rhs),
+                Eq => vec![self.compile_expression_eq(dsym, *lhs, *rhs)],
+                NEq => vec![self.compile_expression_neq(dsym, *lhs, *rhs)],
                 And => self.compile_expression_and(dsym, *lhs, *rhs),
-                Or => self.compile_expression_or(dsym, *lhs, *rhs),
+                Or => vec![self.compile_expression_or(dsym, *lhs, *rhs)],
                 _ => unreachable!(),
             },
             UnaryOp { dsym, op, sub } => match op {
@@ -87,8 +92,13 @@ impl<F: From<u64> + Into<u32> + Clone, V: Clone> CompilationUnit<F, V> {
                 Neg => unreachable!(),
                 Complement => unreachable!(),
             },
-            True(dsym) => self.compile_expression_true(dsym),
-            False(dsym) => self.compile_expression_false(dsym),
+            True(dsym) => vec![self.compile_expression_true(dsym)],
+            False(dsym) => vec![self.compile_expression_false(dsym)],
+            Query(dsym, v) => vec![CompilationResult {
+                dsym,
+                one_zero: Expr::Query(v.clone()),
+                anti_booly: Expr::Query(v).cast_anti_booly(),
+            }],
             _ => unreachable!(),
         }
     }
@@ -133,7 +143,11 @@ impl<F: From<u64> + Into<u32> + Clone, V: Clone> CompilationUnit<F, V> {
                         let rhs = self.compile_expression_airth(*rhs);
 
                         if let Expr::Const(exp) = rhs {
-                            Expr::Pow(Box::new(lhs), exp.into())
+                            Expr::Pow(
+                                Box::new(lhs),
+                                exp.try_into()
+                                    .unwrap_or_else(|_| panic!("invalid exponent")),
+                            )
                         } else {
                             // we can only compile constant exponent
                             unreachable!()
@@ -165,11 +179,12 @@ impl<F: From<u64> + Into<u32> + Clone, V: Clone> CompilationUnit<F, V> {
                 assert!(when_true.is_arith());
                 assert!(when_false.is_arith());
 
-                let cond = self.compile_expression_logic(*cond);
+                let cond = single_one_zero_and(&self.compile_expression_logic(*cond));
+
                 let when_true = self.compile_expression_airth(*when_true);
                 let when_false = self.compile_expression_airth(*when_false);
 
-                (cond.one_zero.clone() * when_true) + (cond.one_zero.one_minus() * when_false)
+                (cond.clone() * when_true) + (cond.one_minus() * when_false)
             }
             _ => unreachable!(),
         }
@@ -249,35 +264,20 @@ impl<F: From<u64> + Into<u32> + Clone, V: Clone> CompilationUnit<F, V> {
 
     fn compile_expression_and(
         &self,
-        dsym: DebugSymRef,
+        _dsym: DebugSymRef,
         lhs: Expression<F, V>,
         rhs: Expression<F, V>,
-    ) -> CompilationResult<F, V> {
+    ) -> Vec<CompilationResult<F, V>> {
         let mut sub = Vec::new();
 
         flatten_bin_op(BinaryOperator::And, lhs, rhs, &mut sub);
 
         assert!(sub.iter().all(|se| se.is_logic()));
 
-        let sub = sub
-            .iter()
-            .map(|se| self.compile_expression_logic(se.clone()))
-            .collect::<Vec<_>>();
-
-        // In OneZero 0F 1T
-        // If a, b, c are 1T => a*b*c = 1T, if any of a,b,c is 0F => a*b*c = 0F
-        let one_zero = sub
-            .iter()
-            .skip(1)
-            .fold(sub[0].one_zero.clone(), |acc, se| acc * se.one_zero.clone());
-        // TODO: the anti_booly version of AND could be split in seveal PIs
-        let anti_booly = one_zero.cast_anti_booly();
-
-        CompilationResult {
-            dsym,
-            anti_booly,
-            one_zero,
-        }
+        // Because all PIs have to be true, an AND can be expressed as several PIs.
+        sub.iter()
+            .flat_map(|se| self.compile_expression_logic(se.clone()))
+            .collect::<Vec<_>>()
     }
 
     fn compile_expression_or(
@@ -293,23 +293,31 @@ impl<F: From<u64> + Into<u32> + Clone, V: Clone> CompilationUnit<F, V> {
 
         let sub = sub
             .iter()
-            .map(|se| self.compile_expression_logic(se.clone()))
+            .flat_map(|se| self.compile_expression_logic(se.clone()))
             .collect::<Vec<_>>();
 
         // By De Morgan's law, A or B = not ((not A) and (not B))
         // In OneZero not(A) is 1-A. And A and B is A * B. Hence A or B is 1 - ((1-A)*(1-B)).
-        // For AntiBooly, not(A) = A.one_zero
         let one_zero = sub
             .iter()
             .skip(1)
             .fold(sub[0].one_zero.clone().one_minus(), |acc, se| {
                 acc * se.one_zero.clone().one_minus()
+            })
+            .one_minus();
+
+        // For AntiBooly, if we multiply, a 0T will make the result 0T.
+        let anti_booly = sub
+            .iter()
+            .skip(1)
+            .fold(sub[0].anti_booly.clone(), |acc, se| {
+                acc * se.anti_booly.clone()
             });
 
         CompilationResult {
             dsym,
-            anti_booly: one_zero.clone(),
-            one_zero: one_zero.one_minus(),
+            anti_booly,
+            one_zero,
         }
     }
 
@@ -317,16 +325,18 @@ impl<F: From<u64> + Into<u32> + Clone, V: Clone> CompilationUnit<F, V> {
         &self,
         dsym: DebugSymRef,
         sub: Expression<F, V>,
-    ) -> CompilationResult<F, V> {
+    ) -> Vec<CompilationResult<F, V>> {
         assert!(sub.is_logic());
 
         let sub = self.compile_expression_logic(sub);
 
-        CompilationResult {
-            dsym,
-            anti_booly: sub.one_zero.clone(),   // 0F -> 0T, 1T -> 1F
-            one_zero: sub.one_zero.one_minus(), // 1T -> 0F, 0F -> 1T
-        }
+        sub.iter()
+            .map(|sub| CompilationResult {
+                dsym: dsym.clone(),
+                anti_booly: sub.one_zero.clone(), // 0F -> 0T, 1T -> 1F
+                one_zero: sub.one_zero.one_minus(), // 1T -> 0F, 0F -> 1T
+            })
+            .collect()
     }
 
     // STATEMENTS
@@ -338,8 +348,6 @@ impl<F: From<u64> + Into<u32> + Clone, V: Clone> CompilationUnit<F, V> {
     ) -> Vec<CompilationResult<F, V>> {
         assert!(cond.is_logic());
 
-        let cond = self.compile_expression(cond);
-
         // if A then assert B
         // not A or B
         // not (A and not B)
@@ -349,12 +357,12 @@ impl<F: From<u64> + Into<u32> + Clone, V: Clone> CompilationUnit<F, V> {
         // (1-when_true.one_zero) => 0F, will be 1T in any other case
         // For the AntiBooly result, only when cond 1T and when_true.anti_bool is >0F, cond *
         // when_true.anti_booly => >0F, will be 0F in any other case
+        let cond = single_one_zero_and(&self.compile_expression_logic(cond));
         self.compile_statement(when_true)
             .iter()
             .map(|when_true| {
-                let one_zero =
-                    (cond.one_zero.clone() * when_true.one_zero.clone().one_minus()).one_minus();
-                let anti_booly = cond.one_zero.clone() * when_true.anti_booly.clone();
+                let one_zero = (cond.clone() * when_true.one_zero.clone().one_minus()).one_minus();
+                let anti_booly = cond.clone() * when_true.anti_booly.clone();
 
                 CompilationResult {
                     dsym: dsym.clone(),
@@ -379,36 +387,37 @@ impl<F: From<u64> + Into<u32> + Clone, V: Clone> CompilationUnit<F, V> {
         // this will be equivalent to (not (A and not B)) and (not (not A and not C))
 
         // First version with the basic relation (if A then assert B) and (if not A then assert C)
-        // Non optimized
-        let if_then_compiled =
-            self.compile_statement_if_then(dsym.clone(), cond.clone(), when_true);
-        let if_else_compiled = self.compile_statement_if_then(
+        // Because AND is the same as several PIs, we return the "then" and "else" expressions as
+        // two.
+        let mut result = self.compile_statement_if_then(dsym.clone(), cond.clone(), when_true);
+        result.extend(self.compile_statement_if_then(
             dsym.clone(),
             Expression::UnaryOp {
-                dsym: dsym.clone(),
+                dsym,
                 op: crate::parser::ast::expression::UnaryOperator::Not,
                 sub: Box::new(cond),
             },
             when_false,
-        );
+        ));
 
-        if_then_compiled
-            .into_iter()
-            .zip(if_else_compiled)
-            .map(|(if_then, if_else)| {
-                // The AND of the two results
-                // For the OneZero if we have a 0F in any of the two results, the result will be 0F
-                // For the AntiBooly we cast the one_zero result
-                let one_zero = if_then.one_zero * if_else.one_zero;
-                let anti_booly = one_zero.cast_anti_booly();
+        result
+    }
 
-                CompilationResult {
-                    dsym: dsym.clone(),
-                    anti_booly,
-                    one_zero,
-                }
-            })
-            .collect()
+    fn compiler_statement_transition(
+        &self,
+        dsym: DebugSymRef,
+        id: V,
+        stmt: Statement<F, V>,
+    ) -> Vec<CompilationResult<F, V>> {
+        let mut result = self.compile_statement(stmt);
+
+        // assert next step
+        let next_step = Expression::Query(dsym, id);
+        result.extend(self.compile_expression(next_step));
+
+        println!("{:#?}", result);
+
+        result
     }
 }
 
@@ -432,4 +441,13 @@ fn flatten_bin_op<F: Clone, V: Clone>(
     } else {
         sub.push(rhs);
     }
+}
+
+fn single_one_zero_and<F: Clone, V: Clone>(values: &[CompilationResult<F, V>]) -> Expr<F, V> {
+    values
+        .iter()
+        .skip(1)
+        .fold(values[0].one_zero.clone(), |acc, value| {
+            acc * value.one_zero.clone()
+        })
 }

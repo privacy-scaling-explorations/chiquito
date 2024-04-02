@@ -17,7 +17,7 @@ use self::{
 
 pub use sc::*;
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 /// A generic structure designed to handle the context of a circuit for generic types
 /// `F`, `TraceArgs` and `StepArgs`.
 /// The struct contains a `Circuit` instance and implements methods to build the circuit,
@@ -255,9 +255,9 @@ impl<F> StepTypeContext<F> {
     }
 
     /// Define step constraints.
-    pub fn setup<D>(&mut self, def: D)
+    pub fn setup<D>(&mut self, mut def: D)
     where
-        D: Fn(&mut StepTypeSetupContext<F>),
+        D: FnMut(&mut StepTypeSetupContext<F>),
     {
         let mut ctx = StepTypeSetupContext {
             step_type: &mut self.step_type,
@@ -413,9 +413,9 @@ impl<F, Args, D: Fn(&mut StepInstance<F>, Args) + 'static> StepTypeWGHandler<F, 
 /// functions. This is the main function that users call to define a Chiquito circuit. Currently,
 /// the name is not used for annotation within the function, but it may be used in future
 /// implementations.
-pub fn circuit<F, TraceArgs, D>(_name: &str, def: D) -> SBPIR<F, TraceArgs>
+pub fn circuit<F, TraceArgs, D>(_name: &str, mut def: D) -> SBPIR<F, TraceArgs>
 where
-    D: Fn(&mut CircuitContext<F, TraceArgs>),
+    D: FnMut(&mut CircuitContext<F, TraceArgs>),
 {
     // TODO annotate circuit
     let mut context = CircuitContext {

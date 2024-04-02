@@ -21,7 +21,7 @@ use super::{
 pub struct CompilationUnit<F> {
     pub placement: Placement,
     pub selector: StepSelector<F>,
-    pub step_types: HashMap<UUID, Rc<StepType<F>>>,
+    pub step_types: HashMap<UUID, StepType<F>>,
     pub forward_signals: Vec<ForwardSignal>,
     pub shared_signals: Vec<SharedSignal>,
     pub fixed_signals: Vec<FixedSignal>,
@@ -200,7 +200,7 @@ impl<F> CompilationUnit<F> {
     }
 }
 
-impl<F, TraceArgs> From<&astCircuit<F, TraceArgs>> for CompilationUnit<F> {
+impl<F: Clone, TraceArgs> From<&astCircuit<F, TraceArgs>> for CompilationUnit<F> {
     fn from(ast: &astCircuit<F, TraceArgs>) -> Self {
         CompilationUnit::<F> {
             annotations: {

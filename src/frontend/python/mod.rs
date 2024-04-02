@@ -308,11 +308,7 @@ impl<'de> Visitor<'de> for CircuitVisitor {
                 }
             }
         }
-        let step_types = step_types
-            .ok_or_else(|| de::Error::missing_field("step_types"))?
-            .into_iter()
-            .map(|(k, v)| (k, Rc::new(v)))
-            .collect();
+        let step_types = step_types.ok_or_else(|| de::Error::missing_field("step_types"))?;
         let forward_signals =
             forward_signals.ok_or_else(|| de::Error::missing_field("forward_signals"))?;
         let shared_signals =

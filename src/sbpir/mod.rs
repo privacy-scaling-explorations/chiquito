@@ -4,7 +4,7 @@ use std::{collections::HashMap, fmt::Debug, hash::Hash, rc::Rc};
 
 use crate::{
     frontend::dsl::StepTypeHandler,
-    poly::Expr,
+    poly::{ConstrDecomp, Expr},
     util::{uuid, UUID},
     wit_gen::{FixedAssignment, FixedGenContext, Trace, TraceContext},
 };
@@ -16,7 +16,7 @@ use self::query::Queriable;
 /// Circuit
 #[derive(Clone)]
 pub struct SBPIR<F, TraceArgs> {
-    pub step_types: HashMap<UUID, Rc<StepType<F>>>,
+    pub step_types: HashMap<UUID, StepType<F>>,
 
     pub forward_signals: Vec<ForwardSignal>,
     pub shared_signals: Vec<SharedSignal>,
@@ -170,8 +170,7 @@ impl<F, TraceArgs> SBPIR<F, TraceArgs> {
 
     pub fn add_step_type_def(&mut self, step: StepType<F>) -> StepTypeUUID {
         let uuid = step.uuid();
-        let step_rc = Rc::new(step);
-        self.step_types.insert(uuid, step_rc);
+        self.step_types.insert(uuid, step);
 
         uuid
     }
@@ -186,12 +185,6 @@ impl<F, TraceArgs> SBPIR<F, TraceArgs> {
             }
             Some(_) => panic!("circuit cannot have more than one trace generator"),
         }
-    }
-
-    pub fn get_step_type(&self, uuid: UUID) -> Rc<StepType<F>> {
-        let step_rc = self.step_types.get(&uuid).expect("step type not found");
-
-        Rc::clone(step_rc)
     }
 
     pub fn set_fixed_assignments(&mut self, assignments: FixedAssignment<F>) {
@@ -230,6 +223,7 @@ pub type FixedGen<F> = dyn Fn(&mut FixedGenContext<F>) + 'static;
 
 pub type StepTypeUUID = UUID;
 
+#[derive(Clone)]
 /// Step
 pub struct StepType<F> {
     id: StepTypeUUID,
@@ -253,6 +247,7 @@ impl<F: Debug> Debug for StepType<F> {
             .field("constraints", &self.constraints)
             .field("transition_constraints", &self.transition_constraints)
             .field("lookups", &self.lookups)
+            .field("auto_signals", &self.auto_signals)
             .finish()
     }
 }
@@ -281,12 +276,17 @@ impl<F> StepType<F> {
 
     pub fn add_signal<N: Into<String>>(&mut self, name: N) -> InternalSignal {
         let name = name.into();
-        let signal = InternalSignal::new(name.clone());
+        let signal = InternalSignal::new(name);
 
-        self.signals.push(signal);
-        self.annotations.insert(signal.uuid(), name);
+        self.add_internal(signal);
 
         signal
+    }
+
+    fn add_internal(&mut self, signal: InternalSignal) {
+        self.annotations
+            .insert(signal.uuid(), signal.annotation.to_string());
+        self.signals.push(signal);
     }
 
     pub fn add_constr(&mut self, annotation: String, expr: PIR<F>) {
@@ -299,6 +299,64 @@ impl<F> StepType<F> {
         let condition = TransitionConstraint { annotation, expr };
 
         self.transition_constraints.push(condition)
+    }
+}
+
+impl<F: Clone + Eq + Hash> StepType<F> {
+    pub fn decomp_constraints<M>(&mut self, mut decomposer: M)
+    where
+        M: FnMut(&Expr<F, Queriable<F>>) -> (Expr<F, Queriable<F>>, ConstrDecomp<F, Queriable<F>>),
+    {
+        let mut new_constraints = vec![];
+        for i in 0..self.constraints.len() {
+            let decomp = decomposer(&self.constraints[i].expr);
+
+            self.constraints[i].expr = decomp.0;
+
+            decomp.1.constrs.iter().for_each(|expr| {
+                new_constraints.push(Constraint {
+                    annotation: self.constraints[i].annotation.clone(),
+                    expr: expr.clone(),
+                });
+            });
+
+            decomp.1.auto_signals.into_iter().for_each(|(q, expr)| {
+                if let Queriable::Internal(signal) = q {
+                    self.add_internal(signal);
+                } else {
+                    unreachable!("should use internal signals");
+                }
+
+                self.auto_signals.insert(q, expr);
+            });
+        }
+
+        self.constraints.extend(new_constraints);
+
+        let mut new_constraints = vec![];
+        for i in 0..self.transition_constraints.len() {
+            let decomp = decomposer(&self.constraints[i].expr);
+
+            self.transition_constraints[i].expr = decomp.0;
+
+            decomp.1.constrs.iter().for_each(|expr| {
+                new_constraints.push(TransitionConstraint {
+                    annotation: self.constraints[i].annotation.clone(),
+                    expr: expr.clone(),
+                });
+            });
+
+            decomp.1.auto_signals.into_iter().for_each(|(q, expr)| {
+                if let Queriable::Internal(signal) = q {
+                    self.add_internal(signal);
+                } else {
+                    unreachable!("should use internal signals");
+                }
+
+                self.auto_signals.insert(q, expr);
+            });
+        }
+        self.transition_constraints.extend(new_constraints);
     }
 }
 
@@ -420,6 +478,10 @@ pub struct ForwardSignal {
 }
 
 impl ForwardSignal {
+    pub fn new(annotation: String) -> ForwardSignal {
+        Self::new_with_id(uuid(), 0, annotation)
+    }
+
     pub fn new_with_phase(phase: usize, annotation: String) -> ForwardSignal {
         ForwardSignal {
             id: uuid(),
