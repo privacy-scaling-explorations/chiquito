@@ -297,7 +297,7 @@ type NewTLSymbolRule = fn(
 );
 
 /// Set of rules used by the semantic analyser.
-pub(self) struct RuleSet {
+struct RuleSet {
     expression: Vec<ExpressionRule>,
     statement: Vec<StatementRule>,
     new_symbol: Vec<NewSymbolRule>,

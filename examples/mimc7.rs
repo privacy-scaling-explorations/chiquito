@@ -175,7 +175,7 @@ fn mimc7_circuit<F: PrimeField + Eq + Hash>(
         row_value += F::from(1);
         x_value += k_value + c_value;
         x_value = x_value.pow_vartime([7_u64]);
-        // Step 90: output the hash result as x + k in witness generation
+        // Step 91: output the hash result as x + k in witness generation
         // output is not displayed as a public column, which will be implemented in the future
         ctx.add(&mimc7_last_step, (x_value, k_value, c_value, row_value)); // c_value is not
                                                                            // used here but
@@ -210,7 +210,7 @@ fn main() {
 
     let prover = MockProver::<Fr>::run(10, &circuit, circuit.instance()).unwrap();
 
-    let result = prover.verify_par();
+    let result = prover.verify();
 
     println!("result = {:#?}", result);
 
@@ -219,6 +219,29 @@ fn main() {
             println!("{}", failure);
         }
     }
+
+    // pil boilerplate
+    use chiquito::pil::backend::powdr_pil::chiquitoSuperCircuit2Pil;
+
+    let x_in_value = Fr::from_str_vartime("1").expect("expected a number");
+    let k_value = Fr::from_str_vartime("2").expect("expected a number");
+
+    let super_circuit = mimc7_super_circuit::<Fr>();
+
+    // `super_trace_witnesses` is a mapping from IR id to TraceWitness. However, not all ASTs have a
+    // corresponding TraceWitness.
+    let super_trace_witnesses = super_circuit
+        .get_mapping()
+        .generate_super_trace_witnesses((x_in_value, k_value));
+
+    let pil = chiquitoSuperCircuit2Pil::<Fr, (), ()>(
+        super_circuit.get_super_asts(),
+        super_trace_witnesses,
+        super_circuit.get_ast_id_to_ir_id_mapping(),
+        vec![String::from("Mimc7Constant"), String::from("Mimc7Circuit")],
+    );
+
+    print!("{}", pil);
 }
 
 mod mimc7_constants {

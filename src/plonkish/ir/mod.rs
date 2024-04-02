@@ -36,7 +36,28 @@ impl<F: Debug> Debug for Circuit<F> {
     }
 }
 
-#[derive(Clone, Debug, Hash)]
+impl<F: Clone> Circuit<F> {
+    pub(crate) fn instance(&self, witness: &Assignments<F>) -> Vec<F> {
+        let mut instance_values = Vec::new();
+        for (column, rotation) in &self.exposed {
+            let values = witness
+                .get(column)
+                .unwrap_or_else(|| panic!("exposed column not found: {}", column.annotation));
+
+            if let Some(value) = values.get(*rotation as usize) {
+                instance_values.push(value.clone());
+            } else {
+                panic!(
+                    "assignment index out of bounds for column: {}",
+                    column.annotation
+                );
+            }
+        }
+        instance_values
+    }
+}
+
+#[derive(Clone, Debug, Hash, PartialEq)]
 pub enum ColumnType {
     Advice,
     Fixed,

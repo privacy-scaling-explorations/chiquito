@@ -21,7 +21,7 @@ pub fn reduce_degree<F: Field, V: Clone + Eq + PartialEq + Hash + Debug, SF: Sig
 
 /// Actual recursive implementation of `reduce_degre`. Key here to understand the difference
 /// between:  + total_max_degree: maximum degree of the PI the input expression is decomposed of.
-///  + partial_max_degree: maximum degree of the root PI, that can substitute the orginal
+///  + partial_max_degree: maximum degree of the root PI, that can substitute the original
 /// expression.
 ///
 /// The value of `partial_max_degree` can be less than `total_max_degree` when this
@@ -99,7 +99,7 @@ fn reduce_degree_mul<F: Field, V: Clone + Eq + PartialEq + Hash + Debug, SF: Sig
     partial_max_degree: usize,
     signal_factory: &mut SF,
 ) -> Expr<F, V> {
-    // base case, if partial_max_degree == 1, the root expresion can only be a variable
+    // base case, if partial_max_degree == 1, the root expression can only be a variable
     if partial_max_degree == 1 {
         let reduction = reduce_degree_mul(
             decomp,
@@ -141,7 +141,7 @@ fn reduce_degree_mul<F: Field, V: Clone + Eq + PartialEq + Hash + Debug, SF: Sig
 
     // for_root will be multipliers that will be included in the root expression
     let mut for_root = Vec::default();
-    // to_simplify will be multipliers that will be recursively decomposed and subsituted by a
+    // to_simplify will be multipliers that will be recursively decomposed and substituted by a
     // virtual signal in the root expression
     let mut to_simplify = Vec::default();
 
@@ -181,8 +181,7 @@ fn reduce_degree_mul<F: Field, V: Clone + Eq + PartialEq + Hash + Debug, SF: Sig
 
 #[cfg(test)]
 mod test {
-    use halo2_proofs::arithmetic::Field;
-    use halo2curves::bn256::Fr;
+    use halo2_proofs::{arithmetic::Field, halo2curves::bn256::Fr};
     use rand_chacha::{rand_core::SeedableRng, ChaCha20Rng};
     use std::collections::HashMap;
 
