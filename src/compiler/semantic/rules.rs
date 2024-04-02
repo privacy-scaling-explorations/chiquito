@@ -315,7 +315,7 @@ mod test {
 
         assert_eq!(
             format!("{:?}", result.messages),
-            r#"[Err { msg: "use of undeclared variable a", dsym: DebugSymRef { start: 0, end: 0 } }]"#
+            r#"[SemErr { msg: "use of undeclared variable a", dsym: DebugSymRef { start: 0, end: 0 } }]"#
         )
     }
 
@@ -369,7 +369,7 @@ mod test {
 
         assert_eq!(
             format!("{:?}", result.messages),
-            r#"[Err { msg: "There cannot be rotation in identifier declaration of fibo", dsym: DebugSymRef { start: 0, end: 0 } }]"#
+            r#"[SemErr { msg: "There cannot be rotation in identifier declaration of fibo", dsym: DebugSymRef { start: 0, end: 0 } }]"#
         );
 
         let circuit = "
@@ -420,7 +420,7 @@ mod test {
 
         assert_eq!(
             format!("{:?}", result.messages),
-            r#"[Err { msg: "There cannot be rotation in identifier declaration of initial", dsym: DebugSymRef { start: 0, end: 0 } }]"#
+            r#"[SemErr { msg: "There cannot be rotation in identifier declaration of initial", dsym: DebugSymRef { start: 0, end: 0 } }]"#
         );
 
         let circuit = "
@@ -471,7 +471,7 @@ mod test {
 
         assert_eq!(
             format!("{:?}", result.messages),
-            r#"[Err { msg: "There cannot be rotation in identifier declaration of c", dsym: DebugSymRef { start: 0, end: 0 } }]"#
+            r#"[SemErr { msg: "There cannot be rotation in identifier declaration of c", dsym: DebugSymRef { start: 0, end: 0 } }]"#
         )
     }
 
@@ -529,7 +529,7 @@ mod test {
 
         assert_eq!(
             format!("{:?}", result.messages),
-            r#"[Err { msg: "Cannot declare state nested here", dsym: DebugSymRef { start: 0, end: 0 } }]"#
+            r#"[SemErr { msg: "Cannot declare state nested here", dsym: DebugSymRef { start: 0, end: 0 } }]"#
         );
 
         let circuit = "
@@ -584,7 +584,7 @@ mod test {
 
         assert_eq!(
             format!("{:?}", result.messages),
-            r#"[Err { msg: "Cannot declare state nested here", dsym: DebugSymRef { start: 0, end: 0 } }]"#
+            r#"[SemErr { msg: "Cannot declare state nested here", dsym: DebugSymRef { start: 0, end: 0 } }]"#
         );
     }
 
@@ -639,7 +639,7 @@ mod test {
 
         assert_eq!(
             format!("{:?}", result.messages),
-            r#"[Err { msg: "Cannot assign with <-- or <== to variable wrong with category WGVar, you can only assign to signals. Use = instead.", dsym: DebugSymRef { start: 0, end: 0 } }]"#
+            r#"[SemErr { msg: "Cannot assign with <-- or <== to variable wrong with category WGVar, you can only assign to signals. Use = instead.", dsym: DebugSymRef { start: 0, end: 0 } }]"#
         );
     }
 
@@ -696,7 +696,7 @@ mod test {
 
         assert_eq!(
             format!("{:?}", result.messages),
-            r#"[Err { msg: "Cannot use wgvar wrong in statement assert wrong == 3;", dsym: DebugSymRef { start: 0, end: 0 } }, Err { msg: "Cannot use wgvar wrong in statement [c] <== [(a + b) + wrong];", dsym: DebugSymRef { start: 0, end: 0 } }]"#
+            r#"[SemErr { msg: "Cannot use wgvar wrong in statement assert wrong == 3;", dsym: DebugSymRef { start: 0, end: 0 } }, SemErr { msg: "Cannot use wgvar wrong in statement [c] <== [(a + b) + wrong];", dsym: DebugSymRef { start: 0, end: 0 } }]"#
         )
     }
 
@@ -758,7 +758,7 @@ mod test {
 
         assert_eq!(
             format!("{:?}", result.messages),
-            r#"[Err { msg: "Cannot declare [i, a, b, c] <== [1, 1, 1, 2]; in the machine, only states, wgvars and signals are allowed", dsym: DebugSymRef { start: 0, end: 0 } }, Err { msg: "Cannot declare if (i + 1) == n { [a] <-- [3]; } else { [b] <== [3]; } in the machine, only states, wgvars and signals are allowed", dsym: DebugSymRef { start: 0, end: 0 } }]"#
+            r#"[SemErr { msg: "Cannot declare [i, a, b, c] <== [1, 1, 1, 2]; in the machine, only states, wgvars and signals are allowed", dsym: DebugSymRef { start: 0, end: 0 } }, SemErr { msg: "Cannot declare if (i + 1) == n { [a] <-- [3]; } else { [b] <== [3]; } in the machine, only states, wgvars and signals are allowed", dsym: DebugSymRef { start: 0, end: 0 } }]"#
         );
     }
 
@@ -821,7 +821,7 @@ mod test {
 
         assert_eq!(
             format!("{:?}", result.messages),
-            r#"[Err { msg: "Cannot redeclare middle in the same scope [\"/\", \"fibo\"]", dsym: DebugSymRef { start: 0, end: 0 } }, Err { msg: "Cannot redeclare n in the same scope [\"/\", \"fibo\"]", dsym: DebugSymRef { start: 0, end: 0 } }, Err { msg: "Cannot redeclare c in the same scope [\"/\", \"fibo\", \"middle\"]", dsym: DebugSymRef { start: 0, end: 0 } }]"#
+            r#"[SemErr { msg: "Cannot redeclare middle in the same scope [\"/\", \"fibo\"]", dsym: DebugSymRef { start: 0, end: 0 } }, SemErr { msg: "Cannot redeclare n in the same scope [\"/\", \"fibo\"]", dsym: DebugSymRef { start: 0, end: 0 } }, SemErr { msg: "Cannot redeclare c in the same scope [\"/\", \"fibo\", \"middle\"]", dsym: DebugSymRef { start: 0, end: 0 } }]"#
         );
     }
 }
