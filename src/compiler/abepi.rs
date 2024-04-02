@@ -90,6 +90,7 @@ impl<F: From<u64> + TryInto<u32> + Clone + Debug, V: Clone + Debug> CompilationU
             UnaryOp { dsym, op, sub } => match op {
                 Not => self.compile_expression_not(dsym, *sub),
                 Neg => unreachable!(),
+                Complement => unreachable!(),
             },
             True(dsym) => vec![self.compile_expression_true(dsym)],
             False(dsym) => vec![self.compile_expression_false(dsym)],
@@ -163,6 +164,7 @@ impl<F: From<u64> + TryInto<u32> + Clone + Debug, V: Clone + Debug> CompilationU
                     Expr::Neg(Box::new(sub))
                 }
                 Not => unreachable!(),
+                Complement => unreachable!(),
             },
             Query(_, v) => Expr::Query(v),
             Const(_, c) => Expr::Const(c),
@@ -425,12 +427,16 @@ fn flatten_bin_op<F: Clone, V: Clone>(
     rhs: Expression<F, V>,
     sub: &mut Vec<Expression<F, V>>,
 ) {
-    if let Expression::BinOp { op, lhs, rhs, .. } = lhs.clone() && op == op_ {
+    if let Expression::BinOp { op, lhs, rhs, .. } = lhs.clone()
+        && op == op_
+    {
         flatten_bin_op(op, *lhs, *rhs, sub);
     } else {
         sub.push(lhs);
     }
-    if let Expression::BinOp { op, lhs, rhs, .. } = rhs.clone() && op == op_ {
+    if let Expression::BinOp { op, lhs, rhs, .. } = rhs.clone()
+        && op == op_
+    {
         flatten_bin_op(op, *lhs, *rhs, sub);
     } else {
         sub.push(rhs);

@@ -119,6 +119,19 @@ impl<F, TraceArgs> SBPIR<F, TraceArgs> {
     pub fn expose(&mut self, signal: Queriable<F>, offset: ExposeOffset) {
         match signal {
             Queriable::Forward(..) | Queriable::Shared(..) => {
+                let existing_forward_signal = self
+                    .forward_signals
+                    .clone()
+                    .iter()
+                    .any(|s| s.uuid() == signal.uuid());
+                let existing_shared_signal = self
+                    .shared_signals
+                    .clone()
+                    .iter()
+                    .any(|s| s.uuid() == signal.uuid());
+                if !existing_forward_signal && !existing_shared_signal {
+                    panic!("Signal not found in forward signals.");
+                }
                 self.exposed.push((signal, offset));
             }
             _ => panic!("Can only expose forward and shared signals."),
@@ -184,6 +197,28 @@ impl<F, TraceArgs> SBPIR<F, TraceArgs> {
     }
 }
 
+impl<F: Clone, TraceArgs> SBPIR<F, TraceArgs> {
+    pub fn clone_without_trace(&self) -> SBPIR<F, ()> {
+        SBPIR {
+            step_types: self.step_types.clone(),
+            forward_signals: self.forward_signals.clone(),
+            shared_signals: self.shared_signals.clone(),
+            fixed_signals: self.fixed_signals.clone(),
+            halo2_advice: self.halo2_advice.clone(),
+            halo2_fixed: self.halo2_fixed.clone(),
+            exposed: self.exposed.clone(),
+            annotations: self.annotations.clone(),
+            trace: None, // Remove the trace.
+            fixed_assignments: self.fixed_assignments.clone(),
+            first_step: self.first_step,
+            last_step: self.last_step,
+            num_steps: self.num_steps,
+            q_enable: self.q_enable,
+            id: self.id,
+        }
+    }
+}
+
 pub type FixedGen<F> = dyn Fn(&mut FixedGenContext<F>) + 'static;
 
 pub type StepTypeUUID = UUID;
@@ -233,6 +268,10 @@ impl<F> StepType<F> {
 
     pub fn uuid(&self) -> StepTypeUUID {
         self.id
+    }
+
+    pub fn name(&self) -> String {
+        self.name.clone()
     }
 
     pub fn add_signal<N: Into<String>>(&mut self, name: N) -> InternalSignal {
@@ -466,6 +505,10 @@ impl ForwardSignal {
     pub fn phase(&self) -> usize {
         self.phase
     }
+
+    pub fn annotation(&self) -> String {
+        self.annotation.to_string()
+    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
@@ -499,6 +542,10 @@ impl SharedSignal {
     pub fn phase(&self) -> usize {
         self.phase
     }
+
+    pub fn annotation(&self) -> String {
+        self.annotation.to_string()
+    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
@@ -524,6 +571,10 @@ impl FixedSignal {
 
     pub fn uuid(&self) -> UUID {
         self.id
+    }
+
+    pub fn annotation(&self) -> String {
+        self.annotation.to_string()
     }
 }
 
@@ -556,6 +607,10 @@ impl InternalSignal {
 
     pub fn uuid(&self) -> UUID {
         self.id
+    }
+
+    pub fn annotation(&self) -> String {
+        self.annotation.to_string()
     }
 }
 
@@ -591,5 +646,38 @@ mod tests {
     fn test_q_enable() {
         let circuit: SBPIR<i32, i32> = SBPIR::default();
         assert!(circuit.q_enable);
+    }
+
+    #[test]
+    #[should_panic]
+    fn test_expose_non_existing_signal() {
+        let mut circuit: SBPIR<i32, i32> = SBPIR::default();
+        let signal = Queriable::Forward(
+            ForwardSignal::new_with_phase(0, "signal".to_string()),
+            false,
+        );
+        let offset = ExposeOffset::First;
+
+        circuit.expose(signal, offset);
+    }
+
+    #[test]
+    fn test_expose_forward_signal() {
+        let mut circuit: SBPIR<i32, i32> = SBPIR::default();
+        let signal = circuit.add_forward("signal", 0);
+        let offset = ExposeOffset::Last;
+        assert_eq!(circuit.exposed.len(), 0);
+        circuit.expose(Queriable::Forward(signal, false), offset);
+        assert_eq!(circuit.exposed.len(), 1);
+    }
+
+    #[test]
+    fn test_expose_shared_signal() {
+        let mut circuit: SBPIR<i32, i32> = SBPIR::default();
+        let signal = circuit.add_shared("signal", 0);
+        let offset = ExposeOffset::Last;
+        assert_eq!(circuit.exposed.len(), 0);
+        circuit.expose(Queriable::Shared(signal, 10), offset);
+        assert_eq!(circuit.exposed.len(), 1);
     }
 }

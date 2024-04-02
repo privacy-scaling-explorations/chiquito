@@ -4,14 +4,32 @@ use super::DebugSymRef;
 
 #[derive(Clone, PartialEq, Eq)]
 pub enum BinaryOperator {
+    // Arithmetic
     Sum,
     Sub,
     Mul,
     Pow,
+    MulInv,
+    Div,
+    DivRem,
+
+    RightShift,
+    LeftShift,
+
+    // Logic
     Eq,
     NEq,
+    Greater,
+    Less,
+    GreaterEq,
+    LessEq,
+
     And,
     Or,
+
+    BitAnd,
+    BitOr,
+    BitXor,
 }
 
 impl BinaryOperator {
@@ -22,6 +40,13 @@ impl BinaryOperator {
             NEq => true,
             And => true,
             Or => true,
+            Greater => true,
+            Less => true,
+            GreaterEq => true,
+            LessEq => true,
+            BitAnd => true,
+            BitOr => true,
+            BitXor => true,
             Sum => false,
             _ => false,
         }
@@ -38,11 +63,23 @@ impl Debug for BinaryOperator {
             Self::Sum => write!(f, "+"),
             Self::Sub => write!(f, "-"),
             Self::Mul => write!(f, "*"),
-            Self::Pow => write!(f, "^"),
+            Self::Pow => write!(f, "**"),
+            Self::Div => write!(f, "/"),
+            Self::DivRem => write!(f, "%"),
+            Self::MulInv => write!(f, "\\"),
             Self::Eq => write!(f, "=="),
             Self::NEq => write!(f, "!="),
             Self::And => write!(f, "&&"),
             Self::Or => write!(f, "||"),
+            Self::Greater => write!(f, ">"),
+            Self::Less => write!(f, "<"),
+            Self::GreaterEq => write!(f, ">="),
+            Self::LessEq => write!(f, "<="),
+            Self::BitAnd => write!(f, "&"),
+            Self::BitOr => write!(f, "|"),
+            Self::BitXor => write!(f, "^"),
+            Self::RightShift => write!(f, ">>"),
+            Self::LeftShift => write!(f, "<<"),
         }
     }
 }
@@ -52,12 +89,25 @@ impl From<String> for BinaryOperator {
         use BinaryOperator::*;
         match value.as_str() {
             "+" => Sum,
+            "-" => Sub,
             "*" => Mul,
-            "^" => Pow,
+            "**" => Pow,
+            "/" => Div,
+            "%" => DivRem,
+            "\\" => MulInv,
             "==" => Eq,
             "!=" => NEq,
-            "&&" => Or,
-            "||" => And,
+            ">" => Greater,
+            "<" => Less,
+            ">=" => GreaterEq,
+            "<=" => LessEq,
+            "||" => Or,
+            "&&" => And,
+            "&" => BitAnd,
+            "|" => BitOr,
+            "^" => BitXor,
+            ">>" => RightShift,
+            "<<" => LeftShift,
             &_ => unreachable!(),
         }
     }
@@ -65,8 +115,14 @@ impl From<String> for BinaryOperator {
 
 #[derive(Clone)]
 pub enum UnaryOperator {
+    // Logic
     Not,
+
+    // Arithmetic
     Neg,
+
+    // Bitwise
+    Complement,
 }
 
 impl UnaryOperator {
@@ -75,6 +131,7 @@ impl UnaryOperator {
         match self {
             Not => true,
             Neg => false,
+            Complement => false,
         }
     }
 
@@ -89,6 +146,7 @@ impl Debug for UnaryOperator {
         match self {
             Not => write!(f, "!"),
             Neg => write!(f, "-"),
+            Complement => write!(f, "~"),
         }
     }
 }
@@ -99,6 +157,7 @@ impl From<String> for UnaryOperator {
         match value.as_str() {
             "!" => Not,
             "-" => Neg,
+            "~" => Complement,
             &_ => unimplemented!(),
         }
     }
@@ -223,7 +282,18 @@ impl<F: Debug, V: Debug> Debug for Expression<F, V> {
             }
 
             Self::Query(_, arg0) => write!(f, "{:?}", arg0),
-            Expression::UnaryOp { .. } => todo!(),
+            Self::UnaryOp { op, sub, .. } => {
+                write!(
+                    f,
+                    "({:?}{})",
+                    op,
+                    if sub.is_composed() {
+                        format!("({:?})", sub)
+                    } else {
+                        format!("{:?}", sub)
+                    }
+                )
+            }
             Expression::Select { .. } => todo!(),
 
             Expression::True(_) => write!(f, "true"),

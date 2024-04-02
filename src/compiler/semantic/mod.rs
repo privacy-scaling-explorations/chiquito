@@ -69,7 +69,14 @@ impl SymTableEntry {
                 | SymbolCategory::InputSignal
                 | SymbolCategory::OutputSignal
                 | SymbolCategory::InoutSignal
-        )
+        )   
+   }
+
+    fn get_type(&self) -> &str {
+        match &self.ty {
+            Some(ty) => ty,
+            None => "field",
+        }
     }
 }
 
@@ -314,7 +321,7 @@ type NewTLSymbolRule = fn(
 );
 
 /// Set of rules used by the semantic analyser.
-pub(self) struct RuleSet {
+struct RuleSet {
     expression: Vec<ExpressionRule>,
     statement: Vec<StatementRule>,
     new_symbol: Vec<NewSymbolRule>,
