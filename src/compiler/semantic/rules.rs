@@ -1012,7 +1012,7 @@ mod test {
 
         assert_eq!(
             format!("{:?}", result.messages),
-            r#"[Err { msg: "Cannot use true in expression 2 + true", dsym: DebugSymRef { start: 0, end: 0 } }, Err { msg: "Cannot use true in expression 1 * true", dsym: DebugSymRef { start: 0, end: 0 } }, Err { msg: "Cannot use false in expression false - 123", dsym: DebugSymRef { start: 0, end: 0 } }, Err { msg: "Cannot use false in expression false * false", dsym: DebugSymRef { start: 0, end: 0 } }, Err { msg: "Cannot use false in expression false * false", dsym: DebugSymRef { start: 0, end: 0 } }]"#
+            r#"[SemErr { msg: "Cannot use true in expression 2 + true", dsym: DebugSymRef { start: 0, end: 0 } }, SemErr { msg: "Cannot use true in expression 1 * true", dsym: DebugSymRef { start: 0, end: 0 } }, SemErr { msg: "Cannot use false in expression false - 123", dsym: DebugSymRef { start: 0, end: 0 } }, SemErr { msg: "Cannot use false in expression false * false", dsym: DebugSymRef { start: 0, end: 0 } }, SemErr { msg: "Cannot use false in expression false * false", dsym: DebugSymRef { start: 0, end: 0 } }]"#
         );
     }
 }
