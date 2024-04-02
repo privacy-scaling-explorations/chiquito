@@ -23,6 +23,7 @@ use super::{
     Config, Message, Messages,
 };
 
+/// This compiler compiles from chiquito source code to the SBPIR.
 #[derive(Default)]
 pub(super) struct Compiler<F> {
     pub(super) config: Config,
@@ -39,6 +40,7 @@ pub(super) struct Compiler<F> {
 }
 
 impl<F: Field + Hash> Compiler<F> {
+    /// Creates a configured compiler.
     pub fn new(config: Config) -> Self {
         Compiler {
             config,
@@ -46,6 +48,7 @@ impl<F: Field + Hash> Compiler<F> {
         }
     }
 
+    /// Compile the source code.
     pub(super) fn compile(&mut self, source: &str) -> Result<SBPIR<F, ()>, ()> {
         let ast = self.parse(source)?;
         let symbols = self.semantic(&ast)?;
@@ -62,6 +65,7 @@ impl<F: Field + Hash> Compiler<F> {
         Ok(circuit)
     }
 
+    /// Get all messages from the compilation.
     pub(super) fn get_messages(self) -> Vec<Message> {
         self.messages
     }
@@ -436,6 +440,7 @@ impl<F: Field + Hash> Compiler<F> {
     }
 }
 
+// Basic signal factory.
 #[derive(Default)]
 struct SignalFactory<F> {
     count: u64,

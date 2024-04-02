@@ -33,8 +33,13 @@ pub enum Message {
         msg: String,
         dsym: DebugSymRef,
     },
+    RuntimeErr {
+        msg: String,
+        dsym: DebugSymRef,
+    },
 }
 
+/// Collection of compiler messages.
 pub trait Messages {
     fn has_errors(&self) -> bool;
 }
@@ -45,6 +50,8 @@ impl Messages for Vec<Message> {
         !self.is_empty()
     }
 }
+
+/// Compiles chiquito source code into a SBPIR, also returns messages.
 pub fn compile<F: Field + Hash>(
     source: &str,
     config: Config,
