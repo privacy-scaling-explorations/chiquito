@@ -257,8 +257,13 @@ fn true_false_rule(analyser: &mut Analyser, expr: &Expression<BigInt, Identifier
         BinOp { lhs, rhs, .. } => {
             check_true_false(analyser, expr, lhs);
             check_true_false(analyser, expr, rhs);
+            true_false_rule(analyser, lhs);
+            true_false_rule(analyser, rhs);
         }
-        UnaryOp { sub, .. } => check_true_false(analyser, expr, sub),
+        UnaryOp { sub, .. } => {
+            check_true_false(analyser, expr, sub);
+            true_false_rule(analyser, sub);
+        }
         Select {
             cond,
             when_true,
@@ -268,6 +273,9 @@ fn true_false_rule(analyser: &mut Analyser, expr: &Expression<BigInt, Identifier
             check_true_false(analyser, expr, cond);
             check_true_false(analyser, expr, when_true);
             check_true_false(analyser, expr, when_false);
+            true_false_rule(analyser, cond);
+            true_false_rule(analyser, when_true);
+            true_false_rule(analyser, when_false);
         }
         _ => (),
     }
@@ -285,7 +293,6 @@ fn check_true_false(
             analyser.error(format!("Cannot use false in expression {:#?}", expr), dsym)
         }
     }
-    true_false_rule(analyser, sub_expr)
 }
 
 // Can only declare field and bool for every signal and var.
