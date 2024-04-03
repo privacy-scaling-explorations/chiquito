@@ -221,14 +221,12 @@ fn machine_decl_tl(
                             ),
                             dsym,
                         ),
-                        
                     }
                 })
             } else {
                 unreachable!("parser only generates blocks in this context");
             }
         }
-        
     }
 }
 
@@ -251,6 +249,51 @@ fn redeclare_rule(
     }
 }
 
+// Cannot use true or false if it's not inside of a logic expression.
+fn true_false_rule(analyser: &mut Analyser, expr: &Expression<BigInt, Identifier>) {
+    use Expression::*;
+
+    match expr {
+        BinOp { lhs, rhs, .. } => {
+            check_true_false(analyser, expr, lhs);
+            check_true_false(analyser, expr, rhs);
+            true_false_rule(analyser, lhs);
+            true_false_rule(analyser, rhs);
+        }
+        UnaryOp { sub, .. } => {
+            check_true_false(analyser, expr, sub);
+            true_false_rule(analyser, sub);
+        }
+        Select {
+            cond,
+            when_true,
+            when_false,
+            ..
+        } => {
+            check_true_false(analyser, expr, cond);
+            check_true_false(analyser, expr, when_true);
+            check_true_false(analyser, expr, when_false);
+            true_false_rule(analyser, cond);
+            true_false_rule(analyser, when_true);
+            true_false_rule(analyser, when_false);
+        }
+        _ => (),
+    }
+}
+
+fn check_true_false(
+    analyser: &mut Analyser,
+    expr: &Expression<BigInt, Identifier>,
+    sub_expr: &Expression<BigInt, Identifier>,
+) {
+    if !expr.is_logic() {
+        if let Expression::True(dsym) = sub_expr {
+            analyser.error(format!("Cannot use true in expression {:#?}", expr), dsym)
+        } else if let Expression::False(dsym) = sub_expr {
+            analyser.error(format!("Cannot use false in expression {:#?}", expr), dsym)
+        }
+    }
+}
 
 // Can only declare field and bool for every signal and var.
 fn types_rule(
@@ -292,7 +335,7 @@ fn types_rule_tl(
 lazy_static! {
     /// Global semantic analyser rules.
     pub(super) static ref RULES: RuleSet = RuleSet {
-        expression: vec![undeclared_rule],
+        expression: vec![undeclared_rule, true_false_rule],
         statement: vec![state_decl, assignment_rule, assert_rule],
         new_symbol: vec![rotation_decl, redeclare_rule, types_rule],
         new_tl_symbol: vec![rotation_decl_tl, machine_decl_tl, types_rule_tl],
@@ -914,6 +957,69 @@ mod test {
         assert_eq!(
             format!("{:?}", result.messages),
             r#"[SemErr { msg: "Cannot declare n with type uint, only field and bool are allowed.", dsym: DebugSymRef { start: 0, end: 0 } }, SemErr { msg: "Cannot declare c with type int, only field and bool are allowed.", dsym: DebugSymRef { start: 0, end: 0 } }]"#
+        );
+    }
+
+    #[test]
+    fn test_true_false_rule() {
+        let circuit = "
+        machine fibo(signal n) (signal b: field) {
+            // n and be are created automatically as shared
+            // signals
+            signal a: field, i;
+
+            // there is always a state called initial
+            // input signals get binded to the signal
+            // in the initial state (first instance)
+            state initial {
+             signal c;
+             var is_true;
+             is_true = true;
+
+             i, a, b, c <== 1, 1, 1, 2 + true; // wrong
+
+             if false {
+                a <== 1;
+             }
+
+             -> middle {
+              a', b', n' <== b, c, n;
+             }
+            }
+
+            state middle {
+             signal c;
+
+             c <== a + b;
+
+             if i + 1 {
+                if 1 * true ^ false - 123 && 0 + false * false {
+                    a <== 1;
+                }
+              -> final {
+               i', b', n' <== i + 1, c, n;
+              }
+             } else {
+              -> middle {
+               i', a', b', n' <== i + 1, b, c, n;
+              }
+             }
+            }
+
+            // There is always a state called final.
+            // Output signals get automatically bindinded to the signals
+            // with the same name in the final step (last instance).
+            // This state can be implicit if there are no constraints in it.
+           }
+        ";
+
+        let decls = lang::TLDeclsParser::new().parse(circuit).unwrap();
+
+        let result = analyse(&decls);
+
+        assert_eq!(
+            format!("{:?}", result.messages),
+            r#"[SemErr { msg: "Cannot use true in expression 2 + true", dsym: DebugSymRef { start: 0, end: 0 } }, SemErr { msg: "Cannot use true in expression 1 * true", dsym: DebugSymRef { start: 0, end: 0 } }, SemErr { msg: "Cannot use false in expression false - 123", dsym: DebugSymRef { start: 0, end: 0 } }, SemErr { msg: "Cannot use false in expression false * false", dsym: DebugSymRef { start: 0, end: 0 } }, SemErr { msg: "Cannot use false in expression false * false", dsym: DebugSymRef { start: 0, end: 0 } }]"#
         );
     }
 }
