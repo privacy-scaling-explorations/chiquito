@@ -600,15 +600,12 @@ mod tests {
     }
 
     #[test]
-    #[ignore]
     #[should_panic(expected = "Signal not found")]
     fn test_expose_non_existing_signal() {
         let mut context = setup_circuit_context::<i32, i32>();
         let non_existing_signal =
             Queriable::Forward(ForwardSignal::new_with_phase(0, "".to_owned()), false); // Create a signal not added to the circuit
         context.expose(non_existing_signal, ExposeOffset::First);
-
-        todo!("remove the ignore after fixing the check for non existing signals")
     }
 
     #[test]
