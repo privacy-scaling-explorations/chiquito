@@ -920,7 +920,6 @@ impl<'de> Deserialize<'de> for SBPIR<Fr, ()> {
 mod tests {
     use super::*;
 
-    #[ignore]
     #[test]
     fn test_trace_witness() {
         let json = r#"
@@ -1065,7 +1064,6 @@ mod tests {
         let _: ExposeOffset = serde_json::from_str(json).unwrap();
     }
 
-    #[ignore]
     #[test]
     fn test_circuit() {
         let json = r#"
@@ -1537,7 +1535,6 @@ mod tests {
         println!("{:?}", circuit);
     }
 
-    #[ignore]
     #[test]
     fn test_step_type() {
         let json = r#"
@@ -1673,7 +1670,6 @@ mod tests {
         println!("{:?}", step_type);
     }
 
-    #[ignore]
     #[test]
     fn test_constraint() {
         let json = r#"
@@ -1757,7 +1753,6 @@ mod tests {
         println!("{:?}", transition_constraint);
     }
 
-    #[ignore]
     #[test]
     fn test_expr() {
         let json = r#"
