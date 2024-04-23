@@ -1,5 +1,5 @@
 from __future__ import annotations
-from typing import List
+from typing import List, Union
 from dataclasses import dataclass
 
 from chiquito.util import F
@@ -141,7 +141,7 @@ class Pow(Expr):
         return {"Pow": [self.expr.__json__(), self.pow]}
 
 
-ToExpr = Expr | int | F
+ToExpr = Union[Expr, int, F]
 
 
 def to_expr(v: ToExpr) -> Expr:

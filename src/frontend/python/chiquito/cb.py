@@ -1,7 +1,7 @@
 from __future__ import annotations
 from dataclasses import dataclass, field
 from enum import Enum, auto
-from typing import List, Dict, Optional
+from typing import List, Dict, Optional, Union
 
 from chiquito.util import F, uuid
 from chiquito.expr import Expr, Const, Neg, to_expr, ToExpr
@@ -205,7 +205,7 @@ def table() -> LookupTable:
     return LookupTable()
 
 
-ToConstraint = Constraint | Expr | int | F
+ToConstraint = Union[Constraint, Expr, int, F]
 
 
 def to_constraint(v: ToConstraint) -> Constraint:
