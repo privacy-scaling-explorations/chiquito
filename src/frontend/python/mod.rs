@@ -2,6 +2,7 @@ use pyo3::{
     prelude::*,
     types::{PyDict, PyList, PyLong, PyString},
 };
+use serde_json::{from_str, Value};
 
 use crate::{
     frontend::dsl::{StepTypeHandler, SuperCircuitContext},
@@ -47,9 +48,14 @@ thread_local! {
 /// as the key. Return the Rust UUID to Python. The last field of the tuple, `TraceWitness`, is left
 /// as None, for `chiquito_add_witness_to_rust_id` to insert.
 pub fn chiquito_ast_to_halo2(ast_json: &str) -> UUID {
-    let circuit: SBPIR<Fr, ()> =
-        serde_json::from_str(ast_json).expect("Json deserialization to Circuit failed.");
+    println!("Received JSON: {}", ast_json);
+    let value: Value = from_str(ast_json).expect("Invalid JSON");
+    println!("Value: {:#?}", value);
 
+    // Now attempt to convert `Value` into `SBPIR`
+    let circuit: SBPIR<Fr, ()> =
+        serde_json::from_value(value).expect("Deserialization to Circuit failed.");
+    println!("circuit = {:#?}", circuit);
     let config = config(SingleRowCellManager {}, SimpleStepSelectorBuilder {});
     let (chiquito, assignment_generator) = compile(config, &circuit);
     let chiquito_halo2 = chiquito2Halo2(chiquito);
@@ -212,13 +218,18 @@ impl<'de> Visitor<'de> for CircuitVisitor {
         let mut q_enable = None;
         let mut id = None;
 
+        println!("------ Visiting map -------");
+
         while let Some(key) = map.next_key::<String>()? {
+            println!("key = {}", key);
             match key.as_str() {
                 "step_types" => {
+                    println!("------ Visiting step_types -------");
                     if step_types.is_some() {
                         return Err(de::Error::duplicate_field("step_types"));
                     }
                     step_types = Some(map.next_value::<HashMap<UUID, StepType<Fr>>>()?);
+                    println!("step_types = {:#?}", step_types);
                 }
                 "forward_signals" => {
                     if forward_signals.is_some() {
@@ -261,13 +272,19 @@ impl<'de> Visitor<'de> for CircuitVisitor {
                     if first_step.is_some() {
                         return Err(de::Error::duplicate_field("first_step"));
                     }
-                    first_step = Some(map.next_value::<Option<StepTypeUUID>>()?);
+                    let first_step_str: String = map.next_value()?; // Get the UUID as a string
+                    first_step = Some(Option::Some(StepTypeUUID::from_str_radix(&first_step_str, 10).map_err(|e| {
+                        de::Error::custom(format!("Failed to parse first_step '{}': {}", first_step_str, e))
+                    })?));
                 }
                 "last_step" => {
                     if last_step.is_some() {
                         return Err(de::Error::duplicate_field("last_step"));
                     }
-                    last_step = Some(map.next_value::<Option<StepTypeUUID>>()?);
+                    let last_step_str: String = map.next_value()?; // Get the UUID as a string
+                    last_step = Some(Option::Some(StepTypeUUID::from_str_radix(&last_step_str, 10).map_err(|e| {
+                        de::Error::custom(format!("Failed to parse last_step '{}': {}", last_step_str, e))
+                    })?));
                 }
                 "num_steps" => {
                     if num_steps.is_some() {
@@ -282,10 +299,14 @@ impl<'de> Visitor<'de> for CircuitVisitor {
                     q_enable = Some(map.next_value::<bool>()?);
                 }
                 "id" => {
+                    println!("------ Visiting id -------");
                     if id.is_some() {
                         return Err(de::Error::duplicate_field("id"));
                     }
-                    id = Some(map.next_value()?);
+                    let id_str: String = map.next_value()?; // Get the UUID as a string
+                    id = Some(u128::from_str_radix(&id_str, 10).map_err(|e| {
+                        de::Error::custom(format!("Failed to parse id '{}': {}", id_str, e))
+                    })?);
                 }
                 _ => {
                     return Err(de::Error::unknown_field(
@@ -371,12 +392,16 @@ impl<'de> Visitor<'de> for StepTypeVisitor {
         let mut annotations = None;
 
         while let Some(key) = map.next_key::<String>()? {
+            println!("steptype key = {}", key);
             match key.as_str() {
                 "id" => {
                     if id.is_some() {
                         return Err(de::Error::duplicate_field("id"));
                     }
-                    id = Some(map.next_value()?);
+                    let id_str: String = map.next_value()?; // Get the UUID as a string
+                    id = Some(u128::from_str_radix(&id_str, 10).map_err(|e| {
+                        de::Error::custom(format!("Failed to parse id '{}': {}", id_str, e))
+                    })?);
                 }
                 "name" => {
                     if name.is_some() {
@@ -394,6 +419,8 @@ impl<'de> Visitor<'de> for StepTypeVisitor {
                     if constraints.is_some() {
                         return Err(de::Error::duplicate_field("constraints"));
                     }
+                    println!("------ Visiting constraints -------");
+                    println!("map = {:#?}", map.next_value()?);
                     constraints = Some(map.next_value::<Vec<Constraint<Fr>>>()?);
                 }
                 "transition_constraints" => {
@@ -459,6 +486,7 @@ macro_rules! impl_visitor_constraint_transition {
             type Value = $type;
 
             fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+                println!("------ Expecting -------");
                 formatter.write_str($display)
             }
 
@@ -466,9 +494,11 @@ macro_rules! impl_visitor_constraint_transition {
             where
                 A: MapAccess<'de>,
             {
+                println!("------ Visiting map CONSTRAINTS -------");
                 let mut annotation = None;
                 let mut expr = None;
                 while let Some(key) = map.next_key::<String>()? {
+                    println!("constraint key = {}", key);
                     match key.as_str() {
                         "annotation" => {
                             if annotation.is_some() {
@@ -573,6 +603,7 @@ impl<'de> Visitor<'de> for ExprVisitor {
         let key: String = map
             .next_key()?
             .ok_or_else(|| de::Error::custom("map is empty"))?;
+        println!("expression key = {}", key);
         match key.as_str() {
             "Const" => map.next_value().map(Expr::Const),
             "Sum" => map.next_value().map(Expr::Sum),
@@ -703,7 +734,10 @@ macro_rules! impl_visitor_internal_fixed_steptypehandler {
                             if id.is_some() {
                                 return Err(de::Error::duplicate_field("id"));
                             }
-                            id = Some(map.next_value()?);
+                            let id_str: String = map.next_value()?; // Get the UUID as a string
+                            id = Some(u128::from_str_radix(&id_str, 10).map_err(|e| {
+                                de::Error::custom(format!("Failed to parse id '{}': {}", id_str, e))
+                            })?);
                         }
                         "annotation" => {
                             if annotation.is_some() {
@@ -759,7 +793,10 @@ macro_rules! impl_visitor_forward_shared {
                             if id.is_some() {
                                 return Err(de::Error::duplicate_field("id"));
                             }
-                            id = Some(map.next_value()?);
+                            let id_str: String = map.next_value()?; // Get the UUID as a string
+                            id = Some(u128::from_str_radix(&id_str, 10).map_err(|e| {
+                                de::Error::custom(format!("Failed to parse id '{}': {}", id_str, e))
+                            })?);
                         }
                         "phase" => {
                             if phase.is_some() {
@@ -848,7 +885,11 @@ impl<'de> Visitor<'de> for StepInstanceVisitor {
                     if step_type_uuid.is_some() {
                         return Err(de::Error::duplicate_field("step_type_uuid"));
                     }
-                    step_type_uuid = Some(map.next_value()?);
+                    let uuid_str: String = map.next_value()?; // Get the UUID as a string
+                    step_type_uuid = Some(
+                        u128::from_str_radix(&uuid_str, 10) // Assuming the string is in decimal format
+                            .map_err(de::Error::custom)?,
+                    );
                 }
                 "assignments" => {
                     if assignments.is_some() {
@@ -926,13 +967,13 @@ mod tests {
         {
             "step_instances": [
                 {
-                    "step_type_uuid": 270606747459021742275781620564109167114,
+                    "step_type_uuid": "270606747459021742275781620564109167114",
                     "assignments": {
                         "270606737951642240564318377467548666378": [
                             {
                                 "Forward": [
                                     {
-                                        "id": 270606737951642240564318377467548666378,
+                                        "id": "270606737951642240564318377467548666378",
                                         "phase": 0,
                                         "annotation": "a"
                                     },
@@ -950,7 +991,7 @@ mod tests {
                             {
                                 "Forward": [
                                     {
-                                        "id": 270606743497613616562965561253747624458,
+                                        "id": "270606743497613616562965561253747624458",
                                         "phase": 0,
                                         "annotation": "b"
                                     },
@@ -967,7 +1008,7 @@ mod tests {
                         "270606753004993118272949371872716917258": [
                             {
                                 "Internal": {
-                                    "id": 270606753004993118272949371872716917258,
+                                    "id": "270606753004993118272949371872716917258",
                                     "annotation": "c"
                                 }
                             },
@@ -981,13 +1022,13 @@ mod tests {
                     }
                 },
                 {
-                    "step_type_uuid": 270606783111694873693576112554652600842,
+                    "step_type_uuid": "270606783111694873693576112554652600842",
                     "assignments": {
                         "270606737951642240564318377467548666378": [
                             {
                                 "Forward": [
                                     {
-                                        "id": 270606737951642240564318377467548666378,
+                                        "id": "270606737951642240564318377467548666378",
                                         "phase": 0,
                                         "annotation": "a"
                                     },
@@ -1005,7 +1046,7 @@ mod tests {
                             {
                                 "Forward": [
                                     {
-                                        "id": 270606743497613616562965561253747624458,
+                                        "id": "270606743497613616562965561253747624458",
                                         "phase": 0,
                                         "annotation": "b"
                                     },
@@ -1022,7 +1063,7 @@ mod tests {
                         "270606786280821374261518951164072823306": [
                             {
                                 "Internal": {
-                                    "id": 270606786280821374261518951164072823306,
+                                    "id": "270606786280821374261518951164072823306",
                                     "annotation": "c"
                                 }
                             },
@@ -1070,11 +1111,11 @@ mod tests {
         {
             "step_types": {
                 "258869595755756204079859764249309612554": {
-                    "id": 258869595755756204079859764249309612554,
+                    "id": "258869595755756204079859764249309612554",
                     "name": "fibo_first_step",
                     "signals": [
                         {
-                            "id": 258869599717164329791616633222308956682,
+                            "id": "258869599717164329791616633222308956682",
                             "annotation": "c"
                         }
                     ],
@@ -1086,7 +1127,7 @@ mod tests {
                                     {
                                         "Forward": [
                                             {
-                                                "id": 258869580702405326369584955980151130634,
+                                                "id": "258869580702405326369584955980151130634",
                                                 "phase": 0,
                                                 "annotation": "a"
                                             },
@@ -1113,7 +1154,7 @@ mod tests {
                                     {
                                         "Forward": [
                                             {
-                                                "id": 258869587040658327507391136965088381450,
+                                                "id": "258869587040658327507391136965088381450",
                                                 "phase": 0,
                                                 "annotation": "b"
                                             },
@@ -1140,7 +1181,7 @@ mod tests {
                                     {
                                         "Forward": [
                                             {
-                                                "id": 258869580702405326369584955980151130634,
+                                                "id": "258869580702405326369584955980151130634",
                                                 "phase": 0,
                                                 "annotation": "a"
                                             },
@@ -1150,7 +1191,7 @@ mod tests {
                                     {
                                         "Forward": [
                                             {
-                                                "id": 258869587040658327507391136965088381450,
+                                                "id": "258869587040658327507391136965088381450",
                                                 "phase": 0,
                                                 "annotation": "b"
                                             },
@@ -1160,7 +1201,7 @@ mod tests {
                                     {
                                         "Neg": {
                                             "Internal": {
-                                                "id": 258869599717164329791616633222308956682,
+                                                "id": "258869599717164329791616633222308956682",
                                                 "annotation": "c"
                                             }
                                         }
@@ -1177,7 +1218,7 @@ mod tests {
                                     {
                                         "Forward": [
                                             {
-                                                "id": 258869587040658327507391136965088381450,
+                                                "id": "258869587040658327507391136965088381450",
                                                 "phase": 0,
                                                 "annotation": "b"
                                             },
@@ -1188,7 +1229,7 @@ mod tests {
                                         "Neg": {
                                             "Forward": [
                                                 {
-                                                    "id": 258869580702405326369584955980151130634,
+                                                    "id": "258869580702405326369584955980151130634",
                                                     "phase": 0,
                                                     "annotation": "a"
                                                 },
@@ -1205,7 +1246,7 @@ mod tests {
                                 "Sum": [
                                     {
                                         "Internal": {
-                                            "id": 258869599717164329791616633222308956682,
+                                            "id": "258869599717164329791616633222308956682",
                                             "annotation": "c"
                                         }
                                     },
@@ -1213,7 +1254,7 @@ mod tests {
                                         "Neg": {
                                             "Forward": [
                                                 {
-                                                    "id": 258869587040658327507391136965088381450,
+                                                    "id": "258869587040658327507391136965088381450",
                                                     "phase": 0,
                                                     "annotation": "b"
                                                 },
@@ -1231,7 +1272,7 @@ mod tests {
                                     {
                                         "Forward": [
                                             {
-                                                "id": 258869589417503202934383108674030275082,
+                                                "id": "258869589417503202934383108674030275082",
                                                 "phase": 0,
                                                 "annotation": "n"
                                             },
@@ -1242,7 +1283,7 @@ mod tests {
                                         "Neg": {
                                             "Forward": [
                                                 {
-                                                    "id": 258869589417503202934383108674030275082,
+                                                    "id": "258869589417503202934383108674030275082",
                                                     "phase": 0,
                                                     "annotation": "n"
                                                 },
@@ -1260,11 +1301,11 @@ mod tests {
                     }
                 },
                 "258869628239302834927102989021255174666": {
-                    "id": 258869628239302834927102989021255174666,
+                    "id": "258869628239302834927102989021255174666",
                     "name": "fibo_step",
                     "signals": [
                         {
-                            "id": 258869632200710960639812650790420089354,
+                            "id": "258869632200710960639812650790420089354",
                             "annotation": "c"
                         }
                     ],
@@ -1276,7 +1317,7 @@ mod tests {
                                     {
                                         "Forward": [
                                             {
-                                                "id": 258869580702405326369584955980151130634,
+                                                "id": "258869580702405326369584955980151130634",
                                                 "phase": 0,
                                                 "annotation": "a"
                                             },
@@ -1286,7 +1327,7 @@ mod tests {
                                     {
                                         "Forward": [
                                             {
-                                                "id": 258869587040658327507391136965088381450,
+                                                "id": "258869587040658327507391136965088381450",
                                                 "phase": 0,
                                                 "annotation": "b"
                                             },
@@ -1296,7 +1337,7 @@ mod tests {
                                     {
                                         "Neg": {
                                             "Internal": {
-                                                "id": 258869632200710960639812650790420089354,
+                                                "id": "258869632200710960639812650790420089354",
                                                 "annotation": "c"
                                             }
                                         }
@@ -1313,7 +1354,7 @@ mod tests {
                                     {
                                         "Forward": [
                                             {
-                                                "id": 258869587040658327507391136965088381450,
+                                                "id": "258869587040658327507391136965088381450",
                                                 "phase": 0,
                                                 "annotation": "b"
                                             },
@@ -1324,7 +1365,7 @@ mod tests {
                                         "Neg": {
                                             "Forward": [
                                                 {
-                                                    "id": 258869580702405326369584955980151130634,
+                                                    "id": "258869580702405326369584955980151130634",
                                                     "phase": 0,
                                                     "annotation": "a"
                                                 },
@@ -1341,7 +1382,7 @@ mod tests {
                                 "Sum": [
                                     {
                                         "Internal": {
-                                            "id": 258869632200710960639812650790420089354,
+                                            "id": "258869632200710960639812650790420089354",
                                             "annotation": "c"
                                         }
                                     },
@@ -1349,7 +1390,7 @@ mod tests {
                                         "Neg": {
                                             "Forward": [
                                                 {
-                                                    "id": 258869587040658327507391136965088381450,
+                                                    "id": "258869587040658327507391136965088381450",
                                                     "phase": 0,
                                                     "annotation": "b"
                                                 },
@@ -1367,7 +1408,7 @@ mod tests {
                                     {
                                         "Forward": [
                                             {
-                                                "id": 258869589417503202934383108674030275082,
+                                                "id": "258869589417503202934383108674030275082",
                                                 "phase": 0,
                                                 "annotation": "n"
                                             },
@@ -1378,7 +1419,7 @@ mod tests {
                                         "Neg": {
                                             "Forward": [
                                                 {
-                                                    "id": 258869589417503202934383108674030275082,
+                                                    "id": "258869589417503202934383108674030275082",
                                                     "phase": 0,
                                                     "annotation": "n"
                                                 },
@@ -1396,7 +1437,7 @@ mod tests {
                     }
                 },
                 "258869646461780213207493341245063432714": {
-                    "id": 258869646461780213207493341245063432714,
+                    "id": "258869646461780213207493341245063432714",
                     "name": "padding",
                     "signals": [],
                     "constraints": [],
@@ -1408,7 +1449,7 @@ mod tests {
                                     {
                                         "Forward": [
                                             {
-                                                "id": 258869587040658327507391136965088381450,
+                                                "id": "258869587040658327507391136965088381450",
                                                 "phase": 0,
                                                 "annotation": "b"
                                             },
@@ -1419,7 +1460,7 @@ mod tests {
                                         "Neg": {
                                             "Forward": [
                                                 {
-                                                    "id": 258869587040658327507391136965088381450,
+                                                    "id": "258869587040658327507391136965088381450",
                                                     "phase": 0,
                                                     "annotation": "b"
                                                 },
@@ -1437,7 +1478,7 @@ mod tests {
                                     {
                                         "Forward": [
                                             {
-                                                "id": 258869589417503202934383108674030275082,
+                                                "id": "258869589417503202934383108674030275082",
                                                 "phase": 0,
                                                 "annotation": "n"
                                             },
@@ -1448,7 +1489,7 @@ mod tests {
                                         "Neg": {
                                             "Forward": [
                                                 {
-                                                    "id": 258869589417503202934383108674030275082,
+                                                    "id": "258869589417503202934383108674030275082",
                                                     "phase": 0,
                                                     "annotation": "n"
                                                 },
@@ -1466,17 +1507,17 @@ mod tests {
             },
             "forward_signals": [
                 {
-                    "id": 258869580702405326369584955980151130634,
+                    "id": "258869580702405326369584955980151130634",
                     "phase": 0,
                     "annotation": "a"
                 },
                 {
-                    "id": 258869587040658327507391136965088381450,
+                    "id": "258869587040658327507391136965088381450",
                     "phase": 0,
                     "annotation": "b"
                 },
                 {
-                    "id": 258869589417503202934383108674030275082,
+                    "id": "258869589417503202934383108674030275082",
                     "phase": 0,
                     "annotation": "n"
                 }
@@ -1488,7 +1529,7 @@ mod tests {
                     {
                         "Forward": [
                             {
-                                "id": 258869587040658327507391136965088381450,
+                                "id": "258869587040658327507391136965088381450",
                                 "phase": 0,
                                 "annotation": "b"
                             },
@@ -1503,7 +1544,7 @@ mod tests {
                     {
                         "Forward": [
                             {
-                                "id": 258869589417503202934383108674030275082,
+                                "id": "258869589417503202934383108674030275082",
                                 "phase": 0,
                                 "annotation": "n"
                             },
@@ -1524,11 +1565,11 @@ mod tests {
                 "258869646461780213207493341245063432714": "padding"
             },
             "fixed_assignments": null,
-            "first_step": 258869595755756204079859764249309612554,
-            "last_step": 258869646461780213207493341245063432714,
+            "first_step": "258869595755756204079859764249309612554",
+            "last_step": "258869646461780213207493341245063432714",
             "num_steps": 10,
             "q_enable": true,
-            "id": 258867373405797678961444396351437277706
+            "id": "258867373405797678961444396351437277706"
         }
         "#;
         let circuit: SBPIR<Fr, ()> = serde_json::from_str(json).unwrap();
@@ -1539,15 +1580,15 @@ mod tests {
     fn test_step_type() {
         let json = r#"
         {
-            "id":1,
+            "id":"1",
             "name":"fibo",
             "signals":[
                 {
-                    "id":1,
+                    "id":"1",
                     "annotation":"a"
                 },
                 {
-                    "id":2,
+                    "id":"2",
                     "annotation":"b"
                 }
             ],
@@ -1563,7 +1604,7 @@ mod tests {
                                 "Mul":[
                                     {
                                         "Internal":{
-                                            "id":3,
+                                            "id":"3",
                                             "annotation":"c"
                                         }
                                     },
@@ -1587,7 +1628,7 @@ mod tests {
                                     {
                                         "Shared":[
                                             {
-                                                "id":4,
+                                                "id":"4",
                                                 "phase":2,
                                                 "annotation":"d"
                                             },
@@ -1616,7 +1657,7 @@ mod tests {
                                     {
                                         "Forward":[
                                             {
-                                                "id":5,
+                                                "id":"5",
                                                 "phase":1,
                                                 "annotation":"e"
                                             },
@@ -1643,7 +1684,7 @@ mod tests {
                                     {
                                         "Fixed":[
                                             {
-                                                "id":6,
+                                                "id":"6",
                                                 "annotation":"e"
                                             },
                                             2
@@ -1679,14 +1720,14 @@ mod tests {
             "Sum": [
                 {
                 "Internal": {
-                    "id": 27,
+                    "id": "27",
                     "annotation": "a"
                 }
                 },
                 {
                 "Fixed": [
                     {
-                        "id": 28,
+                        "id": "28",
                         "annotation": "b"
                     },
                     1
@@ -1695,7 +1736,7 @@ mod tests {
                 {
                 "Shared": [
                     {
-                        "id": 29,
+                        "id": "29",
                         "phase": 1,
                         "annotation": "c"
                     },
@@ -1705,7 +1746,7 @@ mod tests {
                 {
                 "Forward": [
                     {
-                        "id": 30,
+                        "id": "30",
                         "phase": 2,
                         "annotation": "d"
                     },
@@ -1714,7 +1755,7 @@ mod tests {
                 },
                 {
                 "StepTypeNext": {
-                    "id": 31,
+                    "id": "31",
                     "annotation": "e"
                 }
                 },
@@ -1760,14 +1801,14 @@ mod tests {
             "Sum": [
                 {
                 "Internal": {
-                    "id": 27,
+                    "id": "27",
                     "annotation": "a"
                 }
                 },
                 {
                 "Fixed": [
                     {
-                        "id": 28,
+                        "id": "28",
                         "annotation": "b"
                     },
                     1
@@ -1776,7 +1817,7 @@ mod tests {
                 {
                 "Shared": [
                     {
-                        "id": 29,
+                        "id": "29",
                         "phase": 1,
                         "annotation": "c"
                     },
@@ -1786,7 +1827,7 @@ mod tests {
                 {
                 "Forward": [
                     {
-                        "id": 30,
+                        "id": "30",
                         "phase": 2,
                         "annotation": "d"
                     },
@@ -1795,7 +1836,7 @@ mod tests {
                 },
                 {
                 "StepTypeNext": {
-                    "id": 31,
+                    "id": "31",
                     "annotation": "e"
                 }
                 },

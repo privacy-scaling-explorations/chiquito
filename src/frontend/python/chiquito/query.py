@@ -134,5 +134,5 @@ class StepTypeNext(Queriable):
 
     def __json__(self):
         return {
-            "StepTypeNext": {"id": self.step_type.id, "annotation": self.step_type.name}
+            "StepTypeNext": {"id": f"{self.step_type.id}", "annotation": self.step_type.name}
         }

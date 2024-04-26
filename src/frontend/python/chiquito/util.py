@@ -29,5 +29,5 @@ class CustomEncoder(json.JSONEncoder):
 
 
 # int field is the u128 version of uuid.
-def uuid() -> int:
-    return uuid1(node=int.from_bytes([10, 10, 10, 10, 10, 10], byteorder="little")).int
+def uuid() -> str:
+    return uuid1(node=int.from_bytes([10, 10, 10, 10, 10, 10], byteorder="little")).int.__str__()
