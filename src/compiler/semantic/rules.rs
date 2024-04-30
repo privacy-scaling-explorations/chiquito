@@ -237,7 +237,11 @@ fn redeclare_rule(
     id: &Identifier,
     _symbol: &SymTableEntry,
 ) {
-    if analyser.symbols.find_symbol(&analyser.cur_scope, id.name()).is_some() {
+    if analyser
+        .symbols
+        .find_symbol(&analyser.cur_scope, id.name())
+        .is_some()
+    {
         analyser.error(
             format!(
                 "Cannot redeclare {} in the same scope {:?}",

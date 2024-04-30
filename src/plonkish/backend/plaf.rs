@@ -234,6 +234,7 @@ impl<F: PrimeField<Repr = [u8; 32]>> ChiquitoPlaf<F> {
                 ))
             }
             cPolyExpr::MI(_) => panic!("mi elimination not done"),
+            cPolyExpr::Metadata(_) => unimplemented!(),
         }
     }
 

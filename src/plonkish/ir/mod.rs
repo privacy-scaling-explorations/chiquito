@@ -164,7 +164,7 @@ impl<F: Debug> Debug for Poly<F> {
     }
 }
 
-pub type PolyExpr<F> = Expr<F, Queriable>;
+pub type PolyExpr<F> = Expr<F, Queriable, ()>;
 
 impl<F: Clone> PolyExpr<F> {
     pub fn rotate(&self, rot: i32) -> PolyExpr<F> {
@@ -181,6 +181,7 @@ impl<F: Clone> PolyExpr<F> {
             PolyExpr::Pow(v, exp) => PolyExpr::Pow(Box::new(v.rotate(rot)), *exp),
             PolyExpr::Halo2Expr(_) => panic!("jarrl: cannot rotate polyexpr that contains halo2"),
             PolyExpr::MI(v) => PolyExpr::MI(Box::new(v.rotate(rot))),
+            PolyExpr::Metadata(_) => unimplemented!(),
         }
     }
 }

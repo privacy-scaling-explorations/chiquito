@@ -422,7 +422,7 @@ mod tests {
 
     #[test]
     fn test_and_single_input() {
-        let a = <u64 as ToExpr<Fr, Queriable<Fr>>>::expr(&10);
+        let a = <u64 as ToExpr<Fr, Queriable<Fr>, ()>>::expr(&10);
         let result = and(vec![a]);
 
         assert!(matches!(result.expr, Expr::Mul(v) if v.len() == 2 &&
@@ -432,7 +432,7 @@ mod tests {
 
     #[test]
     fn test_and_multiple_inputs() {
-        let a = <u64 as ToExpr<Fr, Queriable<Fr>>>::expr(&10);
+        let a = <u64 as ToExpr<Fr, Queriable<Fr>, ()>>::expr(&10);
         let b = 20.expr();
         let c = 30.expr();
         let result = and(vec![a, b, c]);
@@ -460,7 +460,7 @@ mod tests {
 
     #[test]
     fn test_or_single_input() {
-        let a = <u64 as ToExpr<Fr, Queriable<Fr>>>::expr(&10);
+        let a = <u64 as ToExpr<Fr, Queriable<Fr>, ()>>::expr(&10);
         let result = or(vec![a]);
 
         // returns "1 - (1 * (1 - 10))"
@@ -477,9 +477,9 @@ mod tests {
 
     #[test]
     fn test_or_multiple_input() {
-        let a = <u64 as ToExpr<Fr, Queriable<Fr>>>::expr(&10);
-        let b = <u64 as ToExpr<Fr, Queriable<Fr>>>::expr(&20);
-        let c = <u64 as ToExpr<Fr, Queriable<Fr>>>::expr(&30);
+        let a = <u64 as ToExpr<Fr, Queriable<Fr>, ()>>::expr(&10);
+        let b = <u64 as ToExpr<Fr, Queriable<Fr>, ()>>::expr(&20);
+        let c = <u64 as ToExpr<Fr, Queriable<Fr>, ()>>::expr(&30);
         let result = or(vec![a, b, c]);
 
         // returns "1 - (1 * (1 - 10) * (1 - 20) * (1 - 30))"
@@ -504,7 +504,7 @@ mod tests {
 
     #[test]
     fn test_not_one() {
-        let a = <u64 as ToExpr<Fr, Queriable<Fr>>>::expr(&1);
+        let a = <u64 as ToExpr<Fr, Queriable<Fr>, ()>>::expr(&1);
         let result = not(a);
 
         assert!(matches!(result.expr, Expr::Sum(v) if v.len() == 2 &&
@@ -515,7 +515,7 @@ mod tests {
 
     #[test]
     fn test_not_zero() {
-        let a = <u64 as ToExpr<Fr, Queriable<Fr>>>::expr(&0);
+        let a = <u64 as ToExpr<Fr, Queriable<Fr>, ()>>::expr(&0);
         let result = not(a);
 
         assert!(matches!(result.expr, Expr::Sum(v) if v.len() == 2 &&
@@ -526,8 +526,8 @@ mod tests {
 
     #[test]
     fn test_xor() {
-        let a = <u64 as ToExpr<Fr, Queriable<Fr>>>::expr(&10);
-        let b = <u64 as ToExpr<Fr, Queriable<Fr>>>::expr(&20);
+        let a = <u64 as ToExpr<Fr, Queriable<Fr>, ()>>::expr(&10);
+        let b = <u64 as ToExpr<Fr, Queriable<Fr>, ()>>::expr(&20);
         let result = xor(a, b);
 
         // returns "10 + 20 - 2 * 10 * 20"
@@ -543,8 +543,8 @@ mod tests {
 
     #[test]
     fn test_eq() {
-        let a = <u64 as ToExpr<Fr, Queriable<Fr>>>::expr(&10);
-        let b = <u64 as ToExpr<Fr, Queriable<Fr>>>::expr(&20);
+        let a = <u64 as ToExpr<Fr, Queriable<Fr>, ()>>::expr(&10);
+        let b = <u64 as ToExpr<Fr, Queriable<Fr>, ()>>::expr(&20);
         let result = eq(a, b);
 
         // returns "10 - 20"
@@ -556,9 +556,9 @@ mod tests {
 
     #[test]
     fn test_select() {
-        let selector = <u64 as ToExpr<Fr, Queriable<Fr>>>::expr(&1);
-        let when_true = <u64 as ToExpr<Fr, Queriable<Fr>>>::expr(&10);
-        let when_false = <u64 as ToExpr<Fr, Queriable<Fr>>>::expr(&20);
+        let selector = <u64 as ToExpr<Fr, Queriable<Fr>, ()>>::expr(&1);
+        let when_true = <u64 as ToExpr<Fr, Queriable<Fr>, ()>>::expr(&10);
+        let when_false = <u64 as ToExpr<Fr, Queriable<Fr>, ()>>::expr(&20);
         let result = select(selector, when_true, when_false);
 
         // returns "1 * 10 + (1 - 1) * 20"
@@ -576,8 +576,8 @@ mod tests {
 
     #[test]
     fn test_when_true() {
-        let selector = <u64 as ToExpr<Fr, Queriable<Fr>>>::expr(&1);
-        let when_true = <u64 as ToExpr<Fr, Queriable<Fr>>>::expr(&10);
+        let selector = <u64 as ToExpr<Fr, Queriable<Fr>, ()>>::expr(&1);
+        let when_true = <u64 as ToExpr<Fr, Queriable<Fr>, ()>>::expr(&10);
         let result = when(selector, when_true);
 
         // returns "1 * 10"
@@ -588,8 +588,8 @@ mod tests {
 
     #[test]
     fn test_when_false() {
-        let selector = <u64 as ToExpr<Fr, Queriable<Fr>>>::expr(&0);
-        let when_true = <u64 as ToExpr<Fr, Queriable<Fr>>>::expr(&10);
+        let selector = <u64 as ToExpr<Fr, Queriable<Fr>, ()>>::expr(&0);
+        let when_true = <u64 as ToExpr<Fr, Queriable<Fr>, ()>>::expr(&10);
         let result = when(selector, when_true);
 
         // returns "0 * 10"
@@ -600,8 +600,8 @@ mod tests {
 
     #[test]
     fn test_unless() {
-        let selector = <u64 as ToExpr<Fr, Queriable<Fr>>>::expr(&1);
-        let when_false = <u64 as ToExpr<Fr, Queriable<Fr>>>::expr(&10);
+        let selector = <u64 as ToExpr<Fr, Queriable<Fr>, ()>>::expr(&1);
+        let when_false = <u64 as ToExpr<Fr, Queriable<Fr>, ()>>::expr(&10);
         let result = unless(selector, when_false);
 
         // returns "(1 - 1) * 10"
@@ -615,8 +615,8 @@ mod tests {
 
     #[test]
     fn test_isz() {
-        let zero = <u64 as ToExpr<Fr, Queriable<Fr>>>::expr(&0);
-        let non_zero = <u64 as ToExpr<Fr, Queriable<Fr>>>::expr(&10);
+        let zero = <u64 as ToExpr<Fr, Queriable<Fr>, ()>>::expr(&0);
+        let non_zero = <u64 as ToExpr<Fr, Queriable<Fr>, ()>>::expr(&10);
         let result_zero = isz(zero);
         let result_non_zero = isz(non_zero);
 
@@ -629,7 +629,7 @@ mod tests {
     #[test]
     fn test_if_next_step() {
         let step_type = StepTypeHandler::new("test_step".to_string());
-        let constraint = <u64 as ToExpr<Fr, Queriable<Fr>>>::expr(&10);
+        let constraint = <u64 as ToExpr<Fr, Queriable<Fr>, ()>>::expr(&10);
         let result = if_next_step(step_type, constraint);
 
         // returns "Expr::Query(Queriable::StepTypeNext(StepTypeHandler{id: _id, annotation:
@@ -672,7 +672,7 @@ mod tests {
 
     #[test]
     fn test_annotate() {
-        let expr = <u64 as ToExpr<Fr, Queriable<Fr>>>::expr(&10);
+        let expr = <u64 as ToExpr<Fr, Queriable<Fr>, ()>>::expr(&10);
         let result = annotate("my_constraint".to_string(), expr, Typing::Unknown);
 
         assert_eq!(result.annotation, "my_constraint");
@@ -682,8 +682,9 @@ mod tests {
 
     #[test]
     fn test_rlc_empty() {
-        let randomness = <u64 as ToExpr<Fr, Queriable<Fr>>>::expr(&40);
-        let result = rlc::<Fr, Expr<Fr, Queriable<Fr>>, Expr<Fr, Queriable<Fr>>>(&[], randomness);
+        let randomness = <u64 as ToExpr<Fr, Queriable<Fr>, ()>>::expr(&40);
+        let result =
+            rlc::<Fr, Expr<Fr, Queriable<Fr>, ()>, Expr<Fr, Queriable<Fr>, ()>>(&[], randomness);
 
         // returns "0"
         assert!(matches!(result, Expr::Const(c) if c == 0u64.field()));
@@ -691,7 +692,7 @@ mod tests {
 
     #[test]
     fn test_rlc_one_input() {
-        let a = <u64 as ToExpr<Fr, Queriable<Fr>>>::expr(&10);
+        let a = <u64 as ToExpr<Fr, Queriable<Fr>, ()>>::expr(&10);
         let result = rlc(&[a], 40u64.expr());
 
         // returns "10"
@@ -700,7 +701,7 @@ mod tests {
 
     #[test]
     fn test_rlc_multiple_inputs() {
-        let a = <u64 as ToExpr<Fr, Queriable<Fr>>>::expr(&10);
+        let a = <u64 as ToExpr<Fr, Queriable<Fr>, ()>>::expr(&10);
         let b = 20u64.expr();
         let c = 30u64.expr();
         let result = rlc(&[a, b, c], 40u64.expr());
@@ -734,7 +735,7 @@ mod tests {
     #[test]
     fn test_constraint_from_expr() {
         // Create an expression and convert it to a Constraint
-        let expr = <u64 as ToExpr<Fr, Queriable<Fr>>>::expr(&10) * 20u64.expr();
+        let expr = <u64 as ToExpr<Fr, Queriable<Fr>, ()>>::expr(&10) * 20u64.expr();
         let constraint: Constraint<Fr> = Constraint::from(expr);
 
         // returns "10 * 20"

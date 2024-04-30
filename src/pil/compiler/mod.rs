@@ -379,7 +379,7 @@ fn compile_steps<F: Clone + Field, TraceArgs>(
 // Convert lookup columns (src and dest) in Chiquito to PIL column. Note that Chiquito lookup
 // columns have to be Expr::Query type.
 fn chiquito_lookup_column_to_pil_column<F>(
-    src: Expr<F, Queriable<F>>,
+    src: Expr<F, Queriable<F>, ()>,
     super_circuit_annotations_map: &Option<&HashMap<UUID, String>>,
 ) -> PILColumn {
     match src {
@@ -402,7 +402,7 @@ pub enum PILExpr<F, PILQuery> {
 }
 
 fn chiquito_expr_to_pil_expr<F: Clone>(
-    expr: Expr<F, Queriable<F>>,
+    expr: Expr<F, Queriable<F>, ()>,
     super_circuit_annotations_map: &Option<&HashMap<UUID, String>>,
 ) -> PILExpr<F, PILQuery> {
     match expr {
@@ -447,6 +447,9 @@ fn chiquito_expr_to_pil_expr<F: Clone>(
         }
         Expr::MI(_) => {
             panic!("MI not supported by PIL backend.")
+        }
+        Expr::Metadata(_) => {
+            panic!("Metadata not supported by PIL backend.")
         }
     }
 }

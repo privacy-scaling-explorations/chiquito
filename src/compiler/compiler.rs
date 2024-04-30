@@ -25,7 +25,7 @@ use super::{
 
 /// This compiler compiles from chiquito source code to the SBPIR.
 #[derive(Default)]
-pub(super) struct Compiler<F> {
+pub(super) struct Compiler<F, M> {
     pub(super) config: Config,
 
     messages: Vec<Message>,
@@ -36,10 +36,10 @@ pub(super) struct Compiler<F> {
     internal_signals: HashMap<UUID, InternalSignal>,
     step_type_handler: HashMap<UUID, StepTypeHandler>,
 
-    _p: PhantomData<F>,
+    _p: PhantomData<(F, M)>,
 }
 
-impl<F: Field + Hash> Compiler<F> {
+impl<F: Field + Hash, M: Default> Compiler<F, M> {
     /// Creates a configured compiler.
     pub fn new(config: Config) -> Self {
         Compiler {
@@ -108,7 +108,7 @@ impl<F: Field + Hash> Compiler<F> {
         setup
             .iter()
             .map(|(machine_id, machine)| {
-                let new_machine: HashMap<String, Vec<Expr<F, Identifier>>> = machine
+                let new_machine: HashMap<String, Vec<Expr<F, Identifier, ()>>> = machine
                     .iter()
                     .map(|(step_id, step)| {
                         let new_step = step.iter().map(|pi| Self::map_pi_consts(pi)).collect();
@@ -122,7 +122,7 @@ impl<F: Field + Hash> Compiler<F> {
             .collect()
     }
 
-    fn map_pi_consts(expr: &Expr<BigInt, Identifier>) -> Expr<F, Identifier> {
+    fn map_pi_consts(expr: &Expr<BigInt, Identifier, ()>) -> Expr<F, Identifier, ()> {
         use Expr::*;
         match expr {
             Const(v) => Const(F::from_big_int(v)),
@@ -133,6 +133,7 @@ impl<F: Field + Hash> Compiler<F> {
             Query(q) => Query(q.clone()),
             Halo2Expr(_) => todo!(),
             MI(se) => MI(Box::new(Self::map_pi_consts(se))),
+            Metadata(_) => todo!(),
         }
     }
 
@@ -193,7 +194,7 @@ impl<F: Field + Hash> Compiler<F> {
         setup: &Setup<F, Identifier>,
         machine_id: &str,
         state_id: &str,
-    ) -> Vec<Expr<F, Queriable<F>>> {
+    ) -> Vec<Expr<F, Queriable<F>, ()>> {
         let exprs = setup.get(machine_id).unwrap().get(state_id).unwrap();
 
         exprs
@@ -207,8 +208,8 @@ impl<F: Field + Hash> Compiler<F> {
         symbols: &SymTable,
         machine_id: &str,
         state_id: &str,
-        expr: &Expr<F, Identifier>,
-    ) -> Expr<F, Queriable<F>> {
+        expr: &Expr<F, Identifier, ()>,
+    ) -> Expr<F, Queriable<F>, ()> {
         use Expr::*;
         match expr {
             Const(v) => Const(*v),
@@ -238,6 +239,7 @@ impl<F: Field + Hash> Compiler<F> {
             ))),
             Halo2Expr(se) => Halo2Expr(se.clone()),
             Query(id) => Query(self.translate_query(symbols, machine_id, state_id, id)),
+            Metadata(_) => todo!(),
         }
     }
 
@@ -510,7 +512,7 @@ mod test {
            }
         ";
 
-        let result = compile::<Fr>(circuit, Config::default().max_degree(2));
+        let result = compile::<Fr, ()>(circuit, Config::default().max_degree(2));
 
         match result.0 {
             Ok(sbpir) => println!("{:#?}", sbpir),

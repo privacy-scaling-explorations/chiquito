@@ -13,29 +13,31 @@ use crate::{
 
 #[derive(Debug)]
 /// Result of compiling an arbitrary boolean expression into a PI
-pub struct CompilationResult<F, V> {
+pub struct CompilationResult<F, V, M> {
     #[allow(dead_code)]
     pub dsym: DebugSymRef,
     // 0 is true, !=0 is false
-    pub anti_booly: Expr<F, V>,
+    pub anti_booly: Expr<F, V, M>,
     // 1 is true, 0 is false, other values are invalid
-    pub one_zero: Expr<F, V>,
+    pub one_zero: Expr<F, V, M>,
 }
 
 /// CompilationUnit for ABE to PI
 // In the future this will include configuration of the cost function for PI.
-pub struct CompilationUnit<F, V> {
-    _p: PhantomData<(F, V)>,
+pub struct CompilationUnit<F, V, M> {
+    _p: PhantomData<(F, V, M)>,
 }
 
-impl<F, V> Default for CompilationUnit<F, V> {
+impl<F, V, M> Default for CompilationUnit<F, V, M> {
     fn default() -> Self {
         Self { _p: PhantomData }
     }
 }
 
-impl<F: From<u64> + TryInto<u32> + Clone + Debug, V: Clone + Debug> CompilationUnit<F, V> {
-    pub fn compile_statement(&self, source: Statement<F, V>) -> Vec<CompilationResult<F, V>> {
+impl<F: From<u64> + TryInto<u32> + Clone + Debug, V: Clone + Debug, M: Clone + Debug>
+    CompilationUnit<F, V, M>
+{
+    pub fn compile_statement(&self, source: Statement<F, V>) -> Vec<CompilationResult<F, V, M>> {
         match source {
             Statement::Assert(_, expr) => self.compile_expression(expr),
             Statement::SignalAssignmentAssert(dsym, lhs, rhs) => {
@@ -69,13 +71,16 @@ impl<F: From<u64> + TryInto<u32> + Clone + Debug, V: Clone + Debug> CompilationU
         }
     }
 
-    pub fn compile_expression(&self, source: Expression<F, V>) -> Vec<CompilationResult<F, V>> {
+    pub fn compile_expression(&self, source: Expression<F, V>) -> Vec<CompilationResult<F, V, M>> {
         assert!(source.is_logic());
 
         self.compile_expression_logic(source)
     }
 
-    fn compile_expression_logic(&self, source: Expression<F, V>) -> Vec<CompilationResult<F, V>> {
+    fn compile_expression_logic(
+        &self,
+        source: Expression<F, V>,
+    ) -> Vec<CompilationResult<F, V, M>> {
         use crate::parser::ast::expression::{BinaryOperator::*, Expression::*, UnaryOperator::*};
         match source {
             BinOp {
@@ -103,7 +108,7 @@ impl<F: From<u64> + TryInto<u32> + Clone + Debug, V: Clone + Debug> CompilationU
         }
     }
 
-    fn compile_expression_airth(&self, source: Expression<F, V>) -> Expr<F, V> {
+    fn compile_expression_airth(&self, source: Expression<F, V>) -> Expr<F, V, M> {
         use crate::parser::ast::expression::{BinaryOperator::*, Expression::*, UnaryOperator::*};
 
         match source {
@@ -192,7 +197,7 @@ impl<F: From<u64> + TryInto<u32> + Clone + Debug, V: Clone + Debug> CompilationU
 
     // LOGIC EXPRESSIONS
 
-    fn compile_expression_true(&self, dsym: DebugSymRef) -> CompilationResult<F, V> {
+    fn compile_expression_true(&self, dsym: DebugSymRef) -> CompilationResult<F, V, M> {
         use Expr::*;
 
         CompilationResult {
@@ -202,7 +207,7 @@ impl<F: From<u64> + TryInto<u32> + Clone + Debug, V: Clone + Debug> CompilationU
         }
     }
 
-    fn compile_expression_false(&self, dsym: DebugSymRef) -> CompilationResult<F, V> {
+    fn compile_expression_false(&self, dsym: DebugSymRef) -> CompilationResult<F, V, M> {
         use Expr::*;
 
         CompilationResult {
@@ -217,7 +222,7 @@ impl<F: From<u64> + TryInto<u32> + Clone + Debug, V: Clone + Debug> CompilationU
         dsym: DebugSymRef,
         lhs: Expression<F, V>,
         rhs: Expression<F, V>,
-    ) -> CompilationResult<F, V> {
+    ) -> CompilationResult<F, V, M> {
         assert!(lhs.is_arith());
         assert!(rhs.is_arith());
 
@@ -240,7 +245,7 @@ impl<F: From<u64> + TryInto<u32> + Clone + Debug, V: Clone + Debug> CompilationU
         _dsym: DebugSymRef,
         _lhs: Expression<F, V>,
         _rhs: Expression<F, V>,
-    ) -> CompilationResult<F, V> {
+    ) -> CompilationResult<F, V, M> {
         assert!(_lhs.is_arith());
         assert!(_rhs.is_arith());
 
@@ -267,7 +272,7 @@ impl<F: From<u64> + TryInto<u32> + Clone + Debug, V: Clone + Debug> CompilationU
         _dsym: DebugSymRef,
         lhs: Expression<F, V>,
         rhs: Expression<F, V>,
-    ) -> Vec<CompilationResult<F, V>> {
+    ) -> Vec<CompilationResult<F, V, M>> {
         let mut sub = Vec::new();
 
         flatten_bin_op(BinaryOperator::And, lhs, rhs, &mut sub);
@@ -285,7 +290,7 @@ impl<F: From<u64> + TryInto<u32> + Clone + Debug, V: Clone + Debug> CompilationU
         dsym: DebugSymRef,
         lhs: Expression<F, V>,
         rhs: Expression<F, V>,
-    ) -> CompilationResult<F, V> {
+    ) -> CompilationResult<F, V, M> {
         let mut sub = Vec::new();
 
         flatten_bin_op(BinaryOperator::Or, lhs, rhs, &mut sub);
@@ -325,7 +330,7 @@ impl<F: From<u64> + TryInto<u32> + Clone + Debug, V: Clone + Debug> CompilationU
         &self,
         dsym: DebugSymRef,
         sub: Expression<F, V>,
-    ) -> Vec<CompilationResult<F, V>> {
+    ) -> Vec<CompilationResult<F, V, M>> {
         assert!(sub.is_logic());
 
         let sub = self.compile_expression_logic(sub);
@@ -345,7 +350,7 @@ impl<F: From<u64> + TryInto<u32> + Clone + Debug, V: Clone + Debug> CompilationU
         dsym: DebugSymRef,
         cond: Expression<F, V>,
         when_true: Statement<F, V>,
-    ) -> Vec<CompilationResult<F, V>> {
+    ) -> Vec<CompilationResult<F, V, M>> {
         assert!(cond.is_logic());
 
         // if A then assert B
@@ -379,7 +384,7 @@ impl<F: From<u64> + TryInto<u32> + Clone + Debug, V: Clone + Debug> CompilationU
         cond: Expression<F, V>,
         when_true: Statement<F, V>,
         when_false: Statement<F, V>,
-    ) -> Vec<CompilationResult<F, V>> {
+    ) -> Vec<CompilationResult<F, V, M>> {
         assert!(cond.is_logic());
 
         // if A then assert B else assert C
@@ -408,7 +413,7 @@ impl<F: From<u64> + TryInto<u32> + Clone + Debug, V: Clone + Debug> CompilationU
         dsym: DebugSymRef,
         id: V,
         stmt: Statement<F, V>,
-    ) -> Vec<CompilationResult<F, V>> {
+    ) -> Vec<CompilationResult<F, V, M>> {
         let mut result = self.compile_statement(stmt);
 
         // assert next step
@@ -443,7 +448,9 @@ fn flatten_bin_op<F: Clone, V: Clone>(
     }
 }
 
-fn single_one_zero_and<F: Clone, V: Clone>(values: &[CompilationResult<F, V>]) -> Expr<F, V> {
+fn single_one_zero_and<F: Clone, V: Clone, M: Clone>(
+    values: &[CompilationResult<F, V, M>],
+) -> Expr<F, V, M> {
     values
         .iter()
         .skip(1)

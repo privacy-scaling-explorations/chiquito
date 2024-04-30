@@ -13,8 +13,8 @@ pub mod mielim;
 pub mod reduce;
 pub mod simplify;
 
-pub trait ToExpr<F, V> {
-    fn expr(&self) -> Expr<F, V>;
+pub trait ToExpr<F, V, M> {
+    fn expr(&self) -> Expr<F, V, M>;
 }
 
 pub trait ToField<F> {
@@ -22,19 +22,21 @@ pub trait ToField<F> {
 }
 
 #[derive(Clone)]
-pub enum Expr<F, V> {
+pub enum Expr<F, V, M> {
     Const(F),
-    Sum(Vec<Expr<F, V>>),
-    Mul(Vec<Expr<F, V>>),
-    Neg(Box<Expr<F, V>>),
-    Pow(Box<Expr<F, V>>, u32),
+    Sum(Vec<Expr<F, V, M>>),
+    Mul(Vec<Expr<F, V, M>>),
+    Neg(Box<Expr<F, V, M>>),
+    Pow(Box<Expr<F, V, M>>, u32),
     Query(V),
     Halo2Expr(Expression<F>),
 
-    MI(Box<Expr<F, V>>), //  Multiplicative inverse, but MI(0) = 0
+    MI(Box<Expr<F, V, M>>), //  Multiplicative inverse, but MI(0) = 0
+
+    Metadata(M),
 }
 
-impl<F, V> Expr<F, V> {
+impl<F, V, M> Expr<F, V, M> {
     pub fn degree(&self) -> usize {
         match self {
             Expr::Const(_) => 0,
@@ -45,11 +47,12 @@ impl<F, V> Expr<F, V> {
             Expr::Query(_) => 1,
             Expr::Halo2Expr(_) => panic!("not implemented"),
             Expr::MI(_) => panic!("not implemented"),
+            Expr::Metadata(_) => todo!(),
         }
     }
 }
 
-impl<F: Debug, V: Debug> Debug for Expr<F, V> {
+impl<F: Debug, V: Debug, M: Debug> Debug for Expr<F, V, M> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::Const(arg0) => {
@@ -85,13 +88,14 @@ impl<F: Debug, V: Debug> Debug for Expr<F, V> {
             Self::Query(arg0) => write!(f, "{:?}", arg0),
             Self::Halo2Expr(arg0) => write!(f, "halo2({:?})", arg0),
             Self::MI(arg0) => write!(f, "mi({:?})", arg0),
+            Self::Metadata(arg0) => write!(f, "{:?}", arg0),
         }
     }
 }
 
 pub type VarAssignments<F, V> = HashMap<V, F>;
 
-impl<F: Field + Hash, V: Eq + PartialEq + Hash> Expr<F, V> {
+impl<F: Field + Hash, V: Eq + PartialEq + Hash, M: Eq + PartialEq + Hash> Expr<F, V, M> {
     pub fn eval(&self, assignments: &VarAssignments<F, V>) -> Option<F> {
         match self {
             Expr::Const(v) => Some(*v),
@@ -108,17 +112,19 @@ impl<F: Field + Hash, V: Eq + PartialEq + Hash> Expr<F, V> {
 
             // Not implemented, and not necessary for aexpr
             Expr::Halo2Expr(_) => None,
+
+            Expr::Metadata(_) => todo!(),
         }
     }
 }
 
-impl<F: Clone, V: Clone> ToExpr<F, V> for Expr<F, V> {
-    fn expr(&self) -> Expr<F, V> {
+impl<F: Clone, V: Clone, M: Clone> ToExpr<F, V, M> for Expr<F, V, M> {
+    fn expr(&self) -> Expr<F, V, M> {
         self.clone()
     }
 }
 
-impl<F: Clone + From<u64>, V: Clone> Expr<F, V> {
+impl<F: Clone + From<u64>, V: Clone, M: Clone> Expr<F, V, M> {
     /// Returns (1-self).
     pub fn one_minus(&self) -> Self {
         use Expr::Const;
@@ -139,7 +145,7 @@ impl<F: Clone + From<u64>, V: Clone> Expr<F, V> {
     }
 }
 
-impl<F, V, RHS: Into<Expr<F, V>>> Add<RHS> for Expr<F, V> {
+impl<F, V, M, RHS: Into<Expr<F, V, M>>> Add<RHS> for Expr<F, V, M> {
     type Output = Self;
     fn add(self, rhs: RHS) -> Self {
         use Expr::*;
@@ -153,7 +159,7 @@ impl<F, V, RHS: Into<Expr<F, V>>> Add<RHS> for Expr<F, V> {
     }
 }
 
-impl<F, V, RHS: Into<Expr<F, V>>> Sub<RHS> for Expr<F, V> {
+impl<F, V, M, RHS: Into<Expr<F, V, M>>> Sub<RHS> for Expr<F, V, M> {
     type Output = Self;
     fn sub(self, rhs: RHS) -> Self {
         use Expr::*;
@@ -167,7 +173,7 @@ impl<F, V, RHS: Into<Expr<F, V>>> Sub<RHS> for Expr<F, V> {
     }
 }
 
-impl<F, V, RHS: Into<Expr<F, V>>> Mul<RHS> for Expr<F, V> {
+impl<F, V, M, RHS: Into<Expr<F, V, M>>> Mul<RHS> for Expr<F, V, M> {
     type Output = Self;
     fn mul(self, rhs: RHS) -> Self {
         use Expr::*;
@@ -181,7 +187,7 @@ impl<F, V, RHS: Into<Expr<F, V>>> Mul<RHS> for Expr<F, V> {
     }
 }
 
-impl<F, V> Neg for Expr<F, V> {
+impl<F, V, M> Neg for Expr<F, V, M> {
     type Output = Self;
     fn neg(self) -> Self {
         match self {
@@ -193,16 +199,16 @@ impl<F, V> Neg for Expr<F, V> {
 
 macro_rules! impl_expr_like {
     ($type:ty) => {
-        impl<F: From<u64>, V> From<$type> for Expr<F, V> {
+        impl<F: From<u64>, V, M> From<$type> for Expr<F, V, M> {
             #[inline]
             fn from(value: $type) -> Self {
                 Expr::Const(F::from(value as u64))
             }
         }
 
-        impl<F: From<u64>, V> $crate::poly::ToExpr<F, V> for $type {
+        impl<F: From<u64>, V, M> $crate::poly::ToExpr<F, V, M> for $type {
             #[inline]
-            fn expr(&self) -> Expr<F, V> {
+            fn expr(&self) -> Expr<F, V, M> {
                 Expr::Const(F::from(*self as u64))
             }
         }
@@ -222,7 +228,7 @@ impl_expr_like!(u32);
 impl_expr_like!(u64);
 impl_expr_like!(usize);
 
-impl<F: Field + From<u64>, V> From<i32> for Expr<F, V> {
+impl<F: Field + From<u64>, V, M> From<i32> for Expr<F, V, M> {
     #[inline]
     fn from(value: i32) -> Self {
         Expr::Const(
@@ -232,9 +238,9 @@ impl<F: Field + From<u64>, V> From<i32> for Expr<F, V> {
     }
 }
 
-impl<F: Field + From<u64>, V> ToExpr<F, V> for i32 {
+impl<F: Field + From<u64>, V, M> ToExpr<F, V, M> for i32 {
     #[inline]
-    fn expr(&self) -> Expr<F, V> {
+    fn expr(&self) -> Expr<F, V, M> {
         Expr::Const(
             F::from(self.unsigned_abs() as u64) * if self.is_negative() { -F::ONE } else { F::ONE },
         )
@@ -248,7 +254,7 @@ impl<F: Field + From<u64>> ToField<F> for i32 {
     }
 }
 
-impl<F, V> From<Expression<F>> for Expr<F, V> {
+impl<F, V, M> From<Expression<F>> for Expr<F, V, M> {
     #[inline]
     fn from(value: Expression<F>) -> Self {
         Expr::Halo2Expr(value)
@@ -261,15 +267,15 @@ pub trait SignalFactory<V> {
 
 /// The result of decomposing a PI into several
 #[derive(Debug, Clone)]
-pub struct ConstrDecomp<F, V> {
+pub struct ConstrDecomp<F, V, M> {
     /// PI constraint for the new signals introduced.
-    pub constrs: Vec<Expr<F, V>>,
+    pub constrs: Vec<Expr<F, V, M>>,
     /// Expressions for how to create the witness for the generated signals the orginal expression
     /// has be decomposed into.
-    pub auto_signals: HashMap<V, Expr<F, V>>,
+    pub auto_signals: HashMap<V, Expr<F, V, M>>,
 }
 
-impl<F, V> Default for ConstrDecomp<F, V> {
+impl<F, V, M> Default for ConstrDecomp<F, V, M> {
     fn default() -> Self {
         Self {
             constrs: Default::default(),
@@ -278,8 +284,8 @@ impl<F, V> Default for ConstrDecomp<F, V> {
     }
 }
 
-impl<F: Clone, V: Clone + Eq + PartialEq + Hash> ConstrDecomp<F, V> {
-    fn auto_eq(&mut self, signal: V, expr: Expr<F, V>) {
+impl<F: Clone, V: Clone + Eq + PartialEq + Hash, M: Clone> ConstrDecomp<F, V, M> {
+    fn auto_eq(&mut self, signal: V, expr: Expr<F, V, M>) {
         self.constrs.push(Expr::Sum(vec![
             expr.clone(),
             Expr::Neg(Box::new(Expr::Query(signal.clone()))),
@@ -301,7 +307,7 @@ mod test {
     fn eval_const() {
         use super::Expr::*;
 
-        let experiment: Expr<Fr, String> = Const(Fr::ONE);
+        let experiment: Expr<Fr, String, ()> = Const(Fr::ONE);
         let assignments: VarAssignments<Fr, String> = VarAssignments::default();
 
         assert_eq!(experiment.eval(&assignments), Some(Fr::ONE))
@@ -311,7 +317,7 @@ mod test {
     fn eval_var() {
         use super::Expr::*;
 
-        let experiment: Expr<Fr, &str> = Query("a");
+        let experiment: Expr<Fr, &str, ()> = Query("a");
         let mut assignments: VarAssignments<Fr, &str> = VarAssignments::default();
         assignments.insert("a", Fr::ONE);
 
@@ -322,7 +328,8 @@ mod test {
     fn eval_expr() {
         use super::Expr::*;
 
-        let experiment: Expr<Fr, &str> = (Query("a") * Query("b")) + Query("c") - Const(Fr::ONE);
+        let experiment: Expr<Fr, &str, ()> =
+            (Query("a") * Query("b")) + Query("c") - Const(Fr::ONE);
         let mut assignments: VarAssignments<Fr, &str> = VarAssignments::default();
         assignments.insert("a", Fr::from(2));
         assignments.insert("b", Fr::from(3));
@@ -335,7 +342,8 @@ mod test {
     fn eval_expr_missing_var() {
         use super::Expr::*;
 
-        let experiment: Expr<Fr, &str> = (Query("a") * Query("b")) + Query("c") - Const(Fr::ONE);
+        let experiment: Expr<Fr, &str, ()> =
+            (Query("a") * Query("b")) + Query("c") - Const(Fr::ONE);
         let mut assignments: VarAssignments<Fr, &str> = VarAssignments::default();
         assignments.insert("a", Fr::from(2));
         // REMOVE assignments.insert("b", Fr::from(3));
@@ -348,12 +356,12 @@ mod test {
     fn test_degree_expr() {
         use super::Expr::*;
 
-        let expr: Expr<Fr, &str> =
+        let expr: Expr<Fr, &str, ()> =
             (Query("a") * Query("a")) + (Query("c") * Query("d")) - Const(Fr::ONE);
 
         assert_eq!(expr.degree(), 2);
 
-        let expr: Expr<Fr, &str> =
+        let expr: Expr<Fr, &str, ()> =
             (Query("a") * Query("a")) + (Query("c") * Query("d")) * Query("e");
 
         assert_eq!(expr.degree(), 3);
@@ -363,9 +371,9 @@ mod test {
     fn test_expr_sum() {
         use super::Expr::*;
 
-        let lhs: Expr<Fr, &str> = Query("a") + Query("b");
+        let lhs: Expr<Fr, &str, ()> = Query("a") + Query("b");
 
-        let rhs: Expr<Fr, &str> = Query("c") + Query("d");
+        let rhs: Expr<Fr, &str, ()> = Query("c") + Query("d");
 
         assert_eq!(
             format!("({:?} + {:?})", lhs, rhs),
@@ -377,9 +385,9 @@ mod test {
     fn test_expr_mul() {
         use super::Expr::*;
 
-        let lhs: Expr<Fr, &str> = Query("a") * Query("b");
+        let lhs: Expr<Fr, &str, ()> = Query("a") * Query("b");
 
-        let rhs: Expr<Fr, &str> = Query("c") * Query("d");
+        let rhs: Expr<Fr, &str, ()> = Query("c") * Query("d");
 
         assert_eq!(
             format!("({:?} * {:?})", lhs, rhs),
@@ -391,17 +399,17 @@ mod test {
     fn test_expr_neg() {
         use super::Expr::*;
 
-        let expr: Expr<Fr, &str> = Query("a") + Query("b");
+        let expr: Expr<Fr, &str, ()> = Query("a") + Query("b");
 
         assert_eq!(
             format!("(-{:?})", expr),
             format!("{:?}", Neg(Box::new(expr)))
         );
 
-        let lhs: Expr<Fr, &str> = Query("a") * Query("b");
-        let rhs: Expr<Fr, &str> = Query("c") + Query("d");
+        let lhs: Expr<Fr, &str, ()> = Query("a") * Query("b");
+        let rhs: Expr<Fr, &str, ()> = Query("c") + Query("d");
 
-        let expr: Expr<Fr, &str> = lhs.clone() - rhs.clone();
+        let expr: Expr<Fr, &str, ()> = lhs.clone() - rhs.clone();
 
         assert_eq!(
             format!("{:?}", Sum(vec![lhs, Neg(Box::new(rhs))])),

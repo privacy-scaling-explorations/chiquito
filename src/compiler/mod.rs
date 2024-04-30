@@ -52,11 +52,11 @@ impl Messages for Vec<Message> {
 }
 
 /// Compiles chiquito source code into a SBPIR, also returns messages.
-pub fn compile<F: Field + Hash>(
+pub fn compile<F: Field + Hash, M: Default>(
     source: &str,
     config: Config,
 ) -> (Result<SBPIR<F, ()>, ()>, Vec<Message>) {
-    let mut compiler = Compiler::new(config);
+    let mut compiler: Compiler<F, M> = Compiler::new(config);
 
     let result = compiler.compile(source);
 

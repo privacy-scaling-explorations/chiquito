@@ -5,10 +5,15 @@ use crate::field::Field;
 
 /// This function eliminates MI operators from the PI expression, by creating new signals that are
 /// constraint to the MI sub-expressions.
-pub fn mi_elimination<F: Field, V: Clone + Eq + PartialEq + Hash + Debug, SF: SignalFactory<V>>(
-    constr: Expr<F, V>,
+pub fn mi_elimination<
+    F: Field,
+    V: Clone + Eq + PartialEq + Hash + Debug,
+    M: Clone + Eq + PartialEq + Hash + Debug,
+    SF: SignalFactory<V>,
+>(
+    constr: Expr<F, V, M>,
     signal_factory: &mut SF,
-) -> (Expr<F, V>, ConstrDecomp<F, V>) {
+) -> (Expr<F, V, M>, ConstrDecomp<F, V, M>) {
     let mut decomp = ConstrDecomp::default();
     let expr = mi_elimination_recursive(&mut decomp, constr, signal_factory);
 
@@ -18,12 +23,13 @@ pub fn mi_elimination<F: Field, V: Clone + Eq + PartialEq + Hash + Debug, SF: Si
 fn mi_elimination_recursive<
     F: Field,
     V: Clone + Eq + PartialEq + Hash + Debug,
+    M: Clone + Eq + PartialEq + Hash + Debug,
     SF: SignalFactory<V>,
 >(
-    decomp: &mut ConstrDecomp<F, V>,
-    constr: Expr<F, V>,
+    decomp: &mut ConstrDecomp<F, V, M>,
+    constr: Expr<F, V, M>,
     signal_factory: &mut SF,
-) -> Expr<F, V> {
+) -> Expr<F, V, M> {
     use Expr::*;
 
     match constr {
@@ -62,6 +68,7 @@ fn mi_elimination_recursive<
             decomp.constrs.push(virtual_constr);
             constr_inv
         }
+        Expr::Metadata(_) => todo!(),
     }
 }
 
@@ -100,7 +107,7 @@ mod test {
         let e: Queriable<Fr> = Queriable::Internal(InternalSignal::new("e"));
         let f: Queriable<Fr> = Queriable::Internal(InternalSignal::new("f"));
 
-        let constr: Expr<Fr, _> = MI(Box::new(Query(a)));
+        let constr: Expr<Fr, _, ()> = MI(Box::new(Query(a)));
         let (result, decomp) = mi_elimination(constr, &mut TestSignalFactory::default());
 
         assert_eq!(format!("{:#?}", result), "v1");

@@ -25,10 +25,10 @@ pub(super) fn interpret(
     interpreter.setup
 }
 
-pub(super) type Setup<F, V> = HashMap<String, HashMap<String, Vec<Expr<F, V>>>>;
+pub(super) type Setup<F, V> = HashMap<String, HashMap<String, Vec<Expr<F, V, ()>>>>;
 
 pub(super) struct SetupInterpreter {
-    abepi: CompilationUnit<BigInt, Identifier>,
+    abepi: CompilationUnit<BigInt, Identifier, ()>,
 
     setup: Setup<BigInt, Identifier>,
 
@@ -116,7 +116,7 @@ impl SetupInterpreter {
         self.add_pis(result.into_iter().map(|cr| cr.anti_booly).collect());
     }
 
-    fn add_pis(&mut self, pis: Vec<Expr<BigInt, Identifier>>) {
+    fn add_pis(&mut self, pis: Vec<Expr<BigInt, Identifier, ()>>) {
         self.setup
             .get_mut(&self.current_machine)
             .unwrap()

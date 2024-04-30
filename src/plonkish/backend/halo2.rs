@@ -268,6 +268,7 @@ impl<F: PrimeField + From<u64> + Hash> ChiquitoHalo2<F> {
             PolyExpr::Halo2Expr(e) => e.clone(),
             PolyExpr::Query((column, rotation, _)) => self.convert_query(meta, column, *rotation),
             PolyExpr::MI(_) => panic!("mi elimination not done"),
+            PolyExpr::Metadata(_) => unimplemented!(),
         }
     }
 

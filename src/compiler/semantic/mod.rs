@@ -69,8 +69,8 @@ impl SymTableEntry {
                 | SymbolCategory::InputSignal
                 | SymbolCategory::OutputSignal
                 | SymbolCategory::InoutSignal
-        )   
-   }
+        )
+    }
 
     fn get_type(&self) -> &str {
         match &self.ty {

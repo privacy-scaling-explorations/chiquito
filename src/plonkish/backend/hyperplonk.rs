@@ -374,6 +374,7 @@ impl<F: Field> ChiquitoHyperPlonk<F> {
             }
             PolyExpr::Halo2Expr(_) => panic!("halo2 expressions not supported"),
             PolyExpr::MI(_) => panic!("MI expressions not supported"),
+            PolyExpr::Metadata(_) => unimplemented!(),
         }
     }
 }

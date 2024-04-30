@@ -398,6 +398,7 @@ fn transform_expr<F: Clone>(
         Expr::Query(q) => place_queriable(unit, step, q),
         Expr::Halo2Expr(expr) => PolyExpr::Halo2Expr(expr),
         Expr::MI(_) => panic!("mi elimination not done"),
+        Expr::Metadata(_) => unimplemented!(),
     }
 }
 

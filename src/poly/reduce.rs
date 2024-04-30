@@ -8,11 +8,16 @@ use crate::{
 use super::{ConstrDecomp, SignalFactory};
 
 /// Reduces the degree of an PI by decomposing it in many PI with a maximum degree.
-pub fn reduce_degree<F: Field, V: Clone + Eq + PartialEq + Hash + Debug, SF: SignalFactory<V>>(
-    constr: Expr<F, V>,
+pub fn reduce_degree<
+    F: Field,
+    V: Clone + Eq + PartialEq + Hash + Debug,
+    M: Clone + Eq + PartialEq + Hash + Debug,
+    SF: SignalFactory<V>,
+>(
+    constr: Expr<F, V, M>,
     max_degree: usize,
     signal_factory: &mut SF,
-) -> (Expr<F, V>, ConstrDecomp<F, V>) {
+) -> (Expr<F, V, M>, ConstrDecomp<F, V, M>) {
     let mut decomp = ConstrDecomp::default();
     let expr = reduce_degree_recursive(&mut decomp, constr, max_degree, max_degree, signal_factory);
 
@@ -37,14 +42,15 @@ pub fn reduce_degree<F: Field, V: Clone + Eq + PartialEq + Hash + Debug, SF: Sig
 fn reduce_degree_recursive<
     F: Field,
     V: Clone + Eq + PartialEq + Hash + Debug,
+    M: Clone + Eq + PartialEq + Hash + Debug,
     SF: SignalFactory<V>,
 >(
-    decomp: &mut ConstrDecomp<F, V>,
-    constr: Expr<F, V>,
+    decomp: &mut ConstrDecomp<F, V, M>,
+    constr: Expr<F, V, M>,
     total_max_degree: usize,
     partial_max_degree: usize,
     signal_factory: &mut SF,
-) -> Expr<F, V> {
+) -> Expr<F, V, M> {
     if constr.degree() <= partial_max_degree {
         return constr;
     }
@@ -89,16 +95,22 @@ fn reduce_degree_recursive<
         Expr::Query(_) => constr,
         Expr::Halo2Expr(_) => unimplemented!(),
         Expr::MI(_) => unimplemented!(),
+        Expr::Metadata(_) => todo!(),
     }
 }
 
-fn reduce_degree_mul<F: Field, V: Clone + Eq + PartialEq + Hash + Debug, SF: SignalFactory<V>>(
-    decomp: &mut ConstrDecomp<F, V>,
-    ses: Vec<Expr<F, V>>,
+fn reduce_degree_mul<
+    F: Field,
+    V: Clone + Eq + PartialEq + Hash + Debug,
+    M: Clone + Eq + PartialEq + Hash + Debug,
+    SF: SignalFactory<V>,
+>(
+    decomp: &mut ConstrDecomp<F, V, M>,
+    ses: Vec<Expr<F, V, M>>,
     total_max_degree: usize,
     partial_max_degree: usize,
     signal_factory: &mut SF,
-) -> Expr<F, V> {
+) -> Expr<F, V, M> {
     // base case, if partial_max_degree == 1, the root expression can only be a variable
     if partial_max_degree == 1 {
         let reduction = reduce_degree_mul(
@@ -118,7 +130,7 @@ fn reduce_degree_mul<F: Field, V: Clone + Eq + PartialEq + Hash + Debug, SF: Sig
     // to reduce the problem for recursion, at least one expression should have lower degree than
     // total_max_degree
     let mut first = true;
-    let ses_reduced: Vec<Expr<F, V>> = ses
+    let ses_reduced: Vec<Expr<F, V, M>> = ses
         .into_iter()
         .map(|se| {
             let partial_max_degree = if first {
