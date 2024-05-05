@@ -267,15 +267,15 @@ pub trait SignalFactory<V> {
 
 /// The result of decomposing a PI into several
 #[derive(Debug, Clone)]
-pub struct ConstrDecomp<F, V, M> {
+pub struct ConstrDecomp<F, V> {
     /// PI constraint for the new signals introduced.
-    pub constrs: Vec<Expr<F, V, M>>,
+    pub constrs: Vec<Expr<F, V, ()>>,
     /// Expressions for how to create the witness for the generated signals the orginal expression
     /// has be decomposed into.
-    pub auto_signals: HashMap<V, Expr<F, V, M>>,
+    pub auto_signals: HashMap<V, Expr<F, V, ()>>,
 }
 
-impl<F, V, M> Default for ConstrDecomp<F, V, M> {
+impl<F, V> Default for ConstrDecomp<F, V> {
     fn default() -> Self {
         Self {
             constrs: Default::default(),
@@ -284,8 +284,8 @@ impl<F, V, M> Default for ConstrDecomp<F, V, M> {
     }
 }
 
-impl<F: Clone, V: Clone + Eq + PartialEq + Hash, M: Clone> ConstrDecomp<F, V, M> {
-    fn auto_eq(&mut self, signal: V, expr: Expr<F, V, M>) {
+impl<F: Clone, V: Clone + Eq + PartialEq + Hash> ConstrDecomp<F, V> {
+    fn auto_eq(&mut self, signal: V, expr: Expr<F, V, ()>) {
         self.constrs.push(Expr::Sum(vec![
             expr.clone(),
             Expr::Neg(Box::new(Expr::Query(signal.clone()))),

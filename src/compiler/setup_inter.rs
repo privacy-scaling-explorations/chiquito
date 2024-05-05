@@ -28,7 +28,7 @@ pub(super) fn interpret(
 pub(super) type Setup<F, V> = HashMap<String, HashMap<String, Vec<Expr<F, V, ()>>>>;
 
 pub(super) struct SetupInterpreter {
-    abepi: CompilationUnit<BigInt, Identifier, ()>,
+    abepi: CompilationUnit<BigInt, Identifier>,
 
     setup: Setup<BigInt, Identifier>,
 

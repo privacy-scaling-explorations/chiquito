@@ -307,7 +307,7 @@ impl<F: Clone + Eq + Hash> StepType<F> {
     where
         M: FnMut(
             &Expr<F, Queriable<F>, ()>,
-        ) -> (Expr<F, Queriable<F>, ()>, ConstrDecomp<F, Queriable<F>, ()>),
+        ) -> (Expr<F, Queriable<F>, ()>, ConstrDecomp<F, Queriable<F>>),
     {
         let mut new_constraints = vec![];
         for i in 0..self.constraints.len() {

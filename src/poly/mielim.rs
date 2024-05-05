@@ -5,15 +5,10 @@ use crate::field::Field;
 
 /// This function eliminates MI operators from the PI expression, by creating new signals that are
 /// constraint to the MI sub-expressions.
-pub fn mi_elimination<
-    F: Field,
-    V: Clone + Eq + PartialEq + Hash + Debug,
-    M: Clone + Eq + PartialEq + Hash + Debug,
-    SF: SignalFactory<V>,
->(
-    constr: Expr<F, V, M>,
+pub fn mi_elimination<F: Field, V: Clone + Eq + PartialEq + Hash + Debug, SF: SignalFactory<V>>(
+    constr: Expr<F, V, ()>,
     signal_factory: &mut SF,
-) -> (Expr<F, V, M>, ConstrDecomp<F, V, M>) {
+) -> (Expr<F, V, ()>, ConstrDecomp<F, V>) {
     let mut decomp = ConstrDecomp::default();
     let expr = mi_elimination_recursive(&mut decomp, constr, signal_factory);
 
@@ -23,13 +18,12 @@ pub fn mi_elimination<
 fn mi_elimination_recursive<
     F: Field,
     V: Clone + Eq + PartialEq + Hash + Debug,
-    M: Clone + Eq + PartialEq + Hash + Debug,
     SF: SignalFactory<V>,
 >(
-    decomp: &mut ConstrDecomp<F, V, M>,
-    constr: Expr<F, V, M>,
+    decomp: &mut ConstrDecomp<F, V>,
+    constr: Expr<F, V, ()>,
     signal_factory: &mut SF,
-) -> Expr<F, V, M> {
+) -> Expr<F, V, ()> {
     use Expr::*;
 
     match constr {
