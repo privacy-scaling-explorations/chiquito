@@ -59,7 +59,8 @@ fn mi_elimination_recursive<
 
             decomp.auto_signals.insert(virtual_mi.clone(), MI(se, ()));
 
-            let virtual_constr = se_elim.clone() * (Const(F::ONE, ()) - (se_elim * Query(virtual_mi, ())));
+            let virtual_constr =
+                se_elim.clone() * (Const(F::ONE, ()) - (se_elim * Query(virtual_mi, ())));
 
             decomp.constrs.push(virtual_constr);
             constr_inv

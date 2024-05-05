@@ -236,9 +236,10 @@ impl StepSelectorBuilder for LogNSelectorBuilder {
             selector
                 .selector_expr
                 .insert(step.uuid(), combined_expr.clone());
-            selector
-                .selector_expr_not
-                .insert(step.uuid(), PolyExpr::Const(F::ONE, ()) - combined_expr.clone());
+            selector.selector_expr_not.insert(
+                step.uuid(),
+                PolyExpr::Const(F::ONE, ()) - combined_expr.clone(),
+            );
             selector
                 .selector_assignment
                 .insert(step.uuid(), assignments);

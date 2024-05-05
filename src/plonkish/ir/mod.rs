@@ -170,11 +170,14 @@ impl<F: Clone> PolyExpr<F> {
     pub fn rotate(&self, rot: i32) -> PolyExpr<F> {
         match self {
             PolyExpr::Const(_, _) => (*self).clone(),
-            PolyExpr::Query((c, orig_rot, annotation), _) => PolyExpr::Query((
-                c.clone(),
-                orig_rot + rot,
-                format!("rot[{}, {}]", rot, annotation),
-            ), ()),
+            PolyExpr::Query((c, orig_rot, annotation), _) => PolyExpr::Query(
+                (
+                    c.clone(),
+                    orig_rot + rot,
+                    format!("rot[{}, {}]", rot, annotation),
+                ),
+                (),
+            ),
             PolyExpr::Sum(v, _) => PolyExpr::Sum(v.iter().map(|e| e.rotate(rot)).collect(), ()),
             PolyExpr::Mul(v, _) => PolyExpr::Mul(v.iter().map(|e| e.rotate(rot)).collect(), ()),
             PolyExpr::Neg(v, _) => PolyExpr::Neg(Box::new(v.rotate(rot)), ()),

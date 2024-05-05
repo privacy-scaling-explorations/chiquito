@@ -352,12 +352,15 @@ fn place_queriable<F: Clone>(
             } else {
                 format!("[halo2_advice?, {}]", rot)
             };
-            PolyExpr::Query((
-                unit.find_halo2_advice(signal)
-                    .expect("halo2 advice column not found"),
-                rot,
-                annotation,
-            ), ())
+            PolyExpr::Query(
+                (
+                    unit.find_halo2_advice(signal)
+                        .expect("halo2 advice column not found"),
+                    rot,
+                    annotation,
+                ),
+                (),
+            )
         }
         Queriable::Halo2FixedQuery(signal, rot) => {
             let annotation = if let Some(annotation) = unit.annotations.get(&signal.uuid()) {
@@ -365,12 +368,15 @@ fn place_queriable<F: Clone>(
             } else {
                 format!("[halo2_fixed?, {}]", rot)
             };
-            PolyExpr::Query((
-                unit.find_halo2_fixed(signal)
-                    .expect("halo2 fixed column not found"),
-                rot,
-                annotation,
-            ), ())
+            PolyExpr::Query(
+                (
+                    unit.find_halo2_fixed(signal)
+                        .expect("halo2 fixed column not found"),
+                    rot,
+                    annotation,
+                ),
+                (),
+            )
         }
         Queriable::_unaccessible(_) => panic!("jarrl"),
     }

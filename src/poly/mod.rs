@@ -356,8 +356,9 @@ mod test {
     fn test_degree_expr() {
         use super::Expr::*;
 
-        let expr: Expr<Fr, &str, ()> =
-            (Query("a", ()) * Query("a", ())) + (Query("c", ()) * Query("d", ())) - Const(Fr::ONE, ());
+        let expr: Expr<Fr, &str, ()> = (Query("a", ()) * Query("a", ()))
+            + (Query("c", ()) * Query("d", ()))
+            - Const(Fr::ONE, ());
 
         assert_eq!(expr.degree(), 2);
 
