@@ -56,7 +56,7 @@ pub fn compile<F: Field + Hash>(
     source: &str,
     config: Config,
 ) -> (Result<SBPIR<F, ()>, ()>, Vec<Message>) {
-    let mut compiler: Compiler<F> = Compiler::new(config);
+    let mut compiler = Compiler::new(config);
 
     let result = compiler.compile(source);
 
