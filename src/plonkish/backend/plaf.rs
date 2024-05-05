@@ -195,7 +195,7 @@ impl<F: PrimeField<Repr = [u8; 32]>> ChiquitoPlaf<F> {
 
     fn convert_plaf_poly(&self, chiquito_poly: &cPolyExpr<F>) -> pExpr<PlonkVar> {
         match chiquito_poly {
-            cPolyExpr::Const(c) => pExpr::Const(BigUint::from_bytes_le(&c.to_repr())),
+            cPolyExpr::Const(c, _) => pExpr::Const(BigUint::from_bytes_le(&c.to_repr())),
             cPolyExpr::Sum(es, _) => {
                 let mut iter = es.iter();
                 let first = self.convert_plaf_poly(iter.next().unwrap());
@@ -216,7 +216,7 @@ impl<F: PrimeField<Repr = [u8; 32]>> ChiquitoPlaf<F> {
                 }
             }
             cPolyExpr::Halo2Expr(e, _) => pExpr::from(e),
-            cPolyExpr::Query((column, rotation, annotation)) => {
+            cPolyExpr::Query((column, rotation, annotation), _) => {
                 let index = self
                     .c_column_id_to_p_column_index
                     .get(&column.uuid())

@@ -91,7 +91,7 @@ impl StepSelectorBuilder for SimpleStepSelectorBuilder {
 
             selector.selector_expr_not.insert(
                 step.uuid(),
-                PolyExpr::Const(F::ONE) + (-column.query(0, annotation.clone())),
+                PolyExpr::Const(F::ONE, ()) + (-column.query(0, annotation.clone())),
             );
 
             selector.selector_assignment.insert(
@@ -163,7 +163,7 @@ impl StepSelectorBuilder for TwoStepsSelectorBuilder {
         // Zero
         unit.selector.selector_expr.insert(
             step_zero.uuid(),
-            PolyExpr::Const(F::ONE) + (-column.query(0, "selector step zero")),
+            PolyExpr::Const(F::ONE, ()) + (-column.query(0, "selector step zero")),
         );
 
         unit.selector
@@ -182,7 +182,7 @@ impl StepSelectorBuilder for TwoStepsSelectorBuilder {
 
         unit.selector.selector_expr_not.insert(
             step_one.uuid(),
-            PolyExpr::Const(F::ONE) + (-column.query(0, "selector NOT step one")),
+            PolyExpr::Const(F::ONE, ()) + (-column.query(0, "selector NOT step one")),
         );
 
         unit.selector.selector_assignment.insert(
@@ -217,7 +217,7 @@ impl StepSelectorBuilder for LogNSelectorBuilder {
 
         let mut step_value = 1;
         for step in unit.step_types.values() {
-            let mut combined_expr = PolyExpr::Const(F::ONE);
+            let mut combined_expr = PolyExpr::Const(F::ONE, ());
             let mut assignments = Vec::new();
 
             for i in 0..n_cols {
@@ -229,7 +229,7 @@ impl StepSelectorBuilder for LogNSelectorBuilder {
                     assignments.push((column.query(0, format!("Column {}", i)), F::ONE));
                 } else {
                     combined_expr = combined_expr
-                        * (PolyExpr::Const(F::ONE) - column.query(0, format!("Column {}", i)));
+                        * (PolyExpr::Const(F::ONE, ()) - column.query(0, format!("Column {}", i)));
                 }
             }
 
@@ -238,7 +238,7 @@ impl StepSelectorBuilder for LogNSelectorBuilder {
                 .insert(step.uuid(), combined_expr.clone());
             selector
                 .selector_expr_not
-                .insert(step.uuid(), PolyExpr::Const(F::ONE) - combined_expr.clone());
+                .insert(step.uuid(), PolyExpr::Const(F::ONE, ()) - combined_expr.clone());
             selector
                 .selector_assignment
                 .insert(step.uuid(), assignments);
@@ -312,7 +312,7 @@ mod tests {
         builder.build(&mut unit);
 
         let selector = &unit.selector;
-        let constraint = PolyExpr::Const(Fr::ONE);
+        let constraint = PolyExpr::Const(Fr::ONE, ());
 
         let step_uuid = step_type.uuid();
         let selector_expr = selector

@@ -24,7 +24,7 @@ fn const_mul_simplify<F: Field, V: Clone + Eq + PartialEq + Hash>(
     let mut consts: Vec<F> = Default::default();
 
     ses.into_iter().for_each(|se| match se {
-        Expr::Const(v) => consts.push(v),
+        Expr::Const(v, _) => consts.push(v),
         _ => result.push(se),
     });
 
@@ -33,7 +33,7 @@ fn const_mul_simplify<F: Field, V: Clone + Eq + PartialEq + Hash>(
     }
 
     let const_result = consts.into_iter().fold(F::ONE, |acc, v| acc * v);
-    result.push(Expr::Const(const_result));
+    result.push(Expr::Const(const_result, ()));
 
     result
 }

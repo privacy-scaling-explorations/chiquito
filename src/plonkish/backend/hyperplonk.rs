@@ -345,8 +345,8 @@ impl<F: Field> ChiquitoHyperPlonk<F> {
         advice_idx: &Vec<usize>,
     ) -> Expression<F> {
         match poly {
-            PolyExpr::Const(constant) => Expression::Constant(constant),
-            PolyExpr::Query((column, rotation, _)) => {
+            PolyExpr::Const(constant, _) => Expression::Constant(constant),
+            PolyExpr::Query((column, rotation, _), _) => {
                 self.convert_query(column, rotation, advice_idx)
             }
             PolyExpr::Sum(expressions, _) => {

@@ -50,7 +50,7 @@ fn reduce_degree_recursive<
     }
 
     match constr {
-        Expr::Const(_) => constr,
+        Expr::Const(_, _) => constr,
         Expr::Sum(ses, _) => Expr::Sum(
             ses.into_iter()
                 .map(|se| {
@@ -90,7 +90,7 @@ fn reduce_degree_recursive<
             partial_max_degree,
             signal_factory,
         ),
-        Expr::Query(_) => constr,
+        Expr::Query(_, _) => constr,
         Expr::Halo2Expr(_, _) => unimplemented!(),
         Expr::MI(_, _) => unimplemented!(),
     }
@@ -114,7 +114,7 @@ fn reduce_degree_mul<F: Field, V: Clone + Eq + PartialEq + Hash + Debug, SF: Sig
         );
         let signal = signal_factory.create("virtual signal");
         decomp.auto_eq(signal.clone(), reduction);
-        return Expr::Query(signal);
+        return Expr::Query(signal, ());
     }
 
     let ses = simplify_mul(ses);
@@ -166,7 +166,7 @@ fn reduce_degree_mul<F: Field, V: Clone + Eq + PartialEq + Hash + Debug, SF: Sig
     }
 
     let rest_signal = signal_factory.create("rest_expr");
-    for_root.push(Expr::Query(rest_signal.clone()));
+    for_root.push(Expr::Query(rest_signal.clone(), ()));
     let root_expr = Expr::Mul(for_root, ());
 
     // recursion, for the part that exceeds the degree and will be substituted by a virtual signal

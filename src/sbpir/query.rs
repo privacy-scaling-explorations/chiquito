@@ -144,7 +144,7 @@ impl<F> Queriable<F> {
 
 impl<F: Clone> ToExpr<F, Queriable<F>, ()> for Queriable<F> {
     fn expr(&self) -> PIR<F> {
-        Expr::Query((*self).clone())
+        Expr::Query((*self).clone(), ())
     }
 }
 
@@ -182,7 +182,7 @@ impl<F: Clone> Neg for Queriable<F> {
 
 impl<F> From<Queriable<F>> for PIR<F> {
     fn from(value: Queriable<F>) -> Self {
-        Expr::Query(value)
+        Expr::Query(value, ())
     }
 }
 
@@ -196,21 +196,21 @@ mod tests {
         let a: Fr = 10.into();
         let b: Fr = 20.into();
 
-        let expr1: Expr<Fr, Queriable<Fr>, ()> = Expr::Const(a);
+        let expr1: Expr<Fr, Queriable<Fr>, ()> = Expr::Const(a, ());
         assert_eq!(format!("{:?}", expr1), "0xa");
 
         let expr2: Expr<Fr, Queriable<Fr>, ()> =
-            Expr::Sum(vec![Expr::Const(a), Expr::Const(b)], ());
+            Expr::Sum(vec![Expr::Const(a, ()), Expr::Const(b, ())], ());
         assert_eq!(format!("{:?}", expr2), "(0xa + 0x14)");
 
         let expr3: Expr<Fr, Queriable<Fr>, ()> =
-            Expr::Mul(vec![Expr::Const(a), Expr::Const(b)], ());
+            Expr::Mul(vec![Expr::Const(a, ()), Expr::Const(b, ())], ());
         assert_eq!(format!("{:?}", expr3), "(0xa * 0x14)");
 
-        let expr4: Expr<Fr, Queriable<Fr>, ()> = Expr::Neg(Box::new(Expr::Const(a)), ());
+        let expr4: Expr<Fr, Queriable<Fr>, ()> = Expr::Neg(Box::new(Expr::Const(a, ())), ());
         assert_eq!(format!("{:?}", expr4), "(-0xa)");
 
-        let expr5: Expr<Fr, Queriable<Fr>, ()> = Expr::Pow(Box::new(Expr::Const(a)), 2, ());
+        let expr5: Expr<Fr, Queriable<Fr>, ()> = Expr::Pow(Box::new(Expr::Const(a, ())), 2, ());
         assert_eq!(format!("{:?}", expr5), "(0xa)^2");
     }
 

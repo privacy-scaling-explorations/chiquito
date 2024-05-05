@@ -245,7 +245,7 @@ impl<F: PrimeField + From<u64> + Hash> ChiquitoHalo2<F> {
 
     fn convert_poly(&self, meta: &mut VirtualCells<'_, F>, src: &PolyExpr<F>) -> Expression<F> {
         match src {
-            PolyExpr::Const(c) => Expression::Constant(*c),
+            PolyExpr::Const(c, _) => Expression::Constant(*c),
             PolyExpr::Sum(es, _) => {
                 let mut iter = es.iter();
                 let first = self.convert_poly(meta, iter.next().unwrap());
@@ -266,7 +266,7 @@ impl<F: PrimeField + From<u64> + Hash> ChiquitoHalo2<F> {
                 }
             }
             PolyExpr::Halo2Expr(e, _) => e.clone(),
-            PolyExpr::Query((column, rotation, _)) => self.convert_query(meta, column, *rotation),
+            PolyExpr::Query((column, rotation, _), _) => self.convert_query(meta, column, *rotation),
             PolyExpr::MI(_, _) => panic!("mi elimination not done"),
         }
     }

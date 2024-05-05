@@ -571,7 +571,7 @@ impl<'de> Visitor<'de> for ExprVisitor {
             .next_key()?
             .ok_or_else(|| de::Error::custom("map is empty"))?;
         match key.as_str() {
-            "Const" => map.next_value().map(Expr::Const),
+            "Const" => map.next_value().map(|(v, ())| Expr::Const(v, ())),
             "Sum" => map.next_value().map(|(expr, ())| Expr::Sum(expr, ())),
             "Mul" => map.next_value().map(|(expr, ())| Expr::Mul(expr, ())),
             "Neg" => map.next_value().map(|(expr, ())| Expr::Neg(expr, ())),
@@ -580,19 +580,19 @@ impl<'de> Visitor<'de> for ExprVisitor {
                 .map(|(expr, pow, ())| Expr::Pow(expr, pow, ())),
             "Internal" => map
                 .next_value()
-                .map(|signal| Expr::Query(Queriable::Internal(signal))),
+                .map(|signal| Expr::Query(Queriable::Internal(signal), ())),
             "Forward" => map
                 .next_value()
-                .map(|(signal, rotation)| Expr::Query(Queriable::Forward(signal, rotation))),
+                .map(|(signal, rotation)| Expr::Query(Queriable::Forward(signal, rotation), ())),
             "Shared" => map
                 .next_value()
-                .map(|(signal, rotation)| Expr::Query(Queriable::Shared(signal, rotation))),
+                .map(|(signal, rotation)| Expr::Query(Queriable::Shared(signal, rotation), ())),
             "Fixed" => map
                 .next_value()
-                .map(|(signal, rotation)| Expr::Query(Queriable::Fixed(signal, rotation))),
+                .map(|(signal, rotation)| Expr::Query(Queriable::Fixed(signal, rotation), ())),
             "StepTypeNext" => map
                 .next_value()
-                .map(|step_type| Expr::Query(Queriable::StepTypeNext(step_type))),
+                .map(|step_type| Expr::Query(Queriable::StepTypeNext(step_type), ())),
             _ => Err(de::Error::unknown_variant(
                 &key,
                 &[

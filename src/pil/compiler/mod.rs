@@ -383,7 +383,7 @@ fn chiquito_lookup_column_to_pil_column<F>(
     super_circuit_annotations_map: &Option<&HashMap<UUID, String>>,
 ) -> PILColumn {
     match src {
-        Expr::Query(queriable) => {
+        Expr::Query(queriable, _) => {
             chiquito_queriable_to_pil_query(queriable, super_circuit_annotations_map).0
         }
         _ => panic!("Lookup source is not queriable."),
@@ -406,7 +406,7 @@ fn chiquito_expr_to_pil_expr<F: Clone>(
     super_circuit_annotations_map: &Option<&HashMap<UUID, String>>,
 ) -> PILExpr<F, PILQuery> {
     match expr {
-        Expr::Const(constant) => PILExpr::Const(constant),
+        Expr::Const(constant, _) => PILExpr::Const(constant),
         Expr::Sum(sum, _) => {
             let mut pil_sum = Vec::new();
             for expr in sum {
@@ -438,7 +438,7 @@ fn chiquito_expr_to_pil_expr<F: Clone>(
             )),
             power,
         ),
-        Expr::Query(queriable) => PILExpr::Query(chiquito_queriable_to_pil_query(
+        Expr::Query(queriable, _) => PILExpr::Query(chiquito_queriable_to_pil_query(
             queriable,
             super_circuit_annotations_map,
         )),

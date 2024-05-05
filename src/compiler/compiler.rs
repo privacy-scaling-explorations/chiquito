@@ -125,12 +125,12 @@ impl<F: Field + Hash> Compiler<F> {
     fn map_pi_consts(expr: &Expr<BigInt, Identifier, ()>) -> Expr<F, Identifier, ()> {
         use Expr::*;
         match expr {
-            Const(v) => Const(F::from_big_int(v)),
+            Const(v, _) => Const(F::from_big_int(v), ()),
             Sum(ses, _) => Sum(ses.iter().map(|se| Self::map_pi_consts(se)).collect(), ()),
             Mul(ses, _) => Mul(ses.iter().map(|se| Self::map_pi_consts(se)).collect(), ()),
             Neg(se, _) => Neg(Box::new(Self::map_pi_consts(se)), ()),
             Pow(se, exp, _) => Pow(Box::new(Self::map_pi_consts(se)), *exp, ()),
-            Query(q) => Query(q.clone()),
+            Query(q, _) => Query(q.clone(), ()),
             Halo2Expr(_, _) => todo!(),
             MI(se, _) => MI(Box::new(Self::map_pi_consts(se)), ()),
         }
@@ -211,7 +211,7 @@ impl<F: Field + Hash> Compiler<F> {
     ) -> Expr<F, Queriable<F>, ()> {
         use Expr::*;
         match expr {
-            Const(v) => Const(*v),
+            Const(v, _) => Const(*v, ()),
             Sum(ses, _) => Sum(
                 ses.iter()
                     .map(|se| self.translate_queries_expr(symbols, machine_id, state_id, se))
@@ -238,7 +238,7 @@ impl<F: Field + Hash> Compiler<F> {
                 (),
             ),
             Halo2Expr(se, _) => Halo2Expr(se.clone(), ()),
-            Query(id) => Query(self.translate_query(symbols, machine_id, state_id, id)),
+            Query(id, _) => Query(self.translate_query(symbols, machine_id, state_id, id), ()),
         }
     }
 

@@ -96,8 +96,8 @@ impl<F: From<u64> + TryInto<u32> + Clone + Debug, V: Clone + Debug> CompilationU
             False(dsym) => vec![self.compile_expression_false(dsym)],
             Query(dsym, v) => vec![CompilationResult {
                 dsym,
-                one_zero: Expr::Query(v.clone()),
-                anti_booly: Expr::Query(v).cast_anti_booly(),
+                one_zero: Expr::Query(v.clone(), ()),
+                anti_booly: Expr::Query(v, ()).cast_anti_booly(),
             }],
             _ => unreachable!(),
         }
@@ -144,7 +144,7 @@ impl<F: From<u64> + TryInto<u32> + Clone + Debug, V: Clone + Debug> CompilationU
                         let lhs = self.compile_expression_airth(*lhs);
                         let rhs = self.compile_expression_airth(*rhs);
 
-                        if let Expr::Const(exp) = rhs {
+                        if let Expr::Const(exp, ()) = rhs {
                             Expr::Pow(
                                 Box::new(lhs),
                                 exp.try_into()
@@ -169,8 +169,8 @@ impl<F: From<u64> + TryInto<u32> + Clone + Debug, V: Clone + Debug> CompilationU
                 Not => unreachable!(),
                 Complement => unreachable!(),
             },
-            Query(_, v) => Expr::Query(v),
-            Const(_, c) => Expr::Const(c),
+            Query(_, v) => Expr::Query(v, ()),
+            Const(_, c) => Expr::Const(c, ()),
 
             Select {
                 cond,
@@ -200,8 +200,8 @@ impl<F: From<u64> + TryInto<u32> + Clone + Debug, V: Clone + Debug> CompilationU
 
         CompilationResult {
             dsym,
-            anti_booly: Const(F::from(0)),
-            one_zero: Const(F::from(1)),
+            anti_booly: Const(F::from(0), ()),
+            one_zero: Const(F::from(1), ()),
         }
     }
 
@@ -210,8 +210,8 @@ impl<F: From<u64> + TryInto<u32> + Clone + Debug, V: Clone + Debug> CompilationU
 
         CompilationResult {
             dsym,
-            anti_booly: Const(F::from(1)), // note any non-zero is true in anti-booly
-            one_zero: Const(F::from(0)),
+            anti_booly: Const(F::from(1), ()), // note any non-zero is true in anti-booly
+            one_zero: Const(F::from(0), ()),
         }
     }
 
