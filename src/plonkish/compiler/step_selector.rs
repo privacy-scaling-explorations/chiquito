@@ -34,7 +34,7 @@ impl<F> Default for StepSelector<F> {
 impl<F: Clone> StepSelector<F> {
     pub fn select(&self, step_uuid: StepTypeUUID, constraint: &PolyExpr<F>) -> PolyExpr<F> {
         let selector = self.selector_expr.get(&step_uuid).expect("step not found");
-        PolyExpr::Mul(vec![selector.clone(), constraint.clone()])
+        PolyExpr::Mul(vec![selector.clone(), constraint.clone()], ())
     }
 
     pub fn next_expr(&self, step_uuid: StepTypeUUID, step_height: u32) -> PolyExpr<F> {
@@ -320,7 +320,7 @@ mod tests {
             .get(&step_uuid)
             .expect("Step not found")
             .clone();
-        let expected_expr = PolyExpr::Mul(vec![selector_expr, constraint.clone()]);
+        let expected_expr = PolyExpr::Mul(vec![selector_expr, constraint.clone()], ());
 
         assert_eq!(
             format!("{:#?}", selector.select(step_uuid, &constraint)),

@@ -120,6 +120,7 @@ impl<F: From<u64> + TryInto<u32> + Clone + Debug, V: Clone + Debug> CompilationU
                             sub.into_iter()
                                 .map(|se| self.compile_expression_airth(se))
                                 .collect(),
+                            (),
                         )
                     }
                     Mul => {
@@ -130,13 +131,14 @@ impl<F: From<u64> + TryInto<u32> + Clone + Debug, V: Clone + Debug> CompilationU
                             sub.into_iter()
                                 .map(|se| self.compile_expression_airth(se))
                                 .collect(),
+                            (),
                         )
                     }
                     Sub => {
                         let lhs = self.compile_expression_airth(*lhs);
                         let rhs = self.compile_expression_airth(*rhs);
 
-                        Expr::Sum(vec![lhs, Expr::Neg(Box::new(rhs))])
+                        Expr::Sum(vec![lhs, Expr::Neg(Box::new(rhs), ())], ())
                     }
                     Pow => {
                         let lhs = self.compile_expression_airth(*lhs);
@@ -147,6 +149,7 @@ impl<F: From<u64> + TryInto<u32> + Clone + Debug, V: Clone + Debug> CompilationU
                                 Box::new(lhs),
                                 exp.try_into()
                                     .unwrap_or_else(|_| panic!("invalid exponent")),
+                                (),
                             )
                         } else {
                             // we can only compile constant exponent
@@ -161,7 +164,7 @@ impl<F: From<u64> + TryInto<u32> + Clone + Debug, V: Clone + Debug> CompilationU
                     assert!(sub.is_arith());
                     let sub = self.compile_expression_airth(*sub);
 
-                    Expr::Neg(Box::new(sub))
+                    Expr::Neg(Box::new(sub), ())
                 }
                 Not => unreachable!(),
                 Complement => unreachable!(),

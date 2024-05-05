@@ -572,10 +572,12 @@ impl<'de> Visitor<'de> for ExprVisitor {
             .ok_or_else(|| de::Error::custom("map is empty"))?;
         match key.as_str() {
             "Const" => map.next_value().map(Expr::Const),
-            "Sum" => map.next_value().map(Expr::Sum),
-            "Mul" => map.next_value().map(Expr::Mul),
-            "Neg" => map.next_value().map(Expr::Neg),
-            "Pow" => map.next_value().map(|(expr, pow)| Expr::Pow(expr, pow)),
+            "Sum" => map.next_value().map(|(expr, ())| Expr::Sum(expr, ())),
+            "Mul" => map.next_value().map(|(expr, ())| Expr::Mul(expr, ())),
+            "Neg" => map.next_value().map(|(expr, ())| Expr::Neg(expr, ())),
+            "Pow" => map
+                .next_value()
+                .map(|(expr, pow, ())| Expr::Pow(expr, pow, ())),
             "Internal" => map
                 .next_value()
                 .map(|signal| Expr::Query(Queriable::Internal(signal))),

@@ -383,22 +383,23 @@ fn transform_expr<F: Clone>(
 ) -> PolyExpr<F> {
     match source.clone() {
         Expr::Const(c) => PolyExpr::Const(c),
-        Expr::Sum(v) => PolyExpr::Sum(
+        Expr::Sum(v, _) => PolyExpr::Sum(
             v.into_iter()
                 .map(|e| transform_expr(unit, step, &e))
                 .collect(),
+            (),
         ),
-        Expr::Mul(v) => PolyExpr::Mul(
+        Expr::Mul(v, _) => PolyExpr::Mul(
             v.into_iter()
                 .map(|e| transform_expr(unit, step, &e))
                 .collect(),
+            (),
         ),
-        Expr::Neg(v) => PolyExpr::Neg(Box::new(transform_expr(unit, step, &v))),
-        Expr::Pow(v, exp) => PolyExpr::Pow(Box::new(transform_expr(unit, step, &v)), exp),
+        Expr::Neg(v, _) => PolyExpr::Neg(Box::new(transform_expr(unit, step, &v)), ()),
+        Expr::Pow(v, exp, _) => PolyExpr::Pow(Box::new(transform_expr(unit, step, &v)), exp, ()),
         Expr::Query(q) => place_queriable(unit, step, q),
-        Expr::Halo2Expr(expr) => PolyExpr::Halo2Expr(expr),
-        Expr::MI(_) => panic!("mi elimination not done"),
-        Expr::Metadata(_) => unimplemented!(),
+        Expr::Halo2Expr(expr, _) => PolyExpr::Halo2Expr(expr, ()),
+        Expr::MI(_, _) => panic!("mi elimination not done"),
     }
 }
 

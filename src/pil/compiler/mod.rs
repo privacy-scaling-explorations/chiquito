@@ -407,7 +407,7 @@ fn chiquito_expr_to_pil_expr<F: Clone>(
 ) -> PILExpr<F, PILQuery> {
     match expr {
         Expr::Const(constant) => PILExpr::Const(constant),
-        Expr::Sum(sum) => {
+        Expr::Sum(sum, _) => {
             let mut pil_sum = Vec::new();
             for expr in sum {
                 pil_sum.push(chiquito_expr_to_pil_expr(
@@ -417,7 +417,7 @@ fn chiquito_expr_to_pil_expr<F: Clone>(
             }
             PILExpr::Sum(pil_sum)
         }
-        Expr::Mul(mul) => {
+        Expr::Mul(mul, _) => {
             let mut pil_mul = Vec::new();
             for expr in mul {
                 pil_mul.push(chiquito_expr_to_pil_expr(
@@ -427,11 +427,11 @@ fn chiquito_expr_to_pil_expr<F: Clone>(
             }
             PILExpr::Mul(pil_mul)
         }
-        Expr::Neg(neg) => PILExpr::Neg(Box::new(chiquito_expr_to_pil_expr(
+        Expr::Neg(neg, _) => PILExpr::Neg(Box::new(chiquito_expr_to_pil_expr(
             *neg,
             super_circuit_annotations_map,
         ))),
-        Expr::Pow(pow, power) => PILExpr::Pow(
+        Expr::Pow(pow, power, _) => PILExpr::Pow(
             Box::new(chiquito_expr_to_pil_expr(
                 *pow,
                 super_circuit_annotations_map,
@@ -442,14 +442,11 @@ fn chiquito_expr_to_pil_expr<F: Clone>(
             queriable,
             super_circuit_annotations_map,
         )),
-        Expr::Halo2Expr(_) => {
+        Expr::Halo2Expr(_, _) => {
             panic!("Halo2 native expression not supported by PIL backend.")
         }
-        Expr::MI(_) => {
+        Expr::MI(_, _) => {
             panic!("MI not supported by PIL backend.")
-        }
-        Expr::Metadata(_) => {
-            panic!("Metadata not supported by PIL backend.")
         }
     }
 }

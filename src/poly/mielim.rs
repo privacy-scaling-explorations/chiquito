@@ -28,41 +28,42 @@ fn mi_elimination_recursive<
 
     match constr {
         Expr::Const(_) => constr,
-        Expr::Sum(ses) => Expr::Sum(
+        Expr::Sum(ses, _) => Expr::Sum(
             ses.into_iter()
                 .map(|se| mi_elimination_recursive(decomp, se, signal_factory))
                 .collect(),
+            (),
         ),
-        Expr::Mul(ses) => Expr::Mul(
+        Expr::Mul(ses, _) => Expr::Mul(
             ses.into_iter()
                 .map(|se| mi_elimination_recursive(decomp, se, signal_factory))
                 .collect(),
+            (),
         ),
-        Expr::Neg(se) => Expr::Neg(Box::new(mi_elimination_recursive(
-            decomp,
-            *se,
-            signal_factory,
-        ))),
-        Expr::Pow(se, exp) => Expr::Pow(
+        Expr::Neg(se, _) => Expr::Neg(
+            Box::new(mi_elimination_recursive(decomp, *se, signal_factory)),
+            (),
+        ),
+        Expr::Pow(se, exp, _) => Expr::Pow(
             Box::new(mi_elimination_recursive(decomp, *se, signal_factory)),
             exp,
+            (),
         ),
         Expr::Query(_) => constr,
-        Expr::Halo2Expr(_) => constr,
-        Expr::MI(se) => {
+        Expr::Halo2Expr(_, _) => constr,
+        Expr::MI(se, _) => {
             let se_elim = mi_elimination_recursive(decomp, *se.clone(), signal_factory);
 
             let virtual_mi = signal_factory.create("virtual_inv");
             let constr_inv = Query(virtual_mi.clone());
 
-            decomp.auto_signals.insert(virtual_mi.clone(), MI(se));
+            decomp.auto_signals.insert(virtual_mi.clone(), MI(se, ()));
 
             let virtual_constr = se_elim.clone() * (Const(F::ONE) - (se_elim * Query(virtual_mi)));
 
             decomp.constrs.push(virtual_constr);
             constr_inv
         }
-        Expr::Metadata(_) => todo!(),
     }
 }
 
@@ -101,7 +102,7 @@ mod test {
         let e: Queriable<Fr> = Queriable::Internal(InternalSignal::new("e"));
         let f: Queriable<Fr> = Queriable::Internal(InternalSignal::new("f"));
 
-        let constr: Expr<Fr, _, ()> = MI(Box::new(Query(a)));
+        let constr: Expr<Fr, _, ()> = MI(Box::new(Query(a)), ());
         let (result, decomp) = mi_elimination(constr, &mut TestSignalFactory::default());
 
         assert_eq!(format!("{:#?}", result), "v1");
@@ -116,7 +117,7 @@ mod test {
             .any(|(s, expr)| format!("{:#?}: {:#?}", s, expr) == "v1: mi(a)"));
         assert_eq!(decomp.auto_signals.len(), 1);
 
-        let constr = a * MI(Box::new(b + c));
+        let constr = a * MI(Box::new(b + c), ());
         let (result, decomp) = mi_elimination(constr, &mut TestSignalFactory::default());
 
         assert_eq!(format!("{:#?}", result), "(a * v1)");
@@ -131,7 +132,7 @@ mod test {
             .any(|(s, expr)| format!("{:#?}: {:#?}", s, expr) == "v1: mi((b + c))"));
         assert_eq!(decomp.auto_signals.len(), 1);
 
-        let constr = c + MI(Box::new(a * MI(Box::new(b + c))));
+        let constr = c + MI(Box::new(a * MI(Box::new(b + c), ())), ());
         let (result, decomp) = mi_elimination(constr.clone(), &mut TestSignalFactory::default());
 
         assert_eq!(format!("{:#?}", result), "(c + v2)");
@@ -154,7 +155,7 @@ mod test {
             .any(|(s, expr)| format!("{:#?}: {:#?}", s, expr) == "v2: mi((a * mi((b + c))))"));
         assert_eq!(decomp.auto_signals.len(), 2);
 
-        let constr = constr * (f + MI(Box::new(d * MI(Box::new(e + f)))));
+        let constr = constr * (f + MI(Box::new(d * MI(Box::new(e + f), ())), ()));
         let (result, decomp) = mi_elimination(constr, &mut TestSignalFactory::default());
 
         assert_eq!(format!("{:#?}", result), "((c + v2) * (f + v4))");

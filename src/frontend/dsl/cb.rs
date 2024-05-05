@@ -425,7 +425,7 @@ mod tests {
         let a = <u64 as ToExpr<Fr, Queriable<Fr>, ()>>::expr(&10);
         let result = and(vec![a]);
 
-        assert!(matches!(result.expr, Expr::Mul(v) if v.len() == 2 &&
+        assert!(matches!(result.expr, Expr::Mul(v, ()) if v.len() == 2 &&
             matches!(v[0], Expr::Const(c) if c == 1u64.field()) &&
             matches!(v[1], Expr::Const(c) if c == 10u64.field())));
     }
@@ -437,7 +437,7 @@ mod tests {
         let c = 30.expr();
         let result = and(vec![a, b, c]);
 
-        assert!(matches!(result.expr, Expr::Mul(v) if v.len() == 4 &&
+        assert!(matches!(result.expr, Expr::Mul(v, ()) if v.len() == 4 &&
             matches!(v[0], Expr::Const(c) if c == 1u64.field()) &&
             matches!(v[1], Expr::Const(c) if c == 10u64.field()) &&
             matches!(v[2], Expr::Const(c) if c == 20u64.field()) &&
@@ -452,9 +452,9 @@ mod tests {
         // returns "1 - 1", because `and` with empty input defaults to 1, and `not` returns "1 -
         // expr"
         assert_eq!(result.annotation, "()");
-        assert!(matches!(result.expr, Expr::Sum(v) if v.len() == 2 &&
+        assert!(matches!(result.expr, Expr::Sum(v, ()) if v.len() == 2 &&
         matches!(v[0], Expr::Const(c) if c == 1u64.field()) &&
-        matches!(&v[1], Expr::Neg(boxed_e) if
+        matches!(&v[1], Expr::Neg(boxed_e, ()) if
             matches!(boxed_e.as_ref(), Expr::Const(c) if *c == 1u64.field()))));
     }
 
@@ -464,14 +464,14 @@ mod tests {
         let result = or(vec![a]);
 
         // returns "1 - (1 * (1 - 10))"
-        assert!(matches!(result.expr, Expr::Sum(v) if v.len() == 2 &&
+        assert!(matches!(result.expr, Expr::Sum(v, ()) if v.len() == 2 &&
             matches!(v[0], Expr::Const(c) if c == 1u64.field()) &&
-            matches!(&v[1], Expr::Neg(mul) if
-                matches!(mul.as_ref(), Expr::Mul(v) if v.len() == 2 &&
+            matches!(&v[1], Expr::Neg(mul, ()) if
+                matches!(mul.as_ref(), Expr::Mul(v, ()) if v.len() == 2 &&
                     matches!(v[0], Expr::Const(c) if c == 1u64.field()) && 
-                    matches!(&v[1], Expr::Sum(v) if v.len() == 2 &&
+                    matches!(&v[1], Expr::Sum(v, ()) if v.len() == 2 &&
                         matches!(v[0], Expr::Const(c) if c == 1u64.field()) &&
-                        matches!(&v[1], Expr::Neg(boxed_e) if
+                        matches!(&v[1], Expr::Neg(boxed_e, ()) if
                             matches!(boxed_e.as_ref(), Expr::Const(c) if *c == 10u64.field())))))));
     }
 
@@ -483,22 +483,22 @@ mod tests {
         let result = or(vec![a, b, c]);
 
         // returns "1 - (1 * (1 - 10) * (1 - 20) * (1 - 30))"
-        assert!(matches!(result.expr, Expr::Sum(v) if v.len() == 2 &&
+        assert!(matches!(result.expr, Expr::Sum(v, ()) if v.len() == 2 &&
             matches!(v[0], Expr::Const(c) if c == 1u64.field()) &&
-            matches!(&v[1], Expr::Neg(boxed_mul) if
-                matches!(boxed_mul.as_ref(), Expr::Mul(v) if v.len() == 4 &&
+            matches!(&v[1], Expr::Neg(boxed_mul, ()) if
+                matches!(boxed_mul.as_ref(), Expr::Mul(v, ()) if v.len() == 4 &&
                     matches!(v[0], Expr::Const(c) if c == 1u64.field()) && 
-                    matches!(&v[1], Expr::Sum(v) if v.len() == 2 &&
+                    matches!(&v[1], Expr::Sum(v, ()) if v.len() == 2 &&
                         matches!(v[0], Expr::Const(c) if c == 1u64.field()) &&
-                        matches!(&v[1], Expr::Neg(boxed_e) if 
+                        matches!(&v[1], Expr::Neg(boxed_e, ()) if 
                             matches!(boxed_e.as_ref(), Expr::Const(c) if *c == 10u64.field()))) &&
-                    matches!(&v[2], Expr::Sum(v) if v.len() == 2 &&
+                    matches!(&v[2], Expr::Sum(v, ()) if v.len() == 2 &&
                         matches!(v[0], Expr::Const(c) if c == 1u64.field()) &&
-                        matches!(&v[1], Expr::Neg(boxed_e) if 
+                        matches!(&v[1], Expr::Neg(boxed_e, ()) if 
                             matches!(boxed_e.as_ref(), Expr::Const(c) if *c == 20u64.field()))) &&
-                    matches!(&v[3], Expr::Sum(v) if v.len() == 2 &&
+                    matches!(&v[3], Expr::Sum(v, ()) if v.len() == 2 &&
                         matches!(v[0], Expr::Const(c) if c == 1u64.field()) &&
-                        matches!(&v[1], Expr::Neg(boxed_e) if 
+                        matches!(&v[1], Expr::Neg(boxed_e, ()) if 
                             matches!(boxed_e.as_ref(), Expr::Const(c) if *c == 30u64.field())))))));
     }
 
@@ -507,9 +507,9 @@ mod tests {
         let a = <u64 as ToExpr<Fr, Queriable<Fr>, ()>>::expr(&1);
         let result = not(a);
 
-        assert!(matches!(result.expr, Expr::Sum(v) if v.len() == 2 &&
+        assert!(matches!(result.expr, Expr::Sum(v, ()) if v.len() == 2 &&
             matches!(v[0], Expr::Const(c) if c == 1u64.field()) &&
-            matches!(&v[1], Expr::Neg(boxed_e) if
+            matches!(&v[1], Expr::Neg(boxed_e, ()) if
                 matches!(boxed_e.as_ref(), Expr::Const(c) if *c == 1u64.field()))));
     }
 
@@ -518,9 +518,9 @@ mod tests {
         let a = <u64 as ToExpr<Fr, Queriable<Fr>, ()>>::expr(&0);
         let result = not(a);
 
-        assert!(matches!(result.expr, Expr::Sum(v) if v.len() == 2 &&
+        assert!(matches!(result.expr, Expr::Sum(v, ()) if v.len() == 2 &&
             matches!(v[0], Expr::Const(c) if c == 1u64.field()) &&
-            matches!(&v[1], Expr::Neg(boxed_e) if
+            matches!(&v[1], Expr::Neg(boxed_e, ()) if
                 matches!(boxed_e.as_ref(), Expr::Const(c) if *c == 0u64.field()))));
     }
 
@@ -531,11 +531,11 @@ mod tests {
         let result = xor(a, b);
 
         // returns "10 + 20 - 2 * 10 * 20"
-        assert!(matches!(result.expr, Expr::Sum(v) if v.len() == 3 &&
+        assert!(matches!(result.expr, Expr::Sum(v, ()) if v.len() == 3 &&
             matches!(v[0], Expr::Const(c) if c == 10u64.field()) &&
             matches!(v[1], Expr::Const(c) if c == 20u64.field()) &&
-            matches!(&v[2], Expr::Neg(boxed_mul) if
-                matches!(boxed_mul.as_ref(), Expr::Mul(v) if v.len() == 3 &&
+            matches!(&v[2], Expr::Neg(boxed_mul, ()) if
+                matches!(boxed_mul.as_ref(), Expr::Mul(v, ()) if v.len() == 3 &&
                     matches!(v[0], Expr::Const(c) if c == 2u64.field()) &&
                     matches!(v[1], Expr::Const(c) if c == 10u64.field()) &&
                     matches!(v[2], Expr::Const(c) if c == 20u64.field())))));
@@ -548,9 +548,9 @@ mod tests {
         let result = eq(a, b);
 
         // returns "10 - 20"
-        assert!(matches!(result.expr, Expr::Sum(v) if v.len() == 2 &&
+        assert!(matches!(result.expr, Expr::Sum(v, ()) if v.len() == 2 &&
             matches!(v[0], Expr::Const(c) if c == 10u64.field()) &&
-            matches!(&v[1], Expr::Neg(boxed_e) if
+            matches!(&v[1], Expr::Neg(boxed_e, ()) if
                 matches!(boxed_e.as_ref(), Expr::Const(c) if *c == 20u64.field()))));
     }
 
@@ -562,14 +562,14 @@ mod tests {
         let result = select(selector, when_true, when_false);
 
         // returns "1 * 10 + (1 - 1) * 20"
-        assert!(matches!(result.expr, Expr::Sum(v) if v.len() == 2 &&
-            matches!(&v[0], Expr::Mul(v) if v.len() == 2 &&
+        assert!(matches!(result.expr, Expr::Sum(v, ()) if v.len() == 2 &&
+            matches!(&v[0], Expr::Mul(v, ()) if v.len() == 2 &&
                 matches!(v[0], Expr::Const(c) if c == 1u64.field()) &&
                 matches!(v[1], Expr::Const(c) if c == 10u64.field())) &&
-            matches!(&v[1], Expr::Mul(v) if v.len() == 2 &&
-                matches!(&v[0], Expr::Sum(v) if v.len() == 2 &&
+            matches!(&v[1], Expr::Mul(v, ()) if v.len() == 2 &&
+                matches!(&v[0], Expr::Sum(v, ()) if v.len() == 2 &&
                     matches!(v[0], Expr::Const(c) if c == 1u64.field()) &&
-                    matches!(&v[1], Expr::Neg(boxed_e) if
+                    matches!(&v[1], Expr::Neg(boxed_e, ()) if
                         matches!(boxed_e.as_ref(), Expr::Const(c) if *c == 1u64.field()))) &&
                 matches!(v[1], Expr::Const(c) if c == 20u64.field()))));
     }
@@ -581,7 +581,7 @@ mod tests {
         let result = when(selector, when_true);
 
         // returns "1 * 10"
-        assert!(matches!(result.expr, Expr::Mul(v) if v.len() == 2 &&
+        assert!(matches!(result.expr, Expr::Mul(v, ()) if v.len() == 2 &&
             matches!(v[0], Expr::Const(c) if c == 1u64.field()) &&
             matches!(v[1], Expr::Const(c) if c == 10u64.field())));
     }
@@ -593,7 +593,7 @@ mod tests {
         let result = when(selector, when_true);
 
         // returns "0 * 10"
-        assert!(matches!(result.expr, Expr::Mul(v) if v.len() == 2 &&
+        assert!(matches!(result.expr, Expr::Mul(v, ()) if v.len() == 2 &&
             matches!(v[0], Expr::Const(c) if c == 0u64.field()) &&
             matches!(v[1], Expr::Const(c) if c == 10u64.field())));
     }
@@ -605,10 +605,10 @@ mod tests {
         let result = unless(selector, when_false);
 
         // returns "(1 - 1) * 10"
-        assert!(matches!(result.expr, Expr::Mul(v) if v.len() == 2 &&
-            matches!(&v[0], Expr::Sum(v) if v.len() == 2 &&
+        assert!(matches!(result.expr, Expr::Mul(v, ()) if v.len() == 2 &&
+            matches!(&v[0], Expr::Sum(v, ()) if v.len() == 2 &&
                 matches!(v[0], Expr::Const(c) if c == 1u64.field()) &&
-                matches!(&v[1], Expr::Neg(boxed_e) if
+                matches!(&v[1], Expr::Neg(boxed_e, ()) if
                     matches!(boxed_e.as_ref(), Expr::Const(c) if *c == 1u64.field()))) &&
             matches!(v[1], Expr::Const(c) if c == 10u64.field())));
     }
@@ -634,7 +634,7 @@ mod tests {
 
         // returns "Expr::Query(Queriable::StepTypeNext(StepTypeHandler{id: _id, annotation:
         // annotation})) * 10"
-        assert!(matches!(result.expr, Expr::Mul(v) if v.len() == 2 &&
+        assert!(matches!(result.expr, Expr::Mul(v, ()) if v.len() == 2 &&
                     matches!(v[0], Expr::Query(Queriable::StepTypeNext(s)) if
                         matches!(s, StepTypeHandler {id: _id, annotation: "test_step"})) &&
                     matches!(v[1], Expr::Const(c) if c == 10u64.field())
@@ -649,9 +649,9 @@ mod tests {
         // returns "1 - Expr::Query(Queriable::StepTypeNext(StepTypeHandler{id: _id, annotation:
         // annotation}))"
         assert_eq!(result.annotation, "next_step_must_be(test_step)");
-        assert!(matches!(result.expr, Expr::Sum(v) if v.len() == 2 &&
+        assert!(matches!(result.expr, Expr::Sum(v, ()) if v.len() == 2 &&
                     matches!(v[0], Expr::Const(c) if c == 1u64.field()) &&
-                    matches!(&v[1], Expr::Neg(boxed_e) if
+                    matches!(&v[1], Expr::Neg(boxed_e, ()) if
                         matches!(boxed_e.as_ref(), Expr::Query(Queriable::StepTypeNext(s)) if
                             matches!(s, StepTypeHandler {id: _id, annotation: "test_step"})))));
     }
@@ -707,10 +707,10 @@ mod tests {
         let result = rlc(&[a, b, c], 40u64.expr());
 
         // returns "(30 * 40 + 20) * 40 + 10"
-        assert!(matches!(result, Expr::Sum(v) if v.len() == 2 &&
-            matches!(&v[0], Expr::Mul(v) if v.len() == 2 &&
-                matches!(&v[0], Expr::Sum(v) if
-                    matches!(&v[0], Expr::Mul(v) if v.len() == 2 &&
+        assert!(matches!(result, Expr::Sum(v, ()) if v.len() == 2 &&
+            matches!(&v[0], Expr::Mul(v, ()) if v.len() == 2 &&
+                matches!(&v[0], Expr::Sum(v, ()) if
+                    matches!(&v[0], Expr::Mul(v, ()) if v.len() == 2 &&
                         matches!(v[0], Expr::Const(c) if c == 30u64.field()) &&
                         matches!(v[1], Expr::Const(c) if c == 40u64.field())) &&
                     matches!(v[1], Expr::Const(c) if c == 20u64.field())) &&
@@ -739,9 +739,11 @@ mod tests {
         let constraint: Constraint<Fr> = Constraint::from(expr);
 
         // returns "10 * 20"
-        assert!(matches!(constraint.expr, Expr::Mul(v) if v.len() == 2 &&
+        assert!(
+            matches!(constraint.expr, Expr::Mul(v, ()) if v.len() == 2 &&
             matches!(v[0], Expr::Const(c) if c == 10u64.field()) &&
-            matches!(v[1], Expr::Const(c) if c == 20u64.field())));
+            matches!(v[1], Expr::Const(c) if c == 20u64.field()))
+        );
         assert!(matches!(constraint.typing, Typing::Unknown));
     }
 

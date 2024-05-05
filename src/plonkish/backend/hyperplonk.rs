@@ -349,22 +349,22 @@ impl<F: Field> ChiquitoHyperPlonk<F> {
             PolyExpr::Query((column, rotation, _)) => {
                 self.convert_query(column, rotation, advice_idx)
             }
-            PolyExpr::Sum(expressions) => {
+            PolyExpr::Sum(expressions, _) => {
                 let mut iter = expressions.iter();
                 let first = self.convert_expression(iter.next().unwrap().clone(), advice_idx);
                 iter.fold(first, |acc, expression| {
                     acc + self.convert_expression(expression.clone(), advice_idx)
                 })
             }
-            PolyExpr::Mul(expressions) => {
+            PolyExpr::Mul(expressions, _) => {
                 let mut iter = expressions.iter();
                 let first = self.convert_expression(iter.next().unwrap().clone(), advice_idx);
                 iter.fold(first, |acc, expression| {
                     acc * self.convert_expression(expression.clone(), advice_idx)
                 })
             }
-            PolyExpr::Neg(expression) => -self.convert_expression(*expression, advice_idx), /* might need to convert to Expression::Negated */
-            PolyExpr::Pow(expression, pow) => {
+            PolyExpr::Neg(expression, _) => -self.convert_expression(*expression, advice_idx), /* might need to convert to Expression::Negated */
+            PolyExpr::Pow(expression, pow, _) => {
                 if pow == 0 {
                     Expression::Constant(F::ONE)
                 } else {
@@ -372,9 +372,8 @@ impl<F: Field> ChiquitoHyperPlonk<F> {
                     (1..pow).fold(expression.clone(), |acc, _| acc * expression.clone())
                 }
             }
-            PolyExpr::Halo2Expr(_) => panic!("halo2 expressions not supported"),
-            PolyExpr::MI(_) => panic!("MI expressions not supported"),
-            PolyExpr::Metadata(_) => unimplemented!(),
+            PolyExpr::Halo2Expr(_, _) => panic!("halo2 expressions not supported"),
+            PolyExpr::MI(_, _) => panic!("MI expressions not supported"),
         }
     }
 }
