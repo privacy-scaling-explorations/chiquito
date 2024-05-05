@@ -7,11 +7,10 @@ use super::Expr;
 fn assoc_mul_simplify<
     F: Field,
     V: Clone + Eq + PartialEq + Hash,
-    M: Clone + Eq + PartialEq + Hash,
 >(
-    ses: Vec<Expr<F, V, M>>,
-) -> Vec<Expr<F, V, M>> {
-    let mut result: Vec<Expr<F, V, M>> = Default::default();
+    ses: Vec<Expr<F, V, ()>>,
+) -> Vec<Expr<F, V, ()>> {
+    let mut result: Vec<Expr<F, V, ()>> = Default::default();
 
     ses.into_iter().for_each(|se| match se {
         Expr::Mul(ses) => result.extend(assoc_mul_simplify(ses)),
@@ -24,11 +23,10 @@ fn assoc_mul_simplify<
 fn const_mul_simplify<
     F: Field,
     V: Clone + Eq + PartialEq + Hash,
-    M: Clone + Eq + PartialEq + Hash,
 >(
-    ses: Vec<Expr<F, V, M>>,
-) -> Vec<Expr<F, V, M>> {
-    let mut result: Vec<Expr<F, V, M>> = Default::default();
+    ses: Vec<Expr<F, V, ()>>,
+) -> Vec<Expr<F, V, ()>> {
+    let mut result: Vec<Expr<F, V, ()>> = Default::default();
     let mut consts: Vec<F> = Default::default();
 
     ses.into_iter().for_each(|se| match se {
@@ -49,10 +47,9 @@ fn const_mul_simplify<
 pub fn simplify_mul<
     F: Field,
     V: Clone + Eq + PartialEq + Hash,
-    M: Clone + Eq + PartialEq + Hash,
 >(
-    ses: Vec<Expr<F, V, M>>,
-) -> Vec<Expr<F, V, M>> {
+    ses: Vec<Expr<F, V, ()>>,
+) -> Vec<Expr<F, V, ()>> {
     let mut ses = const_mul_simplify(assoc_mul_simplify(ses));
     ses.sort_by_cached_key(|se| se.degree());
     ses

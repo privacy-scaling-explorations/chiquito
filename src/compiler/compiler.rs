@@ -25,7 +25,7 @@ use super::{
 
 /// This compiler compiles from chiquito source code to the SBPIR.
 #[derive(Default)]
-pub(super) struct Compiler<F, M> {
+pub(super) struct Compiler<F> {
     pub(super) config: Config,
 
     messages: Vec<Message>,
@@ -36,10 +36,10 @@ pub(super) struct Compiler<F, M> {
     internal_signals: HashMap<UUID, InternalSignal>,
     step_type_handler: HashMap<UUID, StepTypeHandler>,
 
-    _p: PhantomData<(F, M)>,
+    _p: PhantomData<F>,
 }
 
-impl<F: Field + Hash, M: Default> Compiler<F, M> {
+impl<F: Field + Hash> Compiler<F> {
     /// Creates a configured compiler.
     pub fn new(config: Config) -> Self {
         Compiler {
@@ -512,7 +512,7 @@ mod test {
            }
         ";
 
-        let result = compile::<Fr, ()>(circuit, Config::default().max_degree(2));
+        let result = compile::<Fr>(circuit, Config::default().max_degree(2));
 
         match result.0 {
             Ok(sbpir) => println!("{:#?}", sbpir),
