@@ -476,7 +476,7 @@ macro_rules! impl_visitor_constraint_transition {
                             if expr.is_some() {
                                 return Err(de::Error::duplicate_field("expr"));
                             }
-                            expr = Some(map.next_value::<Expr<Fr, Queriable<Fr>>>()?);
+                            expr = Some(map.next_value::<Expr<Fr, Queriable<Fr>, ()>>()?);
                         }
                         _ => return Err(de::Error::unknown_field(&key, &["annotation", "expr"])),
                     }
@@ -525,8 +525,9 @@ impl<'de> Visitor<'de> for LookupVisitor {
                     if exprs.is_some() {
                         return Err(de::Error::duplicate_field("exprs"));
                     }
-                    exprs =
-                        Some(map.next_value::<Vec<(Constraint<Fr>, Expr<Fr, Queriable<Fr>>)>>()?);
+                    exprs = Some(
+                        map.next_value::<Vec<(Constraint<Fr>, Expr<Fr, Queriable<Fr>, ()>)>>()?,
+                    );
                 }
                 "enable" => {
                     if enable.is_some() {
@@ -556,13 +557,13 @@ impl<'de> Visitor<'de> for LookupVisitor {
 struct ExprVisitor;
 
 impl<'de> Visitor<'de> for ExprVisitor {
-    type Value = Expr<Fr, Queriable<Fr>>;
+    type Value = Expr<Fr, Queriable<Fr>, ()>;
 
     fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
         formatter.write_str("enum Expr")
     }
 
-    fn visit_map<A>(self, mut map: A) -> Result<Expr<Fr, Queriable<Fr>>, A::Error>
+    fn visit_map<A>(self, mut map: A) -> Result<Expr<Fr, Queriable<Fr>, ()>, A::Error>
     where
         A: MapAccess<'de>,
     {
@@ -570,26 +571,28 @@ impl<'de> Visitor<'de> for ExprVisitor {
             .next_key()?
             .ok_or_else(|| de::Error::custom("map is empty"))?;
         match key.as_str() {
-            "Const" => map.next_value().map(Expr::Const),
-            "Sum" => map.next_value().map(Expr::Sum),
-            "Mul" => map.next_value().map(Expr::Mul),
-            "Neg" => map.next_value().map(Expr::Neg),
-            "Pow" => map.next_value().map(|(expr, pow)| Expr::Pow(expr, pow)),
+            "Const" => map.next_value().map(|(v, ())| Expr::Const(v, ())),
+            "Sum" => map.next_value().map(|(expr, ())| Expr::Sum(expr, ())),
+            "Mul" => map.next_value().map(|(expr, ())| Expr::Mul(expr, ())),
+            "Neg" => map.next_value().map(|(expr, ())| Expr::Neg(expr, ())),
+            "Pow" => map
+                .next_value()
+                .map(|(expr, pow, ())| Expr::Pow(expr, pow, ())),
             "Internal" => map
                 .next_value()
-                .map(|signal| Expr::Query(Queriable::Internal(signal))),
+                .map(|signal| Expr::Query(Queriable::Internal(signal), ())),
             "Forward" => map
                 .next_value()
-                .map(|(signal, rotation)| Expr::Query(Queriable::Forward(signal, rotation))),
+                .map(|(signal, rotation)| Expr::Query(Queriable::Forward(signal, rotation), ())),
             "Shared" => map
                 .next_value()
-                .map(|(signal, rotation)| Expr::Query(Queriable::Shared(signal, rotation))),
+                .map(|(signal, rotation)| Expr::Query(Queriable::Shared(signal, rotation), ())),
             "Fixed" => map
                 .next_value()
-                .map(|(signal, rotation)| Expr::Query(Queriable::Fixed(signal, rotation))),
+                .map(|(signal, rotation)| Expr::Query(Queriable::Fixed(signal, rotation), ())),
             "StepTypeNext" => map
                 .next_value()
-                .map(|step_type| Expr::Query(Queriable::StepTypeNext(step_type))),
+                .map(|step_type| Expr::Query(Queriable::StepTypeNext(step_type), ())),
             _ => Err(de::Error::unknown_variant(
                 &key,
                 &[
@@ -888,7 +891,7 @@ macro_rules! impl_deserialize {
     };
 }
 
-impl_deserialize!(ExprVisitor, Expr<Fr, Queriable<Fr>>);
+impl_deserialize!(ExprVisitor, Expr<Fr, Queriable<Fr>, ()>);
 impl_deserialize!(QueriableVisitor, Queriable<Fr>);
 impl_deserialize!(ExposeOffsetVisitor, ExposeOffset);
 impl_deserialize!(InternalSignalVisitor, InternalSignal);
@@ -1828,7 +1831,7 @@ mod tests {
                 }
             ]
             }"#;
-        let expr: Expr<Fr, Queriable<Fr>> = serde_json::from_str(json).unwrap();
+        let expr: Expr<Fr, Queriable<Fr>, ()> = serde_json::from_str(json).unwrap();
         println!("{:?}", expr);
     }
 }

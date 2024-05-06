@@ -195,19 +195,19 @@ impl<F: PrimeField<Repr = [u8; 32]>> ChiquitoPlaf<F> {
 
     fn convert_plaf_poly(&self, chiquito_poly: &cPolyExpr<F>) -> pExpr<PlonkVar> {
         match chiquito_poly {
-            cPolyExpr::Const(c) => pExpr::Const(BigUint::from_bytes_le(&c.to_repr())),
-            cPolyExpr::Sum(es) => {
+            cPolyExpr::Const(c, _) => pExpr::Const(BigUint::from_bytes_le(&c.to_repr())),
+            cPolyExpr::Sum(es, _) => {
                 let mut iter = es.iter();
                 let first = self.convert_plaf_poly(iter.next().unwrap());
                 iter.fold(first, |acc, e| acc + self.convert_plaf_poly(e))
             }
-            cPolyExpr::Mul(es) => {
+            cPolyExpr::Mul(es, _) => {
                 let mut iter = es.iter();
                 let first = self.convert_plaf_poly(iter.next().unwrap());
                 iter.fold(first, |acc, e| acc * self.convert_plaf_poly(e))
             }
-            cPolyExpr::Neg(e) => -self.convert_plaf_poly(e),
-            cPolyExpr::Pow(e, n) => {
+            cPolyExpr::Neg(e, _) => -self.convert_plaf_poly(e),
+            cPolyExpr::Pow(e, n, _) => {
                 if *n == 0 {
                     pExpr::Const(BigUint::from(1u32))
                 } else {
@@ -215,8 +215,8 @@ impl<F: PrimeField<Repr = [u8; 32]>> ChiquitoPlaf<F> {
                     (1..*n).fold(e.clone(), |acc, _| acc * e.clone())
                 }
             }
-            cPolyExpr::Halo2Expr(e) => pExpr::from(e),
-            cPolyExpr::Query((column, rotation, annotation)) => {
+            cPolyExpr::Halo2Expr(e, _) => pExpr::from(e),
+            cPolyExpr::Query((column, rotation, annotation), _) => {
                 let index = self
                     .c_column_id_to_p_column_index
                     .get(&column.uuid())
@@ -233,7 +233,7 @@ impl<F: PrimeField<Repr = [u8; 32]>> ChiquitoPlaf<F> {
                     self.convert_plaf_query(column, rotation, annotation, *index),
                 ))
             }
-            cPolyExpr::MI(_) => panic!("mi elimination not done"),
+            cPolyExpr::MI(_, _) => panic!("mi elimination not done"),
         }
     }
 

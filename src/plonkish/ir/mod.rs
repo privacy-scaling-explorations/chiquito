@@ -134,7 +134,7 @@ impl Column {
     }
 
     pub fn query<F, A: Into<String>>(&self, rotation: i32, annotation: A) -> PolyExpr<F> {
-        PolyExpr::Query((self.clone(), rotation, annotation.into()))
+        PolyExpr::Query((self.clone(), rotation, annotation.into()), ())
     }
 }
 
@@ -164,23 +164,28 @@ impl<F: Debug> Debug for Poly<F> {
     }
 }
 
-pub type PolyExpr<F> = Expr<F, Queriable>;
+pub type PolyExpr<F> = Expr<F, Queriable, ()>;
 
 impl<F: Clone> PolyExpr<F> {
     pub fn rotate(&self, rot: i32) -> PolyExpr<F> {
         match self {
-            PolyExpr::Const(_) => (*self).clone(),
-            PolyExpr::Query((c, orig_rot, annotation)) => PolyExpr::Query((
-                c.clone(),
-                orig_rot + rot,
-                format!("rot[{}, {}]", rot, annotation),
-            )),
-            PolyExpr::Sum(v) => PolyExpr::Sum(v.iter().map(|e| e.rotate(rot)).collect()),
-            PolyExpr::Mul(v) => PolyExpr::Mul(v.iter().map(|e| e.rotate(rot)).collect()),
-            PolyExpr::Neg(v) => PolyExpr::Neg(Box::new(v.rotate(rot))),
-            PolyExpr::Pow(v, exp) => PolyExpr::Pow(Box::new(v.rotate(rot)), *exp),
-            PolyExpr::Halo2Expr(_) => panic!("jarrl: cannot rotate polyexpr that contains halo2"),
-            PolyExpr::MI(v) => PolyExpr::MI(Box::new(v.rotate(rot))),
+            PolyExpr::Const(_, _) => (*self).clone(),
+            PolyExpr::Query((c, orig_rot, annotation), _) => PolyExpr::Query(
+                (
+                    c.clone(),
+                    orig_rot + rot,
+                    format!("rot[{}, {}]", rot, annotation),
+                ),
+                (),
+            ),
+            PolyExpr::Sum(v, _) => PolyExpr::Sum(v.iter().map(|e| e.rotate(rot)).collect(), ()),
+            PolyExpr::Mul(v, _) => PolyExpr::Mul(v.iter().map(|e| e.rotate(rot)).collect(), ()),
+            PolyExpr::Neg(v, _) => PolyExpr::Neg(Box::new(v.rotate(rot)), ()),
+            PolyExpr::Pow(v, exp, _) => PolyExpr::Pow(Box::new(v.rotate(rot)), *exp, ()),
+            PolyExpr::Halo2Expr(_, _) => {
+                panic!("jarrl: cannot rotate polyexpr that contains halo2")
+            }
+            PolyExpr::MI(v, _) => PolyExpr::MI(Box::new(v.rotate(rot)), ()),
         }
     }
 }
@@ -201,19 +206,19 @@ mod tests {
         let a: Fr = 10.into();
         let b: Fr = 20.into();
 
-        let expr1 = PolyExpr::Const(&a);
+        let expr1 = PolyExpr::Const(&a, ());
         assert_eq!(format!("{:?}", expr1), "0xa");
 
-        let expr2 = PolyExpr::Sum(vec![PolyExpr::Const(&a), PolyExpr::Const(&b)]);
+        let expr2 = PolyExpr::Sum(vec![PolyExpr::Const(&a, ()), PolyExpr::Const(&b, ())], ());
         assert_eq!(format!("{:?}", expr2), "(0xa + 0x14)");
 
-        let expr3 = PolyExpr::Mul(vec![PolyExpr::Const(&a), PolyExpr::Const(&b)]);
+        let expr3 = PolyExpr::Mul(vec![PolyExpr::Const(&a, ()), PolyExpr::Const(&b, ())], ());
         assert_eq!(format!("{:?}", expr3), "(0xa * 0x14)");
 
-        let expr4 = PolyExpr::Neg(Box::new(PolyExpr::Const(&a)));
+        let expr4 = PolyExpr::Neg(Box::new(PolyExpr::Const(&a, ())), ());
         assert_eq!(format!("{:?}", expr4), "(-0xa)");
 
-        let expr5 = PolyExpr::Pow(Box::new(PolyExpr::Const(&a)), 2);
+        let expr5 = PolyExpr::Pow(Box::new(PolyExpr::Const(&a, ())), 2, ());
         assert_eq!(format!("{:?}", expr5), "(0xa)^2");
     }
 }

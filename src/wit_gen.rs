@@ -177,7 +177,7 @@ impl<F: Clone, TraceArgs> From<&SBPIR<F, TraceArgs>> for AutoTraceGenerator<F> {
 }
 
 pub(crate) fn calc_auto_signals<F: Field + Hash, V: Clone + Eq + PartialEq + Hash>(
-    auto_signals: &HashMap<V, Expr<F, V>>,
+    auto_signals: &HashMap<V, Expr<F, V, ()>>,
     assignments: &mut HashMap<V, F>,
 ) {
     let mut pending = auto_signals

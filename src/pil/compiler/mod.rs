@@ -379,11 +379,11 @@ fn compile_steps<F: Clone + Field, TraceArgs>(
 // Convert lookup columns (src and dest) in Chiquito to PIL column. Note that Chiquito lookup
 // columns have to be Expr::Query type.
 fn chiquito_lookup_column_to_pil_column<F>(
-    src: Expr<F, Queriable<F>>,
+    src: Expr<F, Queriable<F>, ()>,
     super_circuit_annotations_map: &Option<&HashMap<UUID, String>>,
 ) -> PILColumn {
     match src {
-        Expr::Query(queriable) => {
+        Expr::Query(queriable, _) => {
             chiquito_queriable_to_pil_query(queriable, super_circuit_annotations_map).0
         }
         _ => panic!("Lookup source is not queriable."),
@@ -402,12 +402,12 @@ pub enum PILExpr<F, PILQuery> {
 }
 
 fn chiquito_expr_to_pil_expr<F: Clone>(
-    expr: Expr<F, Queriable<F>>,
+    expr: Expr<F, Queriable<F>, ()>,
     super_circuit_annotations_map: &Option<&HashMap<UUID, String>>,
 ) -> PILExpr<F, PILQuery> {
     match expr {
-        Expr::Const(constant) => PILExpr::Const(constant),
-        Expr::Sum(sum) => {
+        Expr::Const(constant, _) => PILExpr::Const(constant),
+        Expr::Sum(sum, _) => {
             let mut pil_sum = Vec::new();
             for expr in sum {
                 pil_sum.push(chiquito_expr_to_pil_expr(
@@ -417,7 +417,7 @@ fn chiquito_expr_to_pil_expr<F: Clone>(
             }
             PILExpr::Sum(pil_sum)
         }
-        Expr::Mul(mul) => {
+        Expr::Mul(mul, _) => {
             let mut pil_mul = Vec::new();
             for expr in mul {
                 pil_mul.push(chiquito_expr_to_pil_expr(
@@ -427,25 +427,25 @@ fn chiquito_expr_to_pil_expr<F: Clone>(
             }
             PILExpr::Mul(pil_mul)
         }
-        Expr::Neg(neg) => PILExpr::Neg(Box::new(chiquito_expr_to_pil_expr(
+        Expr::Neg(neg, _) => PILExpr::Neg(Box::new(chiquito_expr_to_pil_expr(
             *neg,
             super_circuit_annotations_map,
         ))),
-        Expr::Pow(pow, power) => PILExpr::Pow(
+        Expr::Pow(pow, power, _) => PILExpr::Pow(
             Box::new(chiquito_expr_to_pil_expr(
                 *pow,
                 super_circuit_annotations_map,
             )),
             power,
         ),
-        Expr::Query(queriable) => PILExpr::Query(chiquito_queriable_to_pil_query(
+        Expr::Query(queriable, _) => PILExpr::Query(chiquito_queriable_to_pil_query(
             queriable,
             super_circuit_annotations_map,
         )),
-        Expr::Halo2Expr(_) => {
+        Expr::Halo2Expr(_, _) => {
             panic!("Halo2 native expression not supported by PIL backend.")
         }
-        Expr::MI(_) => {
+        Expr::MI(_, _) => {
             panic!("MI not supported by PIL backend.")
         }
     }

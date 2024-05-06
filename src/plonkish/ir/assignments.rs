@@ -175,7 +175,7 @@ impl<F: Field + Hash, TraceArgs> AssignmentGenerator<F, TraceArgs> {
 
         for (expr, value) in selector_assignment.iter() {
             match expr {
-                PolyExpr::Query((column, rot, _)) => {
+                PolyExpr::Query((column, rot, _), _) => {
                     self.set_value(assignments, column.clone(), *offset + *rot as usize, value)
                 }
                 _ => panic!("wrong type of expresion is selector assignment"),

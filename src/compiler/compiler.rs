@@ -108,7 +108,7 @@ impl<F: Field + Hash> Compiler<F> {
         setup
             .iter()
             .map(|(machine_id, machine)| {
-                let new_machine: HashMap<String, Vec<Expr<F, Identifier>>> = machine
+                let new_machine: HashMap<String, Vec<Expr<F, Identifier, ()>>> = machine
                     .iter()
                     .map(|(step_id, step)| {
                         let new_step = step.iter().map(|pi| Self::map_pi_consts(pi)).collect();
@@ -122,17 +122,17 @@ impl<F: Field + Hash> Compiler<F> {
             .collect()
     }
 
-    fn map_pi_consts(expr: &Expr<BigInt, Identifier>) -> Expr<F, Identifier> {
+    fn map_pi_consts(expr: &Expr<BigInt, Identifier, ()>) -> Expr<F, Identifier, ()> {
         use Expr::*;
         match expr {
-            Const(v) => Const(F::from_big_int(v)),
-            Sum(ses) => Sum(ses.iter().map(|se| Self::map_pi_consts(se)).collect()),
-            Mul(ses) => Mul(ses.iter().map(|se| Self::map_pi_consts(se)).collect()),
-            Neg(se) => Neg(Box::new(Self::map_pi_consts(se))),
-            Pow(se, exp) => Pow(Box::new(Self::map_pi_consts(se)), *exp),
-            Query(q) => Query(q.clone()),
-            Halo2Expr(_) => todo!(),
-            MI(se) => MI(Box::new(Self::map_pi_consts(se))),
+            Const(v, _) => Const(F::from_big_int(v), ()),
+            Sum(ses, _) => Sum(ses.iter().map(|se| Self::map_pi_consts(se)).collect(), ()),
+            Mul(ses, _) => Mul(ses.iter().map(|se| Self::map_pi_consts(se)).collect(), ()),
+            Neg(se, _) => Neg(Box::new(Self::map_pi_consts(se)), ()),
+            Pow(se, exp, _) => Pow(Box::new(Self::map_pi_consts(se)), *exp, ()),
+            Query(q, _) => Query(q.clone(), ()),
+            Halo2Expr(_, _) => todo!(),
+            MI(se, _) => MI(Box::new(Self::map_pi_consts(se)), ()),
         }
     }
 
@@ -193,7 +193,7 @@ impl<F: Field + Hash> Compiler<F> {
         setup: &Setup<F, Identifier>,
         machine_id: &str,
         state_id: &str,
-    ) -> Vec<Expr<F, Queriable<F>>> {
+    ) -> Vec<Expr<F, Queriable<F>, ()>> {
         let exprs = setup.get(machine_id).unwrap().get(state_id).unwrap();
 
         exprs
@@ -207,37 +207,38 @@ impl<F: Field + Hash> Compiler<F> {
         symbols: &SymTable,
         machine_id: &str,
         state_id: &str,
-        expr: &Expr<F, Identifier>,
-    ) -> Expr<F, Queriable<F>> {
+        expr: &Expr<F, Identifier, ()>,
+    ) -> Expr<F, Queriable<F>, ()> {
         use Expr::*;
         match expr {
-            Const(v) => Const(*v),
-            Sum(ses) => Sum(ses
-                .iter()
-                .map(|se| self.translate_queries_expr(symbols, machine_id, state_id, se))
-                .collect()),
-            Mul(ses) => Mul(ses
-                .iter()
-                .map(|se| self.translate_queries_expr(symbols, machine_id, state_id, se))
-                .collect()),
-            Neg(se) => Neg(Box::new(self.translate_queries_expr(
-                symbols,
-                machine_id,
-                state_id,
-                se.as_ref(),
-            ))),
-            Pow(se, exp) => Pow(
+            Const(v, _) => Const(*v, ()),
+            Sum(ses, _) => Sum(
+                ses.iter()
+                    .map(|se| self.translate_queries_expr(symbols, machine_id, state_id, se))
+                    .collect(),
+                (),
+            ),
+            Mul(ses, _) => Mul(
+                ses.iter()
+                    .map(|se| self.translate_queries_expr(symbols, machine_id, state_id, se))
+                    .collect(),
+                (),
+            ),
+            Neg(se, _) => Neg(
+                Box::new(self.translate_queries_expr(symbols, machine_id, state_id, se.as_ref())),
+                (),
+            ),
+            Pow(se, exp, _) => Pow(
                 Box::new(self.translate_queries_expr(symbols, machine_id, state_id, se.as_ref())),
                 *exp,
+                (),
             ),
-            MI(se) => MI(Box::new(self.translate_queries_expr(
-                symbols,
-                machine_id,
-                state_id,
-                se.as_ref(),
-            ))),
-            Halo2Expr(se) => Halo2Expr(se.clone()),
-            Query(id) => Query(self.translate_query(symbols, machine_id, state_id, id)),
+            MI(se, _) => MI(
+                Box::new(self.translate_queries_expr(symbols, machine_id, state_id, se.as_ref())),
+                (),
+            ),
+            Halo2Expr(se, _) => Halo2Expr(se.clone(), ()),
+            Query(id, _) => Query(self.translate_query(symbols, machine_id, state_id, id), ()),
         }
     }
 

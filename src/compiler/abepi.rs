@@ -17,9 +17,9 @@ pub struct CompilationResult<F, V> {
     #[allow(dead_code)]
     pub dsym: DebugSymRef,
     // 0 is true, !=0 is false
-    pub anti_booly: Expr<F, V>,
+    pub anti_booly: Expr<F, V, ()>,
     // 1 is true, 0 is false, other values are invalid
-    pub one_zero: Expr<F, V>,
+    pub one_zero: Expr<F, V, ()>,
 }
 
 /// CompilationUnit for ABE to PI
@@ -96,14 +96,14 @@ impl<F: From<u64> + TryInto<u32> + Clone + Debug, V: Clone + Debug> CompilationU
             False(dsym) => vec![self.compile_expression_false(dsym)],
             Query(dsym, v) => vec![CompilationResult {
                 dsym,
-                one_zero: Expr::Query(v.clone()),
-                anti_booly: Expr::Query(v).cast_anti_booly(),
+                one_zero: Expr::Query(v.clone(), ()),
+                anti_booly: Expr::Query(v, ()).cast_anti_booly(),
             }],
             _ => unreachable!(),
         }
     }
 
-    fn compile_expression_airth(&self, source: Expression<F, V>) -> Expr<F, V> {
+    fn compile_expression_airth(&self, source: Expression<F, V>) -> Expr<F, V, ()> {
         use crate::parser::ast::expression::{BinaryOperator::*, Expression::*, UnaryOperator::*};
 
         match source {
@@ -120,6 +120,7 @@ impl<F: From<u64> + TryInto<u32> + Clone + Debug, V: Clone + Debug> CompilationU
                             sub.into_iter()
                                 .map(|se| self.compile_expression_airth(se))
                                 .collect(),
+                            (),
                         )
                     }
                     Mul => {
@@ -130,23 +131,25 @@ impl<F: From<u64> + TryInto<u32> + Clone + Debug, V: Clone + Debug> CompilationU
                             sub.into_iter()
                                 .map(|se| self.compile_expression_airth(se))
                                 .collect(),
+                            (),
                         )
                     }
                     Sub => {
                         let lhs = self.compile_expression_airth(*lhs);
                         let rhs = self.compile_expression_airth(*rhs);
 
-                        Expr::Sum(vec![lhs, Expr::Neg(Box::new(rhs))])
+                        Expr::Sum(vec![lhs, Expr::Neg(Box::new(rhs), ())], ())
                     }
                     Pow => {
                         let lhs = self.compile_expression_airth(*lhs);
                         let rhs = self.compile_expression_airth(*rhs);
 
-                        if let Expr::Const(exp) = rhs {
+                        if let Expr::Const(exp, ()) = rhs {
                             Expr::Pow(
                                 Box::new(lhs),
                                 exp.try_into()
                                     .unwrap_or_else(|_| panic!("invalid exponent")),
+                                (),
                             )
                         } else {
                             // we can only compile constant exponent
@@ -161,13 +164,13 @@ impl<F: From<u64> + TryInto<u32> + Clone + Debug, V: Clone + Debug> CompilationU
                     assert!(sub.is_arith());
                     let sub = self.compile_expression_airth(*sub);
 
-                    Expr::Neg(Box::new(sub))
+                    Expr::Neg(Box::new(sub), ())
                 }
                 Not => unreachable!(),
                 Complement => unreachable!(),
             },
-            Query(_, v) => Expr::Query(v),
-            Const(_, c) => Expr::Const(c),
+            Query(_, v) => Expr::Query(v, ()),
+            Const(_, c) => Expr::Const(c, ()),
 
             Select {
                 cond,
@@ -197,8 +200,8 @@ impl<F: From<u64> + TryInto<u32> + Clone + Debug, V: Clone + Debug> CompilationU
 
         CompilationResult {
             dsym,
-            anti_booly: Const(F::from(0)),
-            one_zero: Const(F::from(1)),
+            anti_booly: Const(F::from(0), ()),
+            one_zero: Const(F::from(1), ()),
         }
     }
 
@@ -207,8 +210,8 @@ impl<F: From<u64> + TryInto<u32> + Clone + Debug, V: Clone + Debug> CompilationU
 
         CompilationResult {
             dsym,
-            anti_booly: Const(F::from(1)), // note any non-zero is true in anti-booly
-            one_zero: Const(F::from(0)),
+            anti_booly: Const(F::from(1), ()), // note any non-zero is true in anti-booly
+            one_zero: Const(F::from(0), ()),
         }
     }
 
@@ -443,7 +446,7 @@ fn flatten_bin_op<F: Clone, V: Clone>(
     }
 }
 
-fn single_one_zero_and<F: Clone, V: Clone>(values: &[CompilationResult<F, V>]) -> Expr<F, V> {
+fn single_one_zero_and<F: Clone, V: Clone>(values: &[CompilationResult<F, V>]) -> Expr<F, V, ()> {
     values
         .iter()
         .skip(1)

@@ -262,7 +262,7 @@ fn place_queriable<F: Clone>(
                 format!("[{}, {}]", placement.column.annotation, placement.rotation)
             };
 
-            PolyExpr::Query((placement.column, placement.rotation, annotation))
+            PolyExpr::Query((placement.column, placement.rotation, annotation), ())
         }
         Queriable::Forward(forward, next) => {
             let placement = unit.get_forward_placement(&forward);
@@ -289,7 +289,7 @@ fn place_queriable<F: Clone>(
             } else {
                 format!("[{}, {}]", placement.column.annotation, super_rotation)
             };
-            PolyExpr::Query((placement.column, super_rotation, annotation))
+            PolyExpr::Query((placement.column, super_rotation, annotation), ())
         }
         Queriable::Shared(shared, rot) => {
             let placement = unit.get_shared_placement(&shared);
@@ -312,7 +312,7 @@ fn place_queriable<F: Clone>(
             } else {
                 format!("[{}, {}]", placement.column.annotation, super_rotation)
             };
-            PolyExpr::Query((placement.column, super_rotation, annotation))
+            PolyExpr::Query((placement.column, super_rotation, annotation), ())
         }
         Queriable::Fixed(fixed, rot) => {
             let placement = unit.get_fixed_placement(&fixed);
@@ -335,7 +335,7 @@ fn place_queriable<F: Clone>(
             } else {
                 format!("[{}, {}]", placement.column.annotation, super_rotation)
             };
-            PolyExpr::Query((placement.column, super_rotation, annotation))
+            PolyExpr::Query((placement.column, super_rotation, annotation), ())
         }
         Queriable::StepTypeNext(step_type_handle) => {
             let super_rotation = unit.placement.step_height(step.uuid());
@@ -352,12 +352,15 @@ fn place_queriable<F: Clone>(
             } else {
                 format!("[halo2_advice?, {}]", rot)
             };
-            PolyExpr::Query((
-                unit.find_halo2_advice(signal)
-                    .expect("halo2 advice column not found"),
-                rot,
-                annotation,
-            ))
+            PolyExpr::Query(
+                (
+                    unit.find_halo2_advice(signal)
+                        .expect("halo2 advice column not found"),
+                    rot,
+                    annotation,
+                ),
+                (),
+            )
         }
         Queriable::Halo2FixedQuery(signal, rot) => {
             let annotation = if let Some(annotation) = unit.annotations.get(&signal.uuid()) {
@@ -365,12 +368,15 @@ fn place_queriable<F: Clone>(
             } else {
                 format!("[halo2_fixed?, {}]", rot)
             };
-            PolyExpr::Query((
-                unit.find_halo2_fixed(signal)
-                    .expect("halo2 fixed column not found"),
-                rot,
-                annotation,
-            ))
+            PolyExpr::Query(
+                (
+                    unit.find_halo2_fixed(signal)
+                        .expect("halo2 fixed column not found"),
+                    rot,
+                    annotation,
+                ),
+                (),
+            )
         }
         Queriable::_unaccessible(_) => panic!("jarrl"),
     }
@@ -382,22 +388,24 @@ fn transform_expr<F: Clone>(
     source: &PIR<F>,
 ) -> PolyExpr<F> {
     match source.clone() {
-        Expr::Const(c) => PolyExpr::Const(c),
-        Expr::Sum(v) => PolyExpr::Sum(
+        Expr::Const(c, _) => PolyExpr::Const(c, ()),
+        Expr::Sum(v, _) => PolyExpr::Sum(
             v.into_iter()
                 .map(|e| transform_expr(unit, step, &e))
                 .collect(),
+            (),
         ),
-        Expr::Mul(v) => PolyExpr::Mul(
+        Expr::Mul(v, _) => PolyExpr::Mul(
             v.into_iter()
                 .map(|e| transform_expr(unit, step, &e))
                 .collect(),
+            (),
         ),
-        Expr::Neg(v) => PolyExpr::Neg(Box::new(transform_expr(unit, step, &v))),
-        Expr::Pow(v, exp) => PolyExpr::Pow(Box::new(transform_expr(unit, step, &v)), exp),
-        Expr::Query(q) => place_queriable(unit, step, q),
-        Expr::Halo2Expr(expr) => PolyExpr::Halo2Expr(expr),
-        Expr::MI(_) => panic!("mi elimination not done"),
+        Expr::Neg(v, _) => PolyExpr::Neg(Box::new(transform_expr(unit, step, &v)), ()),
+        Expr::Pow(v, exp, _) => PolyExpr::Pow(Box::new(transform_expr(unit, step, &v)), exp, ()),
+        Expr::Query(q, _) => place_queriable(unit, step, q),
+        Expr::Halo2Expr(expr, _) => PolyExpr::Halo2Expr(expr, ()),
+        Expr::MI(_, _) => panic!("mi elimination not done"),
     }
 }
 
@@ -518,7 +526,7 @@ fn add_q_last_to_constraint<F: Field>(
 ) -> PolyExpr<F> {
     let q_last_column = unit.last_step.clone().expect("last column not found").1;
     let q_last = q_last_column.query(0, "q_last".to_owned());
-    let not_q_last_expr = PolyExpr::Const(F::ONE) + (-q_last);
+    let not_q_last_expr = PolyExpr::Const(F::ONE, ()) + (-q_last);
 
     not_q_last_expr * constraint
 }

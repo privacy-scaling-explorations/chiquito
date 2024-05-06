@@ -9,10 +9,10 @@ use super::{ConstrDecomp, SignalFactory};
 
 /// Reduces the degree of an PI by decomposing it in many PI with a maximum degree.
 pub fn reduce_degree<F: Field, V: Clone + Eq + PartialEq + Hash + Debug, SF: SignalFactory<V>>(
-    constr: Expr<F, V>,
+    constr: Expr<F, V, ()>,
     max_degree: usize,
     signal_factory: &mut SF,
-) -> (Expr<F, V>, ConstrDecomp<F, V>) {
+) -> (Expr<F, V, ()>, ConstrDecomp<F, V>) {
     let mut decomp = ConstrDecomp::default();
     let expr = reduce_degree_recursive(&mut decomp, constr, max_degree, max_degree, signal_factory);
 
@@ -40,18 +40,18 @@ fn reduce_degree_recursive<
     SF: SignalFactory<V>,
 >(
     decomp: &mut ConstrDecomp<F, V>,
-    constr: Expr<F, V>,
+    constr: Expr<F, V, ()>,
     total_max_degree: usize,
     partial_max_degree: usize,
     signal_factory: &mut SF,
-) -> Expr<F, V> {
+) -> Expr<F, V, ()> {
     if constr.degree() <= partial_max_degree {
         return constr;
     }
 
     match constr {
-        Expr::Const(_) => constr,
-        Expr::Sum(ses) => Expr::Sum(
+        Expr::Const(_, _) => constr,
+        Expr::Sum(ses, _) => Expr::Sum(
             ses.into_iter()
                 .map(|se| {
                     reduce_degree_recursive(
@@ -63,42 +63,46 @@ fn reduce_degree_recursive<
                     )
                 })
                 .collect(),
+            (),
         ),
-        Expr::Mul(ses) => reduce_degree_mul(
+        Expr::Mul(ses, _) => reduce_degree_mul(
             decomp,
             ses,
             total_max_degree,
             partial_max_degree,
             signal_factory,
         ),
-        Expr::Neg(se) => Expr::Neg(Box::new(reduce_degree_recursive(
-            decomp,
-            *se,
-            total_max_degree,
-            partial_max_degree,
-            signal_factory,
-        ))),
+        Expr::Neg(se, _) => Expr::Neg(
+            Box::new(reduce_degree_recursive(
+                decomp,
+                *se,
+                total_max_degree,
+                partial_max_degree,
+                signal_factory,
+            )),
+            (),
+        ),
         // TODO: decompose in Pow expressions instead of Mul
-        Expr::Pow(se, exp) => reduce_degree_mul(
+        Expr::Pow(se, exp, _) => reduce_degree_mul(
             decomp,
             std::vec::from_elem(*se, exp as usize),
             total_max_degree,
             partial_max_degree,
             signal_factory,
         ),
-        Expr::Query(_) => constr,
-        Expr::Halo2Expr(_) => unimplemented!(),
-        Expr::MI(_) => unimplemented!(),
+        Expr::Query(_, _) => constr,
+        Expr::Halo2Expr(_, _) => unimplemented!(),
+        Expr::MI(_, _) => unimplemented!(),
     }
 }
 
 fn reduce_degree_mul<F: Field, V: Clone + Eq + PartialEq + Hash + Debug, SF: SignalFactory<V>>(
     decomp: &mut ConstrDecomp<F, V>,
-    ses: Vec<Expr<F, V>>,
+    ses: Vec<Expr<F, V, ()>>,
     total_max_degree: usize,
     partial_max_degree: usize,
     signal_factory: &mut SF,
-) -> Expr<F, V> {
+) -> Expr<F, V, ()> {
     // base case, if partial_max_degree == 1, the root expression can only be a variable
     if partial_max_degree == 1 {
         let reduction = reduce_degree_mul(
@@ -110,7 +114,7 @@ fn reduce_degree_mul<F: Field, V: Clone + Eq + PartialEq + Hash + Debug, SF: Sig
         );
         let signal = signal_factory.create("virtual signal");
         decomp.auto_eq(signal.clone(), reduction);
-        return Expr::Query(signal);
+        return Expr::Query(signal, ());
     }
 
     let ses = simplify_mul(ses);
@@ -118,7 +122,7 @@ fn reduce_degree_mul<F: Field, V: Clone + Eq + PartialEq + Hash + Debug, SF: Sig
     // to reduce the problem for recursion, at least one expression should have lower degree than
     // total_max_degree
     let mut first = true;
-    let ses_reduced: Vec<Expr<F, V>> = ses
+    let ses_reduced: Vec<Expr<F, V, ()>> = ses
         .into_iter()
         .map(|se| {
             let partial_max_degree = if first {
@@ -158,17 +162,17 @@ fn reduce_degree_mul<F: Field, V: Clone + Eq + PartialEq + Hash + Debug, SF: Sig
     assert!(!for_root.is_empty());
 
     if to_simplify.is_empty() {
-        return Expr::Mul(for_root);
+        return Expr::Mul(for_root, ());
     }
 
     let rest_signal = signal_factory.create("rest_expr");
-    for_root.push(Expr::Query(rest_signal.clone()));
-    let root_expr = Expr::Mul(for_root);
+    for_root.push(Expr::Query(rest_signal.clone(), ()));
+    let root_expr = Expr::Mul(for_root, ());
 
     // recursion, for the part that exceeds the degree and will be substituted by a virtual signal
     let simplified = reduce_degree_recursive(
         decomp,
-        Expr::Mul(to_simplify),
+        Expr::Mul(to_simplify, ()),
         total_max_degree,
         total_max_degree,
         signal_factory,
@@ -308,7 +312,7 @@ mod test {
         assert_eq!(decomp.auto_signals.len(), 3);
 
         let (result, decomp) = reduce_degree(
-            Pow(Box::new(a.expr()), 4) - (b * c * d * e),
+            Pow(Box::new(a.expr()), 4, ()) - (b * c * d * e),
             2,
             &mut TestSignalFactory::default(),
         );
@@ -358,7 +362,7 @@ mod test {
         let expressions = [
             a * b * c * d * e,
             1.expr() - (a * b * c * d * e),
-            Pow(Box::new(a.expr()), 4) - (b * c * d * e),
+            Pow(Box::new(a.expr()), 4, ()) - (b * c * d * e),
             -(a * b * c * d) * -(a * b * c * d),
             (a - b) * (c - d) * (e - f) * (g - 1),
             (1.expr() - (a - (b * c))) * (1.expr() - (d - (e * f))),

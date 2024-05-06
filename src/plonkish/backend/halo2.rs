@@ -245,19 +245,19 @@ impl<F: PrimeField + From<u64> + Hash> ChiquitoHalo2<F> {
 
     fn convert_poly(&self, meta: &mut VirtualCells<'_, F>, src: &PolyExpr<F>) -> Expression<F> {
         match src {
-            PolyExpr::Const(c) => Expression::Constant(*c),
-            PolyExpr::Sum(es) => {
+            PolyExpr::Const(c, _) => Expression::Constant(*c),
+            PolyExpr::Sum(es, _) => {
                 let mut iter = es.iter();
                 let first = self.convert_poly(meta, iter.next().unwrap());
                 iter.fold(first, |acc, e| acc + self.convert_poly(meta, e))
             }
-            PolyExpr::Mul(es) => {
+            PolyExpr::Mul(es, _) => {
                 let mut iter = es.iter();
                 let first = self.convert_poly(meta, iter.next().unwrap());
                 iter.fold(first, |acc, e| acc * self.convert_poly(meta, e))
             }
-            PolyExpr::Neg(e) => -self.convert_poly(meta, e),
-            PolyExpr::Pow(e, n) => {
+            PolyExpr::Neg(e, _) => -self.convert_poly(meta, e),
+            PolyExpr::Pow(e, n, _) => {
                 if *n == 0 {
                     Expression::Constant(1.field())
                 } else {
@@ -265,9 +265,11 @@ impl<F: PrimeField + From<u64> + Hash> ChiquitoHalo2<F> {
                     (1..*n).fold(e.clone(), |acc, _| acc * e.clone())
                 }
             }
-            PolyExpr::Halo2Expr(e) => e.clone(),
-            PolyExpr::Query((column, rotation, _)) => self.convert_query(meta, column, *rotation),
-            PolyExpr::MI(_) => panic!("mi elimination not done"),
+            PolyExpr::Halo2Expr(e, _) => e.clone(),
+            PolyExpr::Query((column, rotation, _), _) => {
+                self.convert_query(meta, column, *rotation)
+            }
+            PolyExpr::MI(_, _) => panic!("mi elimination not done"),
         }
     }
 

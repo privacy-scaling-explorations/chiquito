@@ -305,7 +305,9 @@ impl<F> StepType<F> {
 impl<F: Clone + Eq + Hash> StepType<F> {
     pub fn decomp_constraints<M>(&mut self, mut decomposer: M)
     where
-        M: FnMut(&Expr<F, Queriable<F>>) -> (Expr<F, Queriable<F>>, ConstrDecomp<F, Queriable<F>>),
+        M: FnMut(
+            &Expr<F, Queriable<F>, ()>,
+        ) -> (Expr<F, Queriable<F>, ()>, ConstrDecomp<F, Queriable<F>>),
     {
         let mut new_constraints = vec![];
         for i in 0..self.constraints.len() {
@@ -374,7 +376,7 @@ impl<F> core::hash::Hash for StepType<F> {
     }
 }
 
-pub type PIR<F> = Expr<F, Queriable<F>>;
+pub type PIR<F> = Expr<F, Queriable<F>, ()>;
 
 #[derive(Clone, Debug)]
 /// Condition
