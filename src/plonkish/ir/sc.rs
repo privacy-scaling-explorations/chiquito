@@ -1,4 +1,4 @@
-use std::{collections::HashMap, hash::Hash, rc::Rc};
+use std::{collections::HashMap, fmt::Debug, hash::Hash, rc::Rc};
 
 use crate::{field::Field, sbpir::SBPIR, util::UUID, wit_gen::TraceWitness};
 
@@ -7,6 +7,7 @@ use super::{
     Circuit,
 };
 
+#[derive(Debug)]
 pub struct SuperCircuit<F, MappingArgs> {
     sub_circuits: Vec<Circuit<F>>,
     mapping: MappingGenerator<F, MappingArgs>,
@@ -75,6 +76,7 @@ impl<F: Clone, MappingArgs> SuperCircuit<F, MappingArgs> {
 pub type SuperAssignments<F> = HashMap<UUID, Assignments<F>>;
 pub type SuperTraceWitness<F> = HashMap<UUID, TraceWitness<F>>;
 
+#[derive(Clone)]
 pub struct MappingContext<F> {
     assignments: SuperAssignments<F>,
     trace_witnesses: SuperTraceWitness<F>,
@@ -130,6 +132,12 @@ impl<F, MappingArgs> Clone for MappingGenerator<F, MappingArgs> {
     }
 }
 
+impl<F, MappingArgs> std::fmt::Debug for MappingGenerator<F, MappingArgs> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "MappingGenerator")
+    }
+}
+
 impl<F, MappingArgs> Default for MappingGenerator<F, MappingArgs> {
     fn default() -> Self {
         Self {
@@ -158,5 +166,171 @@ impl<F: Field + Hash, MappingArgs> MappingGenerator<F, MappingArgs> {
         (self.mapping)(&mut ctx, args);
 
         ctx.get_trace_witnesses()
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use halo2_proofs::halo2curves::bn256::Fr;
+
+    use crate::{
+        plonkish::{
+            compiler::{cell_manager::Placement, step_selector::StepSelector},
+            ir::Column,
+        },
+        util::uuid,
+        wit_gen::{AutoTraceGenerator, TraceGenerator},
+    };
+
+    use super::*;
+
+    #[test]
+    fn test_default() {
+        let super_circuit: SuperCircuit<Fr, ()> = Default::default();
+
+        assert_eq!(
+            format!("{:#?}", super_circuit.sub_circuits),
+            format!("{:#?}", Vec::<Circuit<Fr>>::default())
+        );
+        assert_eq!(
+            format!("{:#?}", super_circuit.mapping),
+            format!("{:#?}", MappingGenerator::<Fr, ()>::default())
+        );
+    }
+
+    #[test]
+    fn test_add_sub_circuit() {
+        let mut super_circuit: SuperCircuit<Fr, ()> = Default::default();
+
+        fn simple_circuit() -> Circuit<Fr> {
+            let columns = vec![Column::advice('a', 0)];
+            let exposed = vec![(Column::advice('a', 0), 2)];
+            let polys = vec![];
+            let lookups = vec![];
+            let fixed_assignments = Default::default();
+
+            Circuit {
+                columns,
+                exposed,
+                polys,
+                lookups,
+                fixed_assignments,
+                id: uuid(),
+                ast_id: uuid(),
+            }
+        }
+
+        let sub_circuit = simple_circuit();
+
+        super_circuit.add_sub_circuit(sub_circuit.clone());
+
+        assert_eq!(super_circuit.sub_circuits.len(), 1);
+        assert_eq!(super_circuit.sub_circuits[0].id, sub_circuit.id);
+        assert_eq!(super_circuit.sub_circuits[0].ast_id, sub_circuit.ast_id);
+        assert_eq!(
+            format!("{:#?}", super_circuit.sub_circuits[0].columns),
+            format!("{:#?}", sub_circuit.columns)
+        );
+        assert_eq!(
+            format!("{:#?}", super_circuit.sub_circuits[0].exposed),
+            format!("{:#?}", sub_circuit.exposed)
+        );
+        assert_eq!(
+            format!("{:#?}", super_circuit.sub_circuits[0].polys),
+            format!("{:#?}", sub_circuit.polys)
+        );
+        assert_eq!(
+            format!("{:#?}", super_circuit.sub_circuits[0].lookups),
+            format!("{:#?}", sub_circuit.lookups)
+        );
+    }
+
+    #[test]
+    fn test_get_sub_circuits() {
+        fn simple_circuit() -> Circuit<Fr> {
+            let columns = vec![Column::advice('a', 0)];
+            let exposed = vec![(Column::advice('a', 0), 2)];
+            let polys = vec![];
+            let lookups = vec![];
+            let fixed_assignments = Default::default();
+
+            Circuit {
+                columns,
+                exposed,
+                polys,
+                lookups,
+                fixed_assignments,
+                id: uuid(),
+                ast_id: uuid(),
+            }
+        }
+
+        let super_circuit: SuperCircuit<Fr, ()> = SuperCircuit {
+            sub_circuits: vec![simple_circuit()],
+            mapping: Default::default(),
+            sub_circuit_asts: Default::default(),
+        };
+
+        let sub_circuits = super_circuit.get_sub_circuits();
+
+        assert_eq!(sub_circuits.len(), 1);
+        assert_eq!(sub_circuits[0].id, super_circuit.sub_circuits[0].id);
+    }
+
+    #[test]
+    fn test_mapping_context_default() {
+        let ctx = MappingContext::<Fr>::default();
+
+        assert_eq!(
+            format!("{:#?}", ctx.assignments),
+            format!("{:#?}", SuperAssignments::<Fr>::default())
+        );
+    }
+
+    fn simple_assignment_generator() -> AssignmentGenerator<Fr, ()> {
+        AssignmentGenerator::new(
+            vec![Column::advice('a', 0)],
+            Placement {
+                forward: HashMap::new(),
+                shared: HashMap::new(),
+                fixed: HashMap::new(),
+                steps: HashMap::new(),
+                columns: vec![],
+                base_height: 0,
+            },
+            StepSelector::default(),
+            TraceGenerator::default(),
+            AutoTraceGenerator::default(),
+            1,
+            uuid(),
+        )
+    }
+
+    #[test]
+    fn test_mapping_context_map() {
+        let mut ctx = MappingContext::<Fr>::default();
+
+        assert_eq!(ctx.assignments.len(), 0);
+
+        let gen = simple_assignment_generator();
+
+        ctx.map(&gen, ());
+
+        assert_eq!(ctx.assignments.len(), 1);
+    }
+
+    #[test]
+    fn test_mapping_context_map_with_witness() {
+        let mut ctx = MappingContext::<Fr>::default();
+
+        let gen = simple_assignment_generator();
+
+        let witness = TraceWitness::<Fr> {
+            step_instances: vec![],
+        };
+
+        ctx.map_with_witness(&gen, witness);
+
+        assert_eq!(ctx.assignments.len(), 1);
     }
 }

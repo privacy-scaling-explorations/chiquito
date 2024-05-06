@@ -567,9 +567,67 @@ fn add_halo2_columns<F, TraceArgs>(unit: &mut CompilationUnit<F>, ast: &astCircu
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-    use halo2curves::bn256::Fr;
+mod test {
+    use halo2_proofs::{halo2curves::bn256::Fr, plonk::Any};
+
+    use super::{cell_manager::SingleRowCellManager, step_selector::SimpleStepSelectorBuilder, *};
+
+    #[test]
+    fn test_compiler_config_initialization() {
+        let cell_manager = SingleRowCellManager::default();
+        let step_selector_builder = SimpleStepSelectorBuilder::default();
+
+        let config = config(cell_manager.clone(), step_selector_builder.clone());
+
+        assert_eq!(
+            format!("{:#?}", config.cell_manager),
+            format!("{:#?}", cell_manager)
+        );
+        assert_eq!(
+            format!("{:#?}", config.step_selector_builder),
+            format!("{:#?}", step_selector_builder)
+        );
+    }
+
+    #[test]
+    fn test_compile() {
+        let cell_manager = SingleRowCellManager::default();
+        let step_selector_builder = SimpleStepSelectorBuilder::default();
+        let config = config(cell_manager, step_selector_builder);
+
+        let mock_ast_circuit = astCircuit::<Fr, Any>::default();
+
+        let (circuit, assignment_generator) = compile(config, &mock_ast_circuit);
+
+        assert_eq!(circuit.columns.len(), 1);
+        assert_eq!(circuit.exposed.len(), 0);
+        assert_eq!(circuit.polys.len(), 0);
+        assert_eq!(circuit.lookups.len(), 0);
+        assert_eq!(circuit.fixed_assignments.len(), 1);
+        assert_eq!(circuit.ast_id, mock_ast_circuit.id);
+
+        assert!(assignment_generator.is_none());
+    }
+
+    #[test]
+    fn test_compile_phase1() {
+        let cell_manager = SingleRowCellManager::default();
+        let step_selector_builder = SimpleStepSelectorBuilder::default();
+        let config = config(cell_manager, step_selector_builder);
+
+        let mock_ast_circuit = astCircuit::<Fr, Any>::default();
+
+        let (unit, assignment_generator) = compile_phase1(config, &mock_ast_circuit);
+
+        assert_eq!(unit.columns.len(), 1);
+        assert_eq!(unit.exposed.len(), 0);
+        assert_eq!(unit.polys.len(), 0);
+        assert_eq!(unit.lookups.len(), 0);
+        assert_eq!(unit.fixed_assignments.len(), 0);
+        assert_eq!(unit.ast_id, mock_ast_circuit.id);
+
+        assert!(assignment_generator.is_none());
+    }
 
     #[test]
     #[should_panic]
@@ -577,5 +635,20 @@ mod tests {
         let mut unit = CompilationUnit::<Fr>::default();
 
         compile_phase2(&mut unit);
+    }
+
+    #[test]
+    fn test_add_default_columns() {
+        let mock_ast_circuit = astCircuit::<Fr, Any>::default();
+
+        let mut unit = CompilationUnit::from(&mock_ast_circuit);
+        add_default_columns(&mut unit);
+
+        assert_eq!(unit.columns.len(), 1);
+        assert_eq!(unit.exposed.len(), 0);
+        assert_eq!(unit.polys.len(), 0);
+        assert_eq!(unit.lookups.len(), 0);
+        assert_eq!(unit.fixed_assignments.len(), 0);
+        assert_eq!(unit.ast_id, mock_ast_circuit.id);
     }
 }

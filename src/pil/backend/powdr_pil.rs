@@ -204,7 +204,7 @@ fn convert_to_pil_expr_string<F: Debug + Clone>(expr: PILExpr<F, PILQuery>) -> S
                     expr_string += " * ";
                 }
             }
-            format!("{}", expr_string)
+            expr_string.to_string()
         }
         PILExpr::Neg(neg) => format!("(-{})", convert_to_pil_expr_string(*neg)),
         PILExpr::Pow(pow, power) => {

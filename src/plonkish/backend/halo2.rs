@@ -215,25 +215,6 @@ impl<F: Field + From<u64> + Hash> ChiquitoHalo2<F> {
         Ok(())
     }
 
-    fn instance(&self, witness: &Assignments<F>) -> Vec<F> {
-        let mut instance_values = Vec::new();
-        for (column, rotation) in &self.circuit.exposed {
-            let values = witness
-                .get(column)
-                .unwrap_or_else(|| panic!("exposed column not found: {}", column.annotation));
-
-            if let Some(value) = values.get(*rotation as usize) {
-                instance_values.push(*value);
-            } else {
-                panic!(
-                    "assignment index out of bounds for column: {}",
-                    column.annotation
-                );
-            }
-        }
-        instance_values
-    }
-
     fn annotate_circuit(&self, region: &mut Region<F>) {
         for column in self.circuit.columns.iter() {
             match column.ctype {
@@ -379,7 +360,7 @@ impl<F: Field + From<u64> + Hash> ChiquitoHalo2Circuit<F> {
     pub fn instance(&self) -> Vec<Vec<F>> {
         if !self.compiled.circuit.exposed.is_empty() {
             if let Some(witness) = &self.witness {
-                return vec![self.compiled.instance(witness)];
+                return vec![self.compiled.circuit.instance(witness)];
             }
         }
         Vec::new()
@@ -444,7 +425,7 @@ impl<F: Field + From<u64> + Hash> ChiquitoHalo2SuperCircuit<F> {
 
         for sub_circuit in &self.sub_circuits {
             if !sub_circuit.circuit.exposed.is_empty() {
-                let instance_values = sub_circuit.instance(
+                let instance_values = sub_circuit.circuit.instance(
                     self.witness
                         .get(&sub_circuit.ir_id)
                         .expect("No matching witness found for given UUID."),

@@ -97,10 +97,10 @@ impl<F: Field + Hash, V: Eq + PartialEq + Hash> Expr<F, V> {
             Expr::Const(v) => Some(*v),
             Expr::Sum(ses) => ses
                 .iter()
-                .fold(Some(F::ZERO), |acc, se| Some(acc? + se.eval(assignments)?)),
+                .try_fold(F::ZERO, |acc, se| Some(acc + se.eval(assignments)?)),
             Expr::Mul(ses) => ses
                 .iter()
-                .fold(Some(F::ONE), |acc, se| Some(acc? * se.eval(assignments)?)),
+                .try_fold(F::ONE, |acc, se| Some(acc * se.eval(assignments)?)),
             Expr::Neg(se) => Some(F::ZERO - se.eval(assignments)?),
             Expr::Pow(se, exp) => Some(se.eval(assignments)?.pow([*exp as u64])),
             Expr::Query(q) => assignments.get(q).copied(),
@@ -270,7 +270,7 @@ impl<F: Clone, V: Clone + Eq + PartialEq + Hash> ConstrDecomp<F, V> {
 
 #[cfg(test)]
 mod test {
-    use halo2curves::bn256::Fr;
+    use halo2_proofs::halo2curves::bn256::Fr;
 
     use crate::{field::Field, poly::VarAssignments};
 
@@ -321,5 +321,70 @@ mod test {
         assignments.insert("c", Fr::from(4));
 
         assert_eq!(experiment.eval(&assignments), None)
+    }
+
+    #[test]
+    fn test_degree_expr() {
+        use super::Expr::*;
+
+        let expr: Expr<Fr, &str> =
+            (Query("a") * Query("a")) + (Query("c") * Query("d")) - Const(Fr::ONE);
+
+        assert_eq!(expr.degree(), 2);
+
+        let expr: Expr<Fr, &str> =
+            (Query("a") * Query("a")) + (Query("c") * Query("d")) * Query("e");
+
+        assert_eq!(expr.degree(), 3);
+    }
+
+    #[test]
+    fn test_expr_sum() {
+        use super::Expr::*;
+
+        let lhs: Expr<Fr, &str> = Query("a") + Query("b");
+
+        let rhs: Expr<Fr, &str> = Query("c") + Query("d");
+
+        assert_eq!(
+            format!("({:?} + {:?})", lhs, rhs),
+            format!("{:?}", Sum(vec![lhs, rhs]))
+        );
+    }
+
+    #[test]
+    fn test_expr_mul() {
+        use super::Expr::*;
+
+        let lhs: Expr<Fr, &str> = Query("a") * Query("b");
+
+        let rhs: Expr<Fr, &str> = Query("c") * Query("d");
+
+        assert_eq!(
+            format!("({:?} * {:?})", lhs, rhs),
+            format!("{:?}", Mul(vec![lhs, rhs]))
+        );
+    }
+
+    #[test]
+    fn test_expr_neg() {
+        use super::Expr::*;
+
+        let expr: Expr<Fr, &str> = Query("a") + Query("b");
+
+        assert_eq!(
+            format!("(-{:?})", expr),
+            format!("{:?}", Neg(Box::new(expr)))
+        );
+
+        let lhs: Expr<Fr, &str> = Query("a") * Query("b");
+        let rhs: Expr<Fr, &str> = Query("c") + Query("d");
+
+        let expr: Expr<Fr, &str> = lhs.clone() - rhs.clone();
+
+        assert_eq!(
+            format!("{:?}", Sum(vec![lhs, Neg(Box::new(rhs))])),
+            format!("{:?}", expr)
+        );
     }
 }
