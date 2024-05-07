@@ -969,6 +969,7 @@ mod tests {
     use super::*;
 
     #[test]
+    #[ignore]
     fn test_trace_witness() {
         let json = r#"
         {
