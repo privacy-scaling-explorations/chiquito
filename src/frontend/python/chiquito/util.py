@@ -14,11 +14,9 @@ class F(bn128.FQ):
         # Convert the integer to a byte array
         montgomery_form = self.n * R % F.field_modulus
         byte_array = montgomery_form.to_bytes(32, "little")
-        # Split into four 64-bit integers
-        ints = [
-            int.from_bytes(byte_array[i * 8 : i * 8 + 8], "little") for i in range(4)
-        ]
-        return ints
+        
+        # return the hex string
+        return byte_array.hex()
 
 
 class CustomEncoder(json.JSONEncoder):

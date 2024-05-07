@@ -48,14 +48,11 @@ thread_local! {
 /// as the key. Return the Rust UUID to Python. The last field of the tuple, `TraceWitness`, is left
 /// as None, for `chiquito_add_witness_to_rust_id` to insert.
 pub fn chiquito_ast_to_halo2(ast_json: &str) -> UUID {
-    println!("Received JSON: {}", ast_json);
     let value: Value = from_str(ast_json).expect("Invalid JSON");
-    println!("Value: {:#?}", value);
-
-    // Now attempt to convert `Value` into `SBPIR`
+    // Attempt to convert `Value` into `SBPIR`
     let circuit: SBPIR<Fr, ()> =
         serde_json::from_value(value).expect("Deserialization to Circuit failed.");
-    println!("circuit = {:#?}", circuit);
+
     let config = config(SingleRowCellManager {}, SimpleStepSelectorBuilder {});
     let (chiquito, assignment_generator) = compile(config, &circuit);
     let chiquito_halo2 = chiquito2Halo2(chiquito);
@@ -272,19 +269,33 @@ impl<'de> Visitor<'de> for CircuitVisitor {
                     if first_step.is_some() {
                         return Err(de::Error::duplicate_field("first_step"));
                     }
-                    let first_step_str: String = map.next_value()?; // Get the UUID as a string
-                    first_step = Some(Option::Some(StepTypeUUID::from_str_radix(&first_step_str, 10).map_err(|e| {
-                        de::Error::custom(format!("Failed to parse first_step '{}': {}", first_step_str, e))
-                    })?));
+                    let first_step_opt: Option<String> = map.next_value()?; // Deserialize the value as an optional string
+                    first_step = Some(first_step_opt.map_or(Ok(None), |first_step_str| {
+                        StepTypeUUID::from_str_radix(&first_step_str, 10)
+                            .map(Some)
+                            .map_err(|e| {
+                                de::Error::custom(format!(
+                                    "Failed to parse first_step '{}': {}",
+                                    first_step_str, e
+                                ))
+                            })
+                    })?);
                 }
                 "last_step" => {
                     if last_step.is_some() {
                         return Err(de::Error::duplicate_field("last_step"));
                     }
-                    let last_step_str: String = map.next_value()?; // Get the UUID as a string
-                    last_step = Some(Option::Some(StepTypeUUID::from_str_radix(&last_step_str, 10).map_err(|e| {
-                        de::Error::custom(format!("Failed to parse last_step '{}': {}", last_step_str, e))
-                    })?));
+                    let last_step_opt: Option<String> = map.next_value()?; // Deserialize the value as an optional string
+                    last_step = Some(last_step_opt.map_or(Ok(None), |last_step_str| {
+                        StepTypeUUID::from_str_radix(&last_step_str, 10)
+                            .map(Some)
+                            .map_err(|e| {
+                                de::Error::custom(format!(
+                                    "Failed to parse last_step '{}': {}",
+                                    last_step_str, e
+                                ))
+                            })
+                    })?);
                 }
                 "num_steps" => {
                     if num_steps.is_some() {
@@ -299,12 +310,11 @@ impl<'de> Visitor<'de> for CircuitVisitor {
                     q_enable = Some(map.next_value::<bool>()?);
                 }
                 "id" => {
-                    println!("------ Visiting id -------");
                     if id.is_some() {
                         return Err(de::Error::duplicate_field("id"));
                     }
-                    let id_str: String = map.next_value()?; // Get the UUID as a string
-                    id = Some(u128::from_str_radix(&id_str, 10).map_err(|e| {
+                    let id_str: String = map.next_value()?;
+                    id = Some(id_str.parse::<u128>().map_err(|e| {
                         de::Error::custom(format!("Failed to parse id '{}': {}", id_str, e))
                     })?);
                 }
@@ -392,14 +402,13 @@ impl<'de> Visitor<'de> for StepTypeVisitor {
         let mut annotations = None;
 
         while let Some(key) = map.next_key::<String>()? {
-            println!("steptype key = {}", key);
             match key.as_str() {
                 "id" => {
                     if id.is_some() {
                         return Err(de::Error::duplicate_field("id"));
                     }
-                    let id_str: String = map.next_value()?; // Get the UUID as a string
-                    id = Some(u128::from_str_radix(&id_str, 10).map_err(|e| {
+                    let id_str: String = map.next_value()?;
+                    id = Some(id_str.parse::<u128>().map_err(|e| {
                         de::Error::custom(format!("Failed to parse id '{}': {}", id_str, e))
                     })?);
                 }
@@ -419,8 +428,6 @@ impl<'de> Visitor<'de> for StepTypeVisitor {
                     if constraints.is_some() {
                         return Err(de::Error::duplicate_field("constraints"));
                     }
-                    println!("------ Visiting constraints -------");
-                    println!("map = {:#?}", map.next_value()?);
                     constraints = Some(map.next_value::<Vec<Constraint<Fr>>>()?);
                 }
                 "transition_constraints" => {
@@ -486,7 +493,6 @@ macro_rules! impl_visitor_constraint_transition {
             type Value = $type;
 
             fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
-                println!("------ Expecting -------");
                 formatter.write_str($display)
             }
 
@@ -494,11 +500,9 @@ macro_rules! impl_visitor_constraint_transition {
             where
                 A: MapAccess<'de>,
             {
-                println!("------ Visiting map CONSTRAINTS -------");
                 let mut annotation = None;
                 let mut expr = None;
                 while let Some(key) = map.next_key::<String>()? {
-                    println!("constraint key = {}", key);
                     match key.as_str() {
                         "annotation" => {
                             if annotation.is_some() {
@@ -603,7 +607,6 @@ impl<'de> Visitor<'de> for ExprVisitor {
         let key: String = map
             .next_key()?
             .ok_or_else(|| de::Error::custom("map is empty"))?;
-        println!("expression key = {}", key);
         match key.as_str() {
             "Const" => map.next_value().map(Expr::Const),
             "Sum" => map.next_value().map(Expr::Sum),
@@ -660,6 +663,7 @@ impl<'de> Visitor<'de> for QueriableVisitor {
         let key: String = map
             .next_key()?
             .ok_or_else(|| de::Error::custom("map is empty"))?;
+
         match key.as_str() {
             "Internal" => map.next_value().map(Queriable::Internal),
             "Forward" => map
@@ -668,9 +672,11 @@ impl<'de> Visitor<'de> for QueriableVisitor {
             "Shared" => map
                 .next_value()
                 .map(|(signal, rotation)| Queriable::Shared(signal, rotation)),
-            "Fixed" => map
-                .next_value()
-                .map(|(signal, rotation)| Queriable::Fixed(signal, rotation)),
+            "Fixed" => {
+                println!("Processing Fixed");
+                map.next_value()
+                    .map(|(signal, rotation)| Queriable::Fixed(signal, rotation))
+            }
             "StepTypeNext" => map.next_value().map(Queriable::StepTypeNext),
             _ => Err(de::Error::unknown_variant(
                 &key,
@@ -735,7 +741,7 @@ macro_rules! impl_visitor_internal_fixed_steptypehandler {
                                 return Err(de::Error::duplicate_field("id"));
                             }
                             let id_str: String = map.next_value()?; // Get the UUID as a string
-                            id = Some(u128::from_str_radix(&id_str, 10).map_err(|e| {
+                            id = Some(id_str.parse::<u128>().map_err(|e| {
                                 de::Error::custom(format!("Failed to parse id '{}': {}", id_str, e))
                             })?);
                         }
@@ -794,7 +800,7 @@ macro_rules! impl_visitor_forward_shared {
                                 return Err(de::Error::duplicate_field("id"));
                             }
                             let id_str: String = map.next_value()?; // Get the UUID as a string
-                            id = Some(u128::from_str_radix(&id_str, 10).map_err(|e| {
+                            id = Some(id_str.parse::<u128>().map_err(|e| {
                                 de::Error::custom(format!("Failed to parse id '{}': {}", id_str, e))
                             })?);
                         }
@@ -887,7 +893,8 @@ impl<'de> Visitor<'de> for StepInstanceVisitor {
                     }
                     let uuid_str: String = map.next_value()?; // Get the UUID as a string
                     step_type_uuid = Some(
-                        u128::from_str_radix(&uuid_str, 10) // Assuming the string is in decimal format
+                        uuid_str
+                            .parse::<u128>() // Assuming the string is in decimal format
                             .map_err(de::Error::custom)?,
                     );
                 }
@@ -980,12 +987,7 @@ mod tests {
                                     false
                                 ]
                             },
-                            [
-                                55,
-                                0,
-                                0,
-                                0
-                            ]
+                            "0000000000000000000000000000000000000000000000000000000000000055"
                         ],
                         "270606743497613616562965561253747624458": [
                             {
@@ -998,12 +1000,7 @@ mod tests {
                                     false
                                 ]
                             },
-                            [
-                                89,
-                                0,
-                                0,
-                                0
-                            ]
+                            "0000000000000000000000000000000000000000000000000000000000000089"
                         ],
                         "270606753004993118272949371872716917258": [
                             {
@@ -1012,12 +1009,7 @@ mod tests {
                                     "annotation": "c"
                                 }
                             },
-                            [
-                                144,
-                                0,
-                                0,
-                                0
-                            ]
+                            "0000000000000000000000000000000000000000000000000000000000000144"
                         ]
                     }
                 },
@@ -1035,12 +1027,7 @@ mod tests {
                                     false
                                 ]
                             },
-                            [
-                                89,
-                                0,
-                                0,
-                                0
-                            ]
+                            "0000000000000000000000000000000000000000000000000000000000000089"
                         ],
                         "270606743497613616562965561253747624458": [
                             {
@@ -1053,12 +1040,7 @@ mod tests {
                                     false
                                 ]
                             },
-                            [
-                                144,
-                                0,
-                                0,
-                                0
-                            ]
+                            "0000000000000000000000000000000000000000000000000000000000000144"
                         ],
                         "270606786280821374261518951164072823306": [
                             {
@@ -1067,12 +1049,7 @@ mod tests {
                                     "annotation": "c"
                                 }
                             },
-                            [
-                                233,
-                                0,
-                                0,
-                                0
-                            ]
+                            "0000000000000000000000000000000000000000000000000000000000000233"
                         ]
                     }
                 }
@@ -1136,12 +1113,7 @@ mod tests {
                                     },
                                     {
                                         "Neg": {
-                                            "Const": [
-                                                1,
-                                                0,
-                                                0,
-                                                0
-                                            ]
+                                            "Const": "0000000000000000000000000000000000000000000000000000000000000001"
                                         }
                                     }
                                 ]
@@ -1163,12 +1135,7 @@ mod tests {
                                     },
                                     {
                                         "Neg": {
-                                            "Const": [
-                                                1,
-                                                0,
-                                                0,
-                                                0
-                                            ]
+                                            "Const": "0000000000000000000000000000000000000000000000000000000000000001"
                                         }
                                     }
                                 ]
@@ -1598,7 +1565,7 @@ mod tests {
                     "expr":{
                         "Sum":[
                             {
-                                "Const":[1, 0, 0, 0]
+                                "Const": "0000000000000000000000000000000000000000000000000000000000000001"
                             },
                             {
                                 "Mul":[
@@ -1609,7 +1576,7 @@ mod tests {
                                         }
                                     },
                                     {
-                                        "Const":[3, 0, 0, 0]
+                                        "Const": "0000000000000000000000000000000000000000000000000000000000000003"
                                     }
                                 ]
                             }
@@ -1621,7 +1588,7 @@ mod tests {
                     "expr":{
                         "Sum":[
                             {
-                                "Const":[1, 0, 0, 0]
+                                "Const": "0000000000000000000000000000000000000000000000000000000000000001"
                             },
                             {
                                 "Mul":[
@@ -1636,7 +1603,7 @@ mod tests {
                                         ]
                                     },
                                     {
-                                        "Const":[3, 0, 0, 0]
+                                        "Const": "0000000000000000000000000000000000000000000000000000000000000003"
                                     }
                                 ]
                             }
@@ -1650,7 +1617,7 @@ mod tests {
                     "expr":{
                         "Sum":[
                             {
-                                "Const":[1, 0, 0, 0]
+                                "Const": "0000000000000000000000000000000000000000000000000000000000000001"
                             },
                             {
                                 "Mul":[
@@ -1665,7 +1632,7 @@ mod tests {
                                         ]
                                     },
                                     {
-                                        "Const":[3, 0, 0, 0]
+                                        "Const": "0000000000000000000000000000000000000000000000000000000000000003"
                                     }
                                 ]
                             }
@@ -1677,7 +1644,7 @@ mod tests {
                     "expr":{
                         "Sum":[
                             {
-                                "Const":[1, 0, 0, 0]
+                                "Const": "0000000000000000000000000000000000000000000000000000000000000001"
                             },
                             {
                                 "Mul":[
@@ -1691,7 +1658,7 @@ mod tests {
                                         ]
                                     },
                                     {
-                                        "Const":[3, 0, 0, 0]
+                                        "Const": "0000000000000000000000000000000000000000000000000000000000000003"
                                     }
                                 ]
                             }
@@ -1760,27 +1727,27 @@ mod tests {
                 }
                 },
                 {
-                "Const": [3, 0, 0, 0]
+                "Const": "0000000000000000000000000000000000000000000000000000000000000003"
                 },
                 {
                 "Mul": [
                     {
-                    "Const": [4, 0, 0, 0]
+                    "Const": "0000000000000000000000000000000000000000000000000000000000000004"
                     },
                     {
-                    "Const": [5, 0, 0, 0]
+                    "Const": "0000000000000000000000000000000000000000000000000000000000000005"
                     }
                 ]
                 },
                 {
                 "Neg": {
-                    "Const": [2, 0, 0, 0]
+                    "Const": "0000000000000000000000000000000000000000000000000000000000000002"
                 }
                 },
                 {
                 "Pow": [
                     {
-                    "Const": [3, 0, 0, 0]
+                    "Const": "0000000000000000000000000000000000000000000000000000000000000003"
                     },
                     4
                 ]
@@ -1841,27 +1808,27 @@ mod tests {
                 }
                 },
                 {
-                "Const": [3, 0, 0, 0]
+                "Const": "0000000000000000000000000000000000000000000000000000000000000003"
                 },
                 {
                 "Mul": [
                     {
-                    "Const": [4, 0, 0, 0]
+                    "Const": "0000000000000000000000000000000000000000000000000000000000000004"
                     },
                     {
-                    "Const": [5, 0, 0, 0]
+                    "Const": "0000000000000000000000000000000000000000000000000000000000000005"
                     }
                 ]
                 },
                 {
                 "Neg": {
-                    "Const": [2, 0, 0, 0]
+                    "Const": "0000000000000000000000000000000000000000000000000000000000000002"
                 }
                 },
                 {
                 "Pow": [
                     {
-                    "Const": [3, 0, 0, 0]
+                    "Const": "0000000000000000000000000000000000000000000000000000000000000003"
                     },
                     4
                 ]
