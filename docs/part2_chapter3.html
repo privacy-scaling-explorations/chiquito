@@ -42,7 +42,7 @@
   <script src="_static/vendor/fontawesome/6.5.1/js/all.min.js?digest=8d27b9dea8ad943066ae"></script>
 
     <script src="_static/documentation_options.js?v=9eb32ce0"></script>
-    <script src="_static/doctools.js?v=888ff710"></script>
+    <script src="_static/doctools.js?v=9a2dae69"></script>
     <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="_static/clipboard.min.js?v=a7894cd8"></script>
     <script src="_static/copybutton.js?v=f281be69"></script>
@@ -530,24 +530,53 @@ document.write(`
 </div>
 </div>
 <div class="cell_output docutils container">
-<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>thread &#39;&lt;unnamed&gt;&#39; panicked at src/frontend/python/mod.rs:169:44:
-Json deserialization to TraceWitness failed.: Error(&quot;invalid type: sequence, expected a hex encoded string&quot;, line: 17, column: 20)
-note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
-</pre></div>
-</div>
-<div class="output traceback highlight-ipythontb notranslate"><div class="highlight"><pre><span></span><span class="gt">---------------------------------------------------------------------------</span>
-<span class="ne">PanicException</span><span class="g g-Whitespace">                            </span>Traceback (most recent call last)
-<span class="n">Cell</span> <span class="n">In</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">line</span> <span class="mi">38</span>
-<span class="g g-Whitespace">     </span><span class="mi">36</span> <span class="n">fibo</span> <span class="o">=</span> <span class="n">Fibonacci</span><span class="p">()</span>
-<span class="g g-Whitespace">     </span><span class="mi">37</span> <span class="n">fibo_witness</span> <span class="o">=</span> <span class="n">fibo</span><span class="o">.</span><span class="n">gen_witness</span><span class="p">(</span><span class="kc">None</span><span class="p">)</span>
-<span class="ne">---&gt; </span><span class="mi">38</span> <span class="n">fibo</span><span class="o">.</span><span class="n">halo2_mock_prover</span><span class="p">(</span><span class="n">fibo_witness</span><span class="p">)</span>
-
-<span class="nn">File ~/work/chiquito/chiquito/src/frontend/python/chiquito/dsl.py:226,</span> in <span class="ni">Circuit.halo2_mock_prover</span><span class="nt">(self, witness, k)</span>
-<span class="g g-Whitespace">    </span><span class="mi">224</span>     <span class="bp">self</span><span class="o">.</span><span class="n">rust_id</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="n">rust_chiquito</span><span class="o">.</span><span class="n">ast_to_halo2</span><span class="p">(</span><span class="n">ast_json</span><span class="p">)</span>
-<span class="g g-Whitespace">    </span><span class="mi">225</span> <span class="n">witness_json</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="n">witness</span><span class="o">.</span><span class="n">get_witness_json</span><span class="p">()</span>
-<span class="ne">--&gt; </span><span class="mi">226</span> <span class="n">rust_chiquito</span><span class="o">.</span><span class="n">halo2_mock_prover</span><span class="p">(</span><span class="n">witness_json</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">rust_id</span><span class="p">,</span> <span class="n">k</span><span class="p">)</span>
-
-<span class="ne">PanicException</span>: Json deserialization to TraceWitness failed.: Error(&quot;invalid type: sequence, expected a hex encoded string&quot;, line: 17, column: 20)
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>------ Visiting map -------
+key = annotations
+key = exposed
+key = first_step
+key = fixed_assignments
+key = fixed_signals
+key = forward_signals
+key = id
+key = last_step
+key = num_steps
+key = q_enable
+key = shared_signals
+key = step_types
+------ Visiting step_types -------
+step_types = Some(
+    {
+        287293309493265684892435541811329108490: StepType {
+            id: 287293309493265684892435541811329108490,
+            signals: [
+                InternalSignal {
+                    id: 287293316861484798717044109574314527242,
+                    annotation: &quot;c&quot;,
+                },
+            ],
+            constraints: [
+                Constraint {
+                    annotation: &quot;((a + b) == c)&quot;,
+                    expr: (a + b + (-c)),
+                },
+            ],
+            transition_constraints: [
+                TransitionConstraint {
+                    annotation: &quot;(b == next(a))&quot;,
+                    expr: (b + (-next(a))),
+                },
+                TransitionConstraint {
+                    annotation: &quot;(c == next(b))&quot;,
+                    expr: (c + (-next(b))),
+                },
+            ],
+            lookups: [],
+        },
+    },
+)
+Ok(
+    (),
+)
 </pre></div>
 </div>
 </div>
@@ -614,7 +643,7 @@ note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
 <div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>TraceWitness(
 	step_instances={
 		StepInstance(
-			step_type_uuid=307713332965953366652546666802769955338,
+			step_type_uuid=287293309493265684892435541811329108490,
 			assignments={
 				a = 0,
 				b = 2,
@@ -622,7 +651,7 @@ note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
 			},
 		),
 		StepInstance(
-			step_type_uuid=307713332965953366652546666802769955338,
+			step_type_uuid=287293309493265684892435541811329108490,
 			assignments={
 				a = 2,
 				b = 2,
@@ -630,7 +659,7 @@ note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
 			},
 		),
 		StepInstance(
-			step_type_uuid=307713332965953366652546666802769955338,
+			step_type_uuid=287293309493265684892435541811329108490,
 			assignments={
 				a = 2,
 				b = 4,
@@ -638,7 +667,7 @@ note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
 			},
 		),
 		StepInstance(
-			step_type_uuid=307713332965953366652546666802769955338,
+			step_type_uuid=287293309493265684892435541811329108490,
 			assignments={
 				a = 4,
 				b = 6,

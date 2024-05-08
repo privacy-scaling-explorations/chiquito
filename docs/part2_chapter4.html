@@ -42,7 +42,7 @@
   <script src="_static/vendor/fontawesome/6.5.1/js/all.min.js?digest=8d27b9dea8ad943066ae"></script>
 
     <script src="_static/documentation_options.js?v=9eb32ce0"></script>
-    <script src="_static/doctools.js?v=888ff710"></script>
+    <script src="_static/doctools.js?v=9a2dae69"></script>
     <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="_static/clipboard.min.js?v=a7894cd8"></script>
     <script src="_static/copybutton.js?v=f281be69"></script>
@@ -581,26 +581,87 @@ document.write(`
 </div>
 </div>
 <div class="cell_output docutils container">
-<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>thread &#39;&lt;unnamed&gt;&#39; panicked at src/frontend/python/mod.rs:51:40:
-Json deserialization to Circuit failed.: Error(&quot;invalid type: sequence, expected a hex encoded string&quot;, line: 29, column: 45)
-note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
-</pre></div>
-</div>
-<div class="output traceback highlight-ipythontb notranslate"><div class="highlight"><pre><span></span><span class="gt">---------------------------------------------------------------------------</span>
-<span class="ne">PanicException</span><span class="g g-Whitespace">                            </span>Traceback (most recent call last)
-<span class="n">Cell</span> <span class="n">In</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">line</span> <span class="mi">55</span>
-<span class="g g-Whitespace">     </span><span class="mi">53</span> <span class="n">fibo</span> <span class="o">=</span> <span class="n">Fibonacci</span><span class="p">()</span>
-<span class="g g-Whitespace">     </span><span class="mi">54</span> <span class="n">fibo_witness</span> <span class="o">=</span> <span class="n">fibo</span><span class="o">.</span><span class="n">gen_witness</span><span class="p">(</span><span class="kc">None</span><span class="p">)</span>
-<span class="ne">---&gt; </span><span class="mi">55</span> <span class="n">fibo</span><span class="o">.</span><span class="n">halo2_mock_prover</span><span class="p">(</span><span class="n">fibo_witness</span><span class="p">)</span>
-
-<span class="nn">File ~/work/chiquito/chiquito/src/frontend/python/chiquito/dsl.py:224,</span> in <span class="ni">Circuit.halo2_mock_prover</span><span class="nt">(self, witness, k)</span>
-<span class="g g-Whitespace">    </span><span class="mi">222</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">rust_id</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
-<span class="g g-Whitespace">    </span><span class="mi">223</span>     <span class="n">ast_json</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_ast_json</span><span class="p">()</span>
-<span class="ne">--&gt; </span><span class="mi">224</span>     <span class="bp">self</span><span class="o">.</span><span class="n">rust_id</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="n">rust_chiquito</span><span class="o">.</span><span class="n">ast_to_halo2</span><span class="p">(</span><span class="n">ast_json</span><span class="p">)</span>
-<span class="g g-Whitespace">    </span><span class="mi">225</span> <span class="n">witness_json</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="n">witness</span><span class="o">.</span><span class="n">get_witness_json</span><span class="p">()</span>
-<span class="g g-Whitespace">    </span><span class="mi">226</span> <span class="n">rust_chiquito</span><span class="o">.</span><span class="n">halo2_mock_prover</span><span class="p">(</span><span class="n">witness_json</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">rust_id</span><span class="p">,</span> <span class="n">k</span><span class="p">)</span>
-
-<span class="ne">PanicException</span>: Json deserialization to Circuit failed.: Error(&quot;invalid type: sequence, expected a hex encoded string&quot;, line: 29, column: 45)
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>------ Visiting map -------
+key = annotations
+key = exposed
+key = first_step
+key = fixed_assignments
+key = fixed_signals
+key = forward_signals
+key = id
+key = last_step
+key = num_steps
+key = q_enable
+key = shared_signals
+key = step_types
+------ Visiting step_types -------
+step_types = Some(
+    {
+        288467188651012206567367071538757634570: StepType {
+            id: 288467188651012206567367071538757634570,
+            signals: [
+                InternalSignal {
+                    id: 288467195306177857765886399895388686858,
+                    annotation: &quot;c&quot;,
+                },
+            ],
+            constraints: [
+                Constraint {
+                    annotation: &quot;((a + b) == c)&quot;,
+                    expr: (a + b + (-c)),
+                },
+            ],
+            transition_constraints: [
+                TransitionConstraint {
+                    annotation: &quot;(b == next(a))&quot;,
+                    expr: (b + (-next(a))),
+                },
+                TransitionConstraint {
+                    annotation: &quot;(c == next(b))&quot;,
+                    expr: (c + (-next(b))),
+                },
+            ],
+            lookups: [],
+        },
+        288467141351799185550192093080995891722: StepType {
+            id: 288467141351799185550192093080995891722,
+            signals: [
+                InternalSignal {
+                    id: 288467148323877486806075861011394071050,
+                    annotation: &quot;c&quot;,
+                },
+            ],
+            constraints: [
+                Constraint {
+                    annotation: &quot;(a == 1)&quot;,
+                    expr: (a + (-0xe0a77c19a07df2f666ea36f7879462e36fc76959f60cd29ac96341c4ffffffb)),
+                },
+                Constraint {
+                    annotation: &quot;(b == 1)&quot;,
+                    expr: (b + (-0xe0a77c19a07df2f666ea36f7879462e36fc76959f60cd29ac96341c4ffffffb)),
+                },
+                Constraint {
+                    annotation: &quot;((a + b) == c)&quot;,
+                    expr: (a + b + (-c)),
+                },
+            ],
+            transition_constraints: [
+                TransitionConstraint {
+                    annotation: &quot;(b == next(a))&quot;,
+                    expr: (b + (-next(a))),
+                },
+                TransitionConstraint {
+                    annotation: &quot;(c == next(b))&quot;,
+                    expr: (c + (-next(b))),
+                },
+            ],
+            lookups: [],
+        },
+    },
+)
+Ok(
+    (),
+)
 </pre></div>
 </div>
 </div>
@@ -623,7 +684,7 @@ note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
                     name: &quot;main&quot;,
                 },
                 index: 3,
-                name: &quot;fibo_first_step::(a == 1) =&gt; (a + -0x15ebf95182c5551cc8260de4aeb85d5d090ef5a9e111ec87dc5ba0056db1194e) =&gt; Product(Fixed { query_index: 0, column_index: 0, rotation: Rotation(0) }, Product(Advice { query_index: 6, column_index: 4, rotation: Rotation(0) }, Sum(Advice { query_index: 1, column_index: 0, rotation: Rotation(0) }, Negated(Constant(0x15ebf95182c5551cc8260de4aeb85d5d090ef5a9e111ec87dc5ba0056db1194e)))))&quot;,
+                name: &quot;fibo_first_step::(a == 1) =&gt; (a + (-0xe0a77c19a07df2f666ea36f7879462e36fc76959f60cd29ac96341c4ffffffb)) =&gt; Product(Fixed { query_index: 0, column_index: 0, rotation: Rotation(0) }, Product(Advice { query_index: 6, column_index: 4, rotation: Rotation(0) }, Sum(Advice { query_index: 1, column_index: 0, rotation: Rotation(0) }, Negated(Constant(0x0e0a77c19a07df2f666ea36f7879462e36fc76959f60cd29ac96341c4ffffffb)))))&quot;,
             },
             location: InRegion {
                 region: Region 0 (&#39;circuit&#39;),
@@ -675,7 +736,7 @@ note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
                     name: &quot;main&quot;,
                 },
                 index: 4,
-                name: &quot;fibo_first_step::(b == 1) =&gt; (b + -0x15ebf95182c5551cc8260de4aeb85d5d090ef5a9e111ec87dc5ba0056db1194e) =&gt; Product(Fixed { query_index: 0, column_index: 0, rotation: Rotation(0) }, Product(Advice { query_index: 6, column_index: 4, rotation: Rotation(0) }, Sum(Advice { query_index: 2, column_index: 1, rotation: Rotation(0) }, Negated(Constant(0x15ebf95182c5551cc8260de4aeb85d5d090ef5a9e111ec87dc5ba0056db1194e)))))&quot;,
+                name: &quot;fibo_first_step::(b == 1) =&gt; (b + (-0xe0a77c19a07df2f666ea36f7879462e36fc76959f60cd29ac96341c4ffffffb)) =&gt; Product(Fixed { query_index: 0, column_index: 0, rotation: Rotation(0) }, Product(Advice { query_index: 6, column_index: 4, rotation: Rotation(0) }, Sum(Advice { query_index: 2, column_index: 1, rotation: Rotation(0) }, Negated(Constant(0x0e0a77c19a07df2f666ea36f7879462e36fc76959f60cd29ac96341c4ffffffb)))))&quot;,
             },
             location: InRegion {
                 region: Region 0 (&#39;circuit&#39;),
@@ -692,7 +753,7 @@ note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
                         },
                         rotation: 0,
                     },
-                    &quot;0x2bd7f2a3058aaa39904c1bc95d70baba121deb53c223d90fb8b7400adb62329c&quot;,
+                    &quot;0x1c14ef83340fbe5eccdd46def0f28c5c6df8ed2b3ec19a53592c68389ffffff6&quot;,
                 ),
                 (
                     DebugVirtualCell {
@@ -722,13 +783,13 @@ note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
         },
     ],
 )
-Constraint 3 (&#39;fibo_first_step::(a == 1) =&gt; (a + -0x15ebf95182c5551cc8260de4aeb85d5d090ef5a9e111ec87dc5ba0056db1194e) =&gt; Product(Fixed { query_index: 0, column_index: 0, rotation: Rotation(0) }, Product(Advice { query_index: 6, column_index: 4, rotation: Rotation(0) }, Sum(Advice { query_index: 1, column_index: 0, rotation: Rotation(0) }, Negated(Constant(0x15ebf95182c5551cc8260de4aeb85d5d090ef5a9e111ec87dc5ba0056db1194e)))))&#39;) in gate 0 (&#39;main&#39;) is not satisfied in Region 0 (&#39;circuit&#39;) at offset 0
+Constraint 3 (&#39;fibo_first_step::(a == 1) =&gt; (a + (-0xe0a77c19a07df2f666ea36f7879462e36fc76959f60cd29ac96341c4ffffffb)) =&gt; Product(Fixed { query_index: 0, column_index: 0, rotation: Rotation(0) }, Product(Advice { query_index: 6, column_index: 4, rotation: Rotation(0) }, Sum(Advice { query_index: 1, column_index: 0, rotation: Rotation(0) }, Negated(Constant(0x0e0a77c19a07df2f666ea36f7879462e36fc76959f60cd29ac96341c4ffffffb)))))&#39;) in gate 0 (&#39;main&#39;) is not satisfied in Region 0 (&#39;circuit&#39;) at offset 0
 - Column(&#39;Advice&#39;, 0 - srcm forward a)@0 = 0
 - Column(&#39;Advice&#39;, 4 - &#39;step selector for fibo_first_step&#39;)@0 = 1
 - Column(&#39;Fixed&#39;, 0 - q_enable)@0 = 1
 
-Constraint 4 (&#39;fibo_first_step::(b == 1) =&gt; (b + -0x15ebf95182c5551cc8260de4aeb85d5d090ef5a9e111ec87dc5ba0056db1194e) =&gt; Product(Fixed { query_index: 0, column_index: 0, rotation: Rotation(0) }, Product(Advice { query_index: 6, column_index: 4, rotation: Rotation(0) }, Sum(Advice { query_index: 2, column_index: 1, rotation: Rotation(0) }, Negated(Constant(0x15ebf95182c5551cc8260de4aeb85d5d090ef5a9e111ec87dc5ba0056db1194e)))))&#39;) in gate 0 (&#39;main&#39;) is not satisfied in Region 0 (&#39;circuit&#39;) at offset 0
-- Column(&#39;Advice&#39;, 1 - srcm forward b)@0 = 0x2bd7f2a3058aaa39904c1bc95d70baba121deb53c223d90fb8b7400adb62329c
+Constraint 4 (&#39;fibo_first_step::(b == 1) =&gt; (b + (-0xe0a77c19a07df2f666ea36f7879462e36fc76959f60cd29ac96341c4ffffffb)) =&gt; Product(Fixed { query_index: 0, column_index: 0, rotation: Rotation(0) }, Product(Advice { query_index: 6, column_index: 4, rotation: Rotation(0) }, Sum(Advice { query_index: 2, column_index: 1, rotation: Rotation(0) }, Negated(Constant(0x0e0a77c19a07df2f666ea36f7879462e36fc76959f60cd29ac96341c4ffffffb)))))&#39;) in gate 0 (&#39;main&#39;) is not satisfied in Region 0 (&#39;circuit&#39;) at offset 0
+- Column(&#39;Advice&#39;, 1 - srcm forward b)@0 = 0x1c14ef83340fbe5eccdd46def0f28c5c6df8ed2b3ec19a53592c68389ffffff6
 - Column(&#39;Advice&#39;, 4 - &#39;step selector for fibo_first_step&#39;)@0 = 1
 - Column(&#39;Fixed&#39;, 0 - q_enable)@0 = 1
 </pre></div>

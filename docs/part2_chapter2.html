@@ -42,7 +42,7 @@
   <script src="_static/vendor/fontawesome/6.5.1/js/all.min.js?digest=8d27b9dea8ad943066ae"></script>
 
     <script src="_static/documentation_options.js?v=9eb32ce0"></script>
-    <script src="_static/doctools.js?v=888ff710"></script>
+    <script src="_static/doctools.js?v=9a2dae69"></script>
     <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="_static/clipboard.min.js?v=a7894cd8"></script>
     <script src="_static/copybutton.js?v=f281be69"></script>
@@ -681,11 +681,11 @@ document.write(`
 <div class="cell_output docutils container">
 <div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>ASTCircuit(
 	step_types={
-		135425824409213596577507636159869225482: ASTStepType(
-			id=135425824409213596577507636159869225482,
+		286172217683357542116727300193203653130: ASTStepType(
+			id=286172217683357542116727300193203653130,
 			name=&#39;fibo_step&#39;,
 			signals=[
-				InternalSignal(id=135425831222835572806994901851762723338, annotation=&#39;c&#39;)
+				InternalSignal(id=286172224417751355830495002661959109130, annotation=&#39;c&#39;)
 			],
 			constraints=[
 				Constraint(
@@ -699,21 +699,21 @@ document.write(`
 			],
 			lookups=[],
 			annotations={
-				135425831222835572806994901851762723338: c
+				286172224417751355830495002661959109130: c
 			}
 		)
 	},
 	forward_signals=[
-		ForwardSignal(id=135425803492978692811750658961937402378, phase=0, annotation=&#39;a&#39;),
-		ForwardSignal(id=135425817516363457839111938731282139658, phase=0, annotation=&#39;b&#39;)
+		ForwardSignal(id=286172196608666313324656011449966660106, phase=0, annotation=&#39;a&#39;),
+		ForwardSignal(id=286172210711279240863263091162610272778, phase=0, annotation=&#39;b&#39;)
 	],
 	shared_signals=[],
 	fixed_signals=[],
 	exposed=[],
 	annotations={
-		135425803492978692811750658961937402378: a,
-		135425817516363457839111938731282139658: b,
-		135425824409213596577507636159869225482: fibo_step
+		286172196608666313324656011449966660106: a,
+		286172210711279240863263091162610272778: b,
+		286172217683357542116727300193203653130: fibo_step
 	},
 	fixed_assignments=None,
 	first_step=None,
@@ -744,7 +744,7 @@ document.write(`
 <div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>TraceWitness(
 	step_instances={
 		StepInstance(
-			step_type_uuid=135425824409213596577507636159869225482,
+			step_type_uuid=286172217683357542116727300193203653130,
 			assignments={
 				a = 1,
 				b = 1,
@@ -752,7 +752,7 @@ document.write(`
 			},
 		),
 		StepInstance(
-			step_type_uuid=135425824409213596577507636159869225482,
+			step_type_uuid=286172217683357542116727300193203653130,
 			assignments={
 				a = 1,
 				b = 2,
@@ -760,7 +760,7 @@ document.write(`
 			},
 		),
 		StepInstance(
-			step_type_uuid=135425824409213596577507636159869225482,
+			step_type_uuid=286172217683357542116727300193203653130,
 			assignments={
 				a = 2,
 				b = 3,
@@ -768,7 +768,7 @@ document.write(`
 			},
 		),
 		StepInstance(
-			step_type_uuid=135425824409213596577507636159869225482,
+			step_type_uuid=286172217683357542116727300193203653130,
 			assignments={
 				a = 3,
 				b = 5,
@@ -789,22 +789,53 @@ document.write(`
 </div>
 </div>
 <div class="cell_output docutils container">
-<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>thread &#39;&lt;unnamed&gt;&#39; panicked at src/frontend/python/mod.rs:169:44:
-Json deserialization to TraceWitness failed.: Error(&quot;invalid type: sequence, expected a hex encoded string&quot;, line: 17, column: 20)
-note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
-</pre></div>
-</div>
-<div class="output traceback highlight-ipythontb notranslate"><div class="highlight"><pre><span></span><span class="gt">---------------------------------------------------------------------------</span>
-<span class="ne">PanicException</span><span class="g g-Whitespace">                            </span>Traceback (most recent call last)
-<span class="n">Cell</span> <span class="n">In</span><span class="p">[</span><span class="mi">7</span><span class="p">],</span> <span class="n">line</span> <span class="mi">1</span>
-<span class="ne">----&gt; </span><span class="mi">1</span> <span class="n">fibo</span><span class="o">.</span><span class="n">halo2_mock_prover</span><span class="p">(</span><span class="n">fibo_witness</span><span class="p">)</span>
-
-<span class="nn">File ~/work/chiquito/chiquito/src/frontend/python/chiquito/dsl.py:226,</span> in <span class="ni">Circuit.halo2_mock_prover</span><span class="nt">(self, witness, k)</span>
-<span class="g g-Whitespace">    </span><span class="mi">224</span>     <span class="bp">self</span><span class="o">.</span><span class="n">rust_id</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="n">rust_chiquito</span><span class="o">.</span><span class="n">ast_to_halo2</span><span class="p">(</span><span class="n">ast_json</span><span class="p">)</span>
-<span class="g g-Whitespace">    </span><span class="mi">225</span> <span class="n">witness_json</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="n">witness</span><span class="o">.</span><span class="n">get_witness_json</span><span class="p">()</span>
-<span class="ne">--&gt; </span><span class="mi">226</span> <span class="n">rust_chiquito</span><span class="o">.</span><span class="n">halo2_mock_prover</span><span class="p">(</span><span class="n">witness_json</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">rust_id</span><span class="p">,</span> <span class="n">k</span><span class="p">)</span>
-
-<span class="ne">PanicException</span>: Json deserialization to TraceWitness failed.: Error(&quot;invalid type: sequence, expected a hex encoded string&quot;, line: 17, column: 20)
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>------ Visiting map -------
+key = annotations
+key = exposed
+key = first_step
+key = fixed_assignments
+key = fixed_signals
+key = forward_signals
+key = id
+key = last_step
+key = num_steps
+key = q_enable
+key = shared_signals
+key = step_types
+------ Visiting step_types -------
+step_types = Some(
+    {
+        286172217683357542116727300193203653130: StepType {
+            id: 286172217683357542116727300193203653130,
+            signals: [
+                InternalSignal {
+                    id: 286172224417751355830495002661959109130,
+                    annotation: &quot;c&quot;,
+                },
+            ],
+            constraints: [
+                Constraint {
+                    annotation: &quot;((a + b) == c)&quot;,
+                    expr: (a + b + (-c)),
+                },
+            ],
+            transition_constraints: [
+                TransitionConstraint {
+                    annotation: &quot;(b == next(a))&quot;,
+                    expr: (b + (-next(a))),
+                },
+                TransitionConstraint {
+                    annotation: &quot;(c == next(b))&quot;,
+                    expr: (c + (-next(b))),
+                },
+            ],
+            lookups: [],
+        },
+    },
+)
+Ok(
+    (),
+)
 </pre></div>
 </div>
 </div>

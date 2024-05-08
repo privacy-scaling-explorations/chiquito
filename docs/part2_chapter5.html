@@ -42,7 +42,7 @@
   <script src="_static/vendor/fontawesome/6.5.1/js/all.min.js?digest=8d27b9dea8ad943066ae"></script>
 
     <script src="_static/documentation_options.js?v=9eb32ce0"></script>
-    <script src="_static/doctools.js?v=888ff710"></script>
+    <script src="_static/doctools.js?v=9a2dae69"></script>
     <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="_static/clipboard.min.js?v=a7894cd8"></script>
     <script src="_static/copybutton.js?v=f281be69"></script>
@@ -1077,7 +1077,7 @@ document.write(`
 <div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>TraceWitness(
 	step_instances={
 		StepInstance(
-			step_type_uuid=139529287838033264274698305033237826058,
+			step_type_uuid=289817787255212907528570715683234122250,
 			assignments={
 				a = 1,
 				b = 1,
@@ -1086,7 +1086,7 @@ document.write(`
 			},
 		),
 		StepInstance(
-			step_type_uuid=139529344248484974430926093409923500554,
+			step_type_uuid=289817842635698505002068778719898110474,
 			assignments={
 				a = 1,
 				b = 2,
@@ -1095,7 +1095,7 @@ document.write(`
 			},
 		),
 		StepInstance(
-			step_type_uuid=139529344248484974430926093409923500554,
+			step_type_uuid=289817842635698505002068778719898110474,
 			assignments={
 				a = 2,
 				b = 3,
@@ -1104,7 +1104,7 @@ document.write(`
 			},
 		),
 		StepInstance(
-			step_type_uuid=139529344248484974430926093409923500554,
+			step_type_uuid=289817842635698505002068778719898110474,
 			assignments={
 				a = 3,
 				b = 5,
@@ -1113,7 +1113,7 @@ document.write(`
 			},
 		),
 		StepInstance(
-			step_type_uuid=139529344248484974430926093409923500554,
+			step_type_uuid=289817842635698505002068778719898110474,
 			assignments={
 				a = 5,
 				b = 8,
@@ -1122,7 +1122,7 @@ document.write(`
 			},
 		),
 		StepInstance(
-			step_type_uuid=139529344248484974430926093409923500554,
+			step_type_uuid=289817842635698505002068778719898110474,
 			assignments={
 				a = 8,
 				b = 13,
@@ -1131,7 +1131,7 @@ document.write(`
 			},
 		),
 		StepInstance(
-			step_type_uuid=139529344248484974430926093409923500554,
+			step_type_uuid=289817842635698505002068778719898110474,
 			assignments={
 				a = 13,
 				b = 21,
@@ -1140,7 +1140,7 @@ document.write(`
 			},
 		),
 		StepInstance(
-			step_type_uuid=139529371265288391791640225291795302922,
+			step_type_uuid=289817872583943935393289768187315489290,
 			assignments={
 				a = 21,
 				b = 34,
@@ -1148,7 +1148,7 @@ document.write(`
 			},
 		),
 		StepInstance(
-			step_type_uuid=139529371265288391791640225291795302922,
+			step_type_uuid=289817872583943935393289768187315489290,
 			assignments={
 				a = 21,
 				b = 34,
@@ -1156,7 +1156,7 @@ document.write(`
 			},
 		),
 		StepInstance(
-			step_type_uuid=139529371265288391791640225291795302922,
+			step_type_uuid=289817872583943935393289768187315489290,
 			assignments={
 				a = 21,
 				b = 34,
@@ -1177,24 +1177,111 @@ document.write(`
 </div>
 </div>
 <div class="cell_output docutils container">
-<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>thread &#39;&lt;unnamed&gt;&#39; panicked at src/frontend/python/mod.rs:51:40:
-Json deserialization to Circuit failed.: Error(&quot;invalid type: sequence, expected a hex encoded string&quot;, line: 29, column: 45)
-note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
-</pre></div>
-</div>
-<div class="output traceback highlight-ipythontb notranslate"><div class="highlight"><pre><span></span><span class="gt">---------------------------------------------------------------------------</span>
-<span class="ne">PanicException</span><span class="g g-Whitespace">                            </span>Traceback (most recent call last)
-<span class="n">Cell</span> <span class="n">In</span><span class="p">[</span><span class="mi">3</span><span class="p">],</span> <span class="n">line</span> <span class="mi">1</span>
-<span class="ne">----&gt; </span><span class="mi">1</span> <span class="n">fibo</span><span class="o">.</span><span class="n">halo2_mock_prover</span><span class="p">(</span><span class="n">fibo_witness</span><span class="p">)</span>
-
-<span class="nn">File ~/work/chiquito/chiquito/src/frontend/python/chiquito/dsl.py:224,</span> in <span class="ni">Circuit.halo2_mock_prover</span><span class="nt">(self, witness, k)</span>
-<span class="g g-Whitespace">    </span><span class="mi">222</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">rust_id</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
-<span class="g g-Whitespace">    </span><span class="mi">223</span>     <span class="n">ast_json</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_ast_json</span><span class="p">()</span>
-<span class="ne">--&gt; </span><span class="mi">224</span>     <span class="bp">self</span><span class="o">.</span><span class="n">rust_id</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="n">rust_chiquito</span><span class="o">.</span><span class="n">ast_to_halo2</span><span class="p">(</span><span class="n">ast_json</span><span class="p">)</span>
-<span class="g g-Whitespace">    </span><span class="mi">225</span> <span class="n">witness_json</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="n">witness</span><span class="o">.</span><span class="n">get_witness_json</span><span class="p">()</span>
-<span class="g g-Whitespace">    </span><span class="mi">226</span> <span class="n">rust_chiquito</span><span class="o">.</span><span class="n">halo2_mock_prover</span><span class="p">(</span><span class="n">witness_json</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">rust_id</span><span class="p">,</span> <span class="n">k</span><span class="p">)</span>
-
-<span class="ne">PanicException</span>: Json deserialization to Circuit failed.: Error(&quot;invalid type: sequence, expected a hex encoded string&quot;, line: 29, column: 45)
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>------ Visiting map -------
+key = annotations
+key = exposed
+key = first_step
+key = fixed_assignments
+key = fixed_signals
+key = forward_signals
+key = id
+key = last_step
+key = num_steps
+key = q_enable
+key = shared_signals
+key = step_types
+------ Visiting step_types -------
+step_types = Some(
+    {
+        289817872583943935393289768187315489290: StepType {
+            id: 289817872583943935393289768187315489290,
+            signals: [],
+            constraints: [],
+            transition_constraints: [
+                TransitionConstraint {
+                    annotation: &quot;(b == next(b))&quot;,
+                    expr: (b + (-next(b))),
+                },
+                TransitionConstraint {
+                    annotation: &quot;(n == next(n))&quot;,
+                    expr: (n + (-next(n))),
+                },
+            ],
+            lookups: [],
+        },
+        289817787255212907528570715683234122250: StepType {
+            id: 289817787255212907528570715683234122250,
+            signals: [
+                InternalSignal {
+                    id: 289817794385747533812145770745006000650,
+                    annotation: &quot;c&quot;,
+                },
+            ],
+            constraints: [
+                Constraint {
+                    annotation: &quot;(a == 1)&quot;,
+                    expr: (a + (-0xe0a77c19a07df2f666ea36f7879462e36fc76959f60cd29ac96341c4ffffffb)),
+                },
+                Constraint {
+                    annotation: &quot;(b == 1)&quot;,
+                    expr: (b + (-0xe0a77c19a07df2f666ea36f7879462e36fc76959f60cd29ac96341c4ffffffb)),
+                },
+                Constraint {
+                    annotation: &quot;((a + b) == c)&quot;,
+                    expr: (a + b + (-c)),
+                },
+            ],
+            transition_constraints: [
+                TransitionConstraint {
+                    annotation: &quot;(b == next(a))&quot;,
+                    expr: (b + (-next(a))),
+                },
+                TransitionConstraint {
+                    annotation: &quot;(c == next(b))&quot;,
+                    expr: (c + (-next(b))),
+                },
+                TransitionConstraint {
+                    annotation: &quot;(n == next(n))&quot;,
+                    expr: (n + (-next(n))),
+                },
+            ],
+            lookups: [],
+        },
+        289817842635698505002068778719898110474: StepType {
+            id: 289817842635698505002068778719898110474,
+            signals: [
+                InternalSignal {
+                    id: 289817850003917618825479388982002977290,
+                    annotation: &quot;c&quot;,
+                },
+            ],
+            constraints: [
+                Constraint {
+                    annotation: &quot;((a + b) == c)&quot;,
+                    expr: (a + b + (-c)),
+                },
+            ],
+            transition_constraints: [
+                TransitionConstraint {
+                    annotation: &quot;(b == next(a))&quot;,
+                    expr: (b + (-next(a))),
+                },
+                TransitionConstraint {
+                    annotation: &quot;(c == next(b))&quot;,
+                    expr: (c + (-next(b))),
+                },
+                TransitionConstraint {
+                    annotation: &quot;(n == next(n))&quot;,
+                    expr: (n + (-next(n))),
+                },
+            ],
+            lookups: [],
+        },
+    },
+)
+Ok(
+    (),
+)
 </pre></div>
 </div>
 </div>
