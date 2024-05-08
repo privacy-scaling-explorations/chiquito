@@ -126,7 +126,7 @@ class ASTCircuit:
             "last_step": self.last_step,
             "num_steps": self.num_steps,
             "q_enable": self.q_enable,
-            "id": self.id,
+            "id": self.id.__str__(),
         }
 
     def add_forward(self: ASTCircuit, name: str, phase: int) -> ForwardSignal:

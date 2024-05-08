@@ -41,7 +41,7 @@ class StepInstance:
     # For assignments, return "uuid: (Queriable, F)" rather than "Queriable: F", because JSON doesn't accept Dict as key.
     def __json__(self: StepInstance):
         return {
-            "step_type_uuid": self.step_type_uuid,
+            "step_type_uuid": self.step_type_uuid.__str__(),
             "assignments": {
                 lhs.uuid(): [lhs, rhs] for (lhs, rhs) in self.assignments.items()
             },

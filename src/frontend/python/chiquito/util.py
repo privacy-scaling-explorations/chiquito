@@ -14,11 +14,9 @@ class F(bn128.FQ):
         # Convert the integer to a byte array
         montgomery_form = self.n * R % F.field_modulus
         byte_array = montgomery_form.to_bytes(32, "little")
-        # Split into four 64-bit integers
-        ints = [
-            int.from_bytes(byte_array[i * 8 : i * 8 + 8], "little") for i in range(4)
-        ]
-        return ints
+        
+        # return the hex string
+        return byte_array.hex()
 
 
 class CustomEncoder(json.JSONEncoder):
@@ -29,5 +27,5 @@ class CustomEncoder(json.JSONEncoder):
 
 
 # int field is the u128 version of uuid.
-def uuid() -> int:
-    return uuid1(node=int.from_bytes([10, 10, 10, 10, 10, 10], byteorder="little")).int
+def uuid() -> str:
+    return uuid1(node=int.from_bytes([10, 10, 10, 10, 10, 10], byteorder="little")).int.__str__()
