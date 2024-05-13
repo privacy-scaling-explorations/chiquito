@@ -1,11 +1,12 @@
 use std::{
     collections::HashMap,
     fmt::Debug,
-    hash::Hash,
+    hash::{Hash, Hasher},
     ops::{Add, Mul, Neg, Sub},
 };
 
 use halo2_proofs::plonk::Expression;
+use itertools::Itertools;
 
 use crate::field::Field;
 
@@ -43,6 +44,93 @@ impl<F, V, M> Expr<F, V, M> {
             Expr::Neg(se, _) => se.degree(),
             Expr::Pow(se, exp, _) => se.degree() * (*exp as usize),
             Expr::Query(_, _) => 1,
+            Expr::Halo2Expr(_, _) => panic!("not implemented"),
+            Expr::MI(_, _) => panic!("not implemented"),
+        }
+    }
+
+    pub fn meta(&self) -> &M {
+        match self {
+            Expr::Const(_, m) => m,
+            Expr::Sum(_, m) => m,
+            Expr::Mul(_, m) => m,
+            Expr::Neg(_, m) => m,
+            Expr::Pow(_, _, m) => m,
+            Expr::Query(_, m) => m,
+            Expr::Halo2Expr(_, m) => m,
+            Expr::MI(_, m) => m,
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct HashResult {
+    pub hash: u64,
+    pub degree: usize,
+}
+
+impl<F: Debug + Clone, V: Debug + Clone> Expr<F, V, ()> {
+    pub fn hash(&self) -> Expr<F, V, HashResult> {
+        use std::hash::DefaultHasher;
+
+        let mut hasher = DefaultHasher::new();
+
+        let degree = self.degree();
+
+        match self {
+            Expr::Const(_, _) => hasher.write(format!("{:#?}", self).as_bytes()),
+            Expr::Query(_, _) => hasher.write(format!("{:#?}", self).as_bytes()),
+
+            Expr::Sum(ses, _) => {
+                let ses_hash = ses.iter().map(|se| se.hash());
+
+                let ses_hash = ses_hash.sorted_by_key(|se| se.meta().hash);
+
+                // let ses_hash_str = ses_hash.iter().map(|ses| ses.hash.to_string().join(","));
+                // let ses_hash_str = ses_hash.map(|ses| ses.metadata().hash.to_string());
+
+                hasher.write(format!("Sum({:#?})", ses_hash).as_bytes());
+            }
+            Expr::Mul(ses, _) => {
+                let ses_hash = ses.iter().map(|se| se.hash());
+
+                let ses_hash = ses_hash.sorted_by_key(|se| se.meta().hash);
+
+                // let ses_hash_str = ses_hash.iter().map(|ses| ses.hash.to_string().join(","));
+
+                hasher.write(format!("Mul({:#?})", ses_hash).as_bytes());
+            }
+
+            Expr::Neg(se, _) => {
+                let se = se.hash();
+                hasher.write(format!("Neg({:#?})", se).as_bytes());
+            }
+            Expr::Pow(se, exp, _) => {
+                let se = se.hash();
+                hasher.write(format!("Pow({:#?}, {})", se, exp).as_bytes());
+            }
+            Expr::MI(_, _) => panic!("not implemented"),
+
+            Expr::Halo2Expr(_, _) => panic!("not implemented"),
+        }
+
+        let hash = hasher.finish();
+
+        let hash_result = HashResult { hash, degree };
+
+        match self {
+            Expr::Const(f, _) => Expr::Const(f.clone(), hash_result),
+            Expr::Sum(ses, _) => Expr::Sum(
+                ses.iter().map(|se| se.hash()).collect::<Vec<_>>(),
+                hash_result,
+            ),
+            Expr::Mul(ses, _) => Expr::Mul(
+                ses.iter().map(|se| se.hash()).collect::<Vec<_>>(),
+                hash_result,
+            ),
+            Expr::Neg(se, _) => Expr::Neg(Box::new(se.hash()), hash_result),
+            Expr::Pow(se, exp, _) => Expr::Pow(Box::new(se.hash()), *exp, hash_result),
+            Expr::Query(v, _) => Expr::Query(v.clone(), hash_result),
             Expr::Halo2Expr(_, _) => panic!("not implemented"),
             Expr::MI(_, _) => panic!("not implemented"),
         }
@@ -416,5 +504,15 @@ mod test {
             format!("{:?}", Sum(vec![lhs, Neg(Box::new(rhs), ())], ())),
             format!("{:?}", expr)
         );
+    }
+
+    #[test]
+    fn test_hash() {
+        use super::Expr::*;
+
+        let expr: Expr<Fr, &str, ()> = Const(Fr::from(12), ()) + Const(Fr::from(10), ());
+
+        let expr = expr.hash();
+        println!("{:?}", expr.meta().hash);
     }
 }
