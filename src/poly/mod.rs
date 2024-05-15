@@ -6,7 +6,6 @@ use std::{
 };
 
 use halo2_proofs::plonk::Expression;
-use itertools::Itertools;
 
 use crate::field::Field;
 
@@ -81,26 +80,6 @@ impl<F: Debug + Clone, V: Debug + Clone> Expr<F, V, ()> {
             Expr::Const(_, _) => hasher.write(format!("{:#?}", self).as_bytes()),
             Expr::Query(_, _) => hasher.write(format!("{:#?}", self).as_bytes()),
 
-            Expr::Sum(ses, _) => {
-                let ses_hash = ses.iter().map(|se| se.hash());
-
-                let ses_hash = ses_hash.sorted_by_key(|se| se.meta().hash);
-
-                // let ses_hash_str = ses_hash.iter().map(|ses| ses.hash.to_string().join(","));
-                // let ses_hash_str = ses_hash.map(|ses| ses.metadata().hash.to_string());
-
-                hasher.write(format!("Sum({:#?})", ses_hash).as_bytes());
-            }
-            Expr::Mul(ses, _) => {
-                let ses_hash = ses.iter().map(|se| se.hash());
-
-                let ses_hash = ses_hash.sorted_by_key(|se| se.meta().hash);
-
-                // let ses_hash_str = ses_hash.iter().map(|ses| ses.hash.to_string().join(","));
-
-                hasher.write(format!("Mul({:#?})", ses_hash).as_bytes());
-            }
-
             Expr::Neg(se, _) => {
                 let se = se.hash();
                 hasher.write(format!("Neg({:#?})", se).as_bytes());
@@ -109,6 +88,21 @@ impl<F: Debug + Clone, V: Debug + Clone> Expr<F, V, ()> {
                 let se = se.hash();
                 hasher.write(format!("Pow({:#?}, {})", se, exp).as_bytes());
             }
+
+            Expr::Mul(ses, _) => {
+                let mut ses_hash = ses.iter().map(|se| se.hash()).collect::<Vec<_>>();
+                ses_hash.sort_by_key(|se| se.meta().hash);
+
+                hasher.write(format!("Mul({:#?})", ses_hash).as_bytes());
+            }
+
+            Expr::Sum(ses, _) => {
+                let mut ses_hash = ses.iter().map(|se| se.hash()).collect::<Vec<_>>();
+                ses_hash.sort_by_key(|se| se.meta().hash);
+
+                hasher.write(format!("Sum({:#?})", ses_hash).as_bytes());
+            }
+
             Expr::MI(_, _) => panic!("not implemented"),
 
             Expr::Halo2Expr(_, _) => panic!("not implemented"),
@@ -120,17 +114,19 @@ impl<F: Debug + Clone, V: Debug + Clone> Expr<F, V, ()> {
 
         match self {
             Expr::Const(f, _) => Expr::Const(f.clone(), hash_result),
-            Expr::Sum(ses, _) => Expr::Sum(
-                ses.iter().map(|se| se.hash()).collect::<Vec<_>>(),
-                hash_result,
-            ),
-            Expr::Mul(ses, _) => Expr::Mul(
-                ses.iter().map(|se| se.hash()).collect::<Vec<_>>(),
-                hash_result,
-            ),
+            Expr::Query(v, _) => Expr::Query(v.clone(), hash_result),
             Expr::Neg(se, _) => Expr::Neg(Box::new(se.hash()), hash_result),
             Expr::Pow(se, exp, _) => Expr::Pow(Box::new(se.hash()), *exp, hash_result),
-            Expr::Query(v, _) => Expr::Query(v.clone(), hash_result),
+            Expr::Sum(ses, _) => {
+                let mut sorted_ses = ses.iter().map(|se| se.hash()).collect::<Vec<_>>();
+                sorted_ses.sort_by_key(|se| se.meta().hash);
+                Expr::Sum(sorted_ses, hash_result)
+            }
+            Expr::Mul(ses, _) => {
+                let mut sorted_ses = ses.iter().map(|se| se.hash()).collect::<Vec<_>>();
+                sorted_ses.sort_by_key(|se| se.meta().hash);
+                Expr::Mul(sorted_ses, hash_result)
+            }
             Expr::Halo2Expr(_, _) => panic!("not implemented"),
             Expr::MI(_, _) => panic!("not implemented"),
         }
@@ -510,9 +506,83 @@ mod test {
     fn test_hash() {
         use super::Expr::*;
 
-        let expr: Expr<Fr, &str, ()> = Const(Fr::from(12), ()) + Const(Fr::from(10), ());
+        // 12 + 10 * 2
+        let expr1: Expr<Fr, &str, ()> =
+            Const(Fr::from(12), ()) + Const(Fr::from(10), ()) * Const(Fr::from(2), ());
 
-        let expr = expr.hash();
-        println!("{:?}", expr.meta().hash);
+        let expr1 = expr1.hash();
+
+        // 2 * 10 + 12
+        let expr2: Expr<Fr, &str, ()> =
+            Const(Fr::from(2), ()) * Const(Fr::from(10), ()) + Const(Fr::from(12), ());
+
+        let expr2 = expr2.hash();
+
+        assert_eq!(expr1.meta().hash, expr2.meta().hash);
+
+        // (3 + 4) * (2 + 5) + (1 * 6)
+        let expr1: Expr<Fr, &str, ()> = (Const(Fr::from(3), ()) + Const(Fr::from(4), ()))
+            * (Const(Fr::from(2), ()) + Const(Fr::from(5), ()))
+            + (Const(Fr::from(1), ()) * Const(Fr::from(6), ()));
+
+        let expr1 = expr1.hash();
+
+        // (2 + 5) * (4 + 3) + (6 * 1)
+        let expr2: Expr<Fr, &str, ()> = (Const(Fr::from(2), ()) + Const(Fr::from(5), ()))
+            * (Const(Fr::from(4), ()) + Const(Fr::from(3), ()))
+            + (Const(Fr::from(6), ()) * Const(Fr::from(1), ()));
+
+        let expr2 = expr2.hash();
+
+        assert_eq!(
+            expr1.meta().hash,
+            expr2.meta().hash,
+            "Hashes should be equal for equivalent expressions."
+        );
+
+        // expr1 = -(5 + 2) * -(4 + 3)
+        let expr1: Expr<Fr, &str, ()> = Neg(
+            Box::new(Const(Fr::from(5), ()) + Const(Fr::from(2), ())),
+            (),
+        ) * Neg(
+            Box::new(Const(Fr::from(4), ()) + Const(Fr::from(3), ())),
+            (),
+        );
+
+        let expr1 = expr1.hash();
+
+        // expr2 = (2 + 5) * (4 + 3)
+        let expr2: Expr<Fr, &str, ()> = (Const(Fr::from(2), ()) + Const(Fr::from(5), ()))
+            * (Const(Fr::from(4), ()) + Const(Fr::from(3), ()));
+
+        let expr2 = expr2.hash();
+
+        // // expr1 = -(2^3) * ((5 + 2) * -(4 + 3))
+        // let expr1: Expr<Fr, &str, ()> =
+        //     Neg(Box::new(Pow(Box::new(Const(Fr::from(2), ())), 3, ())), ())
+        //         * ((Const(Fr::from(5), ()) + Const(Fr::from(2), ()))
+        //             * Neg( Box::new(Const(Fr::from(4), ()) + Const(Fr::from(3), ())), (),
+        //             ));
+
+        // let expr1 = expr1.hash();
+
+        // // expr2 = (2 + 5) * (4 + 3) * (2^3)
+        // let expr2: Expr<Fr, &str, ()> = (Const(Fr::from(2), ()) + Const(Fr::from(5), ()))
+        //     * (Const(Fr::from(4), ()) + Const(Fr::from(3), ()))
+        //     * Pow(Box::new(Const(Fr::from(2), ())), 3, ());
+
+        // let expr2 = expr2.hash();
+
+        println!(
+            "Expr1: {:?} | Expr2: {:#?}",
+            expr1.meta().hash,
+            expr2.meta().hash
+        );
+
+        assert_eq!(
+            expr1.meta().hash,
+            expr2.meta().hash,
+            "Hashes should be equal for equivalent expressions."
+        );
     }
 }
