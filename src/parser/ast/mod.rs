@@ -1,23 +1,67 @@
 use core::fmt::Debug;
 
+pub mod debug_sym_factory;
 pub mod expression;
 pub mod statement;
 pub mod tl;
 
 /// Debug symbol reference, points to the source file, where a AST node comes from.
-// TODO: scafolding struct that should be implemented fully.
-#[derive(Clone, Debug)]
+#[derive(Clone)]
 pub struct DebugSymRef {
-    /// Start char position on the source file.
-    pub start: usize,
-    /// End char position on the source file.
-    pub end: usize,
-    // TODO: more fields will be added as needed, like file name, etc...
+    /// Starting line number in the file
+    pub line_start: usize,
+    /// Starting column number in the file
+    pub col_start: usize,
+    /// Ending line number in the file
+    pub line_end: usize,
+    /// Ending column number in the file
+    pub col_end: usize,
+    /// Source file name
+    pub file_name: String,
 }
 
 impl DebugSymRef {
-    pub fn new(start: usize, end: usize) -> DebugSymRef {
-        DebugSymRef { start, end }
+    pub fn new(
+        line_start: usize,
+        col_start: usize,
+        line_end: usize,
+        col_end: usize,
+        file_name: String,
+    ) -> DebugSymRef {
+        DebugSymRef {
+            line_start,
+            col_start,
+            line_end,
+            col_end,
+            file_name,
+        }
+    }
+}
+
+impl Debug for DebugSymRef {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        if !self.file_name.is_empty() {
+            // Produces clickable output in the terminal
+            return write!(
+                f,
+                "{}:{}:{}",
+                self.file_name, self.line_start, self.col_start
+            );
+        }
+
+        let mut debug_print = f.debug_struct("DebugSymRef");
+
+        if self.line_start == self.line_end {
+            debug_print
+                .field("line", &self.line_start)
+                .field("cols", &format!("{}-{}", self.col_start, self.col_end));
+        } else {
+            debug_print
+                .field("start", &format!("{}:{}", self.line_start, self.col_start))
+                .field("end", &format!("{}:{}", self.line_end, self.col_end));
+        }
+
+        debug_print.finish()
     }
 }
 

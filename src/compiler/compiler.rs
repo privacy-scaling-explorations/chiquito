@@ -9,7 +9,7 @@ use crate::{
         circuit, CircuitContext, StepTypeContext, StepTypeHandler,
     },
     parser::{
-        ast::{tl::TLDecl, Identifiable, Identifier},
+        ast::{debug_sym_factory::DebugSymRefFactory, tl::TLDecl, Identifiable, Identifier},
         lang::TLDeclsParser,
     },
     poly::{self, mielim::mi_elimination, reduce::reduce_degree, Expr},
@@ -49,8 +49,12 @@ impl<F: Field + Hash> Compiler<F> {
     }
 
     /// Compile the source code.
-    pub(super) fn compile(&mut self, source: &str) -> Result<SBPIR<F, ()>, ()> {
-        let ast = self.parse(source)?;
+    pub(super) fn compile(
+        &mut self,
+        source: &str,
+        debug_sym_ref_factory: &DebugSymRefFactory,
+    ) -> Result<SBPIR<F, ()>, ()> {
+        let ast = self.parse(source, debug_sym_ref_factory)?;
         let symbols = self.semantic(&ast)?;
         let setup = Self::interpret(&ast, &symbols);
         let setup = Self::map_consts(setup);
@@ -70,8 +74,12 @@ impl<F: Field + Hash> Compiler<F> {
         self.messages
     }
 
-    fn parse(&mut self, source: &str) -> Result<Vec<TLDecl<BigInt, Identifier>>, ()> {
-        let result = TLDeclsParser::new().parse(source);
+    fn parse(
+        &mut self,
+        source: &str,
+        debug_sym_ref_factory: &DebugSymRefFactory,
+    ) -> Result<Vec<TLDecl<BigInt, Identifier>>, ()> {
+        let result = TLDeclsParser::new().parse(debug_sym_ref_factory, source);
 
         match result {
             Ok(ast) => Ok(ast),
@@ -463,7 +471,10 @@ impl<F> poly::SignalFactory<Queriable<F>> for SignalFactory<F> {
 mod test {
     use halo2_proofs::halo2curves::bn256::Fr;
 
-    use crate::compiler::compile;
+    use crate::{
+        compiler::{compile, compile_file},
+        parser::ast::debug_sym_factory::DebugSymRefFactory,
+    };
 
     use super::Config;
 
@@ -476,7 +487,7 @@ mod test {
             signal a: field, i;
 
             // there is always a state called initial
-            // input signals get binded to the signal
+            // input signals get bound to the signal
             // in the initial state (first instance)
             state initial {
              signal c;
@@ -505,17 +516,44 @@ mod test {
             }
 
             // There is always a state called final.
-            // Output signals get automatically bindinded to the signals
+            // Output signals get automatically bound to the signals
             // with the same name in the final step (last instance).
             // This state can be implicit if there are no constraints in it.
            }
         ";
 
-        let result = compile::<Fr>(circuit, Config::default().max_degree(2));
+        let debug_sym_ref_factory = DebugSymRefFactory::new("", &circuit);
+        let result = compile::<Fr>(
+            circuit,
+            Config::default().max_degree(2),
+            &debug_sym_ref_factory,
+        );
 
         match result.0 {
             Ok(sbpir) => println!("{:#?}", sbpir),
             Err(_) => println!("{:#?}", result.1),
         }
+    }
+
+    #[test]
+    fn test_compiler_fibo_file() {
+        let path = "src/compiler/circuit.zk";
+        let result = compile_file::<Fr>(path, Config::default().max_degree(2));
+        assert!(result.0.is_ok());
+        match result.0 {
+            Ok(sbpir) => println!("{:#?}", sbpir),
+            Err(_) => println!("{:#?}", result.1),
+        }
+    }
+
+    #[test]
+    fn test_compiler_fibo_file_err() {
+        let path = "src/compiler/circuit_error.zk";
+        let result = compile_file::<Fr>(path, Config::default().max_degree(2));
+
+        assert_eq!(
+            format!("{:?}", result.1),
+            r#"[SemErr { msg: "use of undeclared variable c", dsym: src/compiler/circuit_error.zk:24:39 }, SemErr { msg: "use of undeclared variable c", dsym: src/compiler/circuit_error.zk:28:46 }]"#
+        )
     }
 }

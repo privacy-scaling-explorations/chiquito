@@ -1,0 +1,34 @@
+machine fibo(signal n) (signal b: field) {
+    // n and be are created automatically as shared
+    // signals
+    signal a: field, i;
+
+    // there is always a state called initial
+    // input signals get bound to the signal
+    // in the initial state (first instance)
+    state initial {
+        signal c;
+
+        i, a, b, c <== 1, 1, 1, 2;
+
+        -> middle {
+            a', b', n' <== b, c, n;
+        }
+    }
+
+    state middle {
+        signal c;
+
+        c <== a + b;
+
+        if i + 1 == n {
+        ->  final {
+            i', b', n' <== i + 1, c, n;
+            }
+        } else {
+            -> middle {
+                i', a', b', n' <== i + 1, b, c, n;
+            }
+        }
+    }
+}

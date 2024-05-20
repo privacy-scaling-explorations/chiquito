@@ -1,8 +1,8 @@
-use crate::parser::ast::{expression::Expression, statement::{Statement, TypedIdDecl}, Identifier, tl::TLDecl, DebugSymRef};
+use crate::parser::ast::{expression::Expr, expression::Expression, statement::{Statement, TypedIdDecl}, Identifier, tl::TLDecl, debug_sym_factory::DebugSymRefFactory};
 use crate::parser::build::*;
 use num_bigint::BigInt;
 
-grammar;
+grammar(dsym_factory: &DebugSymRefFactory);
 
 match {
     r"\s*" => { }, // ignore spaces
@@ -22,13 +22,13 @@ ParseTLDecl: TLDecl<BigInt, Identifier> = {
 }
 
 ParseMachine: TLDecl<BigInt, Identifier> = {
-    "machine" <id: Identifier> "(" <input_params: ParseParamsList> ")" <block: StatementsBlock> => TLDecl::MachineDecl{ dsym: DebugSymRef::new(0,0), id, input_params, output_params: vec![], block},
-    "machine" <id: Identifier> "(" <input_params: ParseParamsList> ")" "(" <output_params: ParseParamsList> ")" <block: StatementsBlock> => TLDecl::MachineDecl{ dsym: DebugSymRef::new(0,0), id, input_params, output_params, block},
+    <l: @L> "machine" <id: Identifier> "(" <input_params: ParseParamsList> ")" <block: StatementsBlock> <r: @R> => TLDecl::MachineDecl{ dsym: dsym_factory.create(l,r), id, input_params, output_params: vec![], block},
+    <l: @L> "machine" <id: Identifier> "(" <input_params: ParseParamsList> ")" "(" <output_params: ParseParamsList> ")" <block: StatementsBlock> <r: @R> => TLDecl::MachineDecl{ dsym: dsym_factory.create(l,r), id, input_params, output_params, block},
 }
 
 // Statements
 StatementsBlock: Statement<BigInt, Identifier> = {
-    "{" <v:Statements> "}" => Statement::Block(DebugSymRef::new(0,0), v),
+    <l: @L> "{" <v:Statements> "}" <r: @R> => Statement::Block(dsym_factory.create(l,r), v),
 }
 
 pub Statements: Vec<Statement<BigInt, Identifier>> = {
@@ -37,85 +37,85 @@ pub Statements: Vec<Statement<BigInt, Identifier>> = {
 }
 
 ParseStatement: Statement<BigInt, Identifier> = {
-    <s: AssertEq> ";" => s,
-    <s: AssertNEq> ";" => s,
-    <s: Assert> ";" => s,
-    <a: SignalAssignmentAssert> ";" => a,
-    
-    <a: SignalAssignment> ";" => a,
-    <a: WGAssignment> ";" => a,
+    <l: @L> <s: AssertEq> ";" <r: @R> => add_dsym(dsym_factory.create(l,r), s),
+    <l: @L> <s: AssertNEq> ";" <r: @R> => add_dsym(dsym_factory.create(l,r), s),
+    <l: @L> <s: Assert> ";" <r: @R> => add_dsym(dsym_factory.create(l,r), s),
+    <l: @L> <a: SignalAssignmentAssert> ";" <r: @R> => add_dsym(dsym_factory.create(l,r), a),
 
-    <v: ParseSignalDecl> ";" => v,
-    <v: ParseWGVarDecl> ";" => v,
+    <l: @L> <a: SignalAssignment> ";" <r: @R> => add_dsym(dsym_factory.create(l,r), a),
+    <l: @L> <a: WGAssignment> ";" <r: @R> => add_dsym(dsym_factory.create(l,r), a),
 
-    <t: ParseTransitionSimple> ";" => t,
+    <l: @L> <v: ParseSignalDecl> ";" <r: @R> => add_dsym(dsym_factory.create(l,r), v),
+    <l: @L> <v: ParseWGVarDecl> ";" <r: @R> => add_dsym(dsym_factory.create(l,r), v),
 
-    ParseIf,
-    ParseIfElse,
+    <l: @L> <t: ParseTransitionSimple> ";" <r: @R> => add_dsym(dsym_factory.create(l,r), t),
 
-    ParseState,
-    ParseTransition,
+    <l: @L> <s: ParseIf> <r: @R> => add_dsym(dsym_factory.create(l,r), s),
+    <l: @L> <s: ParseIfElse> <r: @R> => add_dsym(dsym_factory.create(l,r), s),
+
+    <l: @L> <s: ParseState> <r: @R> => add_dsym(dsym_factory.create(l,r), s),
+    <l: @L> <t: ParseTransition> <r: @R> => add_dsym(dsym_factory.create(l,r), t),
 }
 
 AssertEq: Statement<BigInt, Identifier> = {
-    <lhs:Expression> "===" <rhs:Expression> => build_assert_eq(DebugSymRef::new(0,0), lhs, rhs),
+    <l: @L> <lhs:Expression> "===" <rhs:Expression> <r: @R> => build_assert_eq(dsym_factory.create(l,r), lhs, rhs),
 }
 
 AssertNEq: Statement<BigInt, Identifier> = {
-    <lhs:Expression> "!==" <rhs:Expression> => build_assert_neq(DebugSymRef::new(0,0), lhs, rhs),
+    <l: @L> <lhs:Expression> "!==" <rhs:Expression> <r: @R> => build_assert_neq(dsym_factory.create(l,r), lhs, rhs),
 }
 
 Assert: Statement<BigInt, Identifier> = {
-    "assert" <e: ParseLogic> => Statement::Assert(DebugSymRef::new(0,0), e),
+    <l: @L> "assert" <e: ParseLogic> <r: @R> => Statement::Assert(dsym_factory.create(l,r), e),
 }
 
 // Basic statements
 SignalAssignment: Statement<BigInt, Identifier> = {
-    <ids: ParseIdsList> "<--" <es:ParseExpressionList> => Statement::SignalAssignment(DebugSymRef::new(0,0), ids, es),
+    <l: @L> <ids: ParseIdsList> "<--" <es:ParseExpressionList> <r: @R> => Statement::SignalAssignment(dsym_factory.create(l,r), ids, es),
 }
 
 SignalAssignmentAssert: Statement<BigInt, Identifier> = {
-    <ids: ParseIdsList> "<==" <es:ParseExpressionList> => Statement::SignalAssignmentAssert(DebugSymRef::new(0,0), ids, es),
+    <l: @L> <ids: ParseIdsList> "<==" <es:ParseExpressionList> <r: @R> => Statement::SignalAssignmentAssert(dsym_factory.create(l,r), ids, es),
 }
 
 WGAssignment: Statement<BigInt, Identifier> = {
-    <ids: ParseIdsList> "=" <es:ParseExpressionList> => Statement::WGAssignment(DebugSymRef::new(0,0), ids, es),
+    <l: @L> <ids: ParseIdsList> "=" <es:ParseExpressionList> <r: @R> => Statement::WGAssignment(dsym_factory.create(l,r), ids, es),
 }
 
 ParseIf: Statement<BigInt, Identifier> = {
-    "if" <cond: ParseLogic> <when_true: StatementsBlock> => Statement::IfThen(DebugSymRef::new(0,0), Box::new(cond), Box::new(when_true)),
+    <l: @L> "if" <cond: ParseLogic> <when_true: StatementsBlock> <r: @R> => Statement::IfThen(dsym_factory.create(l,r), Box::new(cond), Box::new(when_true)),
 }
 
 ParseIfElse: Statement<BigInt, Identifier> = {
-    "if" <cond: ParseLogic> <when_true: StatementsBlock> "else" <when_false: StatementsBlock> => Statement::IfThenElse(DebugSymRef::new(0,0), Box::new(cond), Box::new(when_true), Box::new(when_false)),
+    <l: @L> "if" <cond: ParseLogic> <when_true: StatementsBlock> "else" <when_false: StatementsBlock> <r: @R> => Statement::IfThenElse(dsym_factory.create(l,r), Box::new(cond), Box::new(when_true), Box::new(when_false)),
 }
 
 ParseState: Statement<BigInt, Identifier> = {
-    "state" <id: Identifier> <block: StatementsBlock> => Statement::StateDecl(DebugSymRef::new(0,0), id, Box::new(block))
+    <l: @L> "state" <id: Identifier> <block: StatementsBlock> <r: @R> => Statement::StateDecl(dsym_factory.create(l,r), id, Box::new(block))
 }
 
 ParseTransitionSimple: Statement<BigInt, Identifier> = {
-    "->" <id: Identifier> => build_transition_simple(DebugSymRef::new(0,0), id),
+    <l: @L> "->" <id: Identifier> <r: @R> => build_transition_simple(dsym_factory.create(l,r), id),
 }
 
 ParseTransition: Statement<BigInt, Identifier> = {
-    "->" <id: Identifier> <block: StatementsBlock> => build_transition(DebugSymRef::new(0,0), id, block),
+    <l: @L> "->" <id: Identifier> <block: StatementsBlock> <r: @R> => build_transition(dsym_factory.create(l,r), id, block),
 }
 
 ParseSignalDecl: Statement<BigInt, Identifier> = {
-    "signal" <ids: ParseTypedIdList> => Statement::SignalDecl(DebugSymRef::new(0,0), ids),
+    <l: @L> "signal" <ids: ParseTypedIdList> <r: @R> => Statement::SignalDecl(dsym_factory.create(l,r), ids),
 }
 
 ParseWGVarDecl: Statement<BigInt, Identifier> = {
-    "var" <ids: ParseTypedIdList> => Statement::WGVarDecl(DebugSymRef::new(0,0), ids),
+    <l: @L> "var" <ids: ParseTypedIdList> <r: @R> => Statement::WGVarDecl(dsym_factory.create(l,r), ids),
 }
 
 ParseSignalDeclSingle: Statement<BigInt, Identifier> = {
-    "signal" <signal: ParseTypedId> => Statement::SignalDecl(DebugSymRef::new(0,0), vec![signal]),
+    <l: @L> "signal" <signal: ParseTypedId> <r: @R> => Statement::SignalDecl(dsym_factory.create(l,r), vec![signal]),
 }
 
 ParseWGVarDeclSingle: Statement<BigInt, Identifier> = {
-    "var" <var: ParseTypedId> => Statement::WGVarDecl(DebugSymRef::new(0,0), vec![var]),
+    <l: @L> "var" <var: ParseTypedId> <r: @R> => Statement::WGVarDecl(dsym_factory.create(l,r), vec![var]),
 }
 
 // Expression
@@ -124,91 +124,91 @@ pub Expression = {
 }
 
 // Logical expressions
-ParseLogic: Expression<BigInt, Identifier> = {
+ParseLogic: Expr = {
     ParseOr
 }
 
-ParseOr: Expression<BigInt, Identifier> =  ParseLogichBinOp<"||", ParseAnd>;
+ParseOr: Expr =  ParseLogichBinOp<"||", ParseAnd>;
 
-ParseAnd: Expression<BigInt, Identifier> =  ParseLogichBinOp<"&&", ParseEq>;
+ParseAnd: Expr =  ParseLogichBinOp<"&&", ParseEq>;
 
-ParseEq: Expression<BigInt, Identifier> = {
-    <lhs: ParseArith> "==" <rhs: ParseArith> => build_bin_op("==", lhs, rhs),
-    <lhs: ParseArith> "!=" <rhs: ParseArith> => build_bin_op("!=", lhs, rhs),
+ParseEq: Expr = {
+    <l: @L> <lhs: ParseArith> "==" <rhs: ParseArith> <r: @R> => build_bin_op("==", lhs, rhs, dsym_factory.create(l,r)),
+    <l: @L>  <lhs: ParseArith> "!=" <rhs: ParseArith> <r: @R> => build_bin_op("!=", lhs, rhs, dsym_factory.create(l,r)),
 
-    <lhs: ParseArith> "<" <rhs: ParseArith> => build_bin_op("<", lhs, rhs),
-    <lhs: ParseArith> "<=" <rhs: ParseArith> => build_bin_op("<=", lhs, rhs),
-    <lhs: ParseArith> ">" <rhs: ParseArith> => build_bin_op(">", lhs, rhs),
-    <lhs: ParseArith> ">=" <rhs: ParseArith> => build_bin_op(">=", lhs, rhs),
+    <l: @L>  <lhs: ParseArith> "<" <rhs: ParseArith> <r: @R> => build_bin_op("<", lhs, rhs, dsym_factory.create(l,r)),
+    <l: @L>  <lhs: ParseArith> "<=" <rhs: ParseArith> <r: @R> => build_bin_op("<=", lhs, rhs, dsym_factory.create(l,r)),
+    <l: @L>  <lhs: ParseArith> ">" <rhs: ParseArith> <r: @R> => build_bin_op(">", lhs, rhs, dsym_factory.create(l,r)),
+    <l: @L>  <lhs: ParseArith> ">=" <rhs: ParseArith> <r: @R> => build_bin_op(">=", lhs, rhs, dsym_factory.create(l,r)),
 
     ParseBitOr
 }
 
-ParseBitOr: Expression<BigInt, Identifier> =  ParseLogichBinOp<"|", ParseBitXor>;
+ParseBitOr: Expr =  ParseLogichBinOp<"|", ParseBitXor>;
 
-ParseBitXor: Expression<BigInt, Identifier> =  ParseLogichBinOp<"^", ParseBitAnd>;
+ParseBitXor: Expr =  ParseLogichBinOp<"^", ParseBitAnd>;
 
-ParseBitAnd: Expression<BigInt, Identifier> =  ParseLogichBinOp<"&", ParseArith>;
+ParseBitAnd: Expr =  ParseLogichBinOp<"&", ParseArith>;
 
 // Arithmetical expressions
-ParseArith: Expression<BigInt, Identifier> = {
+ParseArith: Expr = {
     ParseShift
 }
 
-ParseShift: Expression<BigInt, Identifier> = {
-    <lhs: ParseShift> "<<" <rhs: ParseSumSub> => build_bin_op("<<", lhs, rhs),
-    <lhs: ParseShift> ">>" <rhs: ParseSumSub> => build_bin_op(">>", lhs, rhs),
+ParseShift: Expr = {
+    <l: @L> <lhs: ParseShift> "<<" <rhs: ParseSumSub> <r: @R> => build_bin_op("<<", lhs, rhs, dsym_factory.create(l,r)),
+    <l: @L> <lhs: ParseShift> ">>" <rhs: ParseSumSub> <r: @R> => build_bin_op(">>", lhs, rhs, dsym_factory.create(l,r)),
 
     ParseSumSub
 }
 
-ParseSumSub: Expression<BigInt, Identifier> = {
-    <lhs: ParseSumSub> "-" <rhs: ParseMulDiv> => build_bin_op("-", lhs, rhs),
-    <lhs: ParseSumSub> "+" <rhs: ParseMulDiv> => build_bin_op("+", lhs, rhs),
+ParseSumSub: Expr = {
+    <l: @L> <lhs: ParseSumSub> "-" <rhs: ParseMulDiv> <r: @R> => build_bin_op("-", lhs, rhs, dsym_factory.create(l,r)),
+    <l: @L> <lhs: ParseSumSub> "+" <rhs: ParseMulDiv> <r: @R> => build_bin_op("+", lhs, rhs, dsym_factory.create(l,r)),
 
     ParseMulDiv
 }
 
-ParseMulDiv: Expression<BigInt, Identifier> = {
-    <lhs: ParseMulDiv> "%" <rhs: ParsePow> => build_bin_op("%", lhs, rhs),
-    <lhs: ParseMulDiv> "/" <rhs: ParsePow> => build_bin_op("/", lhs, rhs),
-    <lhs: ParseMulDiv> "\\" <rhs: ParsePow> => build_bin_op("\\", lhs, rhs),
-    <lhs: ParseMulDiv> "*" <rhs: ParsePow> => build_bin_op("*", lhs, rhs),
+ParseMulDiv: Expr = {
+    <l: @L> <lhs: ParseMulDiv> "%" <rhs: ParsePow> <r: @R> => build_bin_op("%", lhs, rhs, dsym_factory.create(l,r)),
+    <l: @L> <lhs: ParseMulDiv> "/" <rhs: ParsePow> <r: @R> => build_bin_op("/", lhs, rhs, dsym_factory.create(l,r)),
+    <l: @L> <lhs: ParseMulDiv> "\\" <rhs: ParsePow> <r: @R> => build_bin_op("\\", lhs, rhs, dsym_factory.create(l,r)),
+    <l: @L> <lhs: ParseMulDiv> "*" <rhs: ParsePow> <r: @R> => build_bin_op("*", lhs, rhs, dsym_factory.create(l,r)),
 
     ParsePow
 }
 
-ParsePow: Expression<BigInt, Identifier> = ParseArithBinOp<"**", ParsePrefix>;
+ParsePow: Expr = ParseArithBinOp<"**", ParsePrefix>;
 
-ParsePrefix: Expression<BigInt, Identifier> = {
-    "-" <sub: ExpressionTerm> => build_unary_op("-", sub),
-    "~" <sub: ExpressionTerm> => build_unary_op("~", sub),
+ParsePrefix: Expr = {
+    <l: @L> "-" <sub: ExpressionTerm> <r: @R> => build_unary_op("-", sub, dsym_factory.create(l,r)),
+    <l: @L> "~" <sub: ExpressionTerm> <r: @R> => build_unary_op("~", sub, dsym_factory.create(l,r)),
 
     ExpressionTerm
 }
 
-ExpressionTerm: Expression<BigInt, Identifier> = {
-    ParseVar,
-    FieldElement,
-    "true" => Expression::True(DebugSymRef::new(0,0)),
-    "false" => Expression::False(DebugSymRef::new(0,0)),
-    "(" <Expression> ")",
+ExpressionTerm: Expr = {
+    <l: @L> <id: Identifier> <r: @R> => build_query(dsym_factory.create(l,r), id),
+    <l: @L> <lit: FieldElement> <r: @R> => lit,
+    <l: @L> "true" <r: @R> => Expression::True(dsym_factory.create(l,r)),
+    <l: @L> "false" <r: @R> => Expression::False(dsym_factory.create(l,r)),
+    <l: @L> "(" <e: Expression> ")" <r: @R> => e,
 }
 
-ParseLogichBinOp<Op, Next>: Expression<BigInt, Identifier> = {
-    <lhs: ParseArithBinOp<Op, Next>> <op: Op> <rhs: Next> => build_bin_op(op, lhs, rhs),
+ParseLogichBinOp<Op, Next>: Expr = {
+    <l: @L> <lhs: ParseArithBinOp<Op, Next>> <op: Op> <rhs: Next> <r: @R> => build_bin_op(op, lhs, rhs, dsym_factory.create(l,r)),
 
     Next
 }
 
-ParseArithBinOp<Op, Next>: Expression<BigInt, Identifier> = {
-    <lhs: ParseArithBinOp<Op, Next>> <op: Op> <rhs: Next> => build_bin_op(op, lhs, rhs),
+ParseArithBinOp<Op, Next>: Expr = {
+    <l: @L> <lhs: ParseArithBinOp<Op, Next>> <op: Op> <rhs: Next> <r: @R> => build_bin_op(op, lhs, rhs, dsym_factory.create(l,r)),
 
     Next
 }
 
-ParseVar: Expression<BigInt, Identifier> = {
-    <id: Identifier> => build_query(DebugSymRef::new(0,0), id),
+ParseVar: Expr = {
+    <l: @L> <id: Identifier> <r: @R> => build_query(dsym_factory.create(l,r), id),
 }
 
 // Lists
@@ -246,7 +246,7 @@ Identifier: Identifier = {
     r"[a-zA-Z_][a-zA-Z$_0-9@]*[\']?" => build_identifier(<>),
 }
 
-FieldElement: Expression<BigInt, Identifier> = {
-    r"[0-9][0-9_]*" => Expression::Const(DebugSymRef::new(0,0), BigInt::parse_bytes(<>.as_bytes(),10).expect("failed to parse base10")),
-    r"0x[0-9A-Fa-f][0-9A-Fa-f_]*" => Expression::Const(DebugSymRef::new(0,0), BigInt::parse_bytes(&(<>.as_bytes()[2..]),16).expect("failed to parse base16")),
+FieldElement: Expr = {
+    <l: @L> <val: r"[0-9][0-9_]*"> <r: @R> => Expression::Const(dsym_factory.create(l,r), BigInt::parse_bytes(val.as_bytes(),10).expect("failed to parse base10")),
+    <l: @L> <val: r"0x[0-9A-Fa-f][0-9A-Fa-f_]*"> <r: @R> => Expression::Const(dsym_factory.create(l,r), BigInt::parse_bytes(&val.as_bytes()[2..],16).expect("failed to parse base16")),
 }
