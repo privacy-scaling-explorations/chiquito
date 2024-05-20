@@ -37,24 +37,22 @@ pub Statements: Vec<Statement<BigInt, Identifier>> = {
 }
 
 ParseStatement: Statement<BigInt, Identifier> = {
-    <l: @L> <s: AssertEq> ";" <r: @R> => add_dsym(dsym_factory.create(l,r), s),
-    <l: @L> <s: AssertNEq> ";" <r: @R> => add_dsym(dsym_factory.create(l,r), s),
-    <l: @L> <s: Assert> ";" <r: @R> => add_dsym(dsym_factory.create(l,r), s),
-    <l: @L> <a: SignalAssignmentAssert> ";" <r: @R> => add_dsym(dsym_factory.create(l,r), a),
+    <l: @L> <s: StatementType> ";" <r: @R> => add_dsym(dsym_factory.create(l,r), s),
+    <l: @L> <s: ConditionalStatement> <r: @R> => add_dsym(dsym_factory.create(l,r), s),
+    <l: @L> <s: StateTransition> <r: @R> => add_dsym(dsym_factory.create(l,r), s),
+}
 
-    <l: @L> <a: SignalAssignment> ";" <r: @R> => add_dsym(dsym_factory.create(l,r), a),
-    <l: @L> <a: WGAssignment> ";" <r: @R> => add_dsym(dsym_factory.create(l,r), a),
-
-    <l: @L> <v: ParseSignalDecl> ";" <r: @R> => add_dsym(dsym_factory.create(l,r), v),
-    <l: @L> <v: ParseWGVarDecl> ";" <r: @R> => add_dsym(dsym_factory.create(l,r), v),
-
-    <l: @L> <t: ParseTransitionSimple> ";" <r: @R> => add_dsym(dsym_factory.create(l,r), t),
-
-    <l: @L> <s: ParseIf> <r: @R> => add_dsym(dsym_factory.create(l,r), s),
-    <l: @L> <s: ParseIfElse> <r: @R> => add_dsym(dsym_factory.create(l,r), s),
-
-    <l: @L> <s: ParseState> <r: @R> => add_dsym(dsym_factory.create(l,r), s),
-    <l: @L> <t: ParseTransition> <r: @R> => add_dsym(dsym_factory.create(l,r), t),
+StatementType: Statement<BigInt, Identifier> = {
+    AssertEq,
+    AssertNEq,
+    Assert,
+    SignalAssignment,
+    SignalAssignmentAssert,
+    WGAssignment,
+    ParseSignalDecl,
+    ParseWGVarDecl,
+    ParseTransitionSimple,
+    ParseTransition,
 }
 
 AssertEq: Statement<BigInt, Identifier> = {
@@ -82,12 +80,23 @@ WGAssignment: Statement<BigInt, Identifier> = {
     <l: @L> <ids: ParseIdsList> "=" <es:ParseExpressionList> <r: @R> => Statement::WGAssignment(dsym_factory.create(l,r), ids, es),
 }
 
+ConditionalStatement: Statement<BigInt, Identifier> = {
+    ParseIf,
+    ParseIfElse,
+}
+
 ParseIf: Statement<BigInt, Identifier> = {
     <l: @L> "if" <cond: ParseLogic> <when_true: StatementsBlock> <r: @R> => Statement::IfThen(dsym_factory.create(l,r), Box::new(cond), Box::new(when_true)),
 }
 
 ParseIfElse: Statement<BigInt, Identifier> = {
     <l: @L> "if" <cond: ParseLogic> <when_true: StatementsBlock> "else" <when_false: StatementsBlock> <r: @R> => Statement::IfThenElse(dsym_factory.create(l,r), Box::new(cond), Box::new(when_true), Box::new(when_false)),
+}
+
+StateTransition: Statement<BigInt, Identifier> = {
+    ParseState,
+    ParseTransitionSimple,
+    ParseTransition,
 }
 
 ParseState: Statement<BigInt, Identifier> = {
@@ -128,9 +137,9 @@ ParseLogic: Expr = {
     ParseOr
 }
 
-ParseOr: Expr =  ParseLogichBinOp<"||", ParseAnd>;
+ParseOr: Expr =  ParseBinOp<"||", ParseAnd>;
 
-ParseAnd: Expr =  ParseLogichBinOp<"&&", ParseEq>;
+ParseAnd: Expr =  ParseBinOp<"&&", ParseEq>;
 
 ParseEq: Expr = {
     <l: @L> <lhs: ParseArith> "==" <rhs: ParseArith> <r: @R> => build_bin_op("==", lhs, rhs, dsym_factory.create(l,r)),
@@ -144,11 +153,11 @@ ParseEq: Expr = {
     ParseBitOr
 }
 
-ParseBitOr: Expr =  ParseLogichBinOp<"|", ParseBitXor>;
+ParseBitOr: Expr =  ParseBinOp<"|", ParseBitXor>;
 
-ParseBitXor: Expr =  ParseLogichBinOp<"^", ParseBitAnd>;
+ParseBitXor: Expr =  ParseBinOp<"^", ParseBitAnd>;
 
-ParseBitAnd: Expr =  ParseLogichBinOp<"&", ParseArith>;
+ParseBitAnd: Expr =  ParseBinOp<"&", ParseArith>;
 
 // Arithmetical expressions
 ParseArith: Expr = {
@@ -178,7 +187,7 @@ ParseMulDiv: Expr = {
     ParsePow
 }
 
-ParsePow: Expr = ParseArithBinOp<"**", ParsePrefix>;
+ParsePow: Expr = ParseBinOp<"**", ParsePrefix>;
 
 ParsePrefix: Expr = {
     <l: @L> "-" <sub: ExpressionTerm> <r: @R> => build_unary_op("-", sub, dsym_factory.create(l,r)),
@@ -195,14 +204,8 @@ ExpressionTerm: Expr = {
     <l: @L> "(" <e: Expression> ")" <r: @R> => e,
 }
 
-ParseLogichBinOp<Op, Next>: Expr = {
-    <l: @L> <lhs: ParseArithBinOp<Op, Next>> <op: Op> <rhs: Next> <r: @R> => build_bin_op(op, lhs, rhs, dsym_factory.create(l,r)),
-
-    Next
-}
-
-ParseArithBinOp<Op, Next>: Expr = {
-    <l: @L> <lhs: ParseArithBinOp<Op, Next>> <op: Op> <rhs: Next> <r: @R> => build_bin_op(op, lhs, rhs, dsym_factory.create(l,r)),
+ParseBinOp<Op, Next>: Expr = {
+    <l: @L> <lhs: ParseBinOp<Op, Next>> <op: Op> <rhs: Next> <r: @R> => build_bin_op(op, lhs, rhs, dsym_factory.create(l,r)),
 
     Next
 }
