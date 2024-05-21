@@ -1,7 +1,7 @@
 use std::{
     collections::HashMap,
     fmt::Debug,
-    hash::{Hash, Hasher},
+    hash::{DefaultHasher, Hash, Hasher},
     ops::{Add, Mul, Neg, Sub},
 };
 
@@ -68,65 +68,43 @@ pub struct HashResult {
     pub degree: usize,
 }
 
-impl<F: Debug + Clone, V: Debug + Clone> Expr<F, V, ()> {
-    pub fn hash(&self) -> Expr<F, V, HashResult> {
-        use std::hash::DefaultHasher;
-
+impl<F: Field + Hash, V: Debug + Clone + Eq + Hash> Expr<F, V, ()> {
+    /// Uses Schwartz-Zippel Lemma to hash
+    pub fn hash(&self, assignments: &Vec<VarAssignments<F, V>>) -> Expr<F, V, HashResult> {
         let mut hasher = DefaultHasher::new();
 
-        let degree = self.degree();
-
-        match self {
-            Expr::Const(_, _) => hasher.write(format!("{:#?}", self).as_bytes()),
-            Expr::Query(_, _) => hasher.write(format!("{:#?}", self).as_bytes()),
-
-            Expr::Neg(se, _) => {
-                let se = se.hash();
-                hasher.write(format!("Neg({:#?})", se).as_bytes());
+        for assignment in assignments {
+            if let Some(result) = self.eval(&assignment) {
+                hasher.write(format!("{:#?}", result).as_bytes());
             }
-            Expr::Pow(se, exp, _) => {
-                let se = se.hash();
-                hasher.write(format!("Pow({:#?}, {})", se, exp).as_bytes());
-            }
-
-            Expr::Mul(ses, _) => {
-                let mut ses_hash = ses.iter().map(|se| se.hash()).collect::<Vec<_>>();
-                ses_hash.sort_by_key(|se| se.meta().hash);
-
-                hasher.write(format!("Mul({:#?})", ses_hash).as_bytes());
-            }
-
-            Expr::Sum(ses, _) => {
-                let mut ses_hash = ses.iter().map(|se| se.hash()).collect::<Vec<_>>();
-                ses_hash.sort_by_key(|se| se.meta().hash);
-
-                hasher.write(format!("Sum({:#?})", ses_hash).as_bytes());
-            }
-
-            Expr::MI(_, _) => panic!("not implemented"),
-
-            Expr::Halo2Expr(_, _) => panic!("not implemented"),
         }
 
         let hash = hasher.finish();
 
-        let hash_result = HashResult { hash, degree };
+        let hash_result = HashResult {
+            hash,
+            degree: self.degree(),
+        };
 
         match self {
-            Expr::Const(f, _) => Expr::Const(f.clone(), hash_result),
+            Expr::Const(v, _) => Expr::Const(*v, hash_result),
             Expr::Query(v, _) => Expr::Query(v.clone(), hash_result),
-            Expr::Neg(se, _) => Expr::Neg(Box::new(se.hash()), hash_result),
-            Expr::Pow(se, exp, _) => Expr::Pow(Box::new(se.hash()), *exp, hash_result),
             Expr::Sum(ses, _) => {
-                let mut sorted_ses = ses.iter().map(|se| se.hash()).collect::<Vec<_>>();
-                sorted_ses.sort_by_key(|se| se.meta().hash);
-                Expr::Sum(sorted_ses, hash_result)
+                let mut new_ses = Vec::with_capacity(ses.len());
+                for se in ses {
+                    new_ses.push(se.hash(&assignments));
+                }
+                Expr::Sum(new_ses, hash_result)
             }
             Expr::Mul(ses, _) => {
-                let mut sorted_ses = ses.iter().map(|se| se.hash()).collect::<Vec<_>>();
-                sorted_ses.sort_by_key(|se| se.meta().hash);
-                Expr::Mul(sorted_ses, hash_result)
+                let mut new_ses = Vec::with_capacity(ses.len());
+                for se in ses {
+                    new_ses.push(se.hash(&assignments));
+                }
+                Expr::Mul(new_ses, hash_result)
             }
+            Expr::Neg(se, _) => Expr::Neg(Box::new(se.hash(assignments)), hash_result),
+            Expr::Pow(se, exp, _) => Expr::Pow(Box::new(se.hash(assignments)), *exp, hash_result),
             Expr::Halo2Expr(_, _) => panic!("not implemented"),
             Expr::MI(_, _) => panic!("not implemented"),
         }
@@ -175,7 +153,7 @@ impl<F: Debug, V: Debug, M: Debug> Debug for Expr<F, V, M> {
 
 pub type VarAssignments<F, V> = HashMap<V, F>;
 
-impl<F: Field + Hash, V: Eq + PartialEq + Hash, M: Eq + PartialEq + Hash> Expr<F, V, M> {
+impl<F: Field + Hash, V: Eq + PartialEq + Hash, M: Clone + Default> Expr<F, V, M> {
     pub fn eval(&self, assignments: &VarAssignments<F, V>) -> Option<F> {
         match self {
             Expr::Const(v, _) => Some(*v),
@@ -381,9 +359,13 @@ impl<F: Clone, V: Clone + Eq + PartialEq + Hash> ConstrDecomp<F, V> {
 
 #[cfg(test)]
 mod test {
-    use halo2_proofs::halo2curves::bn256::Fr;
+    use halo2_proofs::{arithmetic::Field, halo2curves::bn256::Fr};
+    use rand_chacha::{rand_core::SeedableRng, ChaCha20Rng};
 
-    use crate::{field::Field, poly::VarAssignments};
+    use crate::{
+        poly::{ToExpr, VarAssignments},
+        sbpir::{query::Queriable, InternalSignal},
+    };
 
     use super::Expr;
 
@@ -506,83 +488,74 @@ mod test {
     fn test_hash() {
         use super::Expr::*;
 
-        // 12 + 10 * 2
-        let expr1: Expr<Fr, &str, ()> =
-            Const(Fr::from(12), ()) + Const(Fr::from(10), ()) * Const(Fr::from(2), ());
+        let mut rng = ChaCha20Rng::seed_from_u64(0);
 
-        let expr1 = expr1.hash();
+        let a: Queriable<Fr> = Queriable::Internal(InternalSignal::new("a"));
+        let b: Queriable<Fr> = Queriable::Internal(InternalSignal::new("b"));
+        let c: Queriable<Fr> = Queriable::Internal(InternalSignal::new("c"));
+        let d: Queriable<Fr> = Queriable::Internal(InternalSignal::new("d"));
+        let e: Queriable<Fr> = Queriable::Internal(InternalSignal::new("e"));
+        let f: Queriable<Fr> = Queriable::Internal(InternalSignal::new("f"));
+        let g: Queriable<Fr> = Queriable::Internal(InternalSignal::new("g"));
+        let vars = vec![a, b, c, d, e, f, g];
 
-        // 2 * 10 + 12
-        let expr2: Expr<Fr, &str, ()> =
-            Const(Fr::from(2), ()) * Const(Fr::from(10), ()) + Const(Fr::from(12), ());
+        let mut assignments_vec = Vec::new();
+        for _ in 0..6 {
+            let mut assignments = VarAssignments::new();
+            for v in &vars {
+                assignments.insert(*v, Fr::random(&mut rng));
+            }
+            assignments_vec.push(assignments);
+        }
 
-        let expr2 = expr2.hash();
+        // Equivalent expressions
+        let expr1 = Pow(Box::new(e.expr()), 6, ()) * a * b + c * d - 1.expr();
+        let expr2 = d * c - 1.expr() + a * b * Pow(Box::new(e.expr()), 6, ());
 
-        assert_eq!(expr1.meta().hash, expr2.meta().hash);
+        // Equivalent expressions
+        let expr3 = f * b - c * d - 1.expr();
+        let expr4 = -1.expr() - c * d + b * f;
 
-        // (3 + 4) * (2 + 5) + (1 * 6)
-        let expr1: Expr<Fr, &str, ()> = (Const(Fr::from(3), ()) + Const(Fr::from(4), ()))
-            * (Const(Fr::from(2), ()) + Const(Fr::from(5), ()))
-            + (Const(Fr::from(1), ()) * Const(Fr::from(6), ()));
+        // Equivalent expressions
+        let expr5 = -(-f * g) * (-(-(-a)));
+        let expr6 = -(f * g * a);
 
-        let expr1 = expr1.hash();
+        let expressions = [expr1, expr2, expr3, expr4, expr5, expr6];
+        let mut hashed_expressions = Vec::new();
 
-        // (2 + 5) * (4 + 3) + (6 * 1)
-        let expr2: Expr<Fr, &str, ()> = (Const(Fr::from(2), ()) + Const(Fr::from(5), ()))
-            * (Const(Fr::from(4), ()) + Const(Fr::from(3), ()))
-            + (Const(Fr::from(6), ()) * Const(Fr::from(1), ()));
-
-        let expr2 = expr2.hash();
+        for expr in expressions {
+            let hashed_expr = expr.hash(&assignments_vec);
+            hashed_expressions.push(hashed_expr);
+        }
 
         assert_eq!(
-            expr1.meta().hash,
-            expr2.meta().hash,
-            "Hashes should be equal for equivalent expressions."
-        );
-
-        // expr1 = -(5 + 2) * -(4 + 3)
-        let expr1: Expr<Fr, &str, ()> = Neg(
-            Box::new(Const(Fr::from(5), ()) + Const(Fr::from(2), ())),
-            (),
-        ) * Neg(
-            Box::new(Const(Fr::from(4), ()) + Const(Fr::from(3), ())),
-            (),
-        );
-
-        let expr1 = expr1.hash();
-
-        // expr2 = (2 + 5) * (4 + 3)
-        let expr2: Expr<Fr, &str, ()> = (Const(Fr::from(2), ()) + Const(Fr::from(5), ()))
-            * (Const(Fr::from(4), ()) + Const(Fr::from(3), ()));
-
-        let expr2 = expr2.hash();
-
-        // // expr1 = -(2^3) * ((5 + 2) * -(4 + 3))
-        // let expr1: Expr<Fr, &str, ()> =
-        //     Neg(Box::new(Pow(Box::new(Const(Fr::from(2), ())), 3, ())), ())
-        //         * ((Const(Fr::from(5), ()) + Const(Fr::from(2), ()))
-        //             * Neg( Box::new(Const(Fr::from(4), ()) + Const(Fr::from(3), ())), (),
-        //             ));
-
-        // let expr1 = expr1.hash();
-
-        // // expr2 = (2 + 5) * (4 + 3) * (2^3)
-        // let expr2: Expr<Fr, &str, ()> = (Const(Fr::from(2), ()) + Const(Fr::from(5), ()))
-        //     * (Const(Fr::from(4), ()) + Const(Fr::from(3), ()))
-        //     * Pow(Box::new(Const(Fr::from(2), ())), 3, ());
-
-        // let expr2 = expr2.hash();
-
-        println!(
-            "Expr1: {:?} | Expr2: {:#?}",
-            expr1.meta().hash,
-            expr2.meta().hash
+            hashed_expressions[0].meta().hash,
+            hashed_expressions[1].meta().hash
         );
 
         assert_eq!(
-            expr1.meta().hash,
-            expr2.meta().hash,
-            "Hashes should be equal for equivalent expressions."
+            hashed_expressions[2].meta().hash,
+            hashed_expressions[3].meta().hash
+        );
+
+        assert_eq!(
+            hashed_expressions[4].meta().hash,
+            hashed_expressions[5].meta().hash
+        );
+
+        assert_ne!(
+            hashed_expressions[0].meta().hash,
+            hashed_expressions[2].meta().hash
+        );
+
+        assert_ne!(
+            hashed_expressions[0].meta().hash,
+            hashed_expressions[4].meta().hash
+        );
+
+        assert_ne!(
+            hashed_expressions[2].meta().hash,
+            hashed_expressions[5].meta().hash
         );
     }
 }
