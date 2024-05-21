@@ -70,19 +70,17 @@ pub struct HashResult {
 
 impl<F: Field + Hash, V: Debug + Clone + Eq + Hash> Expr<F, V, ()> {
     /// Uses Schwartz-Zippel Lemma to hash
-    pub fn hash(&self, assignments: &Vec<VarAssignments<F, V>>) -> Expr<F, V, HashResult> {
+    pub fn hash(&self, assignments: &[VarAssignments<F, V>]) -> Expr<F, V, HashResult> {
         let mut hasher = DefaultHasher::new();
 
         for assignment in assignments {
-            if let Some(result) = self.eval(&assignment) {
-                hasher.write(format!("{:#?}", result).as_bytes());
+            if let Some(result) = self.eval(assignment) {
+                result.hash(&mut hasher);
             }
         }
 
-        let hash = hasher.finish();
-
         let hash_result = HashResult {
-            hash,
+            hash: hasher.finish(),
             degree: self.degree(),
         };
 
@@ -90,23 +88,17 @@ impl<F: Field + Hash, V: Debug + Clone + Eq + Hash> Expr<F, V, ()> {
             Expr::Const(v, _) => Expr::Const(*v, hash_result),
             Expr::Query(v, _) => Expr::Query(v.clone(), hash_result),
             Expr::Sum(ses, _) => {
-                let mut new_ses = Vec::with_capacity(ses.len());
-                for se in ses {
-                    new_ses.push(se.hash(&assignments));
-                }
+                let new_ses = ses.iter().map(|se| se.hash(assignments)).collect();
                 Expr::Sum(new_ses, hash_result)
             }
             Expr::Mul(ses, _) => {
-                let mut new_ses = Vec::with_capacity(ses.len());
-                for se in ses {
-                    new_ses.push(se.hash(&assignments));
-                }
+                let new_ses = ses.iter().map(|se| se.hash(assignments)).collect();
                 Expr::Mul(new_ses, hash_result)
             }
             Expr::Neg(se, _) => Expr::Neg(Box::new(se.hash(assignments)), hash_result),
             Expr::Pow(se, exp, _) => Expr::Pow(Box::new(se.hash(assignments)), *exp, hash_result),
             Expr::Halo2Expr(_, _) => panic!("not implemented"),
-            Expr::MI(_, _) => panic!("not implemented"),
+            Expr::MI(se, _) => Expr::MI(Box::new(se.hash(assignments)), hash_result),
         }
     }
 }
