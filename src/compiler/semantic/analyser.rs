@@ -183,13 +183,13 @@ impl Analyser {
         {
             let id = Identifier("final".to_string(), 0);
             let stmt = Statement::StateDecl(
-                DebugSymRef::new(0, 0),
+                block.get_dsym(),
                 id.clone(),
-                Box::new(Statement::Block(DebugSymRef::new(0, 0), vec![])),
+                Box::new(Statement::Block(block.get_dsym(), vec![])),
             );
 
             let sym = SymTableEntry {
-                definition_ref: DebugSymRef::new(0, 0),
+                definition_ref: block.get_dsym(),
                 category: SymbolCategory::State,
                 ty: None,
             };
@@ -303,7 +303,7 @@ impl Analyser {
 
 #[cfg(test)]
 mod test {
-    use crate::parser::lang;
+    use crate::parser::{ast::debug_sym_factory::DebugSymRefFactory, lang};
 
     use super::analyse;
 
@@ -316,7 +316,7 @@ mod test {
             signal a: field, i;
 
             // there is always a state called initial
-            // input signals get binded to the signal
+            // input signals get bound to the signal
             // in the initial state (first instance)
             state initial {
              signal c;
@@ -345,21 +345,22 @@ mod test {
             }
 
             // There is always a state called final.
-            // Output signals get automatically bindinded to the signals
+            // Output signals get automatically bound to the signals
             // with the same name in the final step (last instance).
             // This state can be implicit if there are no constraints in it.
            }
         ";
 
-        let decls = lang::TLDeclsParser::new().parse(circuit).unwrap();
+        let debug_sym_factory = DebugSymRefFactory::new("", circuit);
+        let decls = lang::TLDeclsParser::new()
+            .parse(&debug_sym_factory, circuit)
+            .unwrap();
 
         let result = analyse(&decls);
 
-        // println!("{:?}", result);
-
         assert_eq!(
             format!("{:?}", result),
-            r#"AnalysisResult { symbols: "/": ScopeTable { symbols: "\"fibo\": SymTableEntry { definition_ref: DebugSymRef { start: 0, end: 0 }, category: Machine, ty: None }", scope: Global },"//fibo": ScopeTable { symbols: "\"a\": SymTableEntry { definition_ref: DebugSymRef { start: 0, end: 0 }, category: Signal, ty: Some(\"field\") },\"b\": SymTableEntry { definition_ref: DebugSymRef { start: 0, end: 0 }, category: OutputSignal, ty: Some(\"field\") },\"final\": SymTableEntry { definition_ref: DebugSymRef { start: 0, end: 0 }, category: State, ty: None },\"i\": SymTableEntry { definition_ref: DebugSymRef { start: 0, end: 0 }, category: Signal, ty: None },\"initial\": SymTableEntry { definition_ref: DebugSymRef { start: 0, end: 0 }, category: State, ty: None },\"middle\": SymTableEntry { definition_ref: DebugSymRef { start: 0, end: 0 }, category: State, ty: None },\"n\": SymTableEntry { definition_ref: DebugSymRef { start: 0, end: 0 }, category: InputSignal, ty: None }", scope: Machine },"//fibo/final": ScopeTable { symbols: "", scope: State },"//fibo/initial": ScopeTable { symbols: "\"c\": SymTableEntry { definition_ref: DebugSymRef { start: 0, end: 0 }, category: Signal, ty: None }", scope: State },"//fibo/middle": ScopeTable { symbols: "\"c\": SymTableEntry { definition_ref: DebugSymRef { start: 0, end: 0 }, category: Signal, ty: None }", scope: State }, messages: [] }"#
+            r#"AnalysisResult { symbols: "/": ScopeTable { symbols: "\"fibo\": SymTableEntry { definition_ref: DebugSymRef { start: \"2:9\", end: \"40:13\" }, category: Machine, ty: None }", scope: Global },"//fibo": ScopeTable { symbols: "\"a\": SymTableEntry { definition_ref: DebugSymRef { line: 5, cols: \"13-32\" }, category: Signal, ty: Some(\"field\") },\"b\": SymTableEntry { definition_ref: DebugSymRef { line: 2, cols: \"33-48\" }, category: OutputSignal, ty: Some(\"field\") },\"final\": SymTableEntry { definition_ref: DebugSymRef { start: \"2:50\", end: \"40:13\" }, category: State, ty: None },\"i\": SymTableEntry { definition_ref: DebugSymRef { line: 5, cols: \"13-32\" }, category: Signal, ty: None },\"initial\": SymTableEntry { definition_ref: DebugSymRef { start: \"10:13\", end: \"18:14\" }, category: State, ty: None },\"middle\": SymTableEntry { definition_ref: DebugSymRef { start: \"20:13\", end: \"34:14\" }, category: State, ty: None },\"n\": SymTableEntry { definition_ref: DebugSymRef { line: 2, cols: \"22-30\" }, category: InputSignal, ty: None }", scope: Machine },"//fibo/final": ScopeTable { symbols: "", scope: State },"//fibo/initial": ScopeTable { symbols: "\"c\": SymTableEntry { definition_ref: DebugSymRef { line: 11, cols: \"14-23\" }, category: Signal, ty: None }", scope: State },"//fibo/middle": ScopeTable { symbols: "\"c\": SymTableEntry { definition_ref: DebugSymRef { line: 21, cols: \"14-23\" }, category: Signal, ty: None }", scope: State }, messages: [] }"#
         )
     }
 }
