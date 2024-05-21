@@ -348,7 +348,10 @@ lazy_static! {
 
 #[cfg(test)]
 mod test {
-    use crate::{compiler::semantic::analyser::analyse, parser::lang};
+    use crate::{
+        compiler::semantic::analyser::analyse,
+        parser::{ast::debug_sym_factory::DebugSymRefFactory, lang},
+    };
 
     #[test]
     fn test_analyser_undeclared() {
@@ -359,7 +362,7 @@ mod test {
             signal i; // a is undeclared
 
             // there is always a state called initial
-            // input signals get binded to the signal
+            // input signals get bound to the signal
             // in the initial state (first instance)
             state initial {
              signal c;
@@ -388,19 +391,22 @@ mod test {
             }
 
             // There is always a state called final.
-            // Output signals get automatically bindinded to the signals
+            // Output signals get automatically bound to the signals
             // with the same name in the final step (last instance).
             // This state can be implicit if there are no constraints in it.
            }
         ";
 
-        let decls = lang::TLDeclsParser::new().parse(circuit).unwrap();
+        let debug_sym_ref_factory = DebugSymRefFactory::new("", &circuit);
+        let decls = lang::TLDeclsParser::new()
+            .parse(&debug_sym_ref_factory, circuit)
+            .unwrap();
 
         let result = analyse(&decls);
 
         assert_eq!(
             format!("{:?}", result.messages),
-            r#"[SemErr { msg: "use of undeclared variable a", dsym: DebugSymRef { start: 0, end: 0 } }]"#
+            r#"[SemErr { msg: "use of undeclared variable a", dsym: DebugSymRef { line: 23, cols: "20-21" } }]"#
         )
     }
 
@@ -413,7 +419,7 @@ mod test {
             signal a, i;
 
             // there is always a state called initial
-            // input signals get binded to the signal
+            // input signals get bound to the signal
             // in the initial state (first instance)
             state initial {
              signal c;
@@ -442,19 +448,22 @@ mod test {
             }
 
             // There is always a state called final.
-            // Output signals get automatically bindinded to the signals
+            // Output signals get automatically bound to the signals
             // with the same name in the final step (last instance).
             // This state can be implicit if there are no constraints in it.
            }
         ";
 
-        let decls = lang::TLDeclsParser::new().parse(circuit).unwrap();
+        let debug_sym_ref_factory = DebugSymRefFactory::new("", &circuit);
+        let decls = lang::TLDeclsParser::new()
+            .parse(&debug_sym_ref_factory, circuit)
+            .unwrap();
 
         let result = analyse(&decls);
 
         assert_eq!(
             format!("{:?}", result.messages),
-            r#"[SemErr { msg: "There cannot be rotation in identifier declaration of fibo", dsym: DebugSymRef { start: 0, end: 0 } }]"#
+            r#"[SemErr { msg: "There cannot be rotation in identifier declaration of fibo", dsym: DebugSymRef { start: "2:9", end: "40:13" } }]"#
         );
 
         let circuit = "
@@ -464,7 +473,7 @@ mod test {
             signal a, i;
 
             // there is always a state called initial
-            // input signals get binded to the signal
+            // input signals get bound to the signal
             // in the initial state (first instance)
             state initial' {
              signal c;
@@ -493,19 +502,21 @@ mod test {
             }
 
             // There is always a state called final.
-            // Output signals get automatically bindinded to the signals
+            // Output signals get automatically bound to the signals
             // with the same name in the final step (last instance).
             // This state can be implicit if there are no constraints in it.
            }
         ";
 
-        let decls = lang::TLDeclsParser::new().parse(circuit).unwrap();
+        let decls = lang::TLDeclsParser::new()
+            .parse(&debug_sym_ref_factory, circuit)
+            .unwrap();
 
         let result = analyse(&decls);
 
         assert_eq!(
             format!("{:?}", result.messages),
-            r#"[SemErr { msg: "There cannot be rotation in identifier declaration of initial", dsym: DebugSymRef { start: 0, end: 0 } }]"#
+            r#"[SemErr { msg: "There cannot be rotation in identifier declaration of initial", dsym: DebugSymRef { start: "10:12", end: "18:14" } }]"#
         );
 
         let circuit = "
@@ -515,7 +526,7 @@ mod test {
             signal a, i;
 
             // there is always a state called initial
-            // input signals get binded to the signal
+            // input signals get bound to the signal
             // in the initial state (first instance)
             state initial {
              signal c';
@@ -544,19 +555,21 @@ mod test {
             }
 
             // There is always a state called final.
-            // Output signals get automatically bindinded to the signals
+            // Output signals get automatically bound to the signals
             // with the same name in the final step (last instance).
             // This state can be implicit if there are no constraints in it.
            }
         ";
 
-        let decls = lang::TLDeclsParser::new().parse(circuit).unwrap();
+        let decls = lang::TLDeclsParser::new()
+            .parse(&debug_sym_ref_factory, circuit)
+            .unwrap();
 
         let result = analyse(&decls);
 
         assert_eq!(
             format!("{:?}", result.messages),
-            r#"[SemErr { msg: "There cannot be rotation in identifier declaration of c", dsym: DebugSymRef { start: 0, end: 0 } }]"#
+            r#"[SemErr { msg: "There cannot be rotation in identifier declaration of c", dsym: DebugSymRef { line: 11, cols: "13-23" } }]"#
         )
     }
 
@@ -569,7 +582,7 @@ mod test {
             signal a, i;
 
             // there is always a state called initial
-            // input signals get binded to the signal
+            // input signals get bound to the signal
             // in the initial state (first instance)
             state initial {
              signal c;
@@ -602,13 +615,16 @@ mod test {
             }
 
             // There is always a state called final.
-            // Output signals get automatically bindinded to the signals
+            // Output signals get automatically bound to the signals
             // with the same name in the final step (last instance).
             // This state can be implicit if there are no constraints in it.
            }
         ";
 
-        let decls = lang::TLDeclsParser::new().parse(circuit).unwrap();
+        let debug_sym_ref_factory = DebugSymRefFactory::new("", &circuit);
+        let decls = lang::TLDeclsParser::new()
+            .parse(&debug_sym_ref_factory, circuit)
+            .unwrap();
 
         let result = analyse(&decls);
 
@@ -624,7 +640,7 @@ mod test {
             signal a, i;
 
             // there is always a state called initial
-            // input signals get binded to the signal
+            // input signals get bound to the signal
             // in the initial state (first instance)
             state initial {
              signal c;
@@ -657,13 +673,15 @@ mod test {
             }
 
             // There is always a state called final.
-            // Output signals get automatically bindinded to the signals
+            // Output signals get automatically bound to the signals
             // with the same name in the final step (last instance).
             // This state can be implicit if there are no constraints in it.
            }
         ";
 
-        let decls = lang::TLDeclsParser::new().parse(circuit).unwrap();
+        let decls = lang::TLDeclsParser::new()
+            .parse(&debug_sym_ref_factory, circuit)
+            .unwrap();
 
         let result = analyse(&decls);
 
@@ -682,7 +700,7 @@ mod test {
             signal a: field, i;
 
             // there is always a state called initial
-            // input signals get binded to the signal
+            // input signals get bound to the signal
             // in the initial state (first instance)
             state initial {
              signal c;
@@ -712,19 +730,22 @@ mod test {
             }
 
             // There is always a state called final.
-            // Output signals get automatically bindinded to the signals
+            // Output signals get automatically bound to the signals
             // with the same name in the final step (last instance).
             // This state can be implicit if there are no constraints in it.
            }
         ";
 
-        let decls = lang::TLDeclsParser::new().parse(circuit).unwrap();
+        let debug_sym_ref_factory = DebugSymRefFactory::new("", &circuit);
+        let decls = lang::TLDeclsParser::new()
+            .parse(&debug_sym_ref_factory, circuit)
+            .unwrap();
 
         let result = analyse(&decls);
 
         assert_eq!(
             format!("{:?}", result.messages),
-            r#"[SemErr { msg: "Cannot assign with <-- or <== to variable wrong with category WGVar, you can only assign to signals. Use = instead.", dsym: DebugSymRef { start: 0, end: 0 } }]"#
+            r#"[SemErr { msg: "Cannot assign with <-- or <== to variable wrong with category WGVar, you can only assign to signals. Use = instead.", dsym: DebugSymRef { line: 14, cols: "14-50" } }]"#
         );
     }
 
@@ -737,7 +758,7 @@ mod test {
             signal a: field, i;
 
             // there is always a state called initial
-            // input signals get binded to the signal
+            // input signals get bound to the signal
             // in the initial state (first instance)
             state initial {
              signal c;
@@ -769,19 +790,22 @@ mod test {
             }
 
             // There is always a state called final.
-            // Output signals get automatically bindinded to the signals
+            // Output signals get automatically bound to the signals
             // with the same name in the final step (last instance).
             // This state can be implicit if there are no constraints in it.
            }
         ";
 
-        let decls = lang::TLDeclsParser::new().parse(circuit).unwrap();
+        let debug_sym_ref_factory = DebugSymRefFactory::new("", &circuit);
+        let decls = lang::TLDeclsParser::new()
+            .parse(&debug_sym_ref_factory, circuit)
+            .unwrap();
 
         let result = analyse(&decls);
 
         assert_eq!(
             format!("{:?}", result.messages),
-            r#"[SemErr { msg: "Cannot use wgvar wrong in statement assert wrong == 3;", dsym: DebugSymRef { start: 0, end: 0 } }, SemErr { msg: "Cannot use wgvar wrong in statement [c] <== [(a + b) + wrong];", dsym: DebugSymRef { start: 0, end: 0 } }]"#
+            r#"[SemErr { msg: "Cannot use wgvar wrong in statement assert wrong == 3;", dsym: DebugSymRef { line: 24, cols: "14-32" } }, SemErr { msg: "Cannot use wgvar wrong in statement [c] <== [(a + b) + wrong];", dsym: DebugSymRef { line: 26, cols: "14-34" } }]"#
         )
     }
 
@@ -796,7 +820,7 @@ mod test {
             i, a, b, c <== 1, 1, 1, 2; // this cannot be here
 
             // there is always a state called initial
-            // input signals get binded to the signal
+            // input signals get bound to the signal
             // in the initial state (first instance)
             state initial {
              signal c;
@@ -831,19 +855,22 @@ mod test {
             }
 
             // There is always a state called final.
-            // Output signals get automatically bindinded to the signals
+            // Output signals get automatically bound to the signals
             // with the same name in the final step (last instance).
             // This state can be implicit if there are no constraints in it.
            }
         ";
 
-        let decls = lang::TLDeclsParser::new().parse(circuit).unwrap();
+        let debug_sym_ref_factory = DebugSymRefFactory::new("", &circuit);
+        let decls = lang::TLDeclsParser::new()
+            .parse(&debug_sym_ref_factory, circuit)
+            .unwrap();
 
         let result = analyse(&decls);
 
         assert_eq!(
             format!("{:?}", result.messages),
-            r#"[SemErr { msg: "Cannot declare [i, a, b, c] <== [1, 1, 1, 2]; in the machine, only states, wgvars and signals are allowed", dsym: DebugSymRef { start: 0, end: 0 } }, SemErr { msg: "Cannot declare if (i + 1) == n { [a] <-- [3]; } else { [b] <== [3]; } in the machine, only states, wgvars and signals are allowed", dsym: DebugSymRef { start: 0, end: 0 } }]"#
+            r#"[SemErr { msg: "Cannot declare [i, a, b, c] <== [1, 1, 1, 2]; in the machine, only states, wgvars and signals are allowed", dsym: DebugSymRef { start: "2:9", end: "48:13" } }, SemErr { msg: "Cannot declare if (i + 1) == n { [a] <-- [3]; } else { [b] <== [3]; } in the machine, only states, wgvars and signals are allowed", dsym: DebugSymRef { start: "2:9", end: "48:13" } }]"#
         );
     }
 
@@ -856,7 +883,7 @@ mod test {
             signal a: field, i;
 
             // there is always a state called initial
-            // input signals get binded to the signal
+            // input signals get bound to the signal
             // in the initial state (first instance)
             state initial {
              signal c;
@@ -894,19 +921,22 @@ mod test {
             }
 
             // There is always a state called final.
-            // Output signals get automatically bindinded to the signals
+            // Output signals get automatically bound to the signals
             // with the same name in the final step (last instance).
             // This state can be implicit if there are no constraints in it.
            }
         ";
 
-        let decls = lang::TLDeclsParser::new().parse(circuit).unwrap();
+        let debug_sym_ref_factory = DebugSymRefFactory::new("", &circuit);
+        let decls = lang::TLDeclsParser::new()
+            .parse(&debug_sym_ref_factory, circuit)
+            .unwrap();
 
         let result = analyse(&decls);
 
         assert_eq!(
             format!("{:?}", result.messages),
-            r#"[SemErr { msg: "Cannot redeclare middle in the same scope [\"/\", \"fibo\"]", dsym: DebugSymRef { start: 0, end: 0 } }, SemErr { msg: "Cannot redeclare n in the same scope [\"/\", \"fibo\"]", dsym: DebugSymRef { start: 0, end: 0 } }, SemErr { msg: "Cannot redeclare c in the same scope [\"/\", \"fibo\", \"middle\"]", dsym: DebugSymRef { start: 0, end: 0 } }]"#
+            r#"[SemErr { msg: "Cannot redeclare middle in the same scope [\"/\", \"fibo\"]", dsym: DebugSymRef { start: "28:13", end: "43:14" } }, SemErr { msg: "Cannot redeclare n in the same scope [\"/\", \"fibo\"]", dsym: DebugSymRef { line: 20, cols: "13-22" } }, SemErr { msg: "Cannot redeclare c in the same scope [\"/\", \"fibo\", \"middle\"]", dsym: DebugSymRef { line: 30, cols: "14-23" } }]"#
         );
     }
 
@@ -919,7 +949,7 @@ mod test {
             signal a: field, i;
 
             // there is always a state called initial
-            // input signals get binded to the signal
+            // input signals get bound to the signal
             // in the initial state (first instance)
             state initial {
              signal c;
@@ -948,19 +978,22 @@ mod test {
             }
 
             // There is always a state called final.
-            // Output signals get automatically bindinded to the signals
+            // Output signals get automatically bound to the signals
             // with the same name in the final step (last instance).
             // This state can be implicit if there are no constraints in it.
            }
         ";
 
-        let decls = lang::TLDeclsParser::new().parse(circuit).unwrap();
+        let debug_sym_ref_factory = DebugSymRefFactory::new("", &circuit);
+        let decls = lang::TLDeclsParser::new()
+            .parse(&debug_sym_ref_factory, circuit)
+            .unwrap();
 
         let result = analyse(&decls);
 
         assert_eq!(
             format!("{:?}", result.messages),
-            r#"[SemErr { msg: "Cannot declare n with type uint, only field and bool are allowed.", dsym: DebugSymRef { start: 0, end: 0 } }, SemErr { msg: "Cannot declare c with type int, only field and bool are allowed.", dsym: DebugSymRef { start: 0, end: 0 } }]"#
+            r#"[SemErr { msg: "Cannot declare n with type uint, only field and bool are allowed.", dsym: DebugSymRef { line: 2, cols: "22-36" } }, SemErr { msg: "Cannot declare c with type int, only field and bool are allowed.", dsym: DebugSymRef { line: 21, cols: "14-28" } }]"#
         );
     }
 
@@ -973,7 +1006,7 @@ mod test {
             signal a: field, i;
 
             // there is always a state called initial
-            // input signals get binded to the signal
+            // input signals get bound to the signal
             // in the initial state (first instance)
             state initial {
              signal c;
@@ -1011,19 +1044,22 @@ mod test {
             }
 
             // There is always a state called final.
-            // Output signals get automatically bindinded to the signals
+            // Output signals get automatically bound to the signals
             // with the same name in the final step (last instance).
             // This state can be implicit if there are no constraints in it.
            }
         ";
 
-        let decls = lang::TLDeclsParser::new().parse(circuit).unwrap();
+        let debug_sym_ref_factory = DebugSymRefFactory::new("", &circuit);
+        let decls = lang::TLDeclsParser::new()
+            .parse(&debug_sym_ref_factory, circuit)
+            .unwrap();
 
         let result = analyse(&decls);
 
         assert_eq!(
             format!("{:?}", result.messages),
-            r#"[SemErr { msg: "Cannot use true in expression 2 + true", dsym: DebugSymRef { start: 0, end: 0 } }, SemErr { msg: "Cannot use true in expression 1 * true", dsym: DebugSymRef { start: 0, end: 0 } }, SemErr { msg: "Cannot use false in expression false - 123", dsym: DebugSymRef { start: 0, end: 0 } }, SemErr { msg: "Cannot use false in expression false * false", dsym: DebugSymRef { start: 0, end: 0 } }, SemErr { msg: "Cannot use false in expression false * false", dsym: DebugSymRef { start: 0, end: 0 } }]"#
+            r#"[SemErr { msg: "Cannot use true in expression 2 + true", dsym: DebugSymRef { line: 15, cols: "42-46" } }, SemErr { msg: "Cannot use true in expression 1 * true", dsym: DebugSymRef { line: 32, cols: "24-28" } }, SemErr { msg: "Cannot use false in expression false - 123", dsym: DebugSymRef { line: 32, cols: "31-36" } }, SemErr { msg: "Cannot use false in expression false * false", dsym: DebugSymRef { line: 32, cols: "50-55" } }, SemErr { msg: "Cannot use false in expression false * false", dsym: DebugSymRef { line: 32, cols: "58-63" } }]"#
         );
     }
 }

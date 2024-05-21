@@ -7,30 +7,33 @@ pub mod build;
 
 #[cfg(test)]
 mod test {
+    use crate::parser::ast::debug_sym_factory::DebugSymRefFactory;
+
     use super::lang;
 
     #[test]
     fn test_parser_expressions() {
+        let debug_sym_ref_factory = DebugSymRefFactory::new("", "");
         let expr = lang::ExpressionParser::new()
-            .parse("22 + 44 + 66 * a")
+            .parse(&debug_sym_ref_factory, "22 + 44 + 66 * a")
             .unwrap();
         assert_eq!(&format!("{:?}", expr), "(22 + 44) + (66 * a)");
         assert!(expr.is_arith());
 
         let expr = lang::ExpressionParser::new()
-            .parse("0 == 22 + 44 + 66 * a")
+            .parse(&debug_sym_ref_factory, "0 == 22 + 44 + 66 * a")
             .unwrap();
         assert_eq!(&format!("{:?}", expr), "0 == ((22 + 44) + (66 * a))");
         assert!(expr.is_logic());
 
         let expr = lang::ExpressionParser::new()
-            .parse("0 == 22 + (44 + 66) * a")
+            .parse(&debug_sym_ref_factory, "0 == 22 + (44 + 66) * a")
             .unwrap();
         assert_eq!(&format!("{:?}", expr), "0 == (22 + ((44 + 66) * a))");
         assert!(expr.is_logic());
 
         let expr = lang::ExpressionParser::new()
-            .parse("a == 12 && b == 22 + 44 + 66 * a")
+            .parse(&debug_sym_ref_factory, "a == 12 && b == 22 + 44 + 66 * a")
             .unwrap();
         assert_eq!(
             &format!("{:?}", expr),
@@ -39,29 +42,31 @@ mod test {
         assert!(expr.is_logic());
 
         let expr = lang::ExpressionParser::new()
-            .parse("true || false && a == 12")
+            .parse(&debug_sym_ref_factory, "true || false && a == 12")
             .unwrap();
         assert_eq!(&format!("{:?}", expr), "true || (false && (a == 12))");
         assert!(expr.is_logic());
 
         let expr = lang::ExpressionParser::new()
-            .parse("12 * a**2 / 3 < 12 << 2")
+            .parse(&debug_sym_ref_factory, "12 * a**2 / 3 < 12 << 2")
             .unwrap();
         assert_eq!(&format!("{:?}", expr), "((12 * (a ** 2)) / 3) < (12 << 2)");
         assert!(expr.is_logic());
 
-        let expr = lang::ExpressionParser::new().parse("a << 2 & b").unwrap();
+        let expr = lang::ExpressionParser::new()
+            .parse(&debug_sym_ref_factory, "a << 2 & b")
+            .unwrap();
         assert_eq!(&format!("{:?}", expr), "(a << 2) & b");
         assert!(expr.is_logic());
 
         let expr = lang::ExpressionParser::new()
-            .parse("a << 2 & ~b | c")
+            .parse(&debug_sym_ref_factory, "a << 2 & ~b | c")
             .unwrap();
         assert_eq!(&format!("{:?}", expr), "((a << 2) & (~b)) | c");
         assert!(expr.is_logic());
 
         let expr = lang::ExpressionParser::new()
-            .parse("a << 2 * -(b + ~c)")
+            .parse(&debug_sym_ref_factory, "a << 2 * -(b + ~c)")
             .unwrap();
         assert_eq!(&format!("{:?}", expr), "a << (2 * (-(b + (~c))))");
         assert!(expr.is_arith());
@@ -69,14 +74,15 @@ mod test {
 
     #[test]
     fn test_parser_statements() {
+        let debug_sym_ref_factory = DebugSymRefFactory::new("", "");
         let stmts = lang::StatementsParser::new()
-            .parse("if 0 == 22 { 0 === a; }")
+            .parse(&debug_sym_ref_factory, "if 0 == 22 { 0 === a; }")
             .unwrap();
         assert_eq!(&format!("{:?}", stmts), "[if 0 == 22 { assert 0 == a; }]");
         assert_eq!(stmts.len(), 1);
 
         let stmts = lang::StatementsParser::new()
-            .parse("if 0 == 22 { 0 === a; 1 === b; }")
+            .parse(&debug_sym_ref_factory, "if 0 == 22 { 0 === a; 1 === b; }")
             .unwrap();
         assert_eq!(
             &format!("{:?}", stmts),
@@ -85,7 +91,7 @@ mod test {
         assert_eq!(stmts.len(), 1);
 
         let stmts = lang::StatementsParser::new()
-            .parse("if 0 == 22 { 0 === a; 1 === b; }")
+            .parse(&debug_sym_ref_factory, "if 0 == 22 { 0 === a; 1 === b; }")
             .unwrap();
         assert_eq!(
             &format!("{:?}", stmts),
@@ -94,7 +100,10 @@ mod test {
         assert_eq!(stmts.len(), 1);
 
         let stmts = lang::StatementsParser::new()
-            .parse("if 0 == 22 { 0 === a; 1 === b;} b === 1;")
+            .parse(
+                &debug_sym_ref_factory,
+                "if 0 == 22 { 0 === a; 1 === b;} b === 1;",
+            )
             .unwrap();
         assert_eq!(
             &format!("{:?}", stmts),
@@ -112,7 +121,7 @@ mod test {
             signal a: field, i;
 
             // there is always a state called initial
-            // input signals get binded to the signal
+            // input signals get bound to the signal
             // in the initial state (first instance)
             state initial {
              signal c;
@@ -141,13 +150,16 @@ mod test {
             }
 
             // There is always a state called final.
-            // Output signals get automatically bindinded to the signals
+            // Output signals get automatically bound to the signals
             // with the same name in the final step (last instance).
             // This state can be implicit if there are no constraints in it.
            }
         ";
 
-        let decls = lang::TLDeclsParser::new().parse(circuit).unwrap();
+        let debug_sym_ref_factory = DebugSymRefFactory::new("", &circuit);
+        let decls = lang::TLDeclsParser::new()
+            .parse(&debug_sym_ref_factory, circuit)
+            .unwrap();
 
         assert_eq!(
             format!("{:?}", decls),
@@ -224,7 +236,10 @@ mod test {
         })
         ";
 
-        let decls = lang::TLDeclsParser::new().parse(circuit).unwrap();
+        let debug_sym_ref_factory = DebugSymRefFactory::new("", circuit);
+        let decls = lang::TLDeclsParser::new()
+            .parse(&debug_sym_ref_factory, circuit)
+            .unwrap();
 
         println!("{:?}", decls);
     }
