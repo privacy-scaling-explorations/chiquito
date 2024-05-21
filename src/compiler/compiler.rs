@@ -522,7 +522,7 @@ mod test {
            }
         ";
 
-        let debug_sym_ref_factory = DebugSymRefFactory::new("", &circuit);
+        let debug_sym_ref_factory = DebugSymRefFactory::new("", circuit);
         let result = compile::<Fr>(
             circuit,
             Config::default().max_degree(2),

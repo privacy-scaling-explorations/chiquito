@@ -397,7 +397,7 @@ mod test {
            }
         ";
 
-        let debug_sym_ref_factory = DebugSymRefFactory::new("", &circuit);
+        let debug_sym_ref_factory = DebugSymRefFactory::new("", circuit);
         let decls = lang::TLDeclsParser::new()
             .parse(&debug_sym_ref_factory, circuit)
             .unwrap();
@@ -454,7 +454,7 @@ mod test {
            }
         ";
 
-        let debug_sym_ref_factory = DebugSymRefFactory::new("", &circuit);
+        let debug_sym_ref_factory = DebugSymRefFactory::new("", circuit);
         let decls = lang::TLDeclsParser::new()
             .parse(&debug_sym_ref_factory, circuit)
             .unwrap();
@@ -621,7 +621,7 @@ mod test {
            }
         ";
 
-        let debug_sym_ref_factory = DebugSymRefFactory::new("", &circuit);
+        let debug_sym_ref_factory = DebugSymRefFactory::new("", circuit);
         let decls = lang::TLDeclsParser::new()
             .parse(&debug_sym_ref_factory, circuit)
             .unwrap();
@@ -630,7 +630,7 @@ mod test {
 
         assert_eq!(
             format!("{:?}", result.messages),
-            r#"[SemErr { msg: "Cannot declare state nested here", dsym: DebugSymRef { start: 0, end: 0 } }]"#
+            r#"[SemErr { msg: "Cannot declare state nested here", dsym: DebugSymRef { start: "13:17", end: "15:18" } }]"#
         );
 
         let circuit = "
@@ -687,7 +687,7 @@ mod test {
 
         assert_eq!(
             format!("{:?}", result.messages),
-            r#"[SemErr { msg: "Cannot declare state nested here", dsym: DebugSymRef { start: 0, end: 0 } }]"#
+            r#"[SemErr { msg: "Cannot declare state nested here", dsym: DebugSymRef { start: "18:1", end: "20:29" } }]"#
         );
     }
 
@@ -736,7 +736,7 @@ mod test {
            }
         ";
 
-        let debug_sym_ref_factory = DebugSymRefFactory::new("", &circuit);
+        let debug_sym_ref_factory = DebugSymRefFactory::new("", circuit);
         let decls = lang::TLDeclsParser::new()
             .parse(&debug_sym_ref_factory, circuit)
             .unwrap();
@@ -796,7 +796,7 @@ mod test {
            }
         ";
 
-        let debug_sym_ref_factory = DebugSymRefFactory::new("", &circuit);
+        let debug_sym_ref_factory = DebugSymRefFactory::new("", circuit);
         let decls = lang::TLDeclsParser::new()
             .parse(&debug_sym_ref_factory, circuit)
             .unwrap();
@@ -861,7 +861,7 @@ mod test {
            }
         ";
 
-        let debug_sym_ref_factory = DebugSymRefFactory::new("", &circuit);
+        let debug_sym_ref_factory = DebugSymRefFactory::new("", circuit);
         let decls = lang::TLDeclsParser::new()
             .parse(&debug_sym_ref_factory, circuit)
             .unwrap();
@@ -927,7 +927,7 @@ mod test {
            }
         ";
 
-        let debug_sym_ref_factory = DebugSymRefFactory::new("", &circuit);
+        let debug_sym_ref_factory = DebugSymRefFactory::new("", circuit);
         let decls = lang::TLDeclsParser::new()
             .parse(&debug_sym_ref_factory, circuit)
             .unwrap();
@@ -984,7 +984,7 @@ mod test {
            }
         ";
 
-        let debug_sym_ref_factory = DebugSymRefFactory::new("", &circuit);
+        let debug_sym_ref_factory = DebugSymRefFactory::new("", circuit);
         let decls = lang::TLDeclsParser::new()
             .parse(&debug_sym_ref_factory, circuit)
             .unwrap();
@@ -1050,7 +1050,7 @@ mod test {
            }
         ";
 
-        let debug_sym_ref_factory = DebugSymRefFactory::new("", &circuit);
+        let debug_sym_ref_factory = DebugSymRefFactory::new("", circuit);
         let decls = lang::TLDeclsParser::new()
             .parse(&debug_sym_ref_factory, circuit)
             .unwrap();

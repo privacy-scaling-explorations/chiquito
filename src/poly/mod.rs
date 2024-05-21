@@ -506,7 +506,7 @@ mod test {
 
         // Equivalent expressions
         let expr3 = f * b - c * d - 1.expr();
-        let expr4 = -1.expr() - c * d + b * f;
+        let expr4 = -(1.expr()) - c * d + b * f;
 
         // Equivalent expressions
         let expr5 = -(-f * g) * (-(-(-a)));
