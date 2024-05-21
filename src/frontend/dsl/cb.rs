@@ -724,7 +724,7 @@ mod tests {
         let queriable = Queriable::StepTypeNext(StepTypeHandler::new("test_step".to_owned()));
         let constraint: Constraint<Fr> = Constraint::from(queriable);
 
-        assert_eq!(constraint.annotation, "test_step");
+        assert_eq!(constraint.annotation, "next_step(test_step)");
         assert!(
             matches!(constraint.expr, Expr::Query(Queriable::StepTypeNext(s), ()) if
             matches!(s, StepTypeHandler {id: _id, annotation: "test_step"}))

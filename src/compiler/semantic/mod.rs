@@ -198,10 +198,12 @@ impl SymTable {
     pub fn find_symbol(&self, scope: &[String], id: String) -> Option<FoundSymbol> {
         let mut level = 0;
         while level < scope.len() {
-            let table = self
-                .scopes
-                .get(&Self::get_key_level(scope, level))
-                .expect("scope not found");
+            let table = self.scopes.get(&Self::get_key_level(scope, level));
+            if table.is_none() {
+                level += 1;
+                continue;
+            }
+            let table = table.unwrap();
             let symbol = table.get_symbol(id.clone());
 
             if symbol.is_some() {
