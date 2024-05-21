@@ -1,4 +1,7 @@
 use core::fmt::Debug;
+use std::rc::Rc;
+
+use codespan_reporting::files::SimpleFile;
 
 pub mod debug_sym_factory;
 pub mod expression;
@@ -16,8 +19,8 @@ pub struct DebugSymRef {
     pub line_end: usize,
     /// Ending column number in the file
     pub col_end: usize,
-    /// Source file name
-    pub file_name: String,
+    /// Source file reference
+    file: Rc<SimpleFile<String, String>>,
 }
 
 impl DebugSymRef {
@@ -26,26 +29,28 @@ impl DebugSymRef {
         col_start: usize,
         line_end: usize,
         col_end: usize,
-        file_name: String,
+        file: Rc<SimpleFile<String, String>>,
     ) -> DebugSymRef {
         DebugSymRef {
             line_start,
             col_start,
             line_end,
             col_end,
-            file_name,
+            file,
         }
     }
 }
 
 impl Debug for DebugSymRef {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        if !self.file_name.is_empty() {
+        if !self.file.name().is_empty() {
             // Produces clickable output in the terminal
             return write!(
                 f,
                 "{}:{}:{}",
-                self.file_name, self.line_start, self.col_start
+                self.file.name(),
+                self.line_start,
+                self.col_start
             );
         }
 

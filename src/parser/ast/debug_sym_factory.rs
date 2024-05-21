@@ -1,11 +1,13 @@
+use std::rc::Rc;
+
 use codespan_reporting::files::{Files, SimpleFile};
 
 use super::DebugSymRef;
 
 /// Factory for creating debug symbol references.
 pub struct DebugSymRefFactory {
-    /// Source file.
-    file: SimpleFile<String, String>,
+    /// Source file reference.
+    file: Rc<SimpleFile<String, String>>,
 }
 
 impl DebugSymRefFactory {
@@ -20,7 +22,7 @@ impl DebugSymRefFactory {
     ///
     /// A new debug symbol reference factory.
     pub fn new(file_path: &str, contents: &str) -> DebugSymRefFactory {
-        let file = SimpleFile::new(file_path.to_string(), contents.to_string());
+        let file = Rc::new(SimpleFile::new(file_path.to_string(), contents.to_string()));
 
         DebugSymRefFactory { file }
     }
@@ -45,7 +47,7 @@ impl DebugSymRefFactory {
             start_col_number,
             end_line_number,
             end_col_number,
-            self.file.name().to_string(),
+            Rc::clone(&self.file),
         )
     }
 

@@ -537,7 +537,7 @@ mod test {
 
     #[test]
     fn test_compiler_fibo_file() {
-        let path = "src/compiler/circuit.zk";
+        let path = "test/circuit.chiquito";
         let result = compile_file::<Fr>(path, Config::default().max_degree(2));
         assert!(result.0.is_ok());
         match result.0 {
@@ -548,12 +548,12 @@ mod test {
 
     #[test]
     fn test_compiler_fibo_file_err() {
-        let path = "src/compiler/circuit_error.zk";
+        let path = "test/circuit_error.chiquito";
         let result = compile_file::<Fr>(path, Config::default().max_degree(2));
 
         assert_eq!(
             format!("{:?}", result.1),
-            r#"[SemErr { msg: "use of undeclared variable c", dsym: src/compiler/circuit_error.zk:24:39 }, SemErr { msg: "use of undeclared variable c", dsym: src/compiler/circuit_error.zk:28:46 }]"#
+            r#"[SemErr { msg: "use of undeclared variable c", dsym: test/circuit_error.chiquito:24:39 }, SemErr { msg: "use of undeclared variable c", dsym: test/circuit_error.chiquito:28:46 }]"#
         )
     }
 }
