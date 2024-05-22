@@ -336,11 +336,32 @@ fn types_rule_tl(
     }
 }
 
+// if expression should be bool
+fn if_expression_rule(analyser: &mut Analyser, stmt: &Statement<BigInt, Identifier>) {
+    let exprs = match stmt {
+        Statement::IfThen(_, block, _) => vec![*(block.clone())],
+        Statement::IfThenElse(_, block, _, _) => vec![*(block.clone())],
+        _ => vec![],
+    };
+
+    exprs.into_iter().for_each(|expr| {
+        if expr.is_arith() {
+            analyser.error(
+                format!(
+                    "Condition {:#?} in if statement should be a boolean expression",
+                    expr
+                ),
+                &stmt.get_dsym(),
+            )
+        }
+    });
+}
+
 lazy_static! {
     /// Global semantic analyser rules.
     pub(super) static ref RULES: RuleSet = RuleSet {
         expression: vec![undeclared_rule, true_false_rule],
-        statement: vec![state_decl, assignment_rule, assert_rule],
+        statement: vec![state_decl, assignment_rule, assert_rule, if_expression_rule],
         new_symbol: vec![rotation_decl, redeclare_rule, types_rule],
         new_tl_symbol: vec![rotation_decl_tl, machine_decl_tl, types_rule_tl],
     };
@@ -1029,8 +1050,8 @@ mod test {
 
              c <== a + b;
 
-             if i + 1 {
-                if 1 * true ^ false - 123 && 0 + false * false {
+             if i + 1 == 0 {
+                if 1 * true ^ false - 123 && 0 + false * false == 0 {
                     a <== 1;
                 }
               -> final {
@@ -1060,6 +1081,70 @@ mod test {
         assert_eq!(
             format!("{:?}", result.messages),
             r#"[SemErr { msg: "Cannot use true in expression 2 + true", dsym: DebugSymRef { line: 15, cols: "42-46" } }, SemErr { msg: "Cannot use true in expression 1 * true", dsym: DebugSymRef { line: 32, cols: "24-28" } }, SemErr { msg: "Cannot use false in expression false - 123", dsym: DebugSymRef { line: 32, cols: "31-36" } }, SemErr { msg: "Cannot use false in expression false * false", dsym: DebugSymRef { line: 32, cols: "50-55" } }, SemErr { msg: "Cannot use false in expression false * false", dsym: DebugSymRef { line: 32, cols: "58-63" } }]"#
+        );
+    }
+
+    #[test]
+    fn test_if_expression_rule() {
+        let circuit = "
+        machine fibo(signal n) (signal b: field) {
+            // n and be are created automatically as shared
+            // signals
+            signal a: field, i;
+
+            // there is always a state called initial
+            // input signals get bound to the signal
+            // in the initial state (first instance)
+            state initial {
+             signal c;
+
+             i, a, b, c <== 1, 1, 1, 2; // wrong
+
+             if false {
+                a <== 1;
+             }
+
+             -> middle {
+              a', b', n' <== b, c, n;
+             }
+            }
+
+            state middle {
+             signal c;
+
+             c <== a + b;
+
+             if i + 1 {                 // wrong
+                if 1 {                  // wrong
+                    a <== 1;
+                }
+              -> final {
+               i', b', n' <== i + 1, c, n;
+              }
+             } else {
+              -> middle {
+               i', a', b', n' <== i + 1, b, c, n;
+              }
+             }
+            }
+
+            // There is always a state called final.
+            // Output signals get automatically bound to the signals
+            // with the same name in the final step (last instance).
+            // This state can be implicit if there are no constraints in it.
+           }
+        ";
+
+        let debug_sym_ref_factory = DebugSymRefFactory::new("", &circuit);
+        let decls = lang::TLDeclsParser::new()
+            .parse(&debug_sym_ref_factory, circuit)
+            .unwrap();
+
+        let result = analyse(&decls);
+
+        assert_eq!(
+            format!("{:?}", result.messages),
+            r#"[SemErr { msg: "Condition i + 1 in if statement should be a boolean expression", dsym: DebugSymRef { start: "29:14", end: "40:15" } }, SemErr { msg: "Condition 1 in if statement should be a boolean expression", dsym: DebugSymRef { start: "30:17", end: "32:18" } }]"#
         );
     }
 }
