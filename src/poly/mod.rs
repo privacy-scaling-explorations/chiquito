@@ -9,6 +9,7 @@ use halo2_proofs::plonk::Expression;
 
 use crate::field::Field;
 
+pub mod cse;
 pub mod mielim;
 pub mod reduce;
 pub mod simplify;
@@ -162,6 +163,21 @@ impl<F: Field + Hash, V: Eq + PartialEq + Hash, M: Clone + Default> Expr<F, V, M
 
             // Not implemented, and not necessary for aexpr
             Expr::Halo2Expr(_, _) => None,
+        }
+    }
+}
+
+impl<F: Field + Hash, V: Eq + PartialEq + Hash + Clone, M: Clone + Default> Expr<F, V, M> {
+    /// Returns all the keys of the queries
+    pub fn get_queries(&self) -> Vec<V> {
+        match self {
+            Expr::Const(_, _) => Vec::new(),
+            Expr::Sum(ses, _) | Expr::Mul(ses, _) => {
+                ses.iter().flat_map(|se| se.get_queries()).collect()
+            }
+            Expr::Neg(se, _) | Expr::Pow(se, _, _) | Expr::MI(se, _) => se.get_queries(),
+            Expr::Query(q, _) => vec![q.clone()],
+            Expr::Halo2Expr(_, _) => Vec::new(),
         }
     }
 }
@@ -549,5 +565,31 @@ mod test {
             hashed_expressions[2].meta().hash,
             hashed_expressions[5].meta().hash
         );
+    }
+
+    #[test]
+    fn test_get_queries() {
+        use super::Expr::*;
+
+        let a: Queriable<Fr> = Queriable::Internal(InternalSignal::new("a"));
+        let b: Queriable<Fr> = Queriable::Internal(InternalSignal::new("b"));
+        let c: Queriable<Fr> = Queriable::Internal(InternalSignal::new("c"));
+        let d: Queriable<Fr> = Queriable::Internal(InternalSignal::new("d"));
+        let e: Queriable<Fr> = Queriable::Internal(InternalSignal::new("e"));
+        let f: Queriable<Fr> = Queriable::Internal(InternalSignal::new("f"));
+        let g: Queriable<Fr> = Queriable::Internal(InternalSignal::new("g"));
+
+        let expr = Pow(Box::new(e.expr()), 6, ()) * a * b + c * d - 1.expr();
+
+        let queries = expr.get_queries();
+
+        assert_eq!(queries.len(), 5);
+        assert!(queries.contains(&a));
+        assert!(queries.contains(&b));
+        assert!(queries.contains(&c));
+        assert!(queries.contains(&d));
+        assert!(queries.contains(&e));
+        assert!(!queries.contains(&f));
+        assert!(!queries.contains(&g));
     }
 }
