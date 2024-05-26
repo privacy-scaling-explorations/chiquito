@@ -480,23 +480,23 @@ pub struct ForwardSignal {
 }
 
 impl ForwardSignal {
-    pub fn new(annotation: String) -> ForwardSignal {
-        Self::new_with_id(uuid(), 0, annotation)
+    pub fn new<S: Into<String>>(annotation: S) -> ForwardSignal {
+        Self::new_with_id(uuid(), 0, annotation.into())
     }
 
-    pub fn new_with_phase(phase: usize, annotation: String) -> ForwardSignal {
+    pub fn new_with_phase<S: Into<String>>(phase: usize, annotation: S) -> ForwardSignal {
         ForwardSignal {
             id: uuid(),
             phase,
-            annotation: Box::leak(annotation.into_boxed_str()),
+            annotation: Box::leak(annotation.into().into_boxed_str()),
         }
     }
 
-    pub fn new_with_id(id: UUID, phase: usize, annotation: String) -> Self {
+    pub fn new_with_id<S: Into<String>>(id: UUID, phase: usize, annotation: S) -> Self {
         Self {
             id,
             phase,
-            annotation: Box::leak(annotation.into_boxed_str()),
+            annotation: Box::leak(annotation.into().into_boxed_str()),
         }
     }
 
@@ -521,19 +521,19 @@ pub struct SharedSignal {
 }
 
 impl SharedSignal {
-    pub fn new_with_phase(phase: usize, annotation: String) -> SharedSignal {
+    pub fn new_with_phase<S: Into<String>>(phase: usize, annotation: S) -> SharedSignal {
         SharedSignal {
             id: uuid(),
             phase,
-            annotation: Box::leak(annotation.into_boxed_str()),
+            annotation: Box::leak(annotation.into().into_boxed_str()),
         }
     }
 
-    pub fn new_with_id(id: UUID, phase: usize, annotation: String) -> Self {
+    pub fn new_with_id<S: Into<String>>(id: UUID, phase: usize, annotation: S) -> Self {
         Self {
             id,
             phase,
-            annotation: Box::leak(annotation.into_boxed_str()),
+            annotation: Box::leak(annotation.into().into_boxed_str()),
         }
     }
 
@@ -557,17 +557,17 @@ pub struct FixedSignal {
 }
 
 impl FixedSignal {
-    pub fn new(annotation: String) -> FixedSignal {
+    pub fn new<S: Into<String>>(annotation: S) -> FixedSignal {
         FixedSignal {
             id: uuid(),
-            annotation: Box::leak(annotation.into_boxed_str()),
+            annotation: Box::leak(annotation.into().into_boxed_str()),
         }
     }
 
-    pub fn new_with_id(id: UUID, annotation: String) -> Self {
+    pub fn new_with_id<S: Into<String>>(id: UUID, annotation: S) -> Self {
         Self {
             id,
-            annotation: Box::leak(annotation.into_boxed_str()),
+            annotation: Box::leak(annotation.into().into_boxed_str()),
         }
     }
 
@@ -600,10 +600,10 @@ impl InternalSignal {
         }
     }
 
-    pub fn new_with_id(id: UUID, annotation: String) -> Self {
+    pub fn new_with_id<S: Into<String>>(id: UUID, annotation: S) -> Self {
         Self {
             id,
-            annotation: Box::leak(annotation.into_boxed_str()),
+            annotation: Box::leak(annotation.into().into_boxed_str()),
         }
     }
 
