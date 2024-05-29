@@ -1,9 +1,9 @@
-/target
-/Cargo.lock
+target/
+Cargo.lock
 .vscode
 .env
-__pycache__
+__pycache__/
 *.so
-.ipynb_checkpoints
-_build
+*.ipynb_checkpoints
+_build/
 .DS_Store

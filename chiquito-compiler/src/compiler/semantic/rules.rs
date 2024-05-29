@@ -630,7 +630,7 @@ mod test {
 
         assert_eq!(
             format!("{:?}", result.messages),
-            r#"[SemErr { msg: "Cannot declare state nested here", dsym: DebugSymRef { start: 0, end: 0 } }]"#
+            r#"[SemErr { msg: "Cannot declare state nested here", dsym: DebugSymRef { start: "13:17", end: "15:18" } }]"#
         );
 
         let circuit = "
@@ -687,7 +687,7 @@ mod test {
 
         assert_eq!(
             format!("{:?}", result.messages),
-            r#"[SemErr { msg: "Cannot declare state nested here", dsym: DebugSymRef { start: 0, end: 0 } }]"#
+            r#"[SemErr { msg: "Cannot declare state nested here", dsym: DebugSymRef { start: "18:1", end: "20:29" } }]"#
         );
     }
 
