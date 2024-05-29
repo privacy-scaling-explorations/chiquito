@@ -80,10 +80,12 @@ impl SymTableEntry {
     }
 }
 
+#[derive(Debug)]
 /// Extra information when symbol is found in a scope or a containing scope
 pub struct FoundSymbol {
     pub symbol: SymTableEntry,
-    pub scope: ScopeCategory,
+    pub scope_cat: ScopeCategory,
+    pub scope_id: String,
     pub level: usize,
 }
 
@@ -196,23 +198,22 @@ impl SymTable {
 
     /// Finds a symbol in a scope or any of the containing scopes.
     pub fn find_symbol(&self, scope: &[String], id: String) -> Option<FoundSymbol> {
-        let mut level = 0;
-        while level < scope.len() {
-            let table = self
-                .scopes
-                .get(&Self::get_key_level(scope, level))
-                .expect("scope not found");
+        let mut level_rev = 0;
+        while level_rev < scope.len() {
+            let key = Self::get_key_level(scope, level_rev);
+            let table = self.scopes.get(&key).expect("scope not found");
             let symbol = table.get_symbol(id.clone());
 
             if symbol.is_some() {
                 return symbol.map(|symbol| FoundSymbol {
                     symbol: symbol.clone(),
-                    scope: table.scope.clone(),
-                    level,
+                    scope_cat: table.scope.clone(),
+                    scope_id: key,
+                    level: (scope.len() - level_rev - 1),
                 });
             }
 
-            level += 1;
+            level_rev += 1;
         }
 
         None
@@ -220,7 +221,6 @@ impl SymTable {
 
     pub fn get_scope(&self, scope: &[String]) -> Option<&ScopeTable> {
         let scope_key = Self::get_key(scope);
-        println!("scope_key: {}", scope_key);
 
         self.scopes.get(&scope_key)
     }

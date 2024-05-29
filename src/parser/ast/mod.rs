@@ -21,7 +21,7 @@ impl DebugSymRef {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, PartialEq, Eq)]
 pub struct Identifier(pub String, pub i32);
 
 impl Debug for Identifier {

@@ -418,8 +418,6 @@ impl<F: From<u64> + TryInto<u32> + Clone + Debug, V: Clone + Debug> CompilationU
         let next_step = Expression::Query(dsym, id);
         result.extend(self.compile_expression(next_step));
 
-        println!("{:#?}", result);
-
         result
     }
 }

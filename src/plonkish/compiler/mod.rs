@@ -342,7 +342,7 @@ fn place_queriable<F: Clone>(
             let dest_step = unit
                 .step_types
                 .get(&step_type_handle.uuid())
-                .expect("step not found");
+                .unwrap_or_else(|| panic!("step not found {:?}", step_type_handle.annotation));
 
             unit.selector.next_expr(dest_step.uuid(), super_rotation)
         }

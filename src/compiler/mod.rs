@@ -1,11 +1,11 @@
 use std::hash::Hash;
 
-use self::compiler::Compiler;
-use crate::{field::Field, parser::ast::DebugSymRef, sbpir::SBPIR};
+use self::compiler::{Compiler, CompilerResult};
+use crate::{field::Field, parser::ast::DebugSymRef};
 
 pub mod abepi;
 #[allow(clippy::module_inception)]
-mod compiler;
+pub mod compiler;
 pub mod semantic;
 mod setup_inter;
 
@@ -23,7 +23,7 @@ impl Config {
 }
 
 /// Compiler message.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Message {
     ParseErr {
         msg: String,
@@ -55,10 +55,6 @@ impl Messages for Vec<Message> {
 pub fn compile<F: Field + Hash>(
     source: &str,
     config: Config,
-) -> (Result<SBPIR<F, ()>, ()>, Vec<Message>) {
-    let mut compiler = Compiler::new(config);
-
-    let result = compiler.compile(source);
-
-    (result, compiler.get_messages())
+) -> Result<CompilerResult<F>, Vec<Message>> {
+    Compiler::new(config).compile(source)
 }

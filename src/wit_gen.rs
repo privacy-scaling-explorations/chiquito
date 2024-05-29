@@ -1,10 +1,14 @@
+use num_bigint::BigInt;
 use std::{collections::HashMap, fmt, hash::Hash, rc::Rc};
 
 use crate::{
+    compiler::{semantic::SymTable, Message},
     field::Field,
-    frontend::dsl::StepTypeWGHandler,
+    frontend::dsl::{StepTypeHandler, StepTypeWGHandler},
+    interpreter::{self},
+    parser::ast::{tl::TLDecl, Identifier},
     poly::Expr,
-    sbpir::{query::Queriable, StepTypeUUID, PIR, SBPIR},
+    sbpir::{query::Queriable, ForwardSignal, InternalSignal, StepTypeUUID, PIR, SBPIR},
     util::UUID,
 };
 
@@ -275,6 +279,111 @@ impl<F: Field + Hash> FixedGenContext<F> {
 
     fn is_fixed_queriable(q: Queriable<F>) -> bool {
         matches!(q, Queriable::Halo2FixedQuery(_, _) | Queriable::Fixed(_, _))
+    }
+}
+
+#[derive(Default, Debug)]
+pub struct SymbolSignalMapping {
+    pub(crate) symbol_uuid: HashMap<(String, String), UUID>,
+
+    pub(crate) forward_signals: HashMap<UUID, ForwardSignal>,
+    pub(crate) internal_signals: HashMap<UUID, InternalSignal>,
+    pub(crate) step_type_handler: HashMap<UUID, StepTypeHandler>,
+}
+
+impl SymbolSignalMapping {
+    pub fn get_forward(&self, machine_id: &str, forward_id: &str) -> ForwardSignal {
+        let scope_name = format!("//{}", machine_id);
+
+        let uuid = self
+            .symbol_uuid
+            .get(&(scope_name, forward_id.to_string()))
+            .expect("semantic analyser fail: forward should exist");
+
+        *self.forward_signals.get(uuid).unwrap()
+    }
+
+    pub fn get_internal(&self, scope_name: &str, symbol_name: &str) -> InternalSignal {
+        let uuid = self
+            .symbol_uuid
+            .get(&(scope_name.to_string(), symbol_name.to_string()))
+            .expect("semantic analyser fail");
+
+        *self.internal_signals.get(uuid).unwrap()
+    }
+
+    pub fn get_queriable<F>(
+        &self,
+        scope_name: &str,
+        symbol_name: &str,
+        rotation: bool,
+    ) -> Queriable<F> {
+        let uuid = self
+            .symbol_uuid
+            .get(&(scope_name.to_string(), symbol_name.to_string()))
+            .expect("semantic analyser fail");
+
+        if let Some(signal) = self.internal_signals.get(uuid) {
+            Queriable::Internal(*signal)
+        } else if let Some(signal) = self.forward_signals.get(uuid) {
+            Queriable::Forward(*signal, rotation)
+        } else {
+            unreachable!("signal without mapping")
+        }
+    }
+
+    pub fn get_step_type_handler(&self, machine_id: &str, state_id: &str) -> StepTypeHandler {
+        let scope_name = format!("//{}", machine_id);
+        let uuid = self
+            .symbol_uuid
+            .get(&(scope_name, state_id.to_string()))
+            .expect("semantic analyser fail");
+
+        *self.step_type_handler.get(uuid).unwrap()
+    }
+}
+
+#[derive(Debug)]
+pub struct WitnessGenerator {
+    ast: Vec<TLDecl<BigInt, Identifier>>,
+    symbols: SymTable,
+    mapping: SymbolSignalMapping,
+}
+
+impl WitnessGenerator {
+    pub fn new(
+        ast: Vec<TLDecl<BigInt, Identifier>>,
+        symbols: SymTable,
+        mapping: SymbolSignalMapping,
+    ) -> Self {
+        Self {
+            ast,
+            symbols,
+            mapping,
+        }
+    }
+
+    pub fn generate<F: Field + Hash>(
+        &self,
+        input: HashMap<String, F>,
+    ) -> Result<TraceWitness<F>, Message> {
+        let step_instances = interpreter::run(&self.ast, &self.symbols, &self.mapping, input)?;
+
+        Ok(TraceWitness { step_instances })
+    }
+
+    pub fn evil_assign<F: Field + Hash, S: Into<String>>(
+        &self,
+        trace: &mut TraceWitness<F>,
+        step_num: usize,
+        (scope_name, symbol_name): (S, S),
+        value: F,
+    ) {
+        let lhs = self
+            .mapping
+            .get_queriable(&scope_name.into(), &symbol_name.into(), false);
+
+        trace.step_instances[step_num].assign(lhs, value);
     }
 }
 

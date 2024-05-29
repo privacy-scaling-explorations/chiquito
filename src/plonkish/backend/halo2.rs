@@ -353,7 +353,7 @@ pub fn to_halo2_advice<F: PrimeField>(
     }
 }
 
-#[derive(Clone, Default)]
+#[derive(Clone, Default, Debug)]
 pub struct ChiquitoHalo2Circuit<F: PrimeField + From<u64>> {
     compiled: ChiquitoHalo2<F>,
     witness: Option<Assignments<F>>,
@@ -382,7 +382,13 @@ impl<F: PrimeField + From<u64> + Hash> h2Circuit<F> for ChiquitoHalo2Circuit<F> 
     type Params = ChiquitoHalo2<F>;
 
     fn without_witnesses(&self) -> Self {
-        Self::default()
+        Self {
+            compiled: self.compiled.clone(),
+            witness: self.witness.clone().map(|mut w| {
+                w.clear();
+                w
+            }),
+        }
     }
 
     fn params(&self) -> Self::Params {

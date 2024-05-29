@@ -64,6 +64,20 @@ impl<F> DerefMut for Assignments<F> {
     }
 }
 
+impl<F: Field> Assignments<F> {
+    pub fn clear(&mut self) {
+        self.0 = self
+            .iter()
+            .map(|(column, values)| {
+                (
+                    column.clone(),
+                    values.iter().map(|_| F::ZERO).collect::<Vec<F>>(),
+                )
+            })
+            .collect();
+    }
+}
+
 pub struct AssignmentGenerator<F, TraceArgs> {
     columns: Vec<Column>,
     placement: Placement,
