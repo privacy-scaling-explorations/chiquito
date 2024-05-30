@@ -71,13 +71,11 @@ pub struct HashResult {
 
 impl<F: Field + Hash, V: Debug + Clone + Eq + Hash> Expr<F, V, ()> {
     /// Uses Schwartz-Zippel Lemma to hash
-    pub fn hash(&self, assignments: &[VarAssignments<F, V>]) -> Expr<F, V, HashResult> {
+    pub fn hash(&self, assignments: &VarAssignments<F, V>) -> Expr<F, V, HashResult> {
         let mut hasher = DefaultHasher::new();
 
-        for assignment in assignments {
-            if let Some(result) = self.eval(assignment) {
-                result.hash(&mut hasher);
-            }
+        if let Some(result) = self.eval(assignments) {
+            result.hash(&mut hasher);
         }
 
         let hash_result = HashResult {
@@ -507,13 +505,9 @@ mod test {
         let g: Queriable<Fr> = Queriable::Internal(InternalSignal::new("g"));
         let vars = vec![a, b, c, d, e, f, g];
 
-        let mut assignments_vec = Vec::new();
-        for _ in 0..6 {
-            let mut assignments = VarAssignments::new();
-            for v in &vars {
-                assignments.insert(*v, Fr::random(&mut rng));
-            }
-            assignments_vec.push(assignments);
+        let mut assignments = VarAssignments::new();
+        for v in &vars {
+            assignments.insert(*v, Fr::random(&mut rng));
         }
 
         // Equivalent expressions
@@ -532,7 +526,7 @@ mod test {
         let mut hashed_expressions = Vec::new();
 
         for expr in expressions {
-            let hashed_expr = expr.hash(&assignments_vec);
+            let hashed_expr = expr.hash(&assignments);
             hashed_expressions.push(hashed_expr);
         }
 
