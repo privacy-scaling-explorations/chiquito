@@ -1,5 +1,5 @@
 use std::{
-    collections::HashMap,
+    collections::{BTreeMap, HashMap},
     fmt::{Debug, Display},
 };
 
@@ -48,7 +48,9 @@ pub enum ScopeCategory {
 /// Information about a symbol
 #[derive(Clone, Debug)]
 pub struct SymTableEntry {
+    pub id: String,
     pub definition_ref: DebugSymRef,
+    pub usages: Vec<DebugSymRef>,
     pub category: SymbolCategory,
     /// Type
     pub ty: Option<String>,
@@ -85,6 +87,7 @@ pub struct FoundSymbol {
     pub symbol: SymTableEntry,
     pub scope: ScopeCategory,
     pub level: usize,
+    pub usages: Vec<DebugSymRef>,
 }
 
 /// Contains the symbols of an scope
@@ -211,6 +214,7 @@ impl SymTable {
                     symbol: symbol.clone(),
                     scope: table.scope.clone(),
                     level,
+                    usages: symbol.usages.clone(),
                 });
             }
 
@@ -284,6 +288,68 @@ impl SymTable {
                 .cloned()
                 .collect::<Vec<_>>()
                 .join("/")
+        }
+    }
+
+    pub fn find_symbol_by_offset(&self, filename: String, offset: usize) -> Option<SymTableEntry> {
+        let mut symbols_by_proximity = BTreeMap::<i32, SymTableEntry>::new();
+
+        for scope in self.scopes.values() {
+            for (_, entry) in &scope.symbols {
+                // If the entry is not in the same file, check its usages
+                if entry.definition_ref.get_filename() != filename.clone() {
+                    SymTable::look_in_usages(
+                        entry,
+                        filename.clone(),
+                        offset,
+                        &mut symbols_by_proximity,
+                    );
+                } else {
+                    let proximity = entry.definition_ref.proximity_score(offset);
+                    // If the current entry is not enclosing the offset, check the usages of that
+                    // entry
+                    if proximity == -1 {
+                        SymTable::look_in_usages(
+                            entry,
+                            filename.clone(),
+                            offset,
+                            &mut symbols_by_proximity,
+                        );
+                    // If the current entry is enclosing the offset, add it to the map
+                    } else {
+                        symbols_by_proximity.insert(proximity, entry.clone());
+                    }
+                }
+            }
+        }
+
+        if symbols_by_proximity.is_empty() {
+            return None;
+        } else {
+            // Return the first symbol in the map because BTreeMap is sorted by the key (which is
+            // the proximity in our case)
+            return symbols_by_proximity
+                .iter()
+                .next()
+                .map(|(_, entry)| entry.clone());
+        }
+    }
+
+    fn look_in_usages(
+        entry: &SymTableEntry,
+        filename: String,
+        offset: usize,
+        symbols_by_proximity: &mut BTreeMap<i32, SymTableEntry>,
+    ) {
+        for usage in &entry.usages {
+            if usage.get_filename() != filename {
+                continue;
+            }
+            let usage_proximity = usage.proximity_score(offset);
+            if usage_proximity != -1 {
+                symbols_by_proximity.insert(usage_proximity, entry.clone());
+                break;
+            }
         }
     }
 }
