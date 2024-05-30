@@ -67,7 +67,7 @@ impl<'a, F: Field + Hash> Interpreter<'a, F> {
 
     fn exec_machine(
         &mut self,
-        _dsym: &DebugSymRef,
+        dsym: &DebugSymRef,
         id: &Identifier,
         _input_params: &[Statement<BigInt, Identifier>],
         _output_params: &[Statement<BigInt, Identifier>],
@@ -84,7 +84,7 @@ impl<'a, F: Field + Hash> Interpreter<'a, F> {
         }
 
         while next_state.is_some() {
-            next_state = self.exec_step(&machine_block)?;
+            next_state = self.exec_step(dsym, &machine_block)?;
 
             self.transition(&next_state);
 
@@ -101,9 +101,10 @@ impl<'a, F: Field + Hash> Interpreter<'a, F> {
 
     fn exec_step(
         &mut self,
+        machine_dsym: &DebugSymRef,
         machine_block: &[Statement<BigInt, Identifier>],
     ) -> Result<Option<String>, Message> {
-        let state_decl = self.find_state_decl(machine_block).unwrap();
+        let state_decl = self.find_state_decl(machine_dsym, machine_block).unwrap();
 
         if let Statement::StateDecl(_, _, block) = state_decl {
             if let Statement::Block(_, stmts) = *block {
@@ -214,6 +215,7 @@ impl<'a, F: Field + Hash> Interpreter<'a, F> {
 
     fn find_state_decl(
         &mut self,
+        machine_dsym: &DebugSymRef,
         machine_block: &[Statement<BigInt, Identifier>],
     ) -> Option<Statement<BigInt, Identifier>> {
         for stmt in machine_block {
@@ -227,9 +229,9 @@ impl<'a, F: Field + Hash> Interpreter<'a, F> {
         // final state can be omited
         if self.cur_frame.get_state() == "final" {
             Some(Statement::StateDecl(
-                DebugSymRef::new(0, 0),
+                machine_dsym.clone(),
                 self.cur_frame.get_state().into(),
-                Box::new(Statement::Block(DebugSymRef::new(0, 0), vec![])),
+                Box::new(Statement::Block(machine_dsym.clone(), vec![])),
             ))
         } else {
             None
@@ -270,6 +272,7 @@ mod test {
 
     use crate::{
         compiler::{compile, Config},
+        parser::ast::debug_sym_factory::DebugSymRefFactory,
         plonkish::{
             backend::halo2::{chiquito2Halo2, ChiquitoHalo2Circuit},
             compiler::{
@@ -323,7 +326,8 @@ mod test {
            }
         ";
 
-        let compiled = compile::<Fr>(code, Config::default()).unwrap();
+        let compiled =
+            compile::<Fr>(code, Config::default(), &DebugSymRefFactory::new("", code)).unwrap();
 
         let result = compiled
             .wit_gen
@@ -376,7 +380,8 @@ mod test {
            }
         ";
 
-        let mut chiquito = compile::<Fr>(code, Config::default()).unwrap();
+        let mut chiquito =
+            compile::<Fr>(code, Config::default(), &DebugSymRefFactory::new("", code)).unwrap();
 
         chiquito.circuit.num_steps = 12;
 
@@ -448,7 +453,8 @@ mod test {
            }
         ";
 
-        let mut chiquito = compile::<Fr>(code, Config::default()).unwrap();
+        let mut chiquito =
+            compile::<Fr>(code, Config::default(), &DebugSymRefFactory::new("", code)).unwrap();
 
         chiquito.circuit.num_steps = 12;
 

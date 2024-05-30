@@ -201,7 +201,12 @@ impl SymTable {
         let mut level_rev = 0;
         while level_rev < scope.len() {
             let key = Self::get_key_level(scope, level_rev);
-            let table = self.scopes.get(&key).expect("scope not found");
+            let table = self.scopes.get(&key);
+            if table.is_none() {
+                level_rev += 1;
+                continue;
+            }
+            let table = table.unwrap();
             let symbol = table.get_symbol(id.clone());
 
             if symbol.is_some() {

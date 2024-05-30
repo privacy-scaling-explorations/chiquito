@@ -1,6 +1,8 @@
 use std::fmt::Debug;
 
-use super::DebugSymRef;
+use num_bigint::BigInt;
+
+use super::{DebugSymRef, Identifier};
 
 #[derive(Clone, PartialEq, Eq)]
 pub enum BinaryOperator {
@@ -192,6 +194,9 @@ pub enum Expression<F, V> {
     True(DebugSymRef),
     False(DebugSymRef),
 }
+
+// Shorthand for BigInt expression
+pub type Expr = Expression<BigInt, Identifier>;
 
 impl<F, V> Expression<F, V> {
     pub fn is_arith(&self) -> bool {
