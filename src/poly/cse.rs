@@ -1,23 +1,28 @@
 use rand_chacha::{rand_core::SeedableRng, ChaCha20Rng};
 
-use crate::{field::Field, sbpir::query::Queriable};
+use crate::field::Field;
 
-use std::{collections::HashMap, fmt::Debug, hash::Hash, rc::{Rc, Weak}};
+use std::{
+    collections::HashMap,
+    fmt::Debug,
+    hash::Hash,
+    rc::{Rc, Weak},
+};
 
 use super::{Expr, HashResult, VarAssignments};
 
 /// Common Subexpression Elimination - takes a collection of expr
-pub fn cse<F: Field + Hash, V: Debug + Clone + Eq + Hash + From<String>>(
+pub fn cse<F: Field + Hash, V: Debug + Clone + Eq + Hash>(
     exprs: Vec<Expr<F, V, ()>>,
-    queriables: &Vec<Queriable<F>>,
+    queriables: &Vec<V>,
 ) -> Vec<Rc<Expr<F, V, HashResult>>> {
     // generate random point in the field set
-    let assignments = generate_random_assignment::<F, V>(queriables);
+    let assignments = generate_random_assignment(queriables);
 
-    // hash table with the hash of the expression as the key 
+    // hash table with the hash of the expression as the key
     // and the weak reference to the expression as the value
     let mut seen_hashes: HashMap<u64, Weak<Expr<F, V, HashResult>>> = HashMap::new();
-    
+
     let mut result = Vec::new();
 
     for expr in exprs {
@@ -41,8 +46,8 @@ pub fn cse<F: Field + Hash, V: Debug + Clone + Eq + Hash + From<String>>(
     result
 }
 
-fn generate_random_assignment<F: Field + Hash, V: Debug + Clone + Eq + Hash + From<String>>(
-    queriables: &Vec<Queriable<F>>,
+fn generate_random_assignment<F: Field + Hash, V: Debug + Clone + Eq + Hash>(
+    queriables: &Vec<V>,
 ) -> VarAssignments<F, V> {
     let mut rng = ChaCha20Rng::seed_from_u64(0);
 
@@ -50,7 +55,7 @@ fn generate_random_assignment<F: Field + Hash, V: Debug + Clone + Eq + Hash + Fr
 
     for queriable in queriables {
         let value = F::random(&mut rng);
-        assignments.insert(V::from(queriable.annotation()), value);
+        assignments.insert(queriable.clone(), value);
     }
 
     assignments
@@ -78,17 +83,36 @@ mod test {
 
         let keys: HashSet<Queriable<Fr>> = vars.iter().cloned().collect();
 
-        let assignments: VarAssignments<Fr, String> = generate_random_assignment(&vars);
+        let assignments: VarAssignments<Fr, Queriable<Fr>> = generate_random_assignment(&vars);
 
         println!("Assignments: {:#?}", assignments);
 
         for key in &keys {
-            assert!(assignments.contains_key(&key.annotation()));
+            assert!(assignments.contains_key(&key));
         }
     }
 
     #[test]
     fn test_cse() {
-        todo!();
+        let internal = InternalSignal::new("internal");
+        let forward = ForwardSignal::new("forward");
+
+        let a: Queriable<Fr> = Queriable::Internal(internal);
+        let b: Queriable<Fr> = Queriable::Forward(forward, false);
+        let c: Queriable<Fr> = Queriable::Forward(forward, true);
+        let d: Queriable<Fr> = Queriable::Forward(forward, true);
+
+        let vars = vec![a, b, c];
+
+        let expr1 = a + b;
+        let expr2 = a + c;
+        let expr3 = a + d;
+
+        let exprs = vec![expr1, expr2, expr3];
+
+        let result = cse(exprs, &vars);
+
+        assert!(Rc::ptr_eq(&result[1], &result[2]));
+        assert!(Rc::ptr_eq(&result[0], &result[1]) == false);
     }
 }
