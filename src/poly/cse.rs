@@ -68,7 +68,10 @@ mod test {
 
     use halo2_proofs::halo2curves::bn256::Fr;
 
-    use crate::sbpir::{query::Queriable, ForwardSignal, InternalSignal};
+    use crate::{
+        poly::{Expr::*, ToExpr},
+        sbpir::{query::Queriable, ForwardSignal, InternalSignal},
+    };
 
     #[test]
     fn test_generate_random_assignment() {
@@ -94,25 +97,38 @@ mod test {
 
     #[test]
     fn test_cse() {
-        let internal = InternalSignal::new("internal");
         let forward = ForwardSignal::new("forward");
 
-        let a: Queriable<Fr> = Queriable::Internal(internal);
-        let b: Queriable<Fr> = Queriable::Forward(forward, false);
-        let c: Queriable<Fr> = Queriable::Forward(forward, true);
+        let a: Queriable<Fr> = Queriable::Internal(InternalSignal::new("a"));
+        let b: Queriable<Fr> = Queriable::Internal(InternalSignal::new("b"));
+        let c: Queriable<Fr> = Queriable::Forward(forward, false);
         let d: Queriable<Fr> = Queriable::Forward(forward, true);
+        let e: Queriable<Fr> = Queriable::Internal(InternalSignal::new("e"));
+        let f: Queriable<Fr> = Queriable::Internal(InternalSignal::new("f"));
+        let g: Queriable<Fr> = Queriable::Internal(InternalSignal::new("g"));
+        let vars = vec![a, b, c, d, e, f, g];
 
-        let vars = vec![a, b, c];
+        // Equivalent expressions
+        let expr1 = Pow(Box::new(e.expr()), 6, ()) * a * b + c * d - 1.expr();
+        let expr2 = d * c - 1.expr() + a * b * Pow(Box::new(e.expr()), 6, ());
 
-        let expr1 = a + b;
-        let expr2 = a + c;
-        let expr3 = a + d;
+        // Equivalent expressions
+        let expr3 = f * b - c * d - 1.expr();
+        let expr4 = -(1.expr()) - c * d + b * f;
 
-        let exprs = vec![expr1, expr2, expr3];
+        // Equivalent expressions
+        let expr5 = -(-f * g) * (-(-(-a)));
+        let expr6 = -(f * g * a);
+
+        let exprs = vec![expr1, expr2, expr3, expr4, expr5, expr6];
 
         let result = cse(exprs, &vars);
 
-        assert!(Rc::ptr_eq(&result[1], &result[2]));
-        assert!(Rc::ptr_eq(&result[0], &result[1]) == false);
+        assert!(Rc::ptr_eq(&result[0], &result[1]));
+        assert!(Rc::ptr_eq(&result[2], &result[3]));
+        assert!(Rc::ptr_eq(&result[4], &result[5]));
+        assert!(Rc::ptr_eq(&result[0], &result[2]) == false);
+        assert!(Rc::ptr_eq(&result[0], &result[4]) == false);
+        assert!(Rc::ptr_eq(&result[2], &result[4]) == false);
     }
 }
