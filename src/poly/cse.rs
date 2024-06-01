@@ -91,7 +91,7 @@ mod test {
         println!("Assignments: {:#?}", assignments);
 
         for key in &keys {
-            assert!(assignments.contains_key(&key));
+            assert!(assignments.contains_key(key));
         }
     }
 
@@ -127,8 +127,8 @@ mod test {
         assert!(Rc::ptr_eq(&result[0], &result[1]));
         assert!(Rc::ptr_eq(&result[2], &result[3]));
         assert!(Rc::ptr_eq(&result[4], &result[5]));
-        assert!(Rc::ptr_eq(&result[0], &result[2]) == false);
-        assert!(Rc::ptr_eq(&result[0], &result[4]) == false);
-        assert!(Rc::ptr_eq(&result[2], &result[4]) == false);
+        assert!(!Rc::ptr_eq(&result[0], &result[2]));
+        assert!(!Rc::ptr_eq(&result[0], &result[4]));
+        assert!(!Rc::ptr_eq(&result[2], &result[4]));
     }
 }
