@@ -27,11 +27,10 @@ use halo2_proofs::{dev::MockProver, halo2curves::bn256::Fr};
 // This example file extends the rust example file 'fibonacci.rs',
 // describing usage of multiple steptypes, padding, and exposing signals.
 
+type AssignGen<F> = AssignmentGenerator<F, SimpleTraceGenerator<F, u32>>;
+
 // the main circuit function
-fn fibo_circuit<F: Field + From<u64> + Hash>() -> (
-    Circuit<F>,
-    Option<AssignmentGenerator<F, SimpleTraceGenerator<F, u32>>>,
-)
+fn fibo_circuit<F: Field + From<u64> + Hash>() -> (Circuit<F>, Option<AssignGen<F>>)
 // u32 is for external input that indicates the number of fibnoacci iterations
 {
     use chiquito::{

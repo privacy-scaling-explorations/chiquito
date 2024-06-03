@@ -26,10 +26,8 @@ use halo2_proofs::{dev::MockProver, halo2curves::bn256::Fr};
 
 const MAX_FACTORIAL: usize = 10;
 
-fn generate<F: Field + From<u64> + Hash>() -> (
-    Circuit<F>,
-    Option<AssignmentGenerator<F, SimpleTraceGenerator<F, u32>>>,
-) {
+type AssignGen<F> = AssignmentGenerator<F, SimpleTraceGenerator<F, u32>>;
+fn generate<F: Field + From<u64> + Hash>() -> (Circuit<F>, Option<AssignGen<F>>) {
     // table for the circuit:
     // |    step_type      |  i  |  x   |
     // ----------------------------------
