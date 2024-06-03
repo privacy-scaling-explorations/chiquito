@@ -2192,18 +2192,10 @@ fn keccak_circuit<F: PrimeField<Repr = [u8; 32]> + Eq + Hash>(
     });
 }
 
-#[derive(Default)]
+#[derive(Clone, Default)]
 struct KeccakCircuit {
     // pub bits: Vec<u8>,
     pub bytes: Vec<u8>,
-}
-
-impl Clone for KeccakCircuit {
-    fn clone(&self) -> Self {
-        KeccakCircuit {
-            bytes: self.bytes.clone(),
-        }
-    }
 }
 
 struct CircuitParams {
