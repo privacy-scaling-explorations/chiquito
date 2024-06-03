@@ -282,6 +282,7 @@ struct FinalInput<F> {
     final_split_bit_vec: Vec<Vec<F>>,
 }
 
+#[derive(Clone)]
 struct InputValues {
     pub round: u32,          // 32bit
     pub h_vec: [u64; H_LEN], // 8 * 64bits
@@ -289,19 +290,6 @@ struct InputValues {
     pub t0: u64,             // 64bits
     pub t1: u64,             // 64bits
     pub f: bool,             // 8bits
-}
-
-impl Clone for InputValues {
-    fn clone(&self) -> Self {
-        Self {
-            round: self.round,
-            h_vec: self.h_vec,
-            m_vec: self.m_vec,
-            t0: self.t0,
-            t1: self.t1,
-            f: self.f,
-        }
-    }
 }
 
 struct GStepParams<F> {
