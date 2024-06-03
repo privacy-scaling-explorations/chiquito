@@ -296,7 +296,7 @@ mod test {
         );
     }
 
-    fn simple_assignment_generator() -> AssignmentGenerator<Fr, SimpleTraceGenerator<Fr>> {
+    fn simple_assignment_generator() -> AssignmentGenerator<Fr> {
         AssignmentGenerator::new(
             vec![Column::advice('a', 0)],
             Placement {
