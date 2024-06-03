@@ -7,10 +7,11 @@ use chiquito::{
             config,
             step_selector::SimpleStepSelectorBuilder,
         },
-        ir::sc::SuperCircuit,
+        ir::{assignments::AssignmentGenerator, sc::SuperCircuit},
     },
     poly::ToExpr,
     sbpir::query::Queriable,
+    wit_gen::SimpleTraceGenerator,
 };
 use std::{hash::Hash, ops::Neg};
 
@@ -2197,6 +2198,14 @@ struct KeccakCircuit {
     pub bytes: Vec<u8>,
 }
 
+impl Clone for KeccakCircuit {
+    fn clone(&self) -> Self {
+        KeccakCircuit {
+            bytes: self.bytes.clone(),
+        }
+    }
+}
+
 struct CircuitParams {
     pub constants_table: LookupTable,
     pub xor_table: LookupTable,
@@ -2210,25 +2219,28 @@ struct CircuitParams {
 fn keccak_super_circuit<F: PrimeField<Repr = [u8; 32]> + Eq + Hash>(
     input_len: usize,
 ) -> SuperCircuit<F, KeccakCircuit> {
-    super_circuit::<F, KeccakCircuit, _>("keccak", |ctx| {
+    super_circuit::<F, KeccakCircuit, _, SimpleTraceGenerator<F>>("keccak", |ctx| {
         let in_n = (input_len * 8 + 1 + RATE_IN_BITS as usize) / RATE_IN_BITS as usize;
         let step_num = in_n * (1 + NUM_ROUNDS as usize);
 
         let single_config = config(SingleRowCellManager {}, SimpleStepSelectorBuilder {});
         // config(SingleRowCellManager {}, LogNSelectorBuilder {});
 
-        let (_, constants_table) = ctx.sub_circuit(
+        let (_, constants_table): (AssignmentGenerator<F>, LookupTable) = ctx.sub_circuit(
             single_config.clone(),
             keccak_round_constants_table,
             NUM_ROUNDS as usize + 1,
         );
-        let (_, xor_table) = ctx.sub_circuit(single_config.clone(), keccak_xor_table_batch2, 36);
-        let (_, xor_table_batch3) =
+        let (_, xor_table): (AssignmentGenerator<F>, LookupTable) =
+            ctx.sub_circuit(single_config.clone(), keccak_xor_table_batch2, 36);
+        let (_, xor_table_batch3): (AssignmentGenerator<F>, LookupTable) =
             ctx.sub_circuit(single_config.clone(), keccak_xor_table_batch3, 64);
-        let (_, xor_table_batch4) =
+        let (_, xor_table_batch4): (AssignmentGenerator<F>, LookupTable) =
             ctx.sub_circuit(single_config.clone(), keccak_xor_table_batch4, 81);
-        let (_, chi_table) = ctx.sub_circuit(single_config.clone(), keccak_chi_table, 125);
-        let (_, pack_table) = ctx.sub_circuit(single_config, keccak_pack_table, 0);
+        let (_, chi_table): (AssignmentGenerator<F>, LookupTable) =
+            ctx.sub_circuit(single_config.clone(), keccak_chi_table, 125);
+        let (_, pack_table): (AssignmentGenerator<F>, LookupTable) =
+            ctx.sub_circuit(single_config, keccak_pack_table, 0);
 
         let params = CircuitParams {
             constants_table,
@@ -2247,7 +2259,7 @@ fn keccak_super_circuit<F: PrimeField<Repr = [u8; 32]> + Eq + Hash>(
         let (keccak, _) = ctx.sub_circuit(maxwidth_config, keccak_circuit, params);
 
         ctx.mapping(move |ctx, values| {
-            ctx.map(&keccak, values);
+            ctx.map::<SimpleTraceGenerator<F, KeccakCircuit>>(&keccak, values);
         })
     })
 }

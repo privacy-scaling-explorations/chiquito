@@ -14,11 +14,11 @@ use crate::{
         },
     },
     sbpir::SBPIR,
+    wit_gen::TraceGenerator,
 };
 
 use super::{lb::LookupTableRegistry, CircuitContext};
 
-#[derive(Debug)]
 pub struct SuperCircuitContext<F, MappingArgs> {
     super_circuit: SuperCircuit<F, MappingArgs>,
     sub_circuit_phase1: Vec<CompilationUnit<F>>,
@@ -42,14 +42,21 @@ impl<F: Clone, MappingArgs> SuperCircuitContext<F, MappingArgs> {
 }
 
 impl<F: Field + Hash, MappingArgs> SuperCircuitContext<F, MappingArgs> {
-    pub fn sub_circuit<CM: CellManager, SSB: StepSelectorBuilder, TraceArgs, Imports, Exports, D>(
+    pub fn sub_circuit<
+        CM: CellManager,
+        SSB: StepSelectorBuilder,
+        Imports,
+        Exports,
+        D,
+        TG: TraceGenerator<F> + Clone + Default,
+    >(
         &mut self,
         config: CompilerConfig<CM, SSB>,
         sub_circuit_def: D,
         imports: Imports,
-    ) -> (AssignmentGenerator<F, TraceArgs>, Exports)
+    ) -> (AssignmentGenerator<F, TG>, Exports)
     where
-        D: Fn(&mut CircuitContext<F, TraceArgs>, Imports) -> Exports,
+        D: Fn(&mut CircuitContext<F, TG::TraceArgs>, Imports) -> Exports,
     {
         let mut sub_circuit_context = CircuitContext {
             circuit: SBPIR::default(),
@@ -70,11 +77,15 @@ impl<F: Field + Hash, MappingArgs> SuperCircuitContext<F, MappingArgs> {
         (assignment, exports)
     }
 
-    pub fn sub_circuit_with_ast<CM: CellManager, SSB: StepSelectorBuilder, TraceArgs>(
+    pub fn sub_circuit_with_ast<
+        CM: CellManager,
+        SSB: StepSelectorBuilder,
+        TG: TraceGenerator<F> + Clone + Default,
+    >(
         &mut self,
         config: CompilerConfig<CM, SSB>,
-        sub_circuit: SBPIR<F, TraceArgs>, // directly input ast
-    ) -> AssignmentGenerator<F, TraceArgs> {
+        sub_circuit: SBPIR<F, TG::TraceArgs>, // directly input ast
+    ) -> AssignmentGenerator<F, TG> {
         let (unit, assignment) = compile_phase1(config, &sub_circuit);
         let assignment = assignment.unwrap_or_else(|| AssignmentGenerator::empty(unit.uuid));
 
@@ -108,7 +119,7 @@ impl<F: Field + Hash, MappingArgs> SuperCircuitContext<F, MappingArgs> {
     }
 }
 
-pub fn super_circuit<F: Field + Hash, MappingArgs, D>(
+pub fn super_circuit<F: Field + Hash, MappingArgs, D, TG: TraceGenerator<F> + Clone + Default>(
     _name: &str,
     def: D,
 ) -> SuperCircuit<F, MappingArgs>
@@ -131,6 +142,7 @@ mod tests {
             cell_manager::SingleRowCellManager, config, step_selector::SimpleStepSelectorBuilder,
         },
         poly::ToField,
+        wit_gen::SimpleTraceGenerator,
     };
 
     use super::*;
@@ -183,7 +195,7 @@ mod tests {
         }
 
         // simple circuit to check if the sum of two inputs are 10
-        ctx.sub_circuit(
+        ctx.sub_circuit::<SingleRowCellManager, SimpleStepSelectorBuilder, (), (), _, SimpleTraceGenerator<Fr>>(
             config(SingleRowCellManager {}, SimpleStepSelectorBuilder {}),
             simple_circuit,
             (),
@@ -239,7 +251,7 @@ mod tests {
         }
 
         // simple circuit to check if the sum of two inputs are 10
-        ctx.sub_circuit(
+        ctx.sub_circuit::<SingleRowCellManager, SimpleStepSelectorBuilder, (), (), _, SimpleTraceGenerator<Fr>>(
             config(SingleRowCellManager {}, SimpleStepSelectorBuilder {}),
             simple_circuit,
             (),
@@ -296,7 +308,7 @@ mod tests {
             });
         });
 
-        ctx.sub_circuit_with_ast(
+        ctx.sub_circuit_with_ast::<SingleRowCellManager, SimpleStepSelectorBuilder, SimpleTraceGenerator<Fr>>(
             config(SingleRowCellManager {}, SimpleStepSelectorBuilder {}),
             simple_circuit_with_ast,
         );

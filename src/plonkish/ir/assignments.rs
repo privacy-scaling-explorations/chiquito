@@ -5,7 +5,10 @@ use std::{
     ops::{Deref, DerefMut},
 };
 
-use crate::{field::Field, wit_gen::AutoTraceGenerator};
+use crate::{
+    field::Field,
+    wit_gen::{AutoTraceGenerator, SimpleTraceGenerator, TraceGenerator},
+};
 
 use halo2_proofs::plonk::{Advice, Column as Halo2Column};
 
@@ -13,7 +16,7 @@ use crate::{
     plonkish::compiler::{cell_manager::Placement, step_selector::StepSelector},
     sbpir::{query::Queriable, ForwardSignal, SharedSignal, StepTypeUUID},
     util::UUID,
-    wit_gen::{StepInstance, TraceGenerator, TraceWitness},
+    wit_gen::{StepInstance, TraceWitness},
 };
 
 use super::{Column, PolyExpr};
@@ -64,11 +67,11 @@ impl<F> DerefMut for Assignments<F> {
     }
 }
 
-pub struct AssignmentGenerator<F, TraceArgs> {
+pub struct AssignmentGenerator<F, TG = SimpleTraceGenerator<F>> {
     columns: Vec<Column>,
     placement: Placement,
     selector: StepSelector<F>,
-    trace_gen: TraceGenerator<F, TraceArgs>,
+    trace_gen: TG,
     auto_trace_gen: AutoTraceGenerator<F>,
 
     num_rows: usize,
@@ -76,7 +79,10 @@ pub struct AssignmentGenerator<F, TraceArgs> {
     ir_id: UUID,
 }
 
-impl<F: Clone, TraceArgs> Clone for AssignmentGenerator<F, TraceArgs> {
+impl<F: Clone, TG: Default> Clone for AssignmentGenerator<F, TG>
+where
+    TG: TraceGenerator<F> + Clone,
+{
     fn clone(&self) -> Self {
         Self {
             columns: self.columns.clone(),
@@ -90,7 +96,10 @@ impl<F: Clone, TraceArgs> Clone for AssignmentGenerator<F, TraceArgs> {
     }
 }
 
-impl<F: Clone, TraceArgs> Default for AssignmentGenerator<F, TraceArgs> {
+impl<F: Clone, TG: Default> Default for AssignmentGenerator<F, TG>
+where
+    TG: TraceGenerator<F> + Default,
+{
     fn default() -> Self {
         Self {
             columns: Default::default(),
@@ -104,12 +113,15 @@ impl<F: Clone, TraceArgs> Default for AssignmentGenerator<F, TraceArgs> {
     }
 }
 
-impl<F: Field + Hash, TraceArgs> AssignmentGenerator<F, TraceArgs> {
+impl<F: Field + Hash, TG> AssignmentGenerator<F, TG>
+where
+    TG: TraceGenerator<F> + Default,
+{
     pub fn new(
         columns: Vec<Column>,
         placement: Placement,
         selector: StepSelector<F>,
-        trace_gen: TraceGenerator<F, TraceArgs>,
+        trace_gen: TG,
         auto_trace_gen: AutoTraceGenerator<F>,
         num_rows: usize,
         ir_id: UUID,
@@ -125,6 +137,27 @@ impl<F: Field + Hash, TraceArgs> AssignmentGenerator<F, TraceArgs> {
         }
     }
 
+    /// Create an AssignmentGenerator without a trace generator
+    /// for the case when the trace is provided externally
+    pub fn without_trace_generator(
+        columns: Vec<Column>,
+        placement: Placement,
+        selector: StepSelector<F>,
+        auto_trace_gen: AutoTraceGenerator<F>,
+        num_rows: usize,
+        ir_id: UUID,
+    ) -> Self {
+        Self {
+            columns,
+            placement,
+            selector,
+            trace_gen: Default::default(),
+            auto_trace_gen,
+            num_rows,
+            ir_id,
+        }
+    }
+
     pub fn empty(ir_id: UUID) -> Self {
         Self {
             ir_id,
@@ -132,11 +165,11 @@ impl<F: Field + Hash, TraceArgs> AssignmentGenerator<F, TraceArgs> {
         }
     }
 
-    pub fn generate_trace_witness(&self, args: TraceArgs) -> TraceWitness<F> {
+    pub fn generate_trace_witness(&self, args: TG::TraceArgs) -> TraceWitness<F> {
         self.trace_gen.generate(args)
     }
 
-    pub fn generate(&self, args: TraceArgs) -> Assignments<F> {
+    pub fn generate(&self, args: TG::TraceArgs) -> Assignments<F> {
         let witness = self.generate_trace_witness(args);
 
         self.generate_with_witness(witness)

@@ -11,10 +11,11 @@ use chiquito::{
             config,
             step_selector::SimpleStepSelectorBuilder,
         },
-        ir::sc::SuperCircuit,
+        ir::{assignments::AssignmentGenerator, sc::SuperCircuit},
     },
     poly::ToExpr,
     sbpir::query::Queriable,
+    wit_gen::SimpleTraceGenerator,
 };
 use halo2_proofs::{
     dev::MockProver,
@@ -288,6 +289,19 @@ struct InputValues {
     pub t0: u64,             // 64bits
     pub t1: u64,             // 64bits
     pub f: bool,             // 8bits
+}
+
+impl Clone for InputValues {
+    fn clone(&self) -> Self {
+        Self {
+            round: self.round,
+            h_vec: self.h_vec,
+            m_vec: self.m_vec,
+            t0: self.t0,
+            t1: self.t1,
+            f: self.f,
+        }
+    }
 }
 
 struct GStepParams<F> {
@@ -1367,15 +1381,16 @@ fn blake2f_circuit<F: PrimeField + Hash>(
 }
 
 fn blake2f_super_circuit<F: PrimeField + Hash>() -> SuperCircuit<F, InputValues> {
-    super_circuit::<F, InputValues, _>("blake2f", |ctx| {
+    super_circuit::<F, InputValues, _, SimpleTraceGenerator<F>>("blake2f", |ctx| {
         let single_config = config(SingleRowCellManager {}, SimpleStepSelectorBuilder {});
-        let (_, iv_table) = ctx.sub_circuit(single_config.clone(), blake2f_iv_table, IV_LEN);
-        let (_, bits_table) = ctx.sub_circuit(
+        let (_, iv_table): (AssignmentGenerator<F>, LookupTable) =
+            ctx.sub_circuit(single_config.clone(), blake2f_iv_table, IV_LEN);
+        let (_, bits_table): (AssignmentGenerator<F>, LookupTable) = ctx.sub_circuit(
             single_config.clone(),
             blake2f_4bits_table,
             SPLIT_64BITS as usize,
         );
-        let (_, xor_4bits_table) = ctx.sub_circuit(
+        let (_, xor_4bits_table): (AssignmentGenerator<F>, LookupTable) = ctx.sub_circuit(
             single_config,
             blake2f_xor_4bits_table,
             (SPLIT_64BITS * SPLIT_64BITS) as usize,
@@ -1394,7 +1409,7 @@ fn blake2f_super_circuit<F: PrimeField + Hash>() -> SuperCircuit<F, InputValues>
         let (blake2f, _) = ctx.sub_circuit(maxwidth_config, blake2f_circuit, params);
 
         ctx.mapping(move |ctx, values| {
-            ctx.map(&blake2f, values);
+            ctx.map::<SimpleTraceGenerator<F, InputValues>>(&blake2f, values);
         })
     })
 }

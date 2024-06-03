@@ -23,7 +23,7 @@ use crate::{
         Lookup, SharedSignal, StepType, StepTypeUUID, TransitionConstraint, SBPIR,
     },
     util::{uuid, UUID},
-    wit_gen::{StepInstance, TraceContext, TraceWitness},
+    wit_gen::{NoTraceGenerator, StepInstance, TraceContext, TraceWitness},
 };
 
 use core::result::Result;
@@ -34,7 +34,7 @@ use std::{cell::RefCell, collections::HashMap, fmt, rc::Rc};
 type CircuitMapStore = (
     SBPIR<Fr, ()>,
     ChiquitoHalo2<Fr>,
-    Option<AssignmentGenerator<Fr, ()>>,
+    Option<AssignmentGenerator<Fr, NoTraceGenerator>>,
 );
 type CircuitMap = RefCell<HashMap<UUID, CircuitMapStore>>;
 
@@ -91,7 +91,7 @@ pub fn chiquito_ast_to_pil(witness_json: &str, rust_id: UUID, circuit_name: &str
 }
 
 fn add_assignment_generator_to_rust_id(
-    assignment_generator: AssignmentGenerator<Fr, ()>,
+    assignment_generator: AssignmentGenerator<Fr, NoTraceGenerator>,
     rust_id: UUID,
 ) {
     CIRCUIT_MAP.with(|circuit_map| {

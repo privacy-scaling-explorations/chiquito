@@ -1,6 +1,11 @@
 use std::{collections::HashMap, fmt::Debug, hash::Hash, rc::Rc};
 
-use crate::{field::Field, sbpir::SBPIR, util::UUID, wit_gen::TraceWitness};
+use crate::{
+    field::Field,
+    sbpir::SBPIR,
+    util::UUID,
+    wit_gen::{NoTraceGenerator, TraceGenerator, TraceWitness},
+};
 
 use super::{
     assignments::{AssignmentGenerator, Assignments},
@@ -92,17 +97,20 @@ impl<F: Default> Default for MappingContext<F> {
 }
 
 impl<F: Field + Hash> MappingContext<F> {
-    pub fn map<TraceArgs>(&mut self, gen: &AssignmentGenerator<F, TraceArgs>, args: TraceArgs) {
-        let trace_witness = gen.generate_trace_witness(args);
+    pub fn map<TG: TraceGenerator<F> + Default>(
+        &mut self,
+        gen: &AssignmentGenerator<F, TG>,
+        args: TG::TraceArgs,
+    ) {
+        let trace_witness = gen.generate_trace_witness(args.clone());
         self.trace_witnesses
             .insert(gen.uuid(), trace_witness.clone());
-        self.assignments
-            .insert(gen.uuid(), gen.generate_with_witness(trace_witness));
+        self.assignments.insert(gen.uuid(), gen.generate(args));
     }
 
-    pub fn map_with_witness<TraceArgs>(
+    pub fn map_with_witness(
         &mut self,
-        gen: &AssignmentGenerator<F, TraceArgs>,
+        gen: &AssignmentGenerator<F, NoTraceGenerator>,
         witness: TraceWitness<F>,
     ) {
         self.assignments
@@ -179,7 +187,7 @@ mod test {
             ir::Column,
         },
         util::uuid,
-        wit_gen::{AutoTraceGenerator, TraceGenerator},
+        wit_gen::{AutoTraceGenerator, SimpleTraceGenerator},
     };
 
     use super::*;
@@ -287,7 +295,7 @@ mod test {
         );
     }
 
-    fn simple_assignment_generator() -> AssignmentGenerator<Fr, ()> {
+    fn simple_assignment_generator() -> AssignmentGenerator<Fr, SimpleTraceGenerator<Fr>> {
         AssignmentGenerator::new(
             vec![Column::advice('a', 0)],
             Placement {
@@ -299,7 +307,25 @@ mod test {
                 base_height: 0,
             },
             StepSelector::default(),
-            TraceGenerator::default(),
+            SimpleTraceGenerator::default(),
+            AutoTraceGenerator::default(),
+            1,
+            uuid(),
+        )
+    }
+
+    fn assignment_generator_without_trace_gen() -> AssignmentGenerator<Fr, NoTraceGenerator> {
+        AssignmentGenerator::without_trace_generator(
+            vec![Column::advice('a', 0)],
+            Placement {
+                forward: HashMap::new(),
+                shared: HashMap::new(),
+                fixed: HashMap::new(),
+                steps: HashMap::new(),
+                columns: vec![],
+                base_height: 0,
+            },
+            StepSelector::default(),
             AutoTraceGenerator::default(),
             1,
             uuid(),
@@ -323,7 +349,7 @@ mod test {
     fn test_mapping_context_map_with_witness() {
         let mut ctx = MappingContext::<Fr>::default();
 
-        let gen = simple_assignment_generator();
+        let gen = assignment_generator_without_trace_gen();
 
         let witness = TraceWitness::<Fr> {
             step_instances: vec![],
