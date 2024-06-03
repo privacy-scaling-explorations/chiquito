@@ -182,8 +182,7 @@ impl<F: Field, TA: Clone> TraceGenerator<F> for SimpleTraceGenerator<F, TA> {
     }
 }
 
-/// A trace generator that does not generate a witness trace.
-/// The trace should be provided externally.
+/// A no-op trace generator. The trace should be provided externally.
 #[derive(Clone, Default)]
 pub struct NoTraceGenerator;
 
