@@ -105,7 +105,8 @@ impl<F: Field + Hash> MappingContext<F> {
         let trace_witness = gen.generate_trace_witness(args.clone());
         self.trace_witnesses
             .insert(gen.uuid(), trace_witness.clone());
-        self.assignments.insert(gen.uuid(), gen.generate(args));
+        self.assignments
+            .insert(gen.uuid(), gen.generate_with_witness(trace_witness));
     }
 
     pub fn map_with_witness(
