@@ -124,7 +124,7 @@ pub type Trace<F, TraceArgs> = dyn Fn(&mut TraceContext<F>, TraceArgs) + 'static
 /// ### Fields
 /// - `trace`: The trace function.
 /// - `num_steps`: The number of steps in the circuit.
-pub struct SimpleTraceGenerator<F, TA = ()> {
+pub struct WitnessTraceGenerator<F, TA = ()> {
     trace: Rc<Trace<F, TA>>,
     num_steps: usize,
 }
@@ -151,7 +151,7 @@ pub trait TraceGenerator<F> {
     fn generate(&self, args: Self::TraceArgs) -> TraceWitness<F>;
 }
 
-impl<F, TA> Clone for SimpleTraceGenerator<F, TA> {
+impl<F, TA> Clone for WitnessTraceGenerator<F, TA> {
     fn clone(&self) -> Self {
         Self {
             trace: self.trace.clone(),
@@ -160,7 +160,7 @@ impl<F, TA> Clone for SimpleTraceGenerator<F, TA> {
     }
 }
 
-impl<F, TA> Default for SimpleTraceGenerator<F, TA> {
+impl<F, TA> Default for WitnessTraceGenerator<F, TA> {
     fn default() -> Self {
         Self {
             trace: Rc::new(|_, _| {}),
@@ -169,7 +169,7 @@ impl<F, TA> Default for SimpleTraceGenerator<F, TA> {
     }
 }
 
-impl<F: Field, TA: Clone> TraceGenerator<F> for SimpleTraceGenerator<F, TA> {
+impl<F: Field, TA: Clone> TraceGenerator<F> for WitnessTraceGenerator<F, TA> {
     type TraceArgs = TA;
 
     fn new(trace: Rc<Trace<F, TA>>, num_steps: usize) -> Self {
@@ -182,19 +182,17 @@ impl<F: Field, TA: Clone> TraceGenerator<F> for SimpleTraceGenerator<F, TA> {
     }
 }
 
-/// A no-op trace generator. The trace should be provided externally.
 #[derive(Clone, Default)]
-pub struct NoTraceGenerator;
+pub struct SimpleTraceGenerator;
 
-impl<F> TraceGenerator<F> for NoTraceGenerator {
-    type TraceArgs = ();
-
+impl<F: Clone> TraceGenerator<F> for SimpleTraceGenerator {
+    type TraceArgs = TraceWitness<F>;
     fn new(_trace: Rc<Trace<F, Self::TraceArgs>>, _num_steps: usize) -> Self {
-        NoTraceGenerator
+        SimpleTraceGenerator
     }
 
     fn generate(&self, _args: Self::TraceArgs) -> TraceWitness<F> {
-        unreachable!("NoTraceGenerator should not be used for generating traces")
+        _args
     }
 }
 

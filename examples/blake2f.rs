@@ -15,7 +15,7 @@ use chiquito::{
     },
     poly::ToExpr,
     sbpir::query::Queriable,
-    wit_gen::SimpleTraceGenerator,
+    wit_gen::WitnessTraceGenerator,
 };
 use halo2_proofs::{
     dev::MockProver,
@@ -1369,7 +1369,7 @@ fn blake2f_circuit<F: PrimeField + Hash>(
 }
 
 fn blake2f_super_circuit<F: PrimeField + Hash>() -> SuperCircuit<F, InputValues> {
-    super_circuit::<F, InputValues, _, SimpleTraceGenerator<F>>("blake2f", |ctx| {
+    super_circuit::<F, InputValues, _, WitnessTraceGenerator<F>>("blake2f", |ctx| {
         let single_config = config(SingleRowCellManager {}, SimpleStepSelectorBuilder {});
         let (_, iv_table): (AssignmentGenerator<F>, LookupTable) =
             ctx.sub_circuit(single_config.clone(), blake2f_iv_table, IV_LEN);
@@ -1397,7 +1397,7 @@ fn blake2f_super_circuit<F: PrimeField + Hash>() -> SuperCircuit<F, InputValues>
         let (blake2f, _) = ctx.sub_circuit(maxwidth_config, blake2f_circuit, params);
 
         ctx.mapping(move |ctx, values| {
-            ctx.map::<SimpleTraceGenerator<F, InputValues>>(&blake2f, values);
+            ctx.map::<WitnessTraceGenerator<F, InputValues>>(&blake2f, values);
         })
     })
 }

@@ -10,7 +10,7 @@ use chiquito::{
         ir::{assignments::AssignmentGenerator, sc::SuperCircuit},
     },
     sbpir::query::Queriable,
-    wit_gen::SimpleTraceGenerator,
+    wit_gen::WitnessTraceGenerator,
 };
 
 use std::hash::Hash;
@@ -659,7 +659,7 @@ fn poseidon_circuit<F: PrimeField + Eq + Hash>(
 fn poseidon_super_circuit<F: PrimeField + Eq + Hash>(
     lens: Lens,
 ) -> SuperCircuit<F, ValuesAndLens<F>> {
-    super_circuit::<F, ValuesAndLens<F>, _, SimpleTraceGenerator<F>>("poseidon", |ctx| {
+    super_circuit::<F, ValuesAndLens<F>, _, WitnessTraceGenerator<F>>("poseidon", |ctx| {
         let single_config = config(SingleRowCellManager {}, SimpleStepSelectorBuilder {});
         let (_, constants_table): (AssignmentGenerator<F>, LookupTable) = ctx.sub_circuit(
             single_config.clone(),
@@ -681,7 +681,7 @@ fn poseidon_super_circuit<F: PrimeField + Eq + Hash>(
         let (poseidon, _) = ctx.sub_circuit(maxwidth_config, poseidon_circuit, params);
 
         ctx.mapping(move |ctx, values| {
-            ctx.map::<SimpleTraceGenerator<F, ValuesAndLens<F>>>(&poseidon, values);
+            ctx.map::<WitnessTraceGenerator<F, ValuesAndLens<F>>>(&poseidon, values);
         })
     })
 }

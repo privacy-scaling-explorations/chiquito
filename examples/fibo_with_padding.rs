@@ -20,14 +20,14 @@ use chiquito::{
                              * Halo2
                              * circuit */
     poly::ToField,
-    wit_gen::SimpleTraceGenerator,
+    wit_gen::WitnessTraceGenerator,
 };
 use halo2_proofs::{dev::MockProver, halo2curves::bn256::Fr};
 
 // This example file extends the rust example file 'fibonacci.rs',
 // describing usage of multiple steptypes, padding, and exposing signals.
 
-type AssignGen<F> = AssignmentGenerator<F, SimpleTraceGenerator<F, u32>>;
+type AssignGen<F> = AssignmentGenerator<F, WitnessTraceGenerator<F, u32>>;
 
 // the main circuit function
 fn fibo_circuit<F: Field + From<u64> + Hash>() -> (Circuit<F>, Option<AssignGen<F>>)

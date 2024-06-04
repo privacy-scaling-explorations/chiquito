@@ -142,7 +142,7 @@ mod tests {
             cell_manager::SingleRowCellManager, config, step_selector::SimpleStepSelectorBuilder,
         },
         poly::ToField,
-        wit_gen::SimpleTraceGenerator,
+        wit_gen::WitnessTraceGenerator,
     };
 
     use super::*;
@@ -195,7 +195,7 @@ mod tests {
         }
 
         // simple circuit to check if the sum of two inputs are 10
-        ctx.sub_circuit::<SingleRowCellManager, SimpleStepSelectorBuilder, (), (), _, SimpleTraceGenerator<Fr>>(
+        ctx.sub_circuit::<SingleRowCellManager, SimpleStepSelectorBuilder, (), (), _, WitnessTraceGenerator<Fr>>(
             config(SingleRowCellManager {}, SimpleStepSelectorBuilder {}),
             simple_circuit,
             (),
@@ -251,7 +251,7 @@ mod tests {
         }
 
         // simple circuit to check if the sum of two inputs are 10
-        ctx.sub_circuit::<SingleRowCellManager, SimpleStepSelectorBuilder, (), (), _, SimpleTraceGenerator<Fr>>(
+        ctx.sub_circuit::<SingleRowCellManager, SimpleStepSelectorBuilder, (), (), _, WitnessTraceGenerator<Fr>>(
             config(SingleRowCellManager {}, SimpleStepSelectorBuilder {}),
             simple_circuit,
             (),
@@ -308,7 +308,7 @@ mod tests {
             });
         });
 
-        ctx.sub_circuit_with_ast::<SingleRowCellManager, SimpleStepSelectorBuilder, SimpleTraceGenerator<Fr>>(
+        ctx.sub_circuit_with_ast::<SingleRowCellManager, SimpleStepSelectorBuilder, WitnessTraceGenerator<Fr>>(
             config(SingleRowCellManager {}, SimpleStepSelectorBuilder {}),
             simple_circuit_with_ast,
         );

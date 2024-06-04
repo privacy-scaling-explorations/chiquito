@@ -15,7 +15,7 @@ use chiquito::{
         ir::{assignments::AssignmentGenerator, sc::SuperCircuit},
     },
     sbpir::query::Queriable,
-    wit_gen::SimpleTraceGenerator,
+    wit_gen::WitnessTraceGenerator,
 };
 
 use mimc7_constants::ROUND_CONSTANTS;
@@ -186,7 +186,7 @@ fn mimc7_circuit<F: PrimeField + Eq + Hash>(
 }
 
 fn mimc7_super_circuit<F: PrimeField + Eq + Hash>() -> SuperCircuit<F, (F, F)> {
-    super_circuit::<F, (F, F), _, SimpleTraceGenerator<F>>("mimc7", |ctx| {
+    super_circuit::<F, (F, F), _, WitnessTraceGenerator<F>>("mimc7", |ctx| {
         let config = config(SingleRowCellManager {}, SimpleStepSelectorBuilder {});
 
         let (_, constants): (AssignmentGenerator<F>, LookupTable) =
@@ -194,7 +194,7 @@ fn mimc7_super_circuit<F: PrimeField + Eq + Hash>() -> SuperCircuit<F, (F, F)> {
         let (mimc7, _) = ctx.sub_circuit(config, mimc7_circuit, constants);
 
         ctx.mapping(move |ctx, (x_in_value, k_value)| {
-            ctx.map::<SimpleTraceGenerator<F, (F, F)>>(&mimc7, (x_in_value, k_value));
+            ctx.map::<WitnessTraceGenerator<F, (F, F)>>(&mimc7, (x_in_value, k_value));
         })
     })
 }

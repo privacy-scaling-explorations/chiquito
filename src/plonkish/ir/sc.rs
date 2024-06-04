@@ -4,7 +4,7 @@ use crate::{
     field::Field,
     sbpir::SBPIR,
     util::UUID,
-    wit_gen::{NoTraceGenerator, TraceGenerator, TraceWitness},
+    wit_gen::{TraceGenerator, TraceWitness},
 };
 
 use super::{
@@ -106,16 +106,7 @@ impl<F: Field + Hash> MappingContext<F> {
         self.trace_witnesses
             .insert(gen.uuid(), trace_witness.clone());
         self.assignments
-            .insert(gen.uuid(), gen.generate_with_witness(trace_witness));
-    }
-
-    pub fn map_with_witness(
-        &mut self,
-        gen: &AssignmentGenerator<F, NoTraceGenerator>,
-        witness: TraceWitness<F>,
-    ) {
-        self.assignments
-            .insert(gen.uuid(), gen.generate_with_witness(witness));
+            .insert(gen.uuid(), gen.generate(args.clone()));
     }
 
     pub fn get_super_assignments(self) -> SuperAssignments<F> {
@@ -188,7 +179,7 @@ mod test {
             ir::Column,
         },
         util::uuid,
-        wit_gen::{AutoTraceGenerator, SimpleTraceGenerator},
+        wit_gen::{AutoTraceGenerator, WitnessTraceGenerator},
     };
 
     use super::*;
@@ -308,25 +299,7 @@ mod test {
                 base_height: 0,
             },
             StepSelector::default(),
-            SimpleTraceGenerator::default(),
-            AutoTraceGenerator::default(),
-            1,
-            uuid(),
-        )
-    }
-
-    fn assignment_generator_without_trace_gen() -> AssignmentGenerator<Fr, NoTraceGenerator> {
-        AssignmentGenerator::without_trace_generator(
-            vec![Column::advice('a', 0)],
-            Placement {
-                forward: HashMap::new(),
-                shared: HashMap::new(),
-                fixed: HashMap::new(),
-                steps: HashMap::new(),
-                columns: vec![],
-                base_height: 0,
-            },
-            StepSelector::default(),
+            WitnessTraceGenerator::default(),
             AutoTraceGenerator::default(),
             1,
             uuid(),
@@ -342,21 +315,6 @@ mod test {
         let gen = simple_assignment_generator();
 
         ctx.map(&gen, ());
-
-        assert_eq!(ctx.assignments.len(), 1);
-    }
-
-    #[test]
-    fn test_mapping_context_map_with_witness() {
-        let mut ctx = MappingContext::<Fr>::default();
-
-        let gen = assignment_generator_without_trace_gen();
-
-        let witness = TraceWitness::<Fr> {
-            step_instances: vec![],
-        };
-
-        ctx.map_with_witness(&gen, witness);
 
         assert_eq!(ctx.assignments.len(), 1);
     }

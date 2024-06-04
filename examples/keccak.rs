@@ -11,7 +11,7 @@ use chiquito::{
     },
     poly::ToExpr,
     sbpir::query::Queriable,
-    wit_gen::SimpleTraceGenerator,
+    wit_gen::WitnessTraceGenerator,
 };
 use std::{hash::Hash, ops::Neg};
 
@@ -2211,7 +2211,7 @@ struct CircuitParams {
 fn keccak_super_circuit<F: PrimeField<Repr = [u8; 32]> + Eq + Hash>(
     input_len: usize,
 ) -> SuperCircuit<F, KeccakCircuit> {
-    super_circuit::<F, KeccakCircuit, _, SimpleTraceGenerator<F>>("keccak", |ctx| {
+    super_circuit::<F, KeccakCircuit, _, WitnessTraceGenerator<F>>("keccak", |ctx| {
         let in_n = (input_len * 8 + 1 + RATE_IN_BITS as usize) / RATE_IN_BITS as usize;
         let step_num = in_n * (1 + NUM_ROUNDS as usize);
 
@@ -2251,7 +2251,7 @@ fn keccak_super_circuit<F: PrimeField<Repr = [u8; 32]> + Eq + Hash>(
         let (keccak, _) = ctx.sub_circuit(maxwidth_config, keccak_circuit, params);
 
         ctx.mapping(move |ctx, values| {
-            ctx.map::<SimpleTraceGenerator<F, KeccakCircuit>>(&keccak, values);
+            ctx.map::<WitnessTraceGenerator<F, KeccakCircuit>>(&keccak, values);
         })
     })
 }

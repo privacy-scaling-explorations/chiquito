@@ -7,7 +7,7 @@ use std::{
 
 use crate::{
     field::Field,
-    wit_gen::{AutoTraceGenerator, SimpleTraceGenerator, TraceGenerator},
+    wit_gen::{AutoTraceGenerator, TraceGenerator, WitnessTraceGenerator},
 };
 
 use halo2_proofs::plonk::{Advice, Column as Halo2Column};
@@ -67,7 +67,7 @@ impl<F> DerefMut for Assignments<F> {
     }
 }
 
-pub struct AssignmentGenerator<F, TG = SimpleTraceGenerator<F>> {
+pub struct AssignmentGenerator<F, TG = WitnessTraceGenerator<F>> {
     columns: Vec<Column>,
     placement: Placement,
     selector: StepSelector<F>,
@@ -175,7 +175,7 @@ where
         self.generate_with_witness(witness)
     }
 
-    pub fn generate_with_witness(&self, witness: TraceWitness<F>) -> Assignments<F> {
+    fn generate_with_witness(&self, witness: TraceWitness<F>) -> Assignments<F> {
         let mut offset: usize = 0;
         let mut assignments: Assignments<F> = Default::default();
 

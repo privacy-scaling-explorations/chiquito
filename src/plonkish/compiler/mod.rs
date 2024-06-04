@@ -580,7 +580,7 @@ fn add_halo2_columns<F, TraceArgs>(unit: &mut CompilationUnit<F>, ast: &astCircu
 mod test {
     use halo2_proofs::{halo2curves::bn256::Fr, plonk::Any};
 
-    use crate::wit_gen::SimpleTraceGenerator;
+    use crate::wit_gen::WitnessTraceGenerator;
 
     use super::{cell_manager::SingleRowCellManager, step_selector::SimpleStepSelectorBuilder, *};
 
@@ -613,7 +613,7 @@ mod test {
             Fr,
             SingleRowCellManager,
             SimpleStepSelectorBuilder,
-            SimpleTraceGenerator<Fr>,
+            WitnessTraceGenerator<Fr>,
         >(config, &mock_ast_circuit);
 
         assert_eq!(circuit.columns.len(), 1);
@@ -638,7 +638,7 @@ mod test {
             Fr,
             SingleRowCellManager,
             SimpleStepSelectorBuilder,
-            SimpleTraceGenerator<Fr>,
+            WitnessTraceGenerator<Fr>,
         >(config, &mock_ast_circuit);
 
         assert_eq!(unit.columns.len(), 1);
