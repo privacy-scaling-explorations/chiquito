@@ -57,6 +57,11 @@ impl<F: Field + Hash> StackFrameScope<F> {
 
         result
     }
+
+    fn transition_signals(&mut self) {
+        self.signals[0] = self.signals[1].clone();
+        self.signals[1].clear();
+    }
 }
 
 #[derive(Debug)]
@@ -146,8 +151,7 @@ impl<'a, F: Field + Hash> StackFrame<'a, F> {
 
         self.exit_state();
 
-        self.scopes[0].signals[0] = self.scopes[0].signals[1].clone();
-        self.scopes[0].signals[1].clear();
+        self.scopes[0].transition_signals();
 
         if next_state.is_some() {
             self.enter_state(next_state.clone().unwrap());
