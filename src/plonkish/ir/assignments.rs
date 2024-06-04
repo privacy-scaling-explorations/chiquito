@@ -137,27 +137,6 @@ where
         }
     }
 
-    /// Create an AssignmentGenerator without a trace generator
-    /// for the case when the trace is provided externally
-    pub fn without_trace_generator(
-        columns: Vec<Column>,
-        placement: Placement,
-        selector: StepSelector<F>,
-        auto_trace_gen: AutoTraceGenerator<F>,
-        num_rows: usize,
-        ir_id: UUID,
-    ) -> Self {
-        Self {
-            columns,
-            placement,
-            selector,
-            trace_gen: Default::default(),
-            auto_trace_gen,
-            num_rows,
-            ir_id,
-        }
-    }
-
     pub fn empty(ir_id: UUID) -> Self {
         Self {
             ir_id,
