@@ -172,10 +172,6 @@ where
     pub fn generate(&self, args: TG::TraceArgs) -> Assignments<F> {
         let witness = self.generate_trace_witness(args);
 
-        self.generate_with_witness(witness)
-    }
-
-    fn generate_with_witness(&self, witness: TraceWitness<F>) -> Assignments<F> {
         let mut offset: usize = 0;
         let mut assignments: Assignments<F> = Default::default();
 
