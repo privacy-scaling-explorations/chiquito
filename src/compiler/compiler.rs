@@ -195,6 +195,11 @@ impl<F: Field + Hash> Compiler<F> {
         circuit
     }
 
+    #[allow(dead_code)]
+    fn cse(mut _circuit: SBPIR<F, ()>) -> SBPIR<F, ()> {
+        todo!()
+    }
+
     fn translate_queries(
         &mut self,
         symbols: &SymTable,
@@ -522,7 +527,7 @@ mod test {
            }
         ";
 
-        let debug_sym_ref_factory = DebugSymRefFactory::new("", &circuit);
+        let debug_sym_ref_factory = DebugSymRefFactory::new("", circuit);
         let result = compile::<Fr>(
             circuit,
             Config::default().max_degree(2),
