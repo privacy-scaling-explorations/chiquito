@@ -433,15 +433,15 @@ mod tests {
                     StepInstance {
                         step_type_uuid: 9,
                         assignments: HashMap::from([
-                            (Queriable::Fixed(FixedSignal::new("a".into()), 0), 1),
-                            (Queriable::Fixed(FixedSignal::new("b".into()), 0), 2)
+                            (Queriable::Fixed(FixedSignal::new("a"), 0), 1),
+                            (Queriable::Fixed(FixedSignal::new("b"), 0), 2)
                         ]),
                     },
                     StepInstance {
                         step_type_uuid: 10,
                         assignments: HashMap::from([
-                            (Queriable::Fixed(FixedSignal::new("a".into()), 0), 1),
-                            (Queriable::Fixed(FixedSignal::new("b".into()), 0), 2)
+                            (Queriable::Fixed(FixedSignal::new("a"), 0), 1),
+                            (Queriable::Fixed(FixedSignal::new("b"), 0), 2)
                         ]),
                     }
                 ]

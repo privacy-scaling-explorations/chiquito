@@ -39,6 +39,10 @@ impl<T: PrimeField + From<u64>> ChiquitoField for T {
     fn from_big_int(value: &num_bigint::BigInt) -> Self {
         PrimeField::from_str_vartime(value.to_string().as_str()).expect("field value")
     }
+
+    fn random(rng: impl rand_chacha::rand_core::RngCore) -> Self {
+        Self::random(rng)
+    }
 }
 
 #[allow(non_snake_case)]
