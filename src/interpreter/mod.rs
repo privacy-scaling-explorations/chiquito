@@ -240,6 +240,9 @@ impl<'a, F: Field + Hash> Interpreter<'a, F> {
 }
 
 /// Runs WG interpreter on a program in AST form.
+///
+/// * `input` - Map of identifier -> Field value. Where identifier corresponds to the name of an
+///   input argument of the machine.
 pub fn run<F: Field + Hash>(
     program: &[TLDecl<BigInt, Identifier>],
     symbols: &SymTable,
