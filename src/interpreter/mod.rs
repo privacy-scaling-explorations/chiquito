@@ -27,7 +27,7 @@ struct Interpreter<'a, F: Field + Hash> {
 }
 
 impl<'a, F: Field + Hash> Interpreter<'a, F> {
-    pub fn new(symbols: &'a SymTable, mapping: &'a SymbolSignalMapping) -> Self {
+    fn new(symbols: &'a SymTable, mapping: &'a SymbolSignalMapping) -> Self {
         Self {
             mapping,
             cur_frame: StackFrame::new(symbols),
@@ -35,7 +35,7 @@ impl<'a, F: Field + Hash> Interpreter<'a, F> {
         }
     }
 
-    pub fn run(
+    fn run(
         &mut self,
         ast: &[TLDecl<BigInt, Identifier>],
         input: HashMap<String, F>,
@@ -239,15 +239,16 @@ impl<'a, F: Field + Hash> Interpreter<'a, F> {
     }
 }
 
+/// Runs WG interpreter on a program in AST form.
 pub fn run<F: Field + Hash>(
-    ast: &[TLDecl<BigInt, Identifier>],
+    program: &[TLDecl<BigInt, Identifier>],
     symbols: &SymTable,
     mapping: &SymbolSignalMapping,
     input: HashMap<String, F>,
 ) -> Result<Vec<StepInstance<F>>, Message> {
     let mut inter = Interpreter::<F>::new(symbols, mapping);
 
-    inter.run(ast, input)
+    inter.run(program, input)
 }
 
 fn error_mapper(dsym: DebugSymRef) -> impl Fn(String) -> Message {

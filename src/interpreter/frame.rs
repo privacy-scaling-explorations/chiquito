@@ -10,6 +10,8 @@ use crate::{
 
 use super::value::Value;
 
+/// Represents one of the scopes in the execution of one stack frame. At one point a stack frame has
+/// one or more nested scopes.
 #[derive(Default, Debug)]
 pub(super) struct StackFrameScope<F: Field> {
     lex_scope: String,
@@ -64,6 +66,7 @@ impl<F: Field + Hash> StackFrameScope<F> {
     }
 }
 
+/// Containts a stack frame of execution.
 #[derive(Debug)]
 pub(super) struct StackFrame<'a, F: Field> {
     symbols: &'a SymTable,
@@ -85,10 +88,12 @@ impl<'a, F: Field + Hash> StackFrame<'a, F> {
         }
     }
 
+    /// Get state name.
     pub(super) fn get_state(&self) -> String {
         self.cur_state.clone()
     }
 
+    /// Get current value in this stack frame for a variable.
     pub(super) fn get_value<V: Identifiable>(&self, id: &V) -> Option<&Value<F>> {
         let mut value = None;
         for scope in self.scopes.iter().rev() {
@@ -101,6 +106,7 @@ impl<'a, F: Field + Hash> StackFrame<'a, F> {
         value
     }
 
+    /// Set/changes value for an identifier in this stack frame.
     pub(super) fn set_value<V: Identifiable>(&mut self, id: &V, value: &Value<F>) {
         let symbol = self
             .symbols
@@ -110,6 +116,8 @@ impl<'a, F: Field + Hash> StackFrame<'a, F> {
         self.scopes[symbol.level - 1].set_value(id, &symbol, value);
     }
 
+    /// If this stack frame is in a machine, enters the machine and starts it. The execution of a
+    /// machine has only one stack frame, the states are inner scopes in the same stack frame.
     pub(super) fn enter_machine<S: Into<String>>(&mut self, machine_id: S) {
         self.cur_machine = machine_id.into();
         self.lex_scope.push(self.cur_machine.clone());
@@ -131,6 +139,8 @@ impl<'a, F: Field + Hash> StackFrame<'a, F> {
         self.scopes.pop();
     }
 
+    /// Transitions to a new state. The scope of the old state is destroyed, and a new one is
+    /// created. The values of the forward signals next step are move to current state.
     pub(super) fn state_transition(
         &mut self,
         mapping: &SymbolSignalMapping,

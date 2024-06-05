@@ -24,6 +24,7 @@ use super::{
     Config, Message, Messages,
 };
 
+/// Contains the result of a compilation.
 #[derive(Debug)]
 pub struct CompilerResult<F> {
     pub messages: Vec<Message>,
@@ -32,6 +33,7 @@ pub struct CompilerResult<F> {
 }
 
 impl<F: Field + Hash> CompilerResult<F> {
+    /// Compiles to the Plonkish IR, that then can be compiled to plonkish backends.
     pub fn plonkish<
         CM: plonkish::compiler::cell_manager::CellManager,
         SSB: plonkish::compiler::step_selector::StepSelectorBuilder,
@@ -179,12 +181,12 @@ impl<F: Field + Hash> Compiler<F> {
                             self.add_internals(ctx, symbols, machine_id, state_id);
 
                             ctx.setup(|ctx| {
-                                let pis =
+                                let poly_constraints =
                                     self.translate_queries(symbols, setup, machine_id, state_id);
-                                pis.iter().for_each(|pi| {
+                                poly_constraints.iter().for_each(|poly| {
                                     let constraint = Constraint {
-                                        annotation: format!("{:?}", pi),
-                                        expr: pi.clone(),
+                                        annotation: format!("{:?}", poly),
+                                        expr: poly.clone(),
                                         typing: Typing::AntiBooly,
                                     };
                                     ctx.constr(constraint);
