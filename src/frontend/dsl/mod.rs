@@ -2,7 +2,7 @@ use crate::{
     field::Field,
     sbpir::{query::Queriable, ExposeOffset, StepType, StepTypeUUID, PIR, SBPIR},
     util::{uuid, UUID},
-    wit_gen::{FixedGenContext, StepInstance, TraceContext, TraceGenerator, DSLTraceGenerator},
+    wit_gen::{DSLTraceGenerator, FixedGenContext, StepInstance, TraceContext, TraceGenerator},
 };
 
 use halo2_proofs::plonk::{Advice, Column as Halo2Column, Fixed};
@@ -443,7 +443,7 @@ mod tests {
 
     use crate::{
         sbpir::ForwardSignal,
-        wit_gen::{NullTraceGenerator, DSLTraceGenerator},
+        wit_gen::{DSLTraceGenerator, NullTraceGenerator},
     };
 
     use super::*;

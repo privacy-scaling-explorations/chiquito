@@ -14,7 +14,7 @@ use crate::{
         },
     },
     sbpir::SBPIR,
-    wit_gen::{NullTraceGenerator, TraceGenerator, DSLTraceGenerator},
+    wit_gen::{DSLTraceGenerator, NullTraceGenerator, TraceGenerator},
 };
 
 use super::{lb::LookupTableRegistry, CircuitContext};
