@@ -14,7 +14,7 @@ use crate::{
         },
     },
     sbpir::SBPIR,
-    wit_gen::TraceGenerator,
+    wit_gen::{NullTraceGenerator, TraceGenerator, DSLTraceGenerator},
 };
 
 use super::{lb::LookupTableRegistry, CircuitContext};
@@ -36,7 +36,7 @@ impl<F, MappingArgs> Default for SuperCircuitContext<F, MappingArgs> {
 }
 
 impl<F: Clone, MappingArgs> SuperCircuitContext<F, MappingArgs> {
-    fn add_sub_circuit_ast(&mut self, ast: SBPIR<F, ()>) {
+    fn add_sub_circuit_ast(&mut self, ast: SBPIR<F, NullTraceGenerator>) {
         self.super_circuit.add_sub_circuit_ast(ast);
     }
 }
@@ -45,18 +45,21 @@ impl<F: Field + Hash, MappingArgs> SuperCircuitContext<F, MappingArgs> {
     pub fn sub_circuit<
         CM: CellManager,
         SSB: StepSelectorBuilder,
+        TraceArgs: Clone,
         Imports,
         Exports,
         D,
-        TG: TraceGenerator<F> + Clone + Default,
     >(
         &mut self,
         config: CompilerConfig<CM, SSB>,
         sub_circuit_def: D,
         imports: Imports,
-    ) -> (AssignmentGenerator<F, TG>, Exports)
+    ) -> (
+        AssignmentGenerator<F, DSLTraceGenerator<F, TraceArgs>>,
+        Exports,
+    )
     where
-        D: Fn(&mut CircuitContext<F, TG::TraceArgs>, Imports) -> Exports,
+        D: Fn(&mut CircuitContext<F, DSLTraceGenerator<F, TraceArgs>>, Imports) -> Exports,
     {
         let mut sub_circuit_context = CircuitContext {
             circuit: SBPIR::default(),
@@ -84,7 +87,7 @@ impl<F: Field + Hash, MappingArgs> SuperCircuitContext<F, MappingArgs> {
     >(
         &mut self,
         config: CompilerConfig<CM, SSB>,
-        sub_circuit: SBPIR<F, TG::TraceArgs>, // directly input ast
+        sub_circuit: SBPIR<F, TG>, // directly input ast
     ) -> AssignmentGenerator<F, TG> {
         let (unit, assignment) = compile_phase1(config, &sub_circuit);
         let assignment = assignment.unwrap_or_else(|| AssignmentGenerator::empty(unit.uuid));
@@ -142,7 +145,7 @@ mod tests {
             cell_manager::SingleRowCellManager, config, step_selector::SimpleStepSelectorBuilder,
         },
         poly::ToField,
-        wit_gen::WitnessTraceGenerator,
+        wit_gen::DSLTraceGenerator,
     };
 
     use super::*;
@@ -170,7 +173,10 @@ mod tests {
     fn test_super_circuit_context_sub_circuit() {
         let mut ctx = SuperCircuitContext::<Fr, ()>::default();
 
-        fn simple_circuit<F: PrimeField + Eq + Hash>(ctx: &mut CircuitContext<F, ()>, _: ()) {
+        fn simple_circuit<F: PrimeField + Eq + Hash>(
+            ctx: &mut CircuitContext<F, DSLTraceGenerator<F>>,
+            _: (),
+        ) {
             use crate::frontend::dsl::cb::*;
 
             let x = ctx.forward("x");
@@ -195,7 +201,7 @@ mod tests {
         }
 
         // simple circuit to check if the sum of two inputs are 10
-        ctx.sub_circuit::<SingleRowCellManager, SimpleStepSelectorBuilder, (), (), _, WitnessTraceGenerator<Fr>>(
+        ctx.sub_circuit(
             config(SingleRowCellManager {}, SimpleStepSelectorBuilder {}),
             simple_circuit,
             (),
@@ -226,7 +232,10 @@ mod tests {
     fn test_super_circuit_compile() {
         let mut ctx = SuperCircuitContext::<Fr, ()>::default();
 
-        fn simple_circuit<F: PrimeField + Eq + Hash>(ctx: &mut CircuitContext<F, ()>, _: ()) {
+        fn simple_circuit<F: PrimeField + Eq + Hash>(
+            ctx: &mut CircuitContext<F, DSLTraceGenerator<F>>,
+            _: (),
+        ) {
             use crate::frontend::dsl::cb::*;
 
             let x = ctx.forward("x");
@@ -251,7 +260,7 @@ mod tests {
         }
 
         // simple circuit to check if the sum of two inputs are 10
-        ctx.sub_circuit::<SingleRowCellManager, SimpleStepSelectorBuilder, (), (), _, WitnessTraceGenerator<Fr>>(
+        ctx.sub_circuit(
             config(SingleRowCellManager {}, SimpleStepSelectorBuilder {}),
             simple_circuit,
             (),
@@ -308,7 +317,7 @@ mod tests {
             });
         });
 
-        ctx.sub_circuit_with_ast::<SingleRowCellManager, SimpleStepSelectorBuilder, WitnessTraceGenerator<Fr>>(
+        ctx.sub_circuit_with_ast::<SingleRowCellManager, SimpleStepSelectorBuilder, DSLTraceGenerator<Fr>>(
             config(SingleRowCellManager {}, SimpleStepSelectorBuilder {}),
             simple_circuit_with_ast,
         );

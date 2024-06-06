@@ -45,9 +45,17 @@ impl<F: Eq + Hash> StepInstance<F> {
 
 pub type Witness<F> = Vec<StepInstance<F>>;
 
-#[derive(Debug, Default, Clone)]
+#[derive(Debug, Clone)]
 pub struct TraceWitness<F> {
     pub step_instances: Witness<F>,
+}
+
+impl<F> Default for TraceWitness<F> {
+    fn default() -> Self {
+        Self {
+            step_instances: vec![],
+        }
+    }
 }
 
 impl<F: fmt::Debug> fmt::Display for TraceWitness<F> {
@@ -114,21 +122,6 @@ impl<F> TraceContext<F> {
 
 pub type Trace<F, TraceArgs> = dyn Fn(&mut TraceContext<F>, TraceArgs) + 'static;
 
-/// A simple trace generator that generates a trace witness by calling the trace function with the
-/// given arguments.
-///
-/// ### Parameters
-/// - `F`: The field type.
-/// - `TA`: The type of arguments that the trace function takes.
-///
-/// ### Fields
-/// - `trace`: The trace function.
-/// - `num_steps`: The number of steps in the circuit.
-pub struct WitnessTraceGenerator<F, TA = ()> {
-    trace: Rc<Trace<F, TA>>,
-    num_steps: usize,
-}
-
 /// A trait that defines the interface for trace generators. A trace generator is responsible for
 /// generating a trace witness for the given arguments.
 ///
@@ -139,19 +132,29 @@ pub struct WitnessTraceGenerator<F, TA = ()> {
 /// - `TraceGenerator::TraceArgs` The type of arguments that the trace generator takes.
 pub trait TraceGenerator<F> {
     /// The type of arguments that the trace generator takes.
-    type TraceArgs: Clone;
-    /// Creates a new trace generator with the given trace function and number of steps.
-    /// ### Parameters
-    /// - `trace`: The trace function.
-    /// - `num_steps`: The number of steps in the circuit.
-    fn new(trace: Rc<Trace<F, Self::TraceArgs>>, num_steps: usize) -> Self;
+    type TraceArgs;
     /// Generates a trace witness for the given arguments.
     /// ### Parameters
     /// - `args`: The arguments for the trace function.
     fn generate(&self, args: Self::TraceArgs) -> TraceWitness<F>;
 }
 
-impl<F, TA> Clone for WitnessTraceGenerator<F, TA> {
+/// A simple trace generator that generates a trace witness by calling the trace function with the
+/// given arguments.
+///
+/// ### Parameters
+/// - `F`: The field type.
+/// - `TA`: The type of arguments that the trace function takes.
+///
+/// ### Fields
+/// - `trace`: The trace function.
+/// - `num_steps`: The number of steps in the circuit.
+pub struct DSLTraceGenerator<F, TA = ()> {
+    trace: Rc<Trace<F, TA>>,
+    num_steps: usize,
+}
+
+impl<F, TA> Clone for DSLTraceGenerator<F, TA> {
     fn clone(&self) -> Self {
         Self {
             trace: self.trace.clone(),
@@ -160,7 +163,7 @@ impl<F, TA> Clone for WitnessTraceGenerator<F, TA> {
     }
 }
 
-impl<F, TA> Default for WitnessTraceGenerator<F, TA> {
+impl<F, TA> Default for DSLTraceGenerator<F, TA> {
     fn default() -> Self {
         Self {
             trace: Rc::new(|_, _| {}),
@@ -169,12 +172,16 @@ impl<F, TA> Default for WitnessTraceGenerator<F, TA> {
     }
 }
 
-impl<F: Field, TA: Clone> TraceGenerator<F> for WitnessTraceGenerator<F, TA> {
-    type TraceArgs = TA;
-
-    fn new(trace: Rc<Trace<F, TA>>, num_steps: usize) -> Self {
+impl<F, TA> DSLTraceGenerator<F, TA> {
+    /// Creates an instance.
+    pub fn new(trace: Rc<Trace<F, TA>>, num_steps: usize) -> Self {
         Self { trace, num_steps }
     }
+}
+
+impl<F: Field, TA> TraceGenerator<F> for DSLTraceGenerator<F, TA> {
+    type TraceArgs = TA;
+
     fn generate(&self, args: TA) -> TraceWitness<F> {
         let mut ctx = TraceContext::new(self.num_steps);
         (self.trace)(&mut ctx, args);
@@ -182,17 +189,15 @@ impl<F: Field, TA: Clone> TraceGenerator<F> for WitnessTraceGenerator<F, TA> {
     }
 }
 
+/// A trace generator that always returns an empty witness.
 #[derive(Clone, Default)]
-pub struct SimpleTraceGenerator;
+pub struct NullTraceGenerator;
 
-impl<F: Clone> TraceGenerator<F> for SimpleTraceGenerator {
-    type TraceArgs = TraceWitness<F>;
-    fn new(_trace: Rc<Trace<F, Self::TraceArgs>>, _num_steps: usize) -> Self {
-        SimpleTraceGenerator
-    }
+impl<F> TraceGenerator<F> for NullTraceGenerator {
+    type TraceArgs = ();
 
     fn generate(&self, _args: Self::TraceArgs) -> TraceWitness<F> {
-        _args
+        TraceWitness::default()
     }
 }
 
@@ -209,8 +214,8 @@ impl<F> Default for AutoTraceGenerator<F> {
     }
 }
 
-impl<F: Clone, TraceArgs> From<&SBPIR<F, TraceArgs>> for AutoTraceGenerator<F> {
-    fn from(circuit: &SBPIR<F, TraceArgs>) -> Self {
+impl<F: Clone, TG: TraceGenerator<F>> From<&SBPIR<F, TG>> for AutoTraceGenerator<F> {
+    fn from(circuit: &SBPIR<F, TG>) -> Self {
         let auto_signals = circuit
             .step_types
             .iter()

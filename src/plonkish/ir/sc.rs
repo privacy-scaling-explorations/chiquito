@@ -4,7 +4,7 @@ use crate::{
     field::Field,
     sbpir::SBPIR,
     util::UUID,
-    wit_gen::{TraceGenerator, TraceWitness},
+    wit_gen::{NullTraceGenerator, TraceGenerator, TraceWitness},
 };
 
 use super::{
@@ -16,7 +16,7 @@ use super::{
 pub struct SuperCircuit<F, MappingArgs> {
     sub_circuits: Vec<Circuit<F>>,
     mapping: MappingGenerator<F, MappingArgs>,
-    sub_circuit_asts: Vec<SBPIR<F, ()>>,
+    sub_circuit_asts: Vec<SBPIR<F, NullTraceGenerator>>,
 }
 
 impl<F, MappingArgs> Default for SuperCircuit<F, MappingArgs> {
@@ -39,7 +39,7 @@ impl<F, MappingArgs> SuperCircuit<F, MappingArgs> {
     }
 
     // Needed for the PIL backend.
-    pub fn add_sub_circuit_ast(&mut self, sub_circuit_ast: SBPIR<F, ()>) {
+    pub fn add_sub_circuit_ast(&mut self, sub_circuit_ast: SBPIR<F, NullTraceGenerator>) {
         self.sub_circuit_asts.push(sub_circuit_ast);
     }
 
@@ -58,7 +58,7 @@ impl<F, MappingArgs> SuperCircuit<F, MappingArgs> {
 
 // Needed for the PIL backend.
 impl<F: Clone, MappingArgs> SuperCircuit<F, MappingArgs> {
-    pub fn get_super_asts(&self) -> Vec<SBPIR<F, ()>> {
+    pub fn get_super_asts(&self) -> Vec<SBPIR<F, NullTraceGenerator>> {
         self.sub_circuit_asts.clone()
     }
 }
@@ -97,10 +97,10 @@ impl<F: Default> Default for MappingContext<F> {
 }
 
 impl<F: Field + Hash> MappingContext<F> {
-    pub fn map<TG: TraceGenerator<F> + Default>(
+    pub fn map<TraceArgs: Clone, TG: TraceGenerator<F, TraceArgs = TraceArgs> + Default>(
         &mut self,
         gen: &AssignmentGenerator<F, TG>,
-        args: TG::TraceArgs,
+        args: TraceArgs,
     ) {
         let trace_witness = gen.generate_trace_witness(args.clone());
         self.trace_witnesses
@@ -179,7 +179,7 @@ mod test {
             ir::Column,
         },
         util::uuid,
-        wit_gen::{AutoTraceGenerator, WitnessTraceGenerator},
+        wit_gen::{AutoTraceGenerator, DSLTraceGenerator},
     };
 
     use super::*;
@@ -299,7 +299,7 @@ mod test {
                 base_height: 0,
             },
             StepSelector::default(),
-            WitnessTraceGenerator::default(),
+            DSLTraceGenerator::default(),
             AutoTraceGenerator::default(),
             1,
             uuid(),
