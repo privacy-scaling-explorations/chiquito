@@ -7,10 +7,10 @@ use chiquito::{
             config,
             step_selector::SimpleStepSelectorBuilder,
         },
-        ir::{assignments::AssignmentGenerator, sc::SuperCircuit},
+        ir::sc::SuperCircuit,
     },
     sbpir::query::Queriable,
-    wit_gen::WitnessTraceGenerator,
+    wit_gen::DSLTraceGenerator,
 };
 
 use std::hash::Hash;
@@ -50,7 +50,7 @@ struct CircuitParams {
 }
 
 fn poseidon_constants_table<F: PrimeField + Eq + Hash>(
-    ctx: &mut CircuitContext<F, ()>,
+    ctx: &mut CircuitContext<F>,
     param_t: usize,
 ) -> LookupTable {
     use chiquito::frontend::dsl::cb::*;
@@ -76,7 +76,7 @@ fn poseidon_constants_table<F: PrimeField + Eq + Hash>(
 }
 
 fn poseidon_matrix_table<F: PrimeField + Eq + Hash>(
-    ctx: &mut CircuitContext<F, ()>,
+    ctx: &mut CircuitContext<F>,
     param_t: usize,
 ) -> LookupTable {
     use chiquito::frontend::dsl::cb::*;
@@ -98,7 +98,7 @@ fn poseidon_matrix_table<F: PrimeField + Eq + Hash>(
 }
 
 fn poseidon_circuit<F: PrimeField + Eq + Hash>(
-    ctx: &mut CircuitContext<F, ValuesAndLens<F>>,
+    ctx: &mut CircuitContext<F, DSLTraceGenerator<F, ValuesAndLens<F>>>,
     param: CircuitParams,
 ) {
     use chiquito::frontend::dsl::cb::*;
@@ -659,14 +659,14 @@ fn poseidon_circuit<F: PrimeField + Eq + Hash>(
 fn poseidon_super_circuit<F: PrimeField + Eq + Hash>(
     lens: Lens,
 ) -> SuperCircuit<F, ValuesAndLens<F>> {
-    super_circuit::<F, ValuesAndLens<F>, _, WitnessTraceGenerator<F>>("poseidon", |ctx| {
+    super_circuit::<F, ValuesAndLens<F>, _, DSLTraceGenerator<F>>("poseidon", |ctx| {
         let single_config = config(SingleRowCellManager {}, SimpleStepSelectorBuilder {});
-        let (_, constants_table): (AssignmentGenerator<F>, LookupTable) = ctx.sub_circuit(
+        let (_, constants_table) = ctx.sub_circuit(
             single_config.clone(),
             poseidon_constants_table,
             lens.n_inputs + 1,
         );
-        let (_, matrix_table): (AssignmentGenerator<F>, LookupTable) =
+        let (_, matrix_table) =
             ctx.sub_circuit(single_config, poseidon_matrix_table, lens.n_inputs + 1);
 
         let params = CircuitParams {
@@ -681,7 +681,7 @@ fn poseidon_super_circuit<F: PrimeField + Eq + Hash>(
         let (poseidon, _) = ctx.sub_circuit(maxwidth_config, poseidon_circuit, params);
 
         ctx.mapping(move |ctx, values| {
-            ctx.map::<WitnessTraceGenerator<F, ValuesAndLens<F>>>(&poseidon, values);
+            ctx.map(&poseidon, values);
         })
     })
 }

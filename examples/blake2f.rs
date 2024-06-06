@@ -11,11 +11,11 @@ use chiquito::{
             config,
             step_selector::SimpleStepSelectorBuilder,
         },
-        ir::{assignments::AssignmentGenerator, sc::SuperCircuit},
+        ir::sc::SuperCircuit,
     },
     poly::ToExpr,
     sbpir::query::Queriable,
-    wit_gen::WitnessTraceGenerator,
+    wit_gen::DSLTraceGenerator,
 };
 use halo2_proofs::{
     dev::MockProver,
@@ -126,10 +126,7 @@ pub fn split_to_4bits_values<F: PrimeField + Hash>(vec_values: &[u64]) -> Vec<Ve
         .collect()
 }
 
-fn blake2f_iv_table<F: PrimeField + Hash>(
-    ctx: &mut CircuitContext<F, ()>,
-    _: usize,
-) -> LookupTable {
+fn blake2f_iv_table<F: PrimeField + Hash>(ctx: &mut CircuitContext<F>, _: usize) -> LookupTable {
     let lookup_iv_row: Queriable<F> = ctx.fixed("iv row");
     let lookup_iv_value: Queriable<F> = ctx.fixed("iv value");
 
@@ -146,10 +143,7 @@ fn blake2f_iv_table<F: PrimeField + Hash>(
 }
 
 // For range checking
-fn blake2f_4bits_table<F: PrimeField + Hash>(
-    ctx: &mut CircuitContext<F, ()>,
-    _: usize,
-) -> LookupTable {
+fn blake2f_4bits_table<F: PrimeField + Hash>(ctx: &mut CircuitContext<F>, _: usize) -> LookupTable {
     let lookup_4bits_row: Queriable<F> = ctx.fixed("4bits row");
     let lookup_4bits_value: Queriable<F> = ctx.fixed("4bits value");
 
@@ -165,7 +159,7 @@ fn blake2f_4bits_table<F: PrimeField + Hash>(
 }
 
 fn blake2f_xor_4bits_table<F: PrimeField + Hash>(
-    ctx: &mut CircuitContext<F, ()>,
+    ctx: &mut CircuitContext<F>,
     _: usize,
 ) -> LookupTable {
     let lookup_xor_row: Queriable<F> = ctx.fixed("xor row");
@@ -531,7 +525,7 @@ fn g_setup<F: PrimeField + Hash>(
 }
 
 fn blake2f_circuit<F: PrimeField + Hash>(
-    ctx: &mut CircuitContext<F, InputValues>,
+    ctx: &mut CircuitContext<F, DSLTraceGenerator<F, InputValues>>,
     params: CircuitParams,
 ) {
     let v_vec: Vec<Queriable<F>> = (0..V_LEN)
@@ -1369,16 +1363,15 @@ fn blake2f_circuit<F: PrimeField + Hash>(
 }
 
 fn blake2f_super_circuit<F: PrimeField + Hash>() -> SuperCircuit<F, InputValues> {
-    super_circuit::<F, InputValues, _, WitnessTraceGenerator<F>>("blake2f", |ctx| {
+    super_circuit::<F, InputValues, _, DSLTraceGenerator<F>>("blake2f", |ctx| {
         let single_config = config(SingleRowCellManager {}, SimpleStepSelectorBuilder {});
-        let (_, iv_table): (AssignmentGenerator<F>, LookupTable) =
-            ctx.sub_circuit(single_config.clone(), blake2f_iv_table, IV_LEN);
-        let (_, bits_table): (AssignmentGenerator<F>, LookupTable) = ctx.sub_circuit(
+        let (_, iv_table) = ctx.sub_circuit(single_config.clone(), blake2f_iv_table, IV_LEN);
+        let (_, bits_table) = ctx.sub_circuit(
             single_config.clone(),
             blake2f_4bits_table,
             SPLIT_64BITS as usize,
         );
-        let (_, xor_4bits_table): (AssignmentGenerator<F>, LookupTable) = ctx.sub_circuit(
+        let (_, xor_4bits_table) = ctx.sub_circuit(
             single_config,
             blake2f_xor_4bits_table,
             (SPLIT_64BITS * SPLIT_64BITS) as usize,
@@ -1397,7 +1390,7 @@ fn blake2f_super_circuit<F: PrimeField + Hash>() -> SuperCircuit<F, InputValues>
         let (blake2f, _) = ctx.sub_circuit(maxwidth_config, blake2f_circuit, params);
 
         ctx.mapping(move |ctx, values| {
-            ctx.map::<WitnessTraceGenerator<F, InputValues>>(&blake2f, values);
+            ctx.map(&blake2f, values);
         })
     })
 }

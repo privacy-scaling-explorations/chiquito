@@ -24,6 +24,7 @@ use chiquito::{
                              * circuit */
     poly::ToField,
     sbpir::SBPIR,
+    wit_gen::DSLTraceGenerator,
 };
 use halo2_proofs::dev::MockProver;
 
@@ -33,7 +34,11 @@ use halo2_proofs::dev::MockProver;
 // 2. empty trace arguments, i.e. (), because there are no external inputs to the Chiquito circuit
 // 3. two witness generation arguments both of u64 type, i.e. (u64, u64)
 
-type FiboReturn<F> = (Circuit<F>, Option<AssignmentGenerator<F>>, SBPIR<F, ()>);
+type FiboReturn<F> = (
+    Circuit<F>,
+    Option<AssignmentGenerator<F>>,
+    SBPIR<F, DSLTraceGenerator<F>>,
+);
 
 fn fibo_circuit<F: Field + From<u64> + Hash>() -> FiboReturn<F> {
     // PLONKish table for the Fibonacci circuit:

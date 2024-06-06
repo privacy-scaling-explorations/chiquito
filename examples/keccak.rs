@@ -7,11 +7,11 @@ use chiquito::{
             config,
             step_selector::SimpleStepSelectorBuilder,
         },
-        ir::{assignments::AssignmentGenerator, sc::SuperCircuit},
+        ir::sc::SuperCircuit,
     },
     poly::ToExpr,
     sbpir::query::Queriable,
-    wit_gen::WitnessTraceGenerator,
+    wit_gen::DSLTraceGenerator,
 };
 use std::{hash::Hash, ops::Neg};
 
@@ -235,7 +235,7 @@ fn eval_keccak_f_to_bit_vec4<F: PrimeField<Repr = [u8; 32]>>(value1: F, value2: 
 }
 
 fn keccak_xor_table_batch2<F: PrimeField + Eq + Hash>(
-    ctx: &mut CircuitContext<F, ()>,
+    ctx: &mut CircuitContext<F>,
     lens: usize,
 ) -> LookupTable {
     use chiquito::frontend::dsl::cb::*;
@@ -258,7 +258,7 @@ fn keccak_xor_table_batch2<F: PrimeField + Eq + Hash>(
 }
 
 fn keccak_xor_table_batch3<F: PrimeField + Eq + Hash>(
-    ctx: &mut CircuitContext<F, ()>,
+    ctx: &mut CircuitContext<F>,
     lens: usize,
 ) -> LookupTable {
     use chiquito::frontend::dsl::cb::*;
@@ -284,7 +284,7 @@ fn keccak_xor_table_batch3<F: PrimeField + Eq + Hash>(
 }
 
 fn keccak_xor_table_batch4<F: PrimeField + Eq + Hash>(
-    ctx: &mut CircuitContext<F, ()>,
+    ctx: &mut CircuitContext<F>,
     lens: usize,
 ) -> LookupTable {
     use chiquito::frontend::dsl::cb::*;
@@ -310,7 +310,7 @@ fn keccak_xor_table_batch4<F: PrimeField + Eq + Hash>(
 }
 
 fn keccak_chi_table<F: PrimeField + Eq + Hash>(
-    ctx: &mut CircuitContext<F, ()>,
+    ctx: &mut CircuitContext<F>,
     lens: usize,
 ) -> LookupTable {
     use chiquito::frontend::dsl::cb::*;
@@ -336,7 +336,7 @@ fn keccak_chi_table<F: PrimeField + Eq + Hash>(
 }
 
 fn keccak_pack_table<F: PrimeField + Eq + Hash>(
-    ctx: &mut CircuitContext<F, ()>,
+    ctx: &mut CircuitContext<F>,
     _: usize,
 ) -> LookupTable {
     use chiquito::frontend::dsl::cb::*;
@@ -366,7 +366,7 @@ fn keccak_pack_table<F: PrimeField + Eq + Hash>(
 }
 
 fn keccak_round_constants_table<F: PrimeField + Eq + Hash>(
-    ctx: &mut CircuitContext<F, ()>,
+    ctx: &mut CircuitContext<F>,
     lens: usize,
 ) -> LookupTable {
     use chiquito::frontend::dsl::cb::*;
@@ -726,7 +726,7 @@ fn eval_keccak_f_one_round<F: PrimeField<Repr = [u8; 32]> + Eq + Hash>(
 }
 
 fn keccak_circuit<F: PrimeField<Repr = [u8; 32]> + Eq + Hash>(
-    ctx: &mut CircuitContext<F, KeccakCircuit>,
+    ctx: &mut CircuitContext<F, DSLTraceGenerator<F, KeccakCircuit>>,
     param: CircuitParams,
 ) {
     use chiquito::frontend::dsl::cb::*;
@@ -2211,28 +2211,25 @@ struct CircuitParams {
 fn keccak_super_circuit<F: PrimeField<Repr = [u8; 32]> + Eq + Hash>(
     input_len: usize,
 ) -> SuperCircuit<F, KeccakCircuit> {
-    super_circuit::<F, KeccakCircuit, _, WitnessTraceGenerator<F>>("keccak", |ctx| {
+    super_circuit::<F, KeccakCircuit, _, DSLTraceGenerator<F>>("keccak", |ctx| {
         let in_n = (input_len * 8 + 1 + RATE_IN_BITS as usize) / RATE_IN_BITS as usize;
         let step_num = in_n * (1 + NUM_ROUNDS as usize);
 
         let single_config = config(SingleRowCellManager {}, SimpleStepSelectorBuilder {});
         // config(SingleRowCellManager {}, LogNSelectorBuilder {});
 
-        let (_, constants_table): (AssignmentGenerator<F>, LookupTable) = ctx.sub_circuit(
+        let (_, constants_table) = ctx.sub_circuit(
             single_config.clone(),
             keccak_round_constants_table,
             NUM_ROUNDS as usize + 1,
         );
-        let (_, xor_table): (AssignmentGenerator<F>, LookupTable) =
-            ctx.sub_circuit(single_config.clone(), keccak_xor_table_batch2, 36);
-        let (_, xor_table_batch3): (AssignmentGenerator<F>, LookupTable) =
+        let (_, xor_table) = ctx.sub_circuit(single_config.clone(), keccak_xor_table_batch2, 36);
+        let (_, xor_table_batch3) =
             ctx.sub_circuit(single_config.clone(), keccak_xor_table_batch3, 64);
-        let (_, xor_table_batch4): (AssignmentGenerator<F>, LookupTable) =
+        let (_, xor_table_batch4) =
             ctx.sub_circuit(single_config.clone(), keccak_xor_table_batch4, 81);
-        let (_, chi_table): (AssignmentGenerator<F>, LookupTable) =
-            ctx.sub_circuit(single_config.clone(), keccak_chi_table, 125);
-        let (_, pack_table): (AssignmentGenerator<F>, LookupTable) =
-            ctx.sub_circuit(single_config, keccak_pack_table, 0);
+        let (_, chi_table) = ctx.sub_circuit(single_config.clone(), keccak_chi_table, 125);
+        let (_, pack_table) = ctx.sub_circuit(single_config, keccak_pack_table, 0);
 
         let params = CircuitParams {
             constants_table,
@@ -2251,7 +2248,7 @@ fn keccak_super_circuit<F: PrimeField<Repr = [u8; 32]> + Eq + Hash>(
         let (keccak, _) = ctx.sub_circuit(maxwidth_config, keccak_circuit, params);
 
         ctx.mapping(move |ctx, values| {
-            ctx.map::<WitnessTraceGenerator<F, KeccakCircuit>>(&keccak, values);
+            ctx.map(&keccak, values);
         })
     })
 }
