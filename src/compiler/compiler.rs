@@ -205,7 +205,7 @@ impl<F: Field + Hash> Compiler<F> {
     }
 
     #[allow(dead_code)]
-    fn cse(mut _circuit: SBPIR<F, ()>) -> SBPIR<F, ()> {
+    fn cse(mut _circuit: SBPIR<F, NullTraceGenerator>) -> SBPIR<F, NullTraceGenerator> {
         todo!()
     }
 
