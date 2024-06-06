@@ -336,7 +336,8 @@ fn types_rule_tl(
     }
 }
 
-/// Check if the condition in an if statement is a logic expression (allowing bool literals and signals).
+/// Check if the condition in an if statement is a logic expression (allowing bool literals and
+/// signals).
 fn if_condition_rule(analyser: &mut Analyser, stmt: &Statement<BigInt, Identifier>) {
     match stmt {
         Statement::IfThen(dsym, cond, _) | Statement::IfThenElse(dsym, cond, _, _) => {
@@ -347,13 +348,17 @@ fn if_condition_rule(analyser: &mut Analyser, stmt: &Statement<BigInt, Identifie
 }
 
 /// Helper function to check if an expression is a logic expression.
-fn check_cond_for_bool(analyser: &mut Analyser, expr: &Expression<BigInt, Identifier>, dsym: &DebugSymRef) {
+fn check_cond_for_bool(
+    analyser: &mut Analyser,
+    expr: &Expression<BigInt, Identifier>,
+    dsym: &DebugSymRef,
+) {
     use Expression::*;
 
     match expr {
         // Check boolean literals
         True(_) | False(_) => {}
-        
+
         // Check if it is a boolean signal
         Query(_, id) => {
             if let Some(symbol) = analyser.symbols.find_symbol(&analyser.cur_scope, id.name()) {
@@ -368,7 +373,10 @@ fn check_cond_for_bool(analyser: &mut Analyser, expr: &Expression<BigInt, Identi
                 }
             } else {
                 analyser.error(
-                    format!("Condition in if statement uses undeclared variable {:#?}", id.name()),
+                    format!(
+                        "Condition in if statement uses undeclared variable {:#?}",
+                        id.name()
+                    ),
                     dsym,
                 );
             }
@@ -394,15 +402,13 @@ fn check_cond_for_bool(analyser: &mut Analyser, expr: &Expression<BigInt, Identi
         }
 
         // Anything else is not allowed in an if condition
-        _ => {
-            analyser.error(
-                format!(
-                    "Condition in if statement must be a logic expression, found {:#?}",
-                    expr
-                ),
-                dsym,
-            )
-        }
+        _ => analyser.error(
+            format!(
+                "Condition in if statement must be a logic expression, found {:#?}",
+                expr
+            ),
+            dsym,
+        ),
     }
 }
 
