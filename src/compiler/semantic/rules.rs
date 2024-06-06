@@ -336,32 +336,81 @@ fn types_rule_tl(
     }
 }
 
-// if expression should be bool
-fn if_expression_rule(analyser: &mut Analyser, stmt: &Statement<BigInt, Identifier>) {
-    let exprs = match stmt {
-        Statement::IfThen(_, block, _) => vec![*(block.clone())],
-        Statement::IfThenElse(_, block, _, _) => vec![*(block.clone())],
-        _ => vec![],
-    };
+/// Check if the condition in an if statement is a logic expression (allowing bool literals and signals).
+fn if_condition_rule(analyser: &mut Analyser, stmt: &Statement<BigInt, Identifier>) {
+    match stmt {
+        Statement::IfThen(dsym, cond, _) | Statement::IfThenElse(dsym, cond, _, _) => {
+            check_cond_for_bool(analyser, cond, dsym);
+        }
+        _ => {}
+    }
+}
 
-    exprs.into_iter().for_each(|expr| {
-        if expr.is_arith() {
+/// Helper function to check if an expression is a logic expression.
+fn check_cond_for_bool(analyser: &mut Analyser, expr: &Expression<BigInt, Identifier>, dsym: &DebugSymRef) {
+    use Expression::*;
+
+    match expr {
+        // Check boolean literals
+        True(_) | False(_) => {}
+        
+        // Check if it is a boolean signal
+        Query(_, id) => {
+            if let Some(symbol) = analyser.symbols.find_symbol(&analyser.cur_scope, id.name()) {
+                if symbol.symbol.get_type() != "bool" {
+                    analyser.error(
+                        format!(
+                            "Signal in condition for the if statement must be bool, found {:#?}",
+                            expr
+                        ),
+                        dsym,
+                    )
+                }
+            } else {
+                analyser.error(
+                    format!("Condition in if statement uses undeclared variable {:#?}", id.name()),
+                    dsym,
+                );
+            }
+        }
+
+        // Recursively check logical operations
+        BinOp { lhs, rhs, .. } => {
+            check_cond_for_bool(analyser, lhs, dsym);
+            check_cond_for_bool(analyser, rhs, dsym);
+        }
+        UnaryOp { sub, .. } => {
+            check_cond_for_bool(analyser, sub, dsym);
+        }
+        Select {
+            cond,
+            when_true,
+            when_false,
+            ..
+        } => {
+            check_cond_for_bool(analyser, cond, dsym);
+            check_cond_for_bool(analyser, when_true, dsym);
+            check_cond_for_bool(analyser, when_false, dsym);
+        }
+
+        // Anything else is not allowed in an if condition
+        _ => {
             analyser.error(
                 format!(
-                    "Condition {:#?} in if statement should be a boolean expression",
+                    "Condition in if statement must be a logic expression, found {:#?}",
                     expr
                 ),
-                &stmt.get_dsym(),
+                dsym,
             )
         }
-    });
+    }
 }
 
 lazy_static! {
     /// Global semantic analyser rules.
     pub(super) static ref RULES: RuleSet = RuleSet {
         expression: vec![undeclared_rule, true_false_rule],
-        statement: vec![state_decl, assignment_rule, assert_rule, if_expression_rule],
+        statement: vec![state_decl, assignment_rule, assert_rule, if_condition_rule],
         new_symbol: vec![rotation_decl, redeclare_rule, types_rule],
         new_tl_symbol: vec![rotation_decl_tl, machine_decl_tl, types_rule_tl],
     };
@@ -1111,11 +1160,20 @@ mod test {
 
             state middle {
              signal c;
+             signal t: bool;
 
              c <== a + b;
 
+             t <== true;
+
              if i + 1 {                 // wrong
-                if 1 {                  // wrong
+                if c {                  // wrong
+                    a <== 1;
+                }
+                if t {                  // allowed
+                    a <== 1;
+                }
+                if 4 {                  // wrong
                     a <== 1;
                 }
               -> final {
@@ -1144,7 +1202,7 @@ mod test {
 
         assert_eq!(
             format!("{:?}", result.messages),
-            r#"[SemErr { msg: "Condition i + 1 in if statement should be a boolean expression", dsym: DebugSymRef { start: "29:14", end: "40:15" } }, SemErr { msg: "Condition 1 in if statement should be a boolean expression", dsym: DebugSymRef { start: "30:17", end: "32:18" } }]"#
+            r#"[SemErr { msg: "Signal in condition for the if statement must be bool, found i", dsym: DebugSymRef { start: "32:14", end: "49:15" } }, SemErr { msg: "Condition in if statement must be a logic expression, found 1", dsym: DebugSymRef { start: "32:14", end: "49:15" } }, SemErr { msg: "Signal in condition for the if statement must be bool, found c", dsym: DebugSymRef { start: "33:17", end: "35:18" } }, SemErr { msg: "Condition in if statement must be a logic expression, found 4", dsym: DebugSymRef { start: "39:17", end: "41:18" } }]"#
         );
     }
 }
