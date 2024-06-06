@@ -139,8 +139,8 @@ pub trait TraceGenerator<F> {
     fn generate(&self, args: Self::TraceArgs) -> TraceWitness<F>;
 }
 
-/// A simple trace generator that generates a trace witness by calling the trace function with the
-/// given arguments.
+/// A trace generator used by the DSL. Generates a trace witness
+/// by calling the trace function with the given arguments.
 ///
 /// ### Parameters
 /// - `F`: The field type.

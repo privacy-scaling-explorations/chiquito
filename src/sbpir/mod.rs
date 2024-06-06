@@ -17,7 +17,7 @@ use halo2_proofs::plonk::{Advice, Column as Halo2Column, ColumnType, Fixed};
 
 use self::query::Queriable;
 
-/// Circuit
+/// Circuit (Step-Based Polynomial Identity Representation)
 #[derive(Clone)]
 pub struct SBPIR<F, TG: TraceGenerator<F> = DSLTraceGenerator<F>> {
     pub step_types: HashMap<UUID, StepType<F>>,
@@ -31,7 +31,7 @@ pub struct SBPIR<F, TG: TraceGenerator<F> = DSLTraceGenerator<F>> {
 
     pub annotations: HashMap<UUID, String>,
 
-    pub trace: Option<TG>,
+    pub trace_generator: Option<TG>,
     pub fixed_assignments: Option<FixedAssignment<F>>,
 
     pub first_step: Option<StepTypeUUID>,
@@ -77,7 +77,7 @@ impl<F, TG: TraceGenerator<F>> Default for SBPIR<F, TG> {
 
             annotations: Default::default(),
 
-            trace: None,
+            trace_generator: None,
             fixed_assignments: None,
 
             first_step: None,
@@ -198,7 +198,7 @@ impl<F, TG: TraceGenerator<F>> SBPIR<F, TG> {
             halo2_fixed: self.halo2_fixed,
             exposed: self.exposed,
             annotations: self.annotations,
-            trace: None, // Remove the trace.
+            trace_generator: None, // Remove the trace.
             fixed_assignments: self.fixed_assignments,
             first_step: self.first_step,
             last_step: self.last_step,
@@ -216,9 +216,9 @@ impl<F: Field, TraceArgs: Clone> SBPIR<F, DSLTraceGenerator<F, TraceArgs>> {
     {
         // TODO: should we check that number of steps has been set?
 
-        match self.trace {
+        match self.trace_generator {
             None => {
-                self.trace = Some(DSLTraceGenerator::new(Rc::new(def), self.num_steps));
+                self.trace_generator = Some(DSLTraceGenerator::new(Rc::new(def), self.num_steps));
             }
             Some(_) => panic!("circuit cannot have more than one trace generator"),
         }
@@ -236,7 +236,7 @@ impl<F: Clone + Field, TG: TraceGenerator<F>> SBPIR<F, TG> {
             halo2_fixed: self.halo2_fixed.clone(),
             exposed: self.exposed.clone(),
             annotations: self.annotations.clone(),
-            trace: None, // Remove the trace.
+            trace_generator: None, // Remove the trace.
             fixed_assignments: self.fixed_assignments.clone(),
             first_step: self.first_step,
             last_step: self.last_step,

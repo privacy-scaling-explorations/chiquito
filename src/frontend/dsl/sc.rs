@@ -42,6 +42,8 @@ impl<F: Clone, MappingArgs> SuperCircuitContext<F, MappingArgs> {
 }
 
 impl<F: Field + Hash, MappingArgs> SuperCircuitContext<F, MappingArgs> {
+    /// Add a sub-circuit to the super-circuit
+    /// A sub-circuit is a regular circuit that is a part of a larger `SuperCircuit`
     pub fn sub_circuit<
         CM: CellManager,
         SSB: StepSelectorBuilder,
@@ -80,6 +82,9 @@ impl<F: Field + Hash, MappingArgs> SuperCircuitContext<F, MappingArgs> {
         (assignment, exports)
     }
 
+    /// Add a sub-circuit to the super-circuit
+    /// A sub-circuit is a regular circuit that is a part of a larger `SuperCircuit`
+    /// This function takes an already generated AST as input
     pub fn sub_circuit_with_ast<
         CM: CellManager,
         SSB: StepSelectorBuilder,
@@ -122,6 +127,8 @@ impl<F: Field + Hash, MappingArgs> SuperCircuitContext<F, MappingArgs> {
     }
 }
 
+/// Create a super-circuit
+/// A super-circuit is a circuit that contains multiple sub-circuits
 pub fn super_circuit<F: Field + Hash, MappingArgs, D, TG: TraceGenerator<F> + Clone + Default>(
     _name: &str,
     def: D,

@@ -85,7 +85,7 @@ pub fn compile_phase1<
 
     config.step_selector_builder.build::<F>(&mut unit);
 
-    let assignment = ast.trace.as_ref().map(|v| {
+    let assignment = ast.trace_generator.as_ref().map(|v| {
         AssignmentGenerator::new(
             unit.columns.clone(),
             unit.placement.clone(),

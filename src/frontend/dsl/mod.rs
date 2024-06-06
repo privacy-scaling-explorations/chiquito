@@ -18,13 +18,13 @@ use self::{
 pub use sc::*;
 
 #[derive(Debug, Default)]
-/// A generic structure designed to handle the context of a circuit for generic types
-/// `F`, `TraceArgs` and `StepArgs`.
+/// A generic structure designed to handle the context of a circuit.
 /// The struct contains a `Circuit` instance and implements methods to build the circuit,
 /// add various components, and manipulate the circuit.
-/// `F` is a generic type representing the field of the circuit.
-/// `TraceArgs` is a generic type representing the arguments passed to the trace function.
-/// `StepArgs` is a generic type representing the arguments passed to the `step_type_def` function.
+///
+/// ### Type parameters
+/// `F` is the field of the circuit.
+/// `TG` is the trace generator.
 pub struct CircuitContext<F, TG: TraceGenerator<F> = DSLTraceGenerator<F>> {
     circuit: SBPIR<F, TG>,
     tables: LookupTableRegistry<F>,
@@ -470,7 +470,7 @@ mod tests {
         assert!(circuit.fixed_signals.is_empty());
         assert!(circuit.exposed.is_empty());
         assert!(circuit.annotations.is_empty());
-        assert!(circuit.trace.is_none());
+        assert!(circuit.trace_generator.is_none());
         assert!(circuit.first_step.is_none());
         assert!(circuit.last_step.is_none());
         assert!(circuit.num_steps == 0);
@@ -688,7 +688,7 @@ mod tests {
         context.trace(|_, _: i32| {});
 
         // assert trace function was set
-        assert!(context.circuit.trace.is_some());
+        assert!(context.circuit.trace_generator.is_some());
     }
 
     #[test]

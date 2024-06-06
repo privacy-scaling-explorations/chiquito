@@ -347,7 +347,7 @@ impl<'de> Visitor<'de> for CircuitVisitor {
             exposed,
             num_steps,
             annotations,
-            trace: Some(PythonTraceGenerator),
+            trace_generator: Some(PythonTraceGenerator),
             fixed_assignments,
             first_step,
             last_step,
