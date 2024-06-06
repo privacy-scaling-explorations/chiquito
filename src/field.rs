@@ -5,6 +5,7 @@ use core::{
 };
 
 use num_bigint::BigInt;
+use rand_chacha::rand_core::RngCore;
 
 pub trait Field:
     Sized
@@ -45,6 +46,9 @@ pub trait Field:
     /// return zero if the element is zero. This is different from
     /// FF invert that returns None if the element is zero.
     fn mi(&self) -> Self;
+
+    /// Returns an element chosen uniformly at random using a user-provided RNG.
+    fn random(rng: impl RngCore) -> Self;
 
     /// Exponentiates `self` by `exp`, where `exp` is a little-endian order integer
     /// exponent.

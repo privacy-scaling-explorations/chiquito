@@ -204,6 +204,11 @@ impl<F: Field + Hash> Compiler<F> {
         circuit
     }
 
+    #[allow(dead_code)]
+    fn cse(mut _circuit: SBPIR<F, ()>) -> SBPIR<F, ()> {
+        todo!()
+    }
+
     fn translate_queries(
         &mut self,
         symbols: &SymTable,
