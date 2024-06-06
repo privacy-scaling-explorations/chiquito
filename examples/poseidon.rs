@@ -10,6 +10,7 @@ use chiquito::{
         ir::sc::SuperCircuit,
     },
     sbpir::query::Queriable,
+    wit_gen::DSLTraceGenerator,
 };
 
 use std::hash::Hash;
@@ -49,7 +50,7 @@ struct CircuitParams {
 }
 
 fn poseidon_constants_table<F: PrimeField + Eq + Hash>(
-    ctx: &mut CircuitContext<F, ()>,
+    ctx: &mut CircuitContext<F>,
     param_t: usize,
 ) -> LookupTable {
     use chiquito::frontend::dsl::cb::*;
@@ -75,7 +76,7 @@ fn poseidon_constants_table<F: PrimeField + Eq + Hash>(
 }
 
 fn poseidon_matrix_table<F: PrimeField + Eq + Hash>(
-    ctx: &mut CircuitContext<F, ()>,
+    ctx: &mut CircuitContext<F>,
     param_t: usize,
 ) -> LookupTable {
     use chiquito::frontend::dsl::cb::*;
@@ -97,7 +98,7 @@ fn poseidon_matrix_table<F: PrimeField + Eq + Hash>(
 }
 
 fn poseidon_circuit<F: PrimeField + Eq + Hash>(
-    ctx: &mut CircuitContext<F, ValuesAndLens<F>>,
+    ctx: &mut CircuitContext<F, DSLTraceGenerator<F, ValuesAndLens<F>>>,
     param: CircuitParams,
 ) {
     use chiquito::frontend::dsl::cb::*;
@@ -658,7 +659,7 @@ fn poseidon_circuit<F: PrimeField + Eq + Hash>(
 fn poseidon_super_circuit<F: PrimeField + Eq + Hash>(
     lens: Lens,
 ) -> SuperCircuit<F, ValuesAndLens<F>> {
-    super_circuit::<F, ValuesAndLens<F>, _>("poseidon", |ctx| {
+    super_circuit::<F, ValuesAndLens<F>, _, DSLTraceGenerator<F>>("poseidon", |ctx| {
         let single_config = config(SingleRowCellManager {}, SimpleStepSelectorBuilder {});
         let (_, constants_table) = ctx.sub_circuit(
             single_config.clone(),

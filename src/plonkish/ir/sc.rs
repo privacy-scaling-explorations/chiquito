@@ -1,6 +1,11 @@
 use std::{collections::HashMap, fmt::Debug, hash::Hash, rc::Rc};
 
-use crate::{field::Field, sbpir::SBPIR, util::UUID, wit_gen::TraceWitness};
+use crate::{
+    field::Field,
+    sbpir::SBPIR,
+    util::UUID,
+    wit_gen::{NullTraceGenerator, TraceGenerator, TraceWitness},
+};
 
 use super::{
     assignments::{AssignmentGenerator, Assignments},
@@ -11,7 +16,7 @@ use super::{
 pub struct SuperCircuit<F, MappingArgs> {
     sub_circuits: Vec<Circuit<F>>,
     mapping: MappingGenerator<F, MappingArgs>,
-    sub_circuit_asts: Vec<SBPIR<F, ()>>,
+    sub_circuit_asts: Vec<SBPIR<F, NullTraceGenerator>>,
 }
 
 impl<F, MappingArgs> Default for SuperCircuit<F, MappingArgs> {
@@ -34,7 +39,7 @@ impl<F, MappingArgs> SuperCircuit<F, MappingArgs> {
     }
 
     // Needed for the PIL backend.
-    pub fn add_sub_circuit_ast(&mut self, sub_circuit_ast: SBPIR<F, ()>) {
+    pub fn add_sub_circuit_ast(&mut self, sub_circuit_ast: SBPIR<F, NullTraceGenerator>) {
         self.sub_circuit_asts.push(sub_circuit_ast);
     }
 
@@ -53,7 +58,7 @@ impl<F, MappingArgs> SuperCircuit<F, MappingArgs> {
 
 // Needed for the PIL backend.
 impl<F: Clone, MappingArgs> SuperCircuit<F, MappingArgs> {
-    pub fn get_super_asts(&self) -> Vec<SBPIR<F, ()>> {
+    pub fn get_super_asts(&self) -> Vec<SBPIR<F, NullTraceGenerator>> {
         self.sub_circuit_asts.clone()
     }
 }
@@ -92,21 +97,16 @@ impl<F: Default> Default for MappingContext<F> {
 }
 
 impl<F: Field + Hash> MappingContext<F> {
-    pub fn map<TraceArgs>(&mut self, gen: &AssignmentGenerator<F, TraceArgs>, args: TraceArgs) {
-        let trace_witness = gen.generate_trace_witness(args);
+    pub fn map<TraceArgs: Clone, TG: TraceGenerator<F, TraceArgs = TraceArgs> + Default>(
+        &mut self,
+        gen: &AssignmentGenerator<F, TG>,
+        args: TraceArgs,
+    ) {
+        let trace_witness = gen.generate_trace_witness(args.clone());
         self.trace_witnesses
             .insert(gen.uuid(), trace_witness.clone());
         self.assignments
-            .insert(gen.uuid(), gen.generate_with_witness(trace_witness));
-    }
-
-    pub fn map_with_witness<TraceArgs>(
-        &mut self,
-        gen: &AssignmentGenerator<F, TraceArgs>,
-        witness: TraceWitness<F>,
-    ) {
-        self.assignments
-            .insert(gen.uuid(), gen.generate_with_witness(witness));
+            .insert(gen.uuid(), gen.generate(args.clone()));
     }
 
     pub fn get_super_assignments(self) -> SuperAssignments<F> {
@@ -179,7 +179,7 @@ mod test {
             ir::Column,
         },
         util::uuid,
-        wit_gen::{AutoTraceGenerator, TraceGenerator},
+        wit_gen::{AutoTraceGenerator, DSLTraceGenerator},
     };
 
     use super::*;
@@ -287,7 +287,7 @@ mod test {
         );
     }
 
-    fn simple_assignment_generator() -> AssignmentGenerator<Fr, ()> {
+    fn simple_assignment_generator() -> AssignmentGenerator<Fr> {
         AssignmentGenerator::new(
             vec![Column::advice('a', 0)],
             Placement {
@@ -299,7 +299,7 @@ mod test {
                 base_height: 0,
             },
             StepSelector::default(),
-            TraceGenerator::default(),
+            DSLTraceGenerator::default(),
             AutoTraceGenerator::default(),
             1,
             uuid(),
@@ -315,21 +315,6 @@ mod test {
         let gen = simple_assignment_generator();
 
         ctx.map(&gen, ());
-
-        assert_eq!(ctx.assignments.len(), 1);
-    }
-
-    #[test]
-    fn test_mapping_context_map_with_witness() {
-        let mut ctx = MappingContext::<Fr>::default();
-
-        let gen = simple_assignment_generator();
-
-        let witness = TraceWitness::<Fr> {
-            step_instances: vec![],
-        };
-
-        ctx.map_with_witness(&gen, witness);
 
         assert_eq!(ctx.assignments.len(), 1);
     }
