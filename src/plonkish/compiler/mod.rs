@@ -8,7 +8,7 @@ use crate::{
     sbpir::{query::Queriable, ExposeOffset, StepType, StepTypeUUID, PIR, SBPIR as astCircuit},
     wit_gen::{AutoTraceGenerator, FixedAssignment, TraceGenerator},
 };
-use std::{hash::Hash, rc::Rc};
+use std::hash::Hash;
 
 use cell_manager::{CellManager, SignalPlacement};
 use step_selector::StepSelectorBuilder;
@@ -35,10 +35,15 @@ pub fn config<CM: CellManager, SSB: StepSelectorBuilder>(
     }
 }
 
-pub fn compile<F: Field + Hash + Clone, CM: CellManager, SSB: StepSelectorBuilder, TraceArgs>(
+pub fn compile<
+    F: Field + Hash + Clone,
+    CM: CellManager,
+    SSB: StepSelectorBuilder,
+    TG: TraceGenerator<F> + Default + Clone,
+>(
     config: CompilerConfig<CM, SSB>,
-    ast: &astCircuit<F, TraceArgs>,
-) -> (Circuit<F>, Option<AssignmentGenerator<F, TraceArgs>>) {
+    ast: &astCircuit<F, TG>,
+) -> (Circuit<F>, Option<AssignmentGenerator<F, TG>>) {
     let (mut unit, assignment) = compile_phase1(config, ast);
 
     compile_phase2(&mut unit);
@@ -50,14 +55,11 @@ pub fn compile_phase1<
     F: Field + Hash + Clone,
     CM: CellManager,
     SSB: StepSelectorBuilder,
-    TraceArgs,
+    TG: TraceGenerator<F> + Default + Clone,
 >(
     config: CompilerConfig<CM, SSB>,
-    ast: &astCircuit<F, TraceArgs>,
-) -> (
-    CompilationUnit<F>,
-    Option<AssignmentGenerator<F, TraceArgs>>,
-) {
+    ast: &astCircuit<F, TG>,
+) -> (CompilationUnit<F>, Option<AssignmentGenerator<F, TG>>) {
     let mut unit = CompilationUnit::from(ast);
 
     add_halo2_columns(&mut unit, ast);
@@ -83,12 +85,12 @@ pub fn compile_phase1<
 
     config.step_selector_builder.build::<F>(&mut unit);
 
-    let assignment = ast.trace.as_ref().map(|v| {
+    let assignment = ast.trace_generator.as_ref().map(|v| {
         AssignmentGenerator::new(
             unit.columns.clone(),
             unit.placement.clone(),
             unit.selector.clone(),
-            TraceGenerator::new(Rc::clone(v), ast.num_steps),
+            (*v).clone(),
             AutoTraceGenerator::from(ast),
             unit.num_rows,
             unit.uuid,
@@ -183,7 +185,10 @@ fn compile_step<F: Field>(unit: &mut CompilationUnit<F>, step: &StepType<F>) {
     }
 }
 
-fn compile_exposed<F, TraceArgs>(ast: &astCircuit<F, TraceArgs>, unit: &mut CompilationUnit<F>) {
+fn compile_exposed<F, TG: TraceGenerator<F>>(
+    ast: &astCircuit<F, TG>,
+    unit: &mut CompilationUnit<F>,
+) {
     for (queriable, offset) in &ast.exposed {
         let exposed = match queriable {
             Queriable::Forward(forward_signal, _) => {
@@ -233,8 +238,8 @@ fn compile_exposed<F, TraceArgs>(ast: &astCircuit<F, TraceArgs>, unit: &mut Comp
     }
 }
 
-fn compile_fixed<F: Field + Hash, TraceArgs>(
-    ast: &astCircuit<F, TraceArgs>,
+fn compile_fixed<F: Field + Hash, TG: TraceGenerator<F>>(
+    ast: &astCircuit<F, TG>,
     unit: &mut CompilationUnit<F>,
 ) {
     if let Some(fixed_assignments) = &ast.fixed_assignments {
@@ -545,7 +550,10 @@ fn add_default_columns<F>(unit: &mut CompilationUnit<F>) {
     }
 }
 
-fn add_halo2_columns<F, TraceArgs>(unit: &mut CompilationUnit<F>, ast: &astCircuit<F, TraceArgs>) {
+fn add_halo2_columns<F, TG: TraceGenerator<F>>(
+    unit: &mut CompilationUnit<F>,
+    ast: &astCircuit<F, TG>,
+) {
     let halo2_advice_columns: Vec<Column> = ast
         .halo2_advice
         .iter()
@@ -578,6 +586,8 @@ fn add_halo2_columns<F, TraceArgs>(unit: &mut CompilationUnit<F>, ast: &astCircu
 mod test {
     use halo2_proofs::{halo2curves::bn256::Fr, plonk::Any};
 
+    use crate::wit_gen::{DSLTraceGenerator, NullTraceGenerator};
+
     use super::{cell_manager::SingleRowCellManager, step_selector::SimpleStepSelectorBuilder, *};
 
     #[test]
@@ -603,9 +613,13 @@ mod test {
         let step_selector_builder = SimpleStepSelectorBuilder::default();
         let config = config(cell_manager, step_selector_builder);
 
-        let mock_ast_circuit = astCircuit::<Fr, Any>::default();
+        let mock_ast_circuit = astCircuit::<Fr, NullTraceGenerator>::default();
 
-        let (circuit, assignment_generator) = compile(config, &mock_ast_circuit);
+        let (circuit, assignment_generator) =
+            compile::<Fr, SingleRowCellManager, SimpleStepSelectorBuilder, NullTraceGenerator>(
+                config,
+                &mock_ast_circuit,
+            );
 
         assert_eq!(circuit.columns.len(), 1);
         assert_eq!(circuit.exposed.len(), 0);
@@ -623,9 +637,14 @@ mod test {
         let step_selector_builder = SimpleStepSelectorBuilder::default();
         let config = config(cell_manager, step_selector_builder);
 
-        let mock_ast_circuit = astCircuit::<Fr, Any>::default();
+        let mock_ast_circuit = astCircuit::<Fr, NullTraceGenerator>::default();
 
-        let (unit, assignment_generator) = compile_phase1(config, &mock_ast_circuit);
+        let (unit, assignment_generator) = compile_phase1::<
+            Fr,
+            SingleRowCellManager,
+            SimpleStepSelectorBuilder,
+            NullTraceGenerator,
+        >(config, &mock_ast_circuit);
 
         assert_eq!(unit.columns.len(), 1);
         assert_eq!(unit.exposed.len(), 0);
@@ -647,7 +666,7 @@ mod test {
 
     #[test]
     fn test_add_default_columns() {
-        let mock_ast_circuit = astCircuit::<Fr, Any>::default();
+        let mock_ast_circuit = astCircuit::<Fr, DSLTraceGenerator<Fr, Any>>::default();
 
         let mut unit = CompilationUnit::from(&mock_ast_circuit);
         add_default_columns(&mut unit);

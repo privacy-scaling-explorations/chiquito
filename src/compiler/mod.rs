@@ -9,6 +9,7 @@ use crate::{
     field::Field,
     parser::ast::{debug_sym_factory::DebugSymRefFactory, DebugSymRef},
     sbpir::SBPIR,
+    wit_gen::NullTraceGenerator,
 };
 
 pub mod abepi;
@@ -64,7 +65,7 @@ pub fn compile<F: Field + Hash>(
     source: &str,
     config: Config,
     debug_sym_ref_factory: &DebugSymRefFactory,
-) -> (Result<SBPIR<F, ()>, ()>, Vec<Message>) {
+) -> (Result<SBPIR<F, NullTraceGenerator>, ()>, Vec<Message>) {
     let mut compiler = Compiler::new(config);
 
     let result = compiler.compile(source, debug_sym_ref_factory);
@@ -76,7 +77,7 @@ pub fn compile<F: Field + Hash>(
 pub fn compile_file<F: Field + Hash>(
     file_path: &str,
     config: Config,
-) -> (Result<SBPIR<F, ()>, ()>, Vec<Message>) {
+) -> (Result<SBPIR<F, NullTraceGenerator>, ()>, Vec<Message>) {
     let contents = read_file(file_path);
     match contents {
         Ok(source) => {

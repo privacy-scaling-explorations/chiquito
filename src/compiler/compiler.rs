@@ -15,6 +15,7 @@ use crate::{
     poly::{self, mielim::mi_elimination, reduce::reduce_degree, Expr},
     sbpir::{query::Queriable, ForwardSignal, InternalSignal, SBPIR},
     util::UUID,
+    wit_gen::{NullTraceGenerator, TraceGenerator},
 };
 
 use super::{
@@ -53,7 +54,7 @@ impl<F: Field + Hash> Compiler<F> {
         &mut self,
         source: &str,
         debug_sym_ref_factory: &DebugSymRefFactory,
-    ) -> Result<SBPIR<F, ()>, ()> {
+    ) -> Result<SBPIR<F, NullTraceGenerator>, ()> {
         let ast = self.parse(source, debug_sym_ref_factory)?;
         let symbols = self.semantic(&ast)?;
         let setup = Self::interpret(&ast, &symbols);
@@ -144,8 +145,12 @@ impl<F: Field + Hash> Compiler<F> {
         }
     }
 
-    fn build(&mut self, setup: &Setup<F, Identifier>, symbols: &SymTable) -> SBPIR<F, ()> {
-        circuit("circuit", |ctx| {
+    fn build(
+        &mut self,
+        setup: &Setup<F, Identifier>,
+        symbols: &SymTable,
+    ) -> SBPIR<F, NullTraceGenerator> {
+        circuit::<F, (), _>("circuit", |ctx| {
             for (machine_id, machine) in setup {
                 self.add_forwards(ctx, symbols, machine_id);
                 self.add_step_type_handlers(ctx, symbols, machine_id);
@@ -171,9 +176,10 @@ impl<F: Field + Hash> Compiler<F> {
                 }
             }
         })
+        .without_trace()
     }
 
-    fn mi_elim(mut circuit: SBPIR<F, ()>) -> SBPIR<F, ()> {
+    fn mi_elim(mut circuit: SBPIR<F, NullTraceGenerator>) -> SBPIR<F, NullTraceGenerator> {
         for (_, step_type) in circuit.step_types.iter_mut() {
             let mut signal_factory = SignalFactory::default();
 
@@ -183,7 +189,10 @@ impl<F: Field + Hash> Compiler<F> {
         circuit
     }
 
-    fn reduce(mut circuit: SBPIR<F, ()>, degree: usize) -> SBPIR<F, ()> {
+    fn reduce(
+        mut circuit: SBPIR<F, NullTraceGenerator>,
+        degree: usize,
+    ) -> SBPIR<F, NullTraceGenerator> {
         for (_, step_type) in circuit.step_types.iter_mut() {
             let mut signal_factory = SignalFactory::default();
 
@@ -196,7 +205,7 @@ impl<F: Field + Hash> Compiler<F> {
     }
 
     #[allow(dead_code)]
-    fn cse(mut _circuit: SBPIR<F, ()>) -> SBPIR<F, ()> {
+    fn cse(mut _circuit: SBPIR<F, NullTraceGenerator>) -> SBPIR<F, NullTraceGenerator> {
         todo!()
     }
 
@@ -390,9 +399,9 @@ impl<F: Field + Hash> Compiler<F> {
         }
     }
 
-    fn add_step_type_handlers(
+    fn add_step_type_handlers<TG: TraceGenerator<F>>(
         &mut self,
-        ctx: &mut CircuitContext<F, ()>,
+        ctx: &mut CircuitContext<F, TG>,
         symbols: &SymTable,
         machine_id: &str,
     ) {
@@ -419,9 +428,9 @@ impl<F: Field + Hash> Compiler<F> {
         }
     }
 
-    fn add_forwards(
+    fn add_forwards<TG: TraceGenerator<F>>(
         &mut self,
-        ctx: &mut CircuitContext<F, ()>,
+        ctx: &mut CircuitContext<F, TG>,
         symbols: &SymTable,
         machine_id: &str,
     ) {

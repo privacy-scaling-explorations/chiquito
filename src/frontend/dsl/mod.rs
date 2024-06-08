@@ -2,7 +2,7 @@ use crate::{
     field::Field,
     sbpir::{query::Queriable, ExposeOffset, StepType, StepTypeUUID, PIR, SBPIR},
     util::{uuid, UUID},
-    wit_gen::{FixedGenContext, StepInstance, TraceContext},
+    wit_gen::{DSLTraceGenerator, FixedGenContext, StepInstance, TraceContext, TraceGenerator},
 };
 
 use halo2_proofs::plonk::{Advice, Column as Halo2Column, Fixed};
@@ -18,19 +18,19 @@ use self::{
 pub use sc::*;
 
 #[derive(Debug, Default)]
-/// A generic structure designed to handle the context of a circuit for generic types
-/// `F`, `TraceArgs` and `StepArgs`.
+/// A generic structure designed to handle the context of a circuit.
 /// The struct contains a `Circuit` instance and implements methods to build the circuit,
 /// add various components, and manipulate the circuit.
-/// `F` is a generic type representing the field of the circuit.
-/// `TraceArgs` is a generic type representing the arguments passed to the trace function.
-/// `StepArgs` is a generic type representing the arguments passed to the `step_type_def` function.
-pub struct CircuitContext<F, TraceArgs> {
-    circuit: SBPIR<F, TraceArgs>,
+///
+/// ### Type parameters
+/// `F` is the field of the circuit.
+/// `TG` is the trace generator.
+pub struct CircuitContext<F, TG: TraceGenerator<F> = DSLTraceGenerator<F>> {
+    circuit: SBPIR<F, TG>,
     tables: LookupTableRegistry<F>,
 }
 
-impl<F, TraceArgs> CircuitContext<F, TraceArgs> {
+impl<F, TG: TraceGenerator<F>> CircuitContext<F, TG> {
     /// Adds a forward signal to the circuit with a name string and zero rotation and returns a
     /// `Queriable` instance representing the added forward signal.
     pub fn forward(&mut self, name: &str) -> Queriable<F> {
@@ -123,18 +123,6 @@ impl<F, TraceArgs> CircuitContext<F, TraceArgs> {
         result
     }
 
-    /// Sets the trace function that builds the witness. The trace function is responsible for
-    /// adding step instances defined in `step_type_def`. The function is entirely left for
-    /// the user to implement and is Turing complete. Users typically use external parameters
-    /// of type `TraceArgs` to generate cell values for witness generation, and call the
-    /// `add` function to add step instances with witness values.
-    pub fn trace<D>(&mut self, def: D)
-    where
-        D: Fn(&mut TraceContext<F>, TraceArgs) + 'static,
-    {
-        self.circuit.set_trace(def);
-    }
-
     pub fn new_table(&self, table: LookupTableStore<F>) -> LookupTable {
         let uuid = table.uuid();
         self.tables.add(table);
@@ -165,7 +153,21 @@ impl<F, TraceArgs> CircuitContext<F, TraceArgs> {
     }
 }
 
-impl<F: Field + Hash, TraceArgs> CircuitContext<F, TraceArgs> {
+impl<F: Field, TraceArgs: Clone> CircuitContext<F, DSLTraceGenerator<F, TraceArgs>> {
+    /// Sets the trace function that builds the witness. The trace function is responsible for
+    /// adding step instances defined in `step_type_def`. The function is entirely left for
+    /// the user to implement and is Turing complete. Users typically use external parameters
+    /// of type `TraceArgs` to generate cell values for witness generation, and call the
+    /// `add` function to add step instances with witness values.
+    pub fn trace<D>(&mut self, def: D)
+    where
+        D: Fn(&mut TraceContext<F>, TraceArgs) + 'static,
+    {
+        self.circuit.set_trace(def);
+    }
+}
+
+impl<F: Field + Hash, TG: TraceGenerator<F>> CircuitContext<F, TG> {
     /// Executes the fixed generation function provided by the user and sets the fixed assignments
     /// for the circuit. The fixed generation function is responsible for assigning fixed values to
     /// fixed columns. It is entirely left for the user to implement and is Turing complete. Users
@@ -413,9 +415,12 @@ impl<F, Args, D: Fn(&mut StepInstance<F>, Args) + 'static> StepTypeWGHandler<F, 
 /// functions. This is the main function that users call to define a Chiquito circuit. Currently,
 /// the name is not used for annotation within the function, but it may be used in future
 /// implementations.
-pub fn circuit<F, TraceArgs, D>(_name: &str, mut def: D) -> SBPIR<F, TraceArgs>
+pub fn circuit<F: Field, TraceArgs: Clone, D>(
+    _name: &str,
+    mut def: D,
+) -> SBPIR<F, DSLTraceGenerator<F, TraceArgs>>
 where
-    D: FnMut(&mut CircuitContext<F, TraceArgs>),
+    D: FnMut(&mut CircuitContext<F, DSLTraceGenerator<F, TraceArgs>>),
 {
     // TODO annotate circuit
     let mut context = CircuitContext {
@@ -434,14 +439,19 @@ pub mod sc;
 
 #[cfg(test)]
 mod tests {
-    use crate::sbpir::ForwardSignal;
+    use halo2_proofs::halo2curves::bn256::Fr;
+
+    use crate::{
+        sbpir::ForwardSignal,
+        wit_gen::{DSLTraceGenerator, NullTraceGenerator},
+    };
 
     use super::*;
 
-    fn setup_circuit_context<F, TraceArgs>() -> CircuitContext<F, TraceArgs>
+    fn setup_circuit_context<F, TG>() -> CircuitContext<F, TG>
     where
         F: Default,
-        TraceArgs: Default,
+        TG: TraceGenerator<F>,
     {
         CircuitContext {
             circuit: SBPIR::default(),
@@ -451,7 +461,7 @@ mod tests {
 
     #[test]
     fn test_circuit_default_initialization() {
-        let circuit: SBPIR<i32, i32> = SBPIR::default();
+        let circuit: SBPIR<i32, NullTraceGenerator> = SBPIR::default();
 
         // Assert default values
         assert!(circuit.step_types.is_empty());
@@ -460,7 +470,7 @@ mod tests {
         assert!(circuit.fixed_signals.is_empty());
         assert!(circuit.exposed.is_empty());
         assert!(circuit.annotations.is_empty());
-        assert!(circuit.trace.is_none());
+        assert!(circuit.trace_generator.is_none());
         assert!(circuit.first_step.is_none());
         assert!(circuit.last_step.is_none());
         assert!(circuit.num_steps == 0);
@@ -469,14 +479,14 @@ mod tests {
 
     #[test]
     fn test_disable_q_enable() {
-        let mut context = setup_circuit_context::<i32, i32>();
+        let mut context = setup_circuit_context::<i32, NullTraceGenerator>();
         context.pragma_disable_q_enable();
         assert!(!context.circuit.q_enable);
     }
 
     #[test]
     fn test_set_num_steps() {
-        let mut context = setup_circuit_context::<i32, i32>();
+        let mut context = setup_circuit_context::<i32, NullTraceGenerator>();
 
         context.pragma_num_steps(3);
         assert_eq!(context.circuit.num_steps, 3);
@@ -487,7 +497,7 @@ mod tests {
 
     #[test]
     fn test_set_first_step() {
-        let mut context = setup_circuit_context::<i32, i32>();
+        let mut context = setup_circuit_context::<i32, NullTraceGenerator>();
 
         let step_type: StepTypeHandler = context.step_type("step_type");
 
@@ -497,7 +507,7 @@ mod tests {
 
     #[test]
     fn test_set_last_step() {
-        let mut context = setup_circuit_context::<i32, i32>();
+        let mut context = setup_circuit_context::<i32, NullTraceGenerator>();
 
         let step_type: StepTypeHandler = context.step_type("step_type");
 
@@ -507,7 +517,7 @@ mod tests {
 
     #[test]
     fn test_forward() {
-        let mut context = setup_circuit_context::<i32, i32>();
+        let mut context = setup_circuit_context::<i32, NullTraceGenerator>();
 
         // set forward signals
         let forward_a: Queriable<i32> = context.forward("forward_a");
@@ -521,7 +531,7 @@ mod tests {
 
     #[test]
     fn test_adding_duplicate_signal_names() {
-        let mut context = setup_circuit_context::<i32, i32>();
+        let mut context = setup_circuit_context::<i32, NullTraceGenerator>();
         context.forward("duplicate_name");
         context.forward("duplicate_name");
         // Assert how the system should behave. Does it override the previous signal, throw an
@@ -533,7 +543,7 @@ mod tests {
 
     #[test]
     fn test_forward_with_phase() {
-        let mut context = setup_circuit_context::<i32, i32>();
+        let mut context = setup_circuit_context::<i32, NullTraceGenerator>();
 
         // set forward signals with specified phase
         context.forward_with_phase("forward_a", 1);
@@ -547,7 +557,7 @@ mod tests {
 
     #[test]
     fn test_shared() {
-        let mut context = setup_circuit_context::<i32, i32>();
+        let mut context = setup_circuit_context::<i32, NullTraceGenerator>();
 
         // set shared signal
         let shared_a: Queriable<i32> = context.shared("shared_a");
@@ -559,7 +569,7 @@ mod tests {
 
     #[test]
     fn test_shared_with_phase() {
-        let mut context = setup_circuit_context::<i32, i32>();
+        let mut context = setup_circuit_context::<i32, NullTraceGenerator>();
 
         // set shared signal with specified phase
         context.shared_with_phase("shared_a", 2);
@@ -571,7 +581,7 @@ mod tests {
 
     #[test]
     fn test_fixed() {
-        let mut context = setup_circuit_context::<i32, i32>();
+        let mut context = setup_circuit_context::<i32, NullTraceGenerator>();
 
         // set fixed signal
         context.fixed("fixed_a");
@@ -582,7 +592,7 @@ mod tests {
 
     #[test]
     fn test_expose() {
-        let mut context = setup_circuit_context::<i32, i32>();
+        let mut context = setup_circuit_context::<i32, NullTraceGenerator>();
 
         // set forward signal and step to expose
         let forward_a: Queriable<i32> = context.forward("forward_a");
@@ -603,7 +613,7 @@ mod tests {
     #[ignore]
     #[should_panic(expected = "Signal not found")]
     fn test_expose_non_existing_signal() {
-        let mut context = setup_circuit_context::<i32, i32>();
+        let mut context = setup_circuit_context::<i32, NullTraceGenerator>();
         let non_existing_signal =
             Queriable::Forward(ForwardSignal::new_with_phase(0, "".to_owned()), false); // Create a signal not added to the circuit
         context.expose(non_existing_signal, ExposeOffset::First);
@@ -613,7 +623,7 @@ mod tests {
 
     #[test]
     fn test_step_type() {
-        let mut context = setup_circuit_context::<i32, i32>();
+        let mut context = setup_circuit_context::<i32, NullTraceGenerator>();
 
         // create a step type
         let handler: StepTypeHandler = context.step_type("fibo_first_step");
@@ -627,7 +637,7 @@ mod tests {
 
     #[test]
     fn test_step_type_def() {
-        let mut context = setup_circuit_context::<i32, i32>();
+        let mut context = setup_circuit_context::<i32, NullTraceGenerator>();
 
         // create a step type including its definition
         let simple_step = context.step_type_def("simple_step", |context| {
@@ -648,7 +658,7 @@ mod tests {
 
     #[test]
     fn test_step_type_def_pass_handler() {
-        let mut context = setup_circuit_context::<i32, i32>();
+        let mut context = setup_circuit_context::<i32, NullTraceGenerator>();
 
         // create a step type handler
         let handler: StepTypeHandler = context.step_type("simple_step");
@@ -672,19 +682,19 @@ mod tests {
 
     #[test]
     fn test_trace() {
-        let mut context = setup_circuit_context::<i32, i32>();
+        let mut context = setup_circuit_context::<Fr, DSLTraceGenerator<Fr, i32>>();
 
         // set trace function
         context.trace(|_, _: i32| {});
 
         // assert trace function was set
-        assert!(context.circuit.trace.is_some());
+        assert!(context.circuit.trace_generator.is_some());
     }
 
     #[test]
     #[should_panic(expected = "circuit cannot have more than one trace generator")]
     fn test_setting_trace_multiple_times() {
-        let mut context = setup_circuit_context::<i32, i32>();
+        let mut context = setup_circuit_context::<Fr, DSLTraceGenerator<Fr, i32>>();
         context.trace(|_, _| {});
         context.trace(|_, _| {});
     }

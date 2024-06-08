@@ -3,29 +3,34 @@ use std::hash::Hash;
 use chiquito::{
     field::Field,
     frontend::dsl::circuit, // main function for constructing an AST circuit
-    plonkish::backend::halo2::{chiquito2Halo2, ChiquitoHalo2Circuit}, /* compiles to
+    plonkish::{
+        backend::halo2::{chiquito2Halo2, ChiquitoHalo2Circuit},
+        compiler::{
+            cell_manager::SingleRowCellManager, // input for constructing the compiler
+            compile,                            // input for constructing the compiler
+            config,
+            step_selector::SimpleStepSelectorBuilder,
+        },
+        ir::{assignments::AssignmentGenerator, Circuit},
+    }, /* compiles to
                              * Chiquito Halo2
                              * backend,
                              * which can be
                              * integrated into
                              * Halo2
                              * circuit */
-    plonkish::compiler::{
-        cell_manager::SingleRowCellManager, // input for constructing the compiler
-        compile,                            // input for constructing the compiler
-        config,
-        step_selector::SimpleStepSelectorBuilder,
-    },
-    plonkish::ir::{assignments::AssignmentGenerator, Circuit}, // compiled circuit type
     poly::ToField,
+    wit_gen::DSLTraceGenerator,
 };
 use halo2_proofs::{dev::MockProver, halo2curves::bn256::Fr};
 
 // This example file extends the rust example file 'fibonacci.rs',
 // describing usage of multiple steptypes, padding, and exposing signals.
 
+type AssignGen<F> = AssignmentGenerator<F, DSLTraceGenerator<F, u32>>;
+
 // the main circuit function
-fn fibo_circuit<F: Field + From<u64> + Hash>() -> (Circuit<F>, Option<AssignmentGenerator<F, u32>>)
+fn fibo_circuit<F: Field + From<u64> + Hash>() -> (Circuit<F>, Option<AssignGen<F>>)
 // u32 is for external input that indicates the number of fibnoacci iterations
 {
     use chiquito::{
