@@ -3,27 +3,31 @@ use std::hash::Hash;
 use chiquito::{
     field::Field,
     frontend::dsl::circuit, // main function for constructing an AST circuit
-    plonkish::backend::halo2::{chiquito2Halo2, ChiquitoHalo2Circuit}, /* compiles to
+    plonkish::{
+        backend::halo2::{chiquito2Halo2, ChiquitoHalo2Circuit},
+        compiler::{
+            cell_manager::SingleRowCellManager, // input for constructing the compiler
+            compile,                            // input for constructing the compiler
+            config,
+            step_selector::SimpleStepSelectorBuilder,
+        },
+        ir::{assignments::AssignmentGenerator, Circuit},
+    }, /* compiles to
                              * Chiquito Halo2
                              * backend,
                              * which can be
                              * integrated into
                              * Halo2
                              * circuit */
-    plonkish::compiler::{
-        cell_manager::SingleRowCellManager, // input for constructing the compiler
-        compile,                            // input for constructing the compiler
-        config,
-        step_selector::SimpleStepSelectorBuilder,
-    },
-    plonkish::ir::{assignments::AssignmentGenerator, Circuit}, // compiled circuit type
     poly::ToField,
+    wit_gen::DSLTraceGenerator,
 };
 use halo2_proofs::{dev::MockProver, halo2curves::bn256::Fr};
 
 const MAX_FACTORIAL: usize = 10;
 
-fn generate<F: Field + From<u64> + Hash>() -> (Circuit<F>, Option<AssignmentGenerator<F, u32>>) {
+type AssignGen<F> = AssignmentGenerator<F, DSLTraceGenerator<F, u32>>;
+fn generate<F: Field + From<u64> + Hash>() -> (Circuit<F>, Option<AssignGen<F>>) {
     // table for the circuit:
     // |    step_type      |  i  |  x   |
     // ----------------------------------

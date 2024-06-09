@@ -15,6 +15,7 @@ use chiquito::{
         ir::sc::SuperCircuit,
     },
     sbpir::query::Queriable,
+    wit_gen::DSLTraceGenerator,
 };
 
 use mimc7_constants::ROUND_CONSTANTS;
@@ -23,7 +24,7 @@ use mimc7_constants::ROUND_CONSTANTS;
 pub const ROUNDS: usize = 91;
 
 fn mimc7_constants<F: PrimeField + Eq + Hash>(
-    ctx: &mut CircuitContext<F, ()>,
+    ctx: &mut CircuitContext<F, DSLTraceGenerator<F>>,
     _: (),
 ) -> LookupTable {
     use chiquito::frontend::dsl::cb::*;
@@ -49,7 +50,7 @@ fn mimc7_constants<F: PrimeField + Eq + Hash>(
 }
 
 fn mimc7_circuit<F: PrimeField + Eq + Hash>(
-    ctx: &mut CircuitContext<F, (F, F)>,
+    ctx: &mut CircuitContext<F, DSLTraceGenerator<F, (F, F)>>,
     constants: LookupTable,
 ) {
     use chiquito::frontend::dsl::cb::*;
@@ -185,7 +186,7 @@ fn mimc7_circuit<F: PrimeField + Eq + Hash>(
 }
 
 fn mimc7_super_circuit<F: PrimeField + Eq + Hash>() -> SuperCircuit<F, (F, F)> {
-    super_circuit::<F, (F, F), _>("mimc7", |ctx| {
+    super_circuit::<F, (F, F), _, DSLTraceGenerator<F>>("mimc7", |ctx| {
         let config = config(SingleRowCellManager {}, SimpleStepSelectorBuilder {});
 
         let (_, constants) = ctx.sub_circuit(config.clone(), mimc7_constants, ());
@@ -234,7 +235,7 @@ fn main() {
         .get_mapping()
         .generate_super_trace_witnesses((x_in_value, k_value));
 
-    let pil = chiquitoSuperCircuit2Pil::<Fr, (), ()>(
+    let pil = chiquitoSuperCircuit2Pil::<Fr, (), _>(
         super_circuit.get_super_asts(),
         super_trace_witnesses,
         super_circuit.get_ast_id_to_ir_id_mapping(),

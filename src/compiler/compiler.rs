@@ -8,6 +8,7 @@ use crate::{
         cb::{Constraint, Typing},
         circuit, CircuitContext, StepTypeContext,
     },
+    interpreter::InterpreterTraceGenerator,
     parser::{
         ast::{debug_sym_factory::DebugSymRefFactory, tl::TLDecl, Identifiable, Identifier},
         lang::TLDeclsParser,
@@ -15,7 +16,7 @@ use crate::{
     plonkish,
     poly::{self, mielim::mi_elimination, reduce::reduce_degree, Expr},
     sbpir::{query::Queriable, InternalSignal, SBPIR},
-    wit_gen::{SymbolSignalMapping, WitnessGenerator},
+    wit_gen::{NullTraceGenerator, SymbolSignalMapping, TraceGenerator},
 };
 
 use super::{
@@ -26,10 +27,10 @@ use super::{
 
 /// Contains the result of a compilation.
 #[derive(Debug)]
-pub struct CompilerResult<F> {
+pub struct CompilerResult<F: Field + Hash> {
     pub messages: Vec<Message>,
-    pub wit_gen: WitnessGenerator,
-    pub circuit: SBPIR<F, ()>,
+    // pub wit_gen: WitnessGenerator,
+    pub circuit: SBPIR<F, InterpreterTraceGenerator>,
 }
 
 impl<F: Field + Hash> CompilerResult<F> {
@@ -42,7 +43,7 @@ impl<F: Field + Hash> CompilerResult<F> {
         config: plonkish::compiler::CompilerConfig<CM, SSB>,
     ) -> (
         crate::plonkish::ir::Circuit<F>,
-        Option<plonkish::ir::assignments::AssignmentGenerator<F, ()>>,
+        Option<plonkish::ir::assignments::AssignmentGenerator<F, InterpreterTraceGenerator>>,
     ) {
         plonkish::compiler::compile(config, &self.circuit)
     }
@@ -89,11 +90,11 @@ impl<F: Field + Hash> Compiler<F> {
             circuit
         };
 
-        let wit_gen = WitnessGenerator::new(ast, symbols, self.mapping);
+        let circuit =
+            circuit.with_trace(InterpreterTraceGenerator::new(ast, symbols, self.mapping));
 
         Ok(CompilerResult {
             messages: self.messages,
-            wit_gen,
             circuit,
         })
     }
@@ -168,8 +169,12 @@ impl<F: Field + Hash> Compiler<F> {
         }
     }
 
-    fn build(&mut self, setup: &Setup<F, Identifier>, symbols: &SymTable) -> SBPIR<F, ()> {
-        circuit("circuit", |ctx| {
+    fn build(
+        &mut self,
+        setup: &Setup<F, Identifier>,
+        symbols: &SymTable,
+    ) -> SBPIR<F, NullTraceGenerator> {
+        circuit::<F, (), _>("circuit", |ctx| {
             for (machine_id, machine) in setup {
                 self.add_forwards(ctx, symbols, machine_id);
                 self.add_step_type_handlers(ctx, symbols, machine_id);
@@ -201,9 +206,10 @@ impl<F: Field + Hash> Compiler<F> {
 
             ctx.trace(|_, _| {});
         })
+        .without_trace()
     }
 
-    fn mi_elim(mut circuit: SBPIR<F, ()>) -> SBPIR<F, ()> {
+    fn mi_elim(mut circuit: SBPIR<F, NullTraceGenerator>) -> SBPIR<F, NullTraceGenerator> {
         for (_, step_type) in circuit.step_types.iter_mut() {
             let mut signal_factory = SignalFactory::default();
 
@@ -213,7 +219,10 @@ impl<F: Field + Hash> Compiler<F> {
         circuit
     }
 
-    fn reduce(mut circuit: SBPIR<F, ()>, degree: usize) -> SBPIR<F, ()> {
+    fn reduce(
+        mut circuit: SBPIR<F, NullTraceGenerator>,
+        degree: usize,
+    ) -> SBPIR<F, NullTraceGenerator> {
         for (_, step_type) in circuit.step_types.iter_mut() {
             let mut signal_factory = SignalFactory::default();
 
@@ -226,7 +235,7 @@ impl<F: Field + Hash> Compiler<F> {
     }
 
     #[allow(dead_code)]
-    fn cse(mut _circuit: SBPIR<F, ()>) -> SBPIR<F, ()> {
+    fn cse(mut _circuit: SBPIR<F, NullTraceGenerator>) -> SBPIR<F, NullTraceGenerator> {
         todo!()
     }
 
@@ -394,9 +403,9 @@ impl<F: Field + Hash> Compiler<F> {
         }
     }
 
-    fn add_step_type_handlers(
+    fn add_step_type_handlers<TG: TraceGenerator<F>>(
         &mut self,
-        ctx: &mut CircuitContext<F, ()>,
+        ctx: &mut CircuitContext<F, TG>,
         symbols: &SymTable,
         machine_id: &str,
     ) {
@@ -426,9 +435,9 @@ impl<F: Field + Hash> Compiler<F> {
         }
     }
 
-    fn add_forwards(
+    fn add_forwards<TG: TraceGenerator<F>>(
         &mut self,
-        ctx: &mut CircuitContext<F, ()>,
+        ctx: &mut CircuitContext<F, TG>,
         symbols: &SymTable,
         machine_id: &str,
     ) {

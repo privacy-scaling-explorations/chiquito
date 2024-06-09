@@ -154,7 +154,7 @@ impl ScopeTable {
 }
 
 /// Symbol table for a chiquito program
-#[derive(Default)]
+#[derive(Default, Clone)]
 pub struct SymTable {
     scopes: HashMap<String, ScopeTable>,
 }

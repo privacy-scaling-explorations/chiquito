@@ -1,12 +1,8 @@
-use num_bigint::BigInt;
 use std::{collections::HashMap, fmt, hash::Hash, rc::Rc};
 
 use crate::{
-    compiler::{semantic::SymTable, Message},
     field::Field,
     frontend::dsl::{StepTypeHandler, StepTypeWGHandler},
-    interpreter::{self},
-    parser::ast::{tl::TLDecl, Identifier},
     poly::Expr,
     sbpir::{query::Queriable, ForwardSignal, InternalSignal, StepTypeUUID, PIR, SBPIR},
     util::UUID,
@@ -49,9 +45,17 @@ impl<F: Eq + Hash> StepInstance<F> {
 
 pub type Witness<F> = Vec<StepInstance<F>>;
 
-#[derive(Debug, Default, Clone)]
+#[derive(Debug, Clone)]
 pub struct TraceWitness<F> {
     pub step_instances: Witness<F>,
+}
+
+impl<F> Default for TraceWitness<F> {
+    fn default() -> Self {
+        Self {
+            step_instances: vec![],
+        }
+    }
 }
 
 impl<F: fmt::Debug> fmt::Display for TraceWitness<F> {
@@ -118,12 +122,39 @@ impl<F> TraceContext<F> {
 
 pub type Trace<F, TraceArgs> = dyn Fn(&mut TraceContext<F>, TraceArgs) + 'static;
 
-pub struct TraceGenerator<F, TraceArgs> {
-    trace: Rc<Trace<F, TraceArgs>>,
+/// A trait that defines the interface for trace generators. A trace generator is responsible for
+/// generating a trace witness for the given arguments.
+///
+/// ### Parameters
+/// - `F`: The field type.
+///
+/// ### Associated Types
+/// - `TraceGenerator::TraceArgs` The type of arguments that the trace generator takes.
+pub trait TraceGenerator<F> {
+    /// The type of arguments that the trace generator takes.
+    type TraceArgs;
+    /// Generates a trace witness for the given arguments.
+    /// ### Parameters
+    /// - `args`: The arguments for the trace function.
+    fn generate(&self, args: Self::TraceArgs) -> TraceWitness<F>;
+}
+
+/// A trace generator used by the DSL. Generates a trace witness
+/// by calling the trace function with the given arguments.
+///
+/// ### Parameters
+/// - `F`: The field type.
+/// - `TA`: The type of arguments that the trace function takes.
+///
+/// ### Fields
+/// - `trace`: The trace function.
+/// - `num_steps`: The number of steps in the circuit.
+pub struct DSLTraceGenerator<F, TA = ()> {
+    trace: Rc<Trace<F, TA>>,
     num_steps: usize,
 }
 
-impl<F, TraceArgs> Clone for TraceGenerator<F, TraceArgs> {
+impl<F, TA> Clone for DSLTraceGenerator<F, TA> {
     fn clone(&self) -> Self {
         Self {
             trace: self.trace.clone(),
@@ -132,7 +163,7 @@ impl<F, TraceArgs> Clone for TraceGenerator<F, TraceArgs> {
     }
 }
 
-impl<F, TraceArgs> Default for TraceGenerator<F, TraceArgs> {
+impl<F, TA> Default for DSLTraceGenerator<F, TA> {
     fn default() -> Self {
         Self {
             trace: Rc::new(|_, _| {}),
@@ -141,17 +172,32 @@ impl<F, TraceArgs> Default for TraceGenerator<F, TraceArgs> {
     }
 }
 
-impl<F: Default, TraceArgs> TraceGenerator<F, TraceArgs> {
-    pub fn new(trace: Rc<Trace<F, TraceArgs>>, num_steps: usize) -> Self {
+impl<F, TA> DSLTraceGenerator<F, TA> {
+    /// Creates an instance.
+    pub fn new(trace: Rc<Trace<F, TA>>, num_steps: usize) -> Self {
         Self { trace, num_steps }
     }
+}
 
-    pub fn generate(&self, args: TraceArgs) -> TraceWitness<F> {
+impl<F: Field, TA> TraceGenerator<F> for DSLTraceGenerator<F, TA> {
+    type TraceArgs = TA;
+
+    fn generate(&self, args: TA) -> TraceWitness<F> {
         let mut ctx = TraceContext::new(self.num_steps);
-
         (self.trace)(&mut ctx, args);
-
         ctx.get_witness()
+    }
+}
+
+/// A trace generator that always returns an empty witness.
+#[derive(Clone, Default)]
+pub struct NullTraceGenerator;
+
+impl<F> TraceGenerator<F> for NullTraceGenerator {
+    type TraceArgs = ();
+
+    fn generate(&self, _args: Self::TraceArgs) -> TraceWitness<F> {
+        TraceWitness::default()
     }
 }
 
@@ -168,8 +214,8 @@ impl<F> Default for AutoTraceGenerator<F> {
     }
 }
 
-impl<F: Clone, TraceArgs> From<&SBPIR<F, TraceArgs>> for AutoTraceGenerator<F> {
-    fn from(circuit: &SBPIR<F, TraceArgs>) -> Self {
+impl<F: Clone, TG: TraceGenerator<F>> From<&SBPIR<F, TG>> for AutoTraceGenerator<F> {
+    fn from(circuit: &SBPIR<F, TG>) -> Self {
         let auto_signals = circuit
             .step_types
             .iter()
@@ -282,7 +328,7 @@ impl<F: Field + Hash> FixedGenContext<F> {
     }
 }
 
-#[derive(Default, Debug)]
+#[derive(Default, Debug, Clone)]
 pub struct SymbolSignalMapping {
     pub(crate) symbol_uuid: HashMap<(String, String), UUID>,
 
@@ -340,50 +386,6 @@ impl SymbolSignalMapping {
             .expect("semantic analyser fail");
 
         *self.step_type_handler.get(uuid).unwrap()
-    }
-}
-
-#[derive(Debug)]
-pub struct WitnessGenerator {
-    ast: Vec<TLDecl<BigInt, Identifier>>,
-    symbols: SymTable,
-    mapping: SymbolSignalMapping,
-}
-
-impl WitnessGenerator {
-    pub fn new(
-        ast: Vec<TLDecl<BigInt, Identifier>>,
-        symbols: SymTable,
-        mapping: SymbolSignalMapping,
-    ) -> Self {
-        Self {
-            ast,
-            symbols,
-            mapping,
-        }
-    }
-
-    pub fn generate<F: Field + Hash>(
-        &self,
-        input: HashMap<String, F>,
-    ) -> Result<TraceWitness<F>, Message> {
-        let step_instances = interpreter::run(&self.ast, &self.symbols, &self.mapping, input)?;
-
-        Ok(TraceWitness { step_instances })
-    }
-
-    pub fn evil_assign<F: Field + Hash, S: Into<String>>(
-        &self,
-        trace: &mut TraceWitness<F>,
-        step_num: usize,
-        (scope_name, symbol_name): (S, S),
-        value: F,
-    ) {
-        let lhs = self
-            .mapping
-            .get_queriable(&scope_name.into(), &symbol_name.into(), false);
-
-        trace.step_instances[step_num].assign(lhs, value);
     }
 }
 

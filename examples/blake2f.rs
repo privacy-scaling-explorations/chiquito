@@ -15,6 +15,7 @@ use chiquito::{
     },
     poly::ToExpr,
     sbpir::query::Queriable,
+    wit_gen::DSLTraceGenerator,
 };
 use halo2_proofs::{
     dev::MockProver,
@@ -125,10 +126,7 @@ pub fn split_to_4bits_values<F: PrimeField + Hash>(vec_values: &[u64]) -> Vec<Ve
         .collect()
 }
 
-fn blake2f_iv_table<F: PrimeField + Hash>(
-    ctx: &mut CircuitContext<F, ()>,
-    _: usize,
-) -> LookupTable {
+fn blake2f_iv_table<F: PrimeField + Hash>(ctx: &mut CircuitContext<F>, _: usize) -> LookupTable {
     let lookup_iv_row: Queriable<F> = ctx.fixed("iv row");
     let lookup_iv_value: Queriable<F> = ctx.fixed("iv value");
 
@@ -145,10 +143,7 @@ fn blake2f_iv_table<F: PrimeField + Hash>(
 }
 
 // For range checking
-fn blake2f_4bits_table<F: PrimeField + Hash>(
-    ctx: &mut CircuitContext<F, ()>,
-    _: usize,
-) -> LookupTable {
+fn blake2f_4bits_table<F: PrimeField + Hash>(ctx: &mut CircuitContext<F>, _: usize) -> LookupTable {
     let lookup_4bits_row: Queriable<F> = ctx.fixed("4bits row");
     let lookup_4bits_value: Queriable<F> = ctx.fixed("4bits value");
 
@@ -164,7 +159,7 @@ fn blake2f_4bits_table<F: PrimeField + Hash>(
 }
 
 fn blake2f_xor_4bits_table<F: PrimeField + Hash>(
-    ctx: &mut CircuitContext<F, ()>,
+    ctx: &mut CircuitContext<F>,
     _: usize,
 ) -> LookupTable {
     let lookup_xor_row: Queriable<F> = ctx.fixed("xor row");
@@ -281,6 +276,7 @@ struct FinalInput<F> {
     final_split_bit_vec: Vec<Vec<F>>,
 }
 
+#[derive(Clone)]
 struct InputValues {
     pub round: u32,          // 32bit
     pub h_vec: [u64; H_LEN], // 8 * 64bits
@@ -529,7 +525,7 @@ fn g_setup<F: PrimeField + Hash>(
 }
 
 fn blake2f_circuit<F: PrimeField + Hash>(
-    ctx: &mut CircuitContext<F, InputValues>,
+    ctx: &mut CircuitContext<F, DSLTraceGenerator<F, InputValues>>,
     params: CircuitParams,
 ) {
     let v_vec: Vec<Queriable<F>> = (0..V_LEN)
@@ -1367,7 +1363,7 @@ fn blake2f_circuit<F: PrimeField + Hash>(
 }
 
 fn blake2f_super_circuit<F: PrimeField + Hash>() -> SuperCircuit<F, InputValues> {
-    super_circuit::<F, InputValues, _>("blake2f", |ctx| {
+    super_circuit::<F, InputValues, _, DSLTraceGenerator<F>>("blake2f", |ctx| {
         let single_config = config(SingleRowCellManager {}, SimpleStepSelectorBuilder {});
         let (_, iv_table) = ctx.sub_circuit(single_config.clone(), blake2f_iv_table, IV_LEN);
         let (_, bits_table) = ctx.sub_circuit(

@@ -3,19 +3,23 @@ pub mod query;
 use std::{collections::HashMap, fmt::Debug, hash::Hash, rc::Rc};
 
 use crate::{
+    field::Field,
     frontend::dsl::StepTypeHandler,
     poly::{ConstrDecomp, Expr},
     util::{uuid, UUID},
-    wit_gen::{FixedAssignment, FixedGenContext, Trace, TraceContext},
+    wit_gen::{
+        DSLTraceGenerator, FixedAssignment, FixedGenContext, NullTraceGenerator, TraceContext,
+        TraceGenerator,
+    },
 };
 
 use halo2_proofs::plonk::{Advice, Column as Halo2Column, ColumnType, Fixed};
 
 use self::query::Queriable;
 
-/// Circuit
+/// Circuit (Step-Based Polynomial Identity Representation)
 #[derive(Clone)]
-pub struct SBPIR<F, TraceArgs> {
+pub struct SBPIR<F, TG: TraceGenerator<F> = DSLTraceGenerator<F>> {
     pub step_types: HashMap<UUID, StepType<F>>,
 
     pub forward_signals: Vec<ForwardSignal>,
@@ -27,7 +31,7 @@ pub struct SBPIR<F, TraceArgs> {
 
     pub annotations: HashMap<UUID, String>,
 
-    pub trace: Option<Rc<Trace<F, TraceArgs>>>,
+    pub trace_generator: Option<TG>,
     pub fixed_assignments: Option<FixedAssignment<F>>,
 
     pub first_step: Option<StepTypeUUID>,
@@ -38,7 +42,7 @@ pub struct SBPIR<F, TraceArgs> {
     pub id: UUID,
 }
 
-impl<F: Debug, TraceArgs: Debug> Debug for SBPIR<F, TraceArgs> {
+impl<F: Debug, TG: TraceGenerator<F>> Debug for SBPIR<F, TG> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("Circuit")
             .field("step_types", &self.step_types)
@@ -58,7 +62,7 @@ impl<F: Debug, TraceArgs: Debug> Debug for SBPIR<F, TraceArgs> {
     }
 }
 
-impl<F, TraceArgs> Default for SBPIR<F, TraceArgs> {
+impl<F, TG: TraceGenerator<F>> Default for SBPIR<F, TG> {
     fn default() -> Self {
         Self {
             step_types: Default::default(),
@@ -73,7 +77,7 @@ impl<F, TraceArgs> Default for SBPIR<F, TraceArgs> {
 
             annotations: Default::default(),
 
-            trace: None,
+            trace_generator: None,
             fixed_assignments: None,
 
             first_step: None,
@@ -85,7 +89,7 @@ impl<F, TraceArgs> Default for SBPIR<F, TraceArgs> {
     }
 }
 
-impl<F, TraceArgs> SBPIR<F, TraceArgs> {
+impl<F, TG: TraceGenerator<F>> SBPIR<F, TG> {
     pub fn add_forward<N: Into<String>>(&mut self, name: N, phase: usize) -> ForwardSignal {
         let name = name.into();
         let signal = ForwardSignal::new_with_phase(phase, name.clone());
@@ -175,18 +179,6 @@ impl<F, TraceArgs> SBPIR<F, TraceArgs> {
         uuid
     }
 
-    pub fn set_trace<D>(&mut self, def: D)
-    where
-        D: Fn(&mut TraceContext<F>, TraceArgs) + 'static,
-    {
-        match self.trace {
-            None => {
-                self.trace = Some(Rc::new(def));
-            }
-            Some(_) => panic!("circuit cannot have more than one trace generator"),
-        }
-    }
-
     pub fn set_fixed_assignments(&mut self, assignments: FixedAssignment<F>) {
         match self.fixed_assignments {
             None => {
@@ -195,10 +187,66 @@ impl<F, TraceArgs> SBPIR<F, TraceArgs> {
             Some(_) => panic!("circuit cannot have more than one fixed generator"),
         }
     }
+
+    pub fn without_trace(self) -> SBPIR<F, NullTraceGenerator> {
+        SBPIR {
+            step_types: self.step_types,
+            forward_signals: self.forward_signals,
+            shared_signals: self.shared_signals,
+            fixed_signals: self.fixed_signals,
+            halo2_advice: self.halo2_advice,
+            halo2_fixed: self.halo2_fixed,
+            exposed: self.exposed,
+            annotations: self.annotations,
+            trace_generator: None, // Remove the trace.
+            fixed_assignments: self.fixed_assignments,
+            first_step: self.first_step,
+            last_step: self.last_step,
+            num_steps: self.num_steps,
+            q_enable: self.q_enable,
+            id: self.id,
+        }
+    }
+
+    pub(crate) fn with_trace<TG2: TraceGenerator<F>>(self, trace: TG2) -> SBPIR<F, TG2> {
+        SBPIR {
+            trace_generator: Some(trace), // Change trace
+            step_types: self.step_types,
+            forward_signals: self.forward_signals,
+            shared_signals: self.shared_signals,
+            fixed_signals: self.fixed_signals,
+            halo2_advice: self.halo2_advice,
+            halo2_fixed: self.halo2_fixed,
+            exposed: self.exposed,
+            annotations: self.annotations,
+            fixed_assignments: self.fixed_assignments,
+            first_step: self.first_step,
+            last_step: self.last_step,
+            num_steps: self.num_steps,
+            q_enable: self.q_enable,
+            id: self.id,
+        }
+    }
 }
 
-impl<F: Clone, TraceArgs> SBPIR<F, TraceArgs> {
-    pub fn clone_without_trace(&self) -> SBPIR<F, ()> {
+impl<F: Field, TraceArgs: Clone> SBPIR<F, DSLTraceGenerator<F, TraceArgs>> {
+    pub fn set_trace<D>(&mut self, def: D)
+    where
+        D: Fn(&mut TraceContext<F>, TraceArgs) + 'static,
+    {
+        // TODO: should we check that number of steps has been set?
+
+        match self.trace_generator {
+            None => {
+                self.trace_generator = Some(DSLTraceGenerator::new(Rc::new(def), self.num_steps));
+            }
+            Some(_) => panic!("circuit cannot have more than one trace generator"),
+        }
+    }
+}
+
+impl<F: Clone + Field, TG: TraceGenerator<F>> SBPIR<F, TG> {
+    pub fn clone_without_trace(&self) -> SBPIR<F, NullTraceGenerator> {
         SBPIR {
             step_types: self.step_types.clone(),
             forward_signals: self.forward_signals.clone(),
@@ -208,7 +256,7 @@ impl<F: Clone, TraceArgs> SBPIR<F, TraceArgs> {
             halo2_fixed: self.halo2_fixed.clone(),
             exposed: self.exposed.clone(),
             annotations: self.annotations.clone(),
-            trace: None, // Remove the trace.
+            trace_generator: None, // Remove the trace.
             fixed_assignments: self.fixed_assignments.clone(),
             first_step: self.first_step,
             last_step: self.last_step,
@@ -642,18 +690,20 @@ pub type ImportedHalo2Fixed = ImportedHalo2Column<Fixed>;
 
 #[cfg(test)]
 mod tests {
+    use crate::wit_gen::NullTraceGenerator;
+
     use super::*;
 
     #[test]
     fn test_q_enable() {
-        let circuit: SBPIR<i32, i32> = SBPIR::default();
+        let circuit: SBPIR<i32, NullTraceGenerator> = SBPIR::default();
         assert!(circuit.q_enable);
     }
 
     #[test]
     #[should_panic]
     fn test_expose_non_existing_signal() {
-        let mut circuit: SBPIR<i32, i32> = SBPIR::default();
+        let mut circuit: SBPIR<i32, NullTraceGenerator> = SBPIR::default();
         let signal = Queriable::Forward(
             ForwardSignal::new_with_phase(0, "signal".to_string()),
             false,
@@ -665,7 +715,7 @@ mod tests {
 
     #[test]
     fn test_expose_forward_signal() {
-        let mut circuit: SBPIR<i32, i32> = SBPIR::default();
+        let mut circuit: SBPIR<i32, NullTraceGenerator> = SBPIR::default();
         let signal = circuit.add_forward("signal", 0);
         let offset = ExposeOffset::Last;
         assert_eq!(circuit.exposed.len(), 0);
@@ -675,7 +725,7 @@ mod tests {
 
     #[test]
     fn test_expose_shared_signal() {
-        let mut circuit: SBPIR<i32, i32> = SBPIR::default();
+        let mut circuit: SBPIR<i32, NullTraceGenerator> = SBPIR::default();
         let signal = circuit.add_shared("signal", 0);
         let offset = ExposeOffset::Last;
         assert_eq!(circuit.exposed.len(), 0);

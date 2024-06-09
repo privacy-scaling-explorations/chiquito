@@ -14,11 +14,11 @@ use crate::{
         },
     },
     sbpir::SBPIR,
+    wit_gen::{DSLTraceGenerator, NullTraceGenerator, TraceGenerator},
 };
 
 use super::{lb::LookupTableRegistry, CircuitContext};
 
-#[derive(Debug)]
 pub struct SuperCircuitContext<F, MappingArgs> {
     super_circuit: SuperCircuit<F, MappingArgs>,
     sub_circuit_phase1: Vec<CompilationUnit<F>>,
@@ -36,20 +36,32 @@ impl<F, MappingArgs> Default for SuperCircuitContext<F, MappingArgs> {
 }
 
 impl<F: Clone, MappingArgs> SuperCircuitContext<F, MappingArgs> {
-    fn add_sub_circuit_ast(&mut self, ast: SBPIR<F, ()>) {
+    fn add_sub_circuit_ast(&mut self, ast: SBPIR<F, NullTraceGenerator>) {
         self.super_circuit.add_sub_circuit_ast(ast);
     }
 }
 
 impl<F: Field + Hash, MappingArgs> SuperCircuitContext<F, MappingArgs> {
-    pub fn sub_circuit<CM: CellManager, SSB: StepSelectorBuilder, TraceArgs, Imports, Exports, D>(
+    /// Add a sub-circuit to the super-circuit
+    /// A sub-circuit is a regular circuit that is a part of a larger `SuperCircuit`
+    pub fn sub_circuit<
+        CM: CellManager,
+        SSB: StepSelectorBuilder,
+        TraceArgs: Clone,
+        Imports,
+        Exports,
+        D,
+    >(
         &mut self,
         config: CompilerConfig<CM, SSB>,
         sub_circuit_def: D,
         imports: Imports,
-    ) -> (AssignmentGenerator<F, TraceArgs>, Exports)
+    ) -> (
+        AssignmentGenerator<F, DSLTraceGenerator<F, TraceArgs>>,
+        Exports,
+    )
     where
-        D: Fn(&mut CircuitContext<F, TraceArgs>, Imports) -> Exports,
+        D: Fn(&mut CircuitContext<F, DSLTraceGenerator<F, TraceArgs>>, Imports) -> Exports,
     {
         let mut sub_circuit_context = CircuitContext {
             circuit: SBPIR::default(),
@@ -70,11 +82,18 @@ impl<F: Field + Hash, MappingArgs> SuperCircuitContext<F, MappingArgs> {
         (assignment, exports)
     }
 
-    pub fn sub_circuit_with_ast<CM: CellManager, SSB: StepSelectorBuilder, TraceArgs>(
+    /// Add a sub-circuit to the super-circuit
+    /// A sub-circuit is a regular circuit that is a part of a larger `SuperCircuit`
+    /// This function takes an already generated AST as input
+    pub fn sub_circuit_with_ast<
+        CM: CellManager,
+        SSB: StepSelectorBuilder,
+        TG: TraceGenerator<F> + Clone + Default,
+    >(
         &mut self,
         config: CompilerConfig<CM, SSB>,
-        sub_circuit: SBPIR<F, TraceArgs>, // directly input ast
-    ) -> AssignmentGenerator<F, TraceArgs> {
+        sub_circuit: SBPIR<F, TG>, // directly input ast
+    ) -> AssignmentGenerator<F, TG> {
         let (unit, assignment) = compile_phase1(config, &sub_circuit);
         let assignment = assignment.unwrap_or_else(|| AssignmentGenerator::empty(unit.uuid));
 
@@ -108,7 +127,9 @@ impl<F: Field + Hash, MappingArgs> SuperCircuitContext<F, MappingArgs> {
     }
 }
 
-pub fn super_circuit<F: Field + Hash, MappingArgs, D>(
+/// Create a super-circuit
+/// A super-circuit is a circuit that contains multiple sub-circuits
+pub fn super_circuit<F: Field + Hash, MappingArgs, D, TG: TraceGenerator<F> + Clone + Default>(
     _name: &str,
     def: D,
 ) -> SuperCircuit<F, MappingArgs>
@@ -131,6 +152,7 @@ mod tests {
             cell_manager::SingleRowCellManager, config, step_selector::SimpleStepSelectorBuilder,
         },
         poly::ToField,
+        wit_gen::DSLTraceGenerator,
     };
 
     use super::*;
@@ -158,7 +180,10 @@ mod tests {
     fn test_super_circuit_context_sub_circuit() {
         let mut ctx = SuperCircuitContext::<Fr, ()>::default();
 
-        fn simple_circuit<F: PrimeField + Eq + Hash>(ctx: &mut CircuitContext<F, ()>, _: ()) {
+        fn simple_circuit<F: PrimeField + Eq + Hash>(
+            ctx: &mut CircuitContext<F, DSLTraceGenerator<F>>,
+            _: (),
+        ) {
             use crate::frontend::dsl::cb::*;
 
             let x = ctx.forward("x");
@@ -214,7 +239,10 @@ mod tests {
     fn test_super_circuit_compile() {
         let mut ctx = SuperCircuitContext::<Fr, ()>::default();
 
-        fn simple_circuit<F: PrimeField + Eq + Hash>(ctx: &mut CircuitContext<F, ()>, _: ()) {
+        fn simple_circuit<F: PrimeField + Eq + Hash>(
+            ctx: &mut CircuitContext<F, DSLTraceGenerator<F>>,
+            _: (),
+        ) {
             use crate::frontend::dsl::cb::*;
 
             let x = ctx.forward("x");
@@ -296,7 +324,7 @@ mod tests {
             });
         });
 
-        ctx.sub_circuit_with_ast(
+        ctx.sub_circuit_with_ast::<SingleRowCellManager, SimpleStepSelectorBuilder, DSLTraceGenerator<Fr>>(
             config(SingleRowCellManager {}, SimpleStepSelectorBuilder {}),
             simple_circuit_with_ast,
         );

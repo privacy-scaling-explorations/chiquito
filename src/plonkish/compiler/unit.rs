@@ -10,6 +10,7 @@ use crate::{
         StepType, StepTypeUUID, SBPIR as astCircuit,
     },
     util::{uuid, UUID},
+    wit_gen::TraceGenerator,
 };
 
 use super::{
@@ -189,7 +190,7 @@ impl<F> CompilationUnit<F> {
         panic!("fixed signal placement not found");
     }
 
-    fn has_transition_constraints<TraceArgs>(ast: &astCircuit<F, TraceArgs>) -> bool {
+    fn has_transition_constraints<TG: TraceGenerator<F>>(ast: &astCircuit<F, TG>) -> bool {
         for step in ast.step_types.values() {
             if !step.transition_constraints.is_empty() {
                 return true;
@@ -200,8 +201,8 @@ impl<F> CompilationUnit<F> {
     }
 }
 
-impl<F: Clone, TraceArgs> From<&astCircuit<F, TraceArgs>> for CompilationUnit<F> {
-    fn from(ast: &astCircuit<F, TraceArgs>) -> Self {
+impl<F: Clone, TG: TraceGenerator<F>> From<&astCircuit<F, TG>> for CompilationUnit<F> {
+    fn from(ast: &astCircuit<F, TG>) -> Self {
         CompilationUnit::<F> {
             annotations: {
                 let mut acc = ast.annotations.clone();

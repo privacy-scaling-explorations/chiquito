@@ -6,7 +6,7 @@ use crate::{
     },
     sbpir::SBPIR,
     util::UUID,
-    wit_gen::TraceWitness,
+    wit_gen::{TraceGenerator, TraceWitness},
 };
 use std::{
     collections::HashMap,
@@ -17,13 +17,13 @@ extern crate regex;
 #[allow(non_snake_case)]
 /// User generate PIL code using this function. User needs to supply AST, TraceWitness, and a name
 /// string for the circuit.
-pub fn chiquito2Pil<F: Clone + Debug + Field, TraceArgs>(
-    ast: SBPIR<F, TraceArgs>,
+pub fn chiquito2Pil<F: Clone + Debug + Field, TG: TraceGenerator<F>>(
+    ast: SBPIR<F, TG>,
     witness: Option<TraceWitness<F>>,
     circuit_name: String,
 ) -> String {
     // generate PIL IR.
-    let pil_ir = compile::<F, TraceArgs>(&ast, witness, circuit_name, &None);
+    let pil_ir = compile::<F, TG>(&ast, witness, circuit_name, &None);
 
     // generate Powdr PIL code.
     pil_ir_to_powdr_pil::<F>(pil_ir)
@@ -107,8 +107,8 @@ pub fn pil_ir_to_powdr_pil<F: Clone + Debug + Field>(pil_ir: PILCircuit<F>) -> S
 /// User generate PIL code for super circuit using this function.
 /// User needs to supply a Vec<String> for `circuit_names`, the order of which should be the same as
 /// the order of calling `sub_circuit()` function.
-pub fn chiquitoSuperCircuit2Pil<F: Debug + Field, MappingArgs, TraceArgs>(
-    super_asts: Vec<SBPIR<F, TraceArgs>>,
+pub fn chiquitoSuperCircuit2Pil<F: Debug + Field, MappingArgs, TG: TraceGenerator<F>>(
+    super_asts: Vec<SBPIR<F, TG>>,
     super_trace_witnesses: HashMap<UUID, TraceWitness<F>>,
     ast_id_to_ir_id_mapping: HashMap<UUID, UUID>,
     circuit_names: Vec<String>,
