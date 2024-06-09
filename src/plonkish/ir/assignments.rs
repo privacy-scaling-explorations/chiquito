@@ -7,7 +7,8 @@ use std::{
 
 use crate::{
     field::Field,
-    wit_gen::{AutoTraceGenerator, DSLTraceGenerator, TraceGenerator},
+    frontend::dsl::trace::DSLTraceGenerator,
+    wit_gen::{AutoTraceGenerator, TraceGenerator},
 };
 
 use halo2_proofs::plonk::{Advice, Column as Halo2Column};

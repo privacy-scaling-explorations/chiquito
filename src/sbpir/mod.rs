@@ -4,13 +4,13 @@ use std::{collections::HashMap, fmt::Debug, hash::Hash, rc::Rc};
 
 use crate::{
     field::Field,
-    frontend::dsl::StepTypeHandler,
+    frontend::dsl::{
+        trace::{DSLTraceGenerator, TraceContext},
+        StepTypeHandler,
+    },
     poly::{ConstrDecomp, Expr},
     util::{uuid, UUID},
-    wit_gen::{
-        DSLTraceGenerator, FixedAssignment, FixedGenContext, NullTraceGenerator, TraceContext,
-        TraceGenerator,
-    },
+    wit_gen::{FixedAssignment, FixedGenContext, NullTraceGenerator, TraceGenerator},
 };
 
 use halo2_proofs::plonk::{Advice, Column as Halo2Column, ColumnType, Fixed};
