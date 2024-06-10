@@ -1,7 +1,7 @@
 use std::{
     collections::HashMap,
     fmt::Debug,
-    hash::Hash,
+    hash::{DefaultHasher, Hash, Hasher},
     ops::{Add, Mul, Neg, Sub},
 };
 
@@ -9,6 +9,7 @@ use halo2_proofs::plonk::Expression;
 
 use crate::field::Field;
 
+pub mod cse;
 pub mod mielim;
 pub mod reduce;
 pub mod simplify;
@@ -45,6 +46,58 @@ impl<F, V, M> Expr<F, V, M> {
             Expr::Query(_, _) => 1,
             Expr::Halo2Expr(_, _) => panic!("not implemented"),
             Expr::MI(_, _) => panic!("not implemented"),
+        }
+    }
+
+    pub fn meta(&self) -> &M {
+        match self {
+            Expr::Const(_, m) => m,
+            Expr::Sum(_, m) => m,
+            Expr::Mul(_, m) => m,
+            Expr::Neg(_, m) => m,
+            Expr::Pow(_, _, m) => m,
+            Expr::Query(_, m) => m,
+            Expr::Halo2Expr(_, m) => m,
+            Expr::MI(_, m) => m,
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct HashResult {
+    pub hash: u64,
+    pub degree: usize,
+}
+
+impl<F: Field + Hash, V: Debug + Clone + Eq + Hash> Expr<F, V, ()> {
+    /// Uses Schwartz-Zippel Lemma to hash
+    pub fn hash(&self, assignments: &VarAssignments<F, V>) -> Expr<F, V, HashResult> {
+        let mut hasher = DefaultHasher::new();
+
+        if let Some(result) = self.eval(assignments) {
+            result.hash(&mut hasher);
+        }
+
+        let hash_result = HashResult {
+            hash: hasher.finish(),
+            degree: self.degree(),
+        };
+
+        match self {
+            Expr::Const(v, _) => Expr::Const(*v, hash_result),
+            Expr::Query(v, _) => Expr::Query(v.clone(), hash_result),
+            Expr::Sum(ses, _) => {
+                let new_ses = ses.iter().map(|se| se.hash(assignments)).collect();
+                Expr::Sum(new_ses, hash_result)
+            }
+            Expr::Mul(ses, _) => {
+                let new_ses = ses.iter().map(|se| se.hash(assignments)).collect();
+                Expr::Mul(new_ses, hash_result)
+            }
+            Expr::Neg(se, _) => Expr::Neg(Box::new(se.hash(assignments)), hash_result),
+            Expr::Pow(se, exp, _) => Expr::Pow(Box::new(se.hash(assignments)), *exp, hash_result),
+            Expr::Halo2Expr(_, _) => panic!("not implemented"),
+            Expr::MI(se, _) => Expr::MI(Box::new(se.hash(assignments)), hash_result),
         }
     }
 }
@@ -91,7 +144,7 @@ impl<F: Debug, V: Debug, M: Debug> Debug for Expr<F, V, M> {
 
 pub type VarAssignments<F, V> = HashMap<V, F>;
 
-impl<F: Field + Hash, V: Eq + PartialEq + Hash, M: Eq + PartialEq + Hash> Expr<F, V, M> {
+impl<F: Field + Hash, V: Eq + PartialEq + Hash, M: Clone + Default> Expr<F, V, M> {
     pub fn eval(&self, assignments: &VarAssignments<F, V>) -> Option<F> {
         match self {
             Expr::Const(v, _) => Some(*v),
@@ -108,6 +161,21 @@ impl<F: Field + Hash, V: Eq + PartialEq + Hash, M: Eq + PartialEq + Hash> Expr<F
 
             // Not implemented, and not necessary for aexpr
             Expr::Halo2Expr(_, _) => None,
+        }
+    }
+}
+
+impl<F: Field + Hash, V: Eq + PartialEq + Hash + Clone, M: Clone + Default> Expr<F, V, M> {
+    /// Returns all the keys of the queries
+    pub fn get_queries(&self) -> Vec<V> {
+        match self {
+            Expr::Const(_, _) => Vec::new(),
+            Expr::Sum(ses, _) | Expr::Mul(ses, _) => {
+                ses.iter().flat_map(|se| se.get_queries()).collect()
+            }
+            Expr::Neg(se, _) | Expr::Pow(se, _, _) | Expr::MI(se, _) => se.get_queries(),
+            Expr::Query(q, _) => vec![q.clone()],
+            Expr::Halo2Expr(_, _) => Vec::new(),
         }
     }
 }
@@ -297,9 +365,13 @@ impl<F: Clone, V: Clone + Eq + PartialEq + Hash> ConstrDecomp<F, V> {
 
 #[cfg(test)]
 mod test {
-    use halo2_proofs::halo2curves::bn256::Fr;
+    use halo2_proofs::{arithmetic::Field, halo2curves::bn256::Fr};
+    use rand_chacha::{rand_core::SeedableRng, ChaCha20Rng};
 
-    use crate::{field::Field, poly::VarAssignments};
+    use crate::{
+        poly::{ToExpr, VarAssignments},
+        sbpir::{query::Queriable, InternalSignal},
+    };
 
     use super::Expr;
 
@@ -416,5 +488,102 @@ mod test {
             format!("{:?}", Sum(vec![lhs, Neg(Box::new(rhs), ())], ())),
             format!("{:?}", expr)
         );
+    }
+
+    #[test]
+    fn test_hash() {
+        use super::Expr::*;
+
+        let mut rng = ChaCha20Rng::seed_from_u64(0);
+
+        let a: Queriable<Fr> = Queriable::Internal(InternalSignal::new("a"));
+        let b: Queriable<Fr> = Queriable::Internal(InternalSignal::new("b"));
+        let c: Queriable<Fr> = Queriable::Internal(InternalSignal::new("c"));
+        let d: Queriable<Fr> = Queriable::Internal(InternalSignal::new("d"));
+        let e: Queriable<Fr> = Queriable::Internal(InternalSignal::new("e"));
+        let f: Queriable<Fr> = Queriable::Internal(InternalSignal::new("f"));
+        let g: Queriable<Fr> = Queriable::Internal(InternalSignal::new("g"));
+        let vars = vec![a, b, c, d, e, f, g];
+
+        let mut assignments = VarAssignments::new();
+        for v in &vars {
+            assignments.insert(*v, Fr::random(&mut rng));
+        }
+
+        // Equivalent expressions
+        let expr1 = Pow(Box::new(e.expr()), 6, ()) * a * b + c * d - 1.expr();
+        let expr2 = d * c - 1.expr() + a * b * Pow(Box::new(e.expr()), 6, ());
+
+        // Equivalent expressions
+        let expr3 = f * b - c * d - 1.expr();
+        let expr4 = -(1.expr()) - c * d + b * f;
+
+        // Equivalent expressions
+        let expr5 = -(-f * g) * (-(-(-a)));
+        let expr6 = -(f * g * a);
+
+        let expressions = [expr1, expr2, expr3, expr4, expr5, expr6];
+        let mut hashed_expressions = Vec::new();
+
+        for expr in expressions {
+            let hashed_expr = expr.hash(&assignments);
+            hashed_expressions.push(hashed_expr);
+        }
+
+        assert_eq!(
+            hashed_expressions[0].meta().hash,
+            hashed_expressions[1].meta().hash
+        );
+
+        assert_eq!(
+            hashed_expressions[2].meta().hash,
+            hashed_expressions[3].meta().hash
+        );
+
+        assert_eq!(
+            hashed_expressions[4].meta().hash,
+            hashed_expressions[5].meta().hash
+        );
+
+        assert_ne!(
+            hashed_expressions[0].meta().hash,
+            hashed_expressions[2].meta().hash
+        );
+
+        assert_ne!(
+            hashed_expressions[0].meta().hash,
+            hashed_expressions[4].meta().hash
+        );
+
+        assert_ne!(
+            hashed_expressions[2].meta().hash,
+            hashed_expressions[5].meta().hash
+        );
+    }
+
+    #[test]
+    fn test_get_queries() {
+        use super::Expr::*;
+
+        let a: Queriable<Fr> = Queriable::Internal(InternalSignal::new("a"));
+        let b: Queriable<Fr> = Queriable::Internal(InternalSignal::new("b"));
+        let c: Queriable<Fr> = Queriable::Internal(InternalSignal::new("c"));
+        let d: Queriable<Fr> = Queriable::Internal(InternalSignal::new("d"));
+        let e: Queriable<Fr> = Queriable::Internal(InternalSignal::new("e"));
+        let f: Queriable<Fr> = Queriable::Internal(InternalSignal::new("f"));
+        let g: Queriable<Fr> = Queriable::Internal(InternalSignal::new("g"));
+
+        let expr = Pow(Box::new(e.expr()), 6, ()) * a * b + c * d - 1.expr();
+
+        let queries = expr.get_queries();
+
+        assert_eq!(queries.len(), 5);
+        assert!(queries.contains(&a));
+        assert!(queries.contains(&b));
+        assert!(queries.contains(&c));
+        assert!(queries.contains(&d));
+        assert!(queries.contains(&e));
+        assert!(!queries.contains(&f));
+        assert!(!queries.contains(&g));
     }
 }
