@@ -1200,7 +1200,7 @@ mod test {
            }
         ";
 
-        let debug_sym_ref_factory = DebugSymRefFactory::new("", &circuit);
+        let debug_sym_ref_factory = DebugSymRefFactory::new("", circuit);
         let decls = lang::TLDeclsParser::new()
             .parse(&debug_sym_ref_factory, circuit)
             .unwrap();
