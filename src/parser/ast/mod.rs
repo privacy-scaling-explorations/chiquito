@@ -133,6 +133,10 @@ impl Identifier {
         let value_str = value.as_ref();
         Identifier(value_str.name(), value_str.rotation(), dsym)
     }
+
+    pub(crate) fn debug_sym_ref(&self) -> DebugSymRef {
+        self.2.clone()
+    }
 }
 
 impl Debug for Identifier {
@@ -150,7 +154,6 @@ impl Debug for Identifier {
 pub trait Identifiable {
     fn rotation(&self) -> i32;
     fn name(&self) -> String;
-    fn debug_sym_ref(&self) -> DebugSymRef;
 }
 
 impl Identifiable for &str {
@@ -179,14 +182,6 @@ impl Identifiable for &str {
             _ => unimplemented!(),
         }
     }
-
-    fn debug_sym_ref(&self) -> DebugSymRef {
-        DebugSymRef {
-            start: 0,
-            end: 0,
-            file: Arc::new(SimpleFile::new("".to_string(), "".to_string())),
-        }
-    }
 }
 
 impl Identifiable for Identifier {
@@ -196,10 +191,6 @@ impl Identifiable for Identifier {
 
     fn name(&self) -> String {
         self.0.clone()
-    }
-
-    fn debug_sym_ref(&self) -> DebugSymRef {
-        self.2.clone()
     }
 }
 
