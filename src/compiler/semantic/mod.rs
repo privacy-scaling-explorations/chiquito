@@ -468,3 +468,108 @@ impl RuleSet {
             .for_each(|rule| rule(analyser, stmt, id, symbol));
     }
 }
+
+#[cfg(test)]
+mod test {
+    use crate::{
+        compiler::semantic::SymTableEntry,
+        parser::{ast::debug_sym_factory::DebugSymRefFactory, lang},
+    };
+
+    #[test]
+    fn test_find_usages() {
+        let circuit = "
+        machine fibo(signal n) (signal b: field) {
+            // n and be are created automatically as shared
+            // signals
+            signal a: field, i;
+
+            // there is always a state called initial
+            // input signals get bound to the signal
+            // in the initial state (first instance)
+            state initial {
+             signal c;
+
+             i, a, b, c <== 1, 1, 1, 2;
+
+             -> middle {
+              a', b', n' <== b, c, n;
+             }
+            }
+
+            state middle {
+             signal c;
+
+             c <== a + b;
+
+             if i + 1 == n {
+              -> final {
+               i', b', n' <== i + 1, c, n;
+              }
+             } else {
+              -> middle {
+               i', a', b', n' <== i + 1, b, c, n;
+              }
+             }
+            }
+
+            // There is always a state called final.
+            // Output signals get automatically bound to the signals
+            // with the same name in the final step (last instance).
+            // This state can be implicit if there are no constraints in it.
+           }
+        ";
+
+        let debug_sym_factory = DebugSymRefFactory::new("", circuit);
+        let decls = lang::TLDeclsParser::new()
+            .parse(&debug_sym_factory, circuit)
+            .unwrap();
+
+        let result = crate::compiler::semantic::analyser::analyse(&decls);
+
+        let test_cases = [
+            (396, "a"),
+            (397, "a"),
+            (395, "initial"),
+            (398, "initial"),
+            (460, "a"),
+            (584, "a"),
+            (772, "a"),
+            (402, "c"),
+            (478, "c"),
+            (578, "c"),
+            (683, "c"),
+            (797, "c"),
+            (468, "n"),
+            (481, "n"),
+            (617, "n"),
+            (669, "n"),
+            (686, "n"),
+            (780, "n"),
+            (800, "n"),
+            (399, "b"),
+            (464, "b"),
+            (475, "b"),
+            (588, "b"),
+            (665, "b"),
+            (776, "b"),
+            (794, "b"),
+            (393, "i"),
+            (608, "i"),
+            (661, "i"),
+            (676, "i"),
+            (768, "i"),
+            (787, "i"),
+            (437, "middle"),
+            (443, "middle"),
+        ];
+
+        for (offset, expected_id) in test_cases {
+            let SymTableEntry { id, .. } = result
+                .symbols
+                .find_symbol_by_offset("".to_string(), offset)
+                .unwrap();
+            assert_eq!(id, expected_id);
+        }
+    }
+}
