@@ -264,7 +264,7 @@ impl SymTable {
     }
 
     /// Update usages of a symbol.
-    /// The function looks up the scope if symbol is not found in the current scope.
+    /// The function looks up the parent scopes if symbol is not found in the current scope.
     pub fn update_usages(&mut self, scope: &[String], id: String, usage: DebugSymRef) {
         let scope_key = Self::get_key(scope);
         let scope_table = &self.scopes.get_mut(&scope_key);
