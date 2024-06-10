@@ -267,29 +267,28 @@ impl SymTable {
     /// The functions looks up the scope if symbol is not found in the current scope.
     pub fn update_usages(&mut self, scope: &[String], id: String, usage: DebugSymRef) {
         let scope_key = Self::get_key(scope);
-        let existing_symbol = self
-            .scopes
-            .get_mut(&scope_key)
-            .unwrap_or_else(|| panic!("scope {} not found", &scope_key))
-            .get_symbol(id.clone());
+        let scope_table = &self.scopes.get_mut(&scope_key);
+        if let Some(scope_table) = scope_table {
+            let existing_symbol = scope_table.get_symbol(id.clone());
 
-        if let Some(existing_symbol) = existing_symbol {
-            let mut updated_symbol = existing_symbol.clone();
-            updated_symbol.usages.push(usage);
-            self.scopes
-                .get_mut(&scope_key)
-                .unwrap()
-                .add_symbol(id.clone(), updated_symbol.clone());
-        } else {
-            if scope.len() == 1 {
-                return;
+            if let Some(existing_symbol) = existing_symbol {
+                let mut updated_symbol = existing_symbol.clone();
+                updated_symbol.usages.push(usage);
+                self.scopes
+                    .get_mut(&scope_key)
+                    .unwrap()
+                    .add_symbol(id.clone(), updated_symbol.clone());
+            } else {
+                if scope.len() == 1 {
+                    return;
+                }
+                let parent_scope = &scope
+                    .iter()
+                    .take(scope.len() - 1)
+                    .cloned()
+                    .collect::<Vec<_>>();
+                self.update_usages(&parent_scope, id, usage);
             }
-            let parent_scope = &scope
-                .iter()
-                .take(scope.len() - 1)
-                .cloned()
-                .collect::<Vec<_>>();
-            self.update_usages(&parent_scope, id, usage);
         }
     }
 
