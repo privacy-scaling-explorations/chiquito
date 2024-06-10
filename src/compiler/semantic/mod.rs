@@ -287,7 +287,7 @@ impl SymTable {
                     .take(scope.len() - 1)
                     .cloned()
                     .collect::<Vec<_>>();
-                self.update_usages(&parent_scope, id, usage);
+                self.update_usages(parent_scope, id, usage);
             }
         }
     }
@@ -342,7 +342,7 @@ impl SymTable {
         let mut symbols_by_proximity = BTreeMap::<i32, SymTableEntry>::new();
 
         for scope in self.scopes.values() {
-            for (_, entry) in &scope.symbols {
+            for entry in scope.symbols.values() {
                 // If the entry is not in the same file, check its usages
                 if entry.definition_ref.get_filename() != filename.clone() {
                     entry.look_in_usages(filename.clone(), offset, &mut symbols_by_proximity);
@@ -361,7 +361,7 @@ impl SymTable {
         }
 
         if symbols_by_proximity.is_empty() {
-            return None;
+            None
         } else {
             // Return the first symbol in the map because BTreeMap is sorted by the key (which is
             // the proximity in our case)

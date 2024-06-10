@@ -295,7 +295,7 @@ impl Analyser {
 
             Statement::StateDecl(_, id, block) => self.analyse_state(id, *block),
             Statement::Transition(_, id, block) => {
-                self.extract_id_usages(&vec![id]);
+                self.extract_id_usages(&[id]);
                 self.analyse_statement(*block)
             }
 
