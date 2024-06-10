@@ -11,6 +11,7 @@ use chiquito::{
     },
     poly::ToExpr,
     sbpir::query::Queriable,
+    wit_gen::DSLTraceGenerator,
 };
 use std::{hash::Hash, ops::Neg};
 
@@ -234,7 +235,7 @@ fn eval_keccak_f_to_bit_vec4<F: PrimeField<Repr = [u8; 32]>>(value1: F, value2: 
 }
 
 fn keccak_xor_table_batch2<F: PrimeField + Eq + Hash>(
-    ctx: &mut CircuitContext<F, ()>,
+    ctx: &mut CircuitContext<F>,
     lens: usize,
 ) -> LookupTable {
     use chiquito::frontend::dsl::cb::*;
@@ -257,7 +258,7 @@ fn keccak_xor_table_batch2<F: PrimeField + Eq + Hash>(
 }
 
 fn keccak_xor_table_batch3<F: PrimeField + Eq + Hash>(
-    ctx: &mut CircuitContext<F, ()>,
+    ctx: &mut CircuitContext<F>,
     lens: usize,
 ) -> LookupTable {
     use chiquito::frontend::dsl::cb::*;
@@ -283,7 +284,7 @@ fn keccak_xor_table_batch3<F: PrimeField + Eq + Hash>(
 }
 
 fn keccak_xor_table_batch4<F: PrimeField + Eq + Hash>(
-    ctx: &mut CircuitContext<F, ()>,
+    ctx: &mut CircuitContext<F>,
     lens: usize,
 ) -> LookupTable {
     use chiquito::frontend::dsl::cb::*;
@@ -309,7 +310,7 @@ fn keccak_xor_table_batch4<F: PrimeField + Eq + Hash>(
 }
 
 fn keccak_chi_table<F: PrimeField + Eq + Hash>(
-    ctx: &mut CircuitContext<F, ()>,
+    ctx: &mut CircuitContext<F>,
     lens: usize,
 ) -> LookupTable {
     use chiquito::frontend::dsl::cb::*;
@@ -335,7 +336,7 @@ fn keccak_chi_table<F: PrimeField + Eq + Hash>(
 }
 
 fn keccak_pack_table<F: PrimeField + Eq + Hash>(
-    ctx: &mut CircuitContext<F, ()>,
+    ctx: &mut CircuitContext<F>,
     _: usize,
 ) -> LookupTable {
     use chiquito::frontend::dsl::cb::*;
@@ -365,7 +366,7 @@ fn keccak_pack_table<F: PrimeField + Eq + Hash>(
 }
 
 fn keccak_round_constants_table<F: PrimeField + Eq + Hash>(
-    ctx: &mut CircuitContext<F, ()>,
+    ctx: &mut CircuitContext<F>,
     lens: usize,
 ) -> LookupTable {
     use chiquito::frontend::dsl::cb::*;
@@ -725,7 +726,7 @@ fn eval_keccak_f_one_round<F: PrimeField<Repr = [u8; 32]> + Eq + Hash>(
 }
 
 fn keccak_circuit<F: PrimeField<Repr = [u8; 32]> + Eq + Hash>(
-    ctx: &mut CircuitContext<F, KeccakCircuit>,
+    ctx: &mut CircuitContext<F, DSLTraceGenerator<F, KeccakCircuit>>,
     param: CircuitParams,
 ) {
     use chiquito::frontend::dsl::cb::*;
@@ -2191,7 +2192,7 @@ fn keccak_circuit<F: PrimeField<Repr = [u8; 32]> + Eq + Hash>(
     });
 }
 
-#[derive(Default)]
+#[derive(Clone, Default)]
 struct KeccakCircuit {
     // pub bits: Vec<u8>,
     pub bytes: Vec<u8>,
@@ -2210,7 +2211,7 @@ struct CircuitParams {
 fn keccak_super_circuit<F: PrimeField<Repr = [u8; 32]> + Eq + Hash>(
     input_len: usize,
 ) -> SuperCircuit<F, KeccakCircuit> {
-    super_circuit::<F, KeccakCircuit, _>("keccak", |ctx| {
+    super_circuit::<F, KeccakCircuit, _, DSLTraceGenerator<F>>("keccak", |ctx| {
         let in_n = (input_len * 8 + 1 + RATE_IN_BITS as usize) / RATE_IN_BITS as usize;
         let step_num = in_n * (1 + NUM_ROUNDS as usize);
 

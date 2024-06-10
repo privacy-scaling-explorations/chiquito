@@ -23,18 +23,18 @@ use crate::{
         Lookup, SharedSignal, StepType, StepTypeUUID, TransitionConstraint, SBPIR,
     },
     util::{uuid, UUID},
-    wit_gen::{StepInstance, TraceContext, TraceWitness},
+    wit_gen::{StepInstance, TraceGenerator, TraceWitness},
 };
 
 use core::result::Result;
 use halo2_proofs::{dev::MockProver, halo2curves::bn256::Fr};
 use serde::de::{self, Deserialize, Deserializer, IgnoredAny, MapAccess, Visitor};
-use std::{cell::RefCell, collections::HashMap, fmt, rc::Rc};
+use std::{cell::RefCell, collections::HashMap, fmt};
 
 type CircuitMapStore = (
-    SBPIR<Fr, ()>,
+    SBPIR<Fr, PythonTraceGenerator>,
     ChiquitoHalo2<Fr>,
-    Option<AssignmentGenerator<Fr, ()>>,
+    Option<AssignmentGenerator<Fr, PythonTraceGenerator>>,
 );
 type CircuitMap = RefCell<HashMap<UUID, CircuitMapStore>>;
 
@@ -42,12 +42,23 @@ thread_local! {
     pub static CIRCUIT_MAP: CircuitMap = RefCell::new(HashMap::new());
 }
 
+#[derive(Clone, Default)]
+pub struct PythonTraceGenerator;
+
+impl<F: Clone> TraceGenerator<F> for PythonTraceGenerator {
+    type TraceArgs = TraceWitness<F>;
+
+    fn generate(&self, _args: Self::TraceArgs) -> TraceWitness<F> {
+        _args
+    }
+}
+
 /// Parses JSON into `ast::Circuit` and compile. Generates a Rust UUID. Inserts tuple of
 /// (`ast::Circuit`, `ChiquitoHalo2`, `AssignmentGenerator`, _) to `CIRCUIT_MAP` with the Rust UUID
 /// as the key. Return the Rust UUID to Python. The last field of the tuple, `TraceWitness`, is left
 /// as None, for `chiquito_add_witness_to_rust_id` to insert.
 pub fn chiquito_ast_to_halo2(ast_json: &str) -> UUID {
-    let circuit: SBPIR<Fr, ()> =
+    let circuit: SBPIR<Fr, PythonTraceGenerator> =
         serde_json::from_str(ast_json).expect("Json deserialization to Circuit failed.");
 
     let config = config(SingleRowCellManager {}, SimpleStepSelectorBuilder {});
@@ -68,7 +79,7 @@ pub fn chiquito_ast_to_halo2(ast_json: &str) -> UUID {
 // the super circuit only. Parses AST JSON and stores AST in `CIRCUIT_MAP` without compiling it.
 // Compilation is done by `chiquito_super_circuit_halo2_mock_prover`.
 pub fn chiquito_ast_map_store(ast_json: &str) -> UUID {
-    let circuit: SBPIR<Fr, ()> =
+    let circuit: SBPIR<Fr, PythonTraceGenerator> =
         serde_json::from_str(ast_json).expect("Json deserialization to Circuit failed.");
 
     let uuid = uuid();
@@ -91,7 +102,7 @@ pub fn chiquito_ast_to_pil(witness_json: &str, rust_id: UUID, circuit_name: &str
 }
 
 fn add_assignment_generator_to_rust_id(
-    assignment_generator: AssignmentGenerator<Fr, ()>,
+    assignment_generator: AssignmentGenerator<Fr, PythonTraceGenerator>,
     rust_id: UUID,
 ) {
     CIRCUIT_MAP.with(|circuit_map| {
@@ -132,7 +143,7 @@ pub fn chiquito_super_circuit_halo2_mock_prover(
         if let Some(witness_json) = super_witness.get(&rust_id) {
             let witness: TraceWitness<Fr> = serde_json::from_str(witness_json)
                 .expect("Json deserialization to TraceWitness failed.");
-            mapping_ctx.map_with_witness(&assignment_generator.unwrap(), witness);
+            mapping_ctx.map(&assignment_generator.unwrap(), witness);
         }
     }
 
@@ -170,7 +181,7 @@ pub fn chiquito_halo2_mock_prover(witness_json: &str, rust_id: UUID, k: usize) {
     let (_, compiled, assignment_generator) = rust_id_to_halo2(rust_id);
     let circuit: ChiquitoHalo2Circuit<_> = ChiquitoHalo2Circuit::new(
         compiled,
-        assignment_generator.map(|g| g.generate_with_witness(trace_witness)),
+        assignment_generator.map(|g| g.generate(trace_witness)),
     );
 
     let prover = MockProver::<Fr>::run(k as u32, &circuit, circuit.instance()).unwrap();
@@ -189,13 +200,13 @@ pub fn chiquito_halo2_mock_prover(witness_json: &str, rust_id: UUID, k: usize) {
 struct CircuitVisitor;
 
 impl<'de> Visitor<'de> for CircuitVisitor {
-    type Value = SBPIR<Fr, ()>;
+    type Value = SBPIR<Fr, PythonTraceGenerator>;
 
     fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
         formatter.write_str("struct Cricuit")
     }
 
-    fn visit_map<A>(self, mut map: A) -> Result<SBPIR<Fr, ()>, A::Error>
+    fn visit_map<A>(self, mut map: A) -> Result<SBPIR<Fr, PythonTraceGenerator>, A::Error>
     where
         A: MapAccess<'de>,
     {
@@ -336,7 +347,7 @@ impl<'de> Visitor<'de> for CircuitVisitor {
             exposed,
             num_steps,
             annotations,
-            trace: Some(Rc::new(|_: &mut TraceContext<_>, _: _| {})),
+            trace_generator: Some(PythonTraceGenerator),
             fixed_assignments,
             first_step,
             last_step,
@@ -906,8 +917,8 @@ impl_deserialize!(TraceWitnessVisitor, TraceWitness<Fr>);
 impl_deserialize!(StepInstanceVisitor, StepInstance<Fr>);
 impl_deserialize!(LookupVisitor, Lookup<Fr>);
 
-impl<'de> Deserialize<'de> for SBPIR<Fr, ()> {
-    fn deserialize<D>(deserializer: D) -> Result<SBPIR<Fr, ()>, D::Error>
+impl<'de> Deserialize<'de> for SBPIR<Fr, PythonTraceGenerator> {
+    fn deserialize<D>(deserializer: D) -> Result<SBPIR<Fr, PythonTraceGenerator>, D::Error>
     where
         D: Deserializer<'de>,
     {
@@ -1532,7 +1543,7 @@ mod tests {
             "id": 258867373405797678961444396351437277706
         }
         "#;
-        let circuit: SBPIR<Fr, ()> = serde_json::from_str(json).unwrap();
+        let circuit: SBPIR<Fr, PythonTraceGenerator> = serde_json::from_str(json).unwrap();
         println!("{:?}", circuit);
     }
 
@@ -1838,7 +1849,7 @@ mod tests {
 
 #[pyfunction]
 fn convert_and_print_ast(json: &PyString) {
-    let circuit: SBPIR<Fr, ()> =
+    let circuit: SBPIR<Fr, PythonTraceGenerator> =
         serde_json::from_str(json.to_str().expect("PyString conversion failed."))
             .expect("Json deserialization to Circuit failed.");
     println!("{:?}", circuit);
