@@ -264,7 +264,7 @@ impl SymTable {
     }
 
     /// Update usages of a symbol.
-    /// The functions looks up the scope if symbol is not found in the current scope.
+    /// The function looks up the scope if symbol is not found in the current scope.
     pub fn update_usages(&mut self, scope: &[String], id: String, usage: DebugSymRef) {
         let scope_key = Self::get_key(scope);
         let scope_table = &self.scopes.get_mut(&scope_key);
@@ -338,6 +338,14 @@ impl SymTable {
         }
     }
 
+    /// Find a `SymTableEntry` by its byte offset in a file.
+    /// The function can be called externally (e.g., from the language server)
+    ///
+    /// ### Parameters
+    /// - `filename`: The name of the file where the symbol is searched.
+    /// - `offset`: The byte offset in the file where the symbol is searched.
+    /// ### Returns
+    /// The `SymTableEntry` that is closest to the offset.
     pub fn find_symbol_by_offset(&self, filename: String, offset: usize) -> Option<SymTableEntry> {
         let mut symbols_by_proximity = BTreeMap::<i32, SymTableEntry>::new();
 
