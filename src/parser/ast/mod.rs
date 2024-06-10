@@ -127,7 +127,13 @@ impl Debug for DebugSymRef {
 }
 
 #[derive(Clone)]
-pub struct Identifier(pub String, pub i32);
+pub struct Identifier(pub String, pub i32, pub DebugSymRef);
+impl Identifier {
+    pub(crate) fn new<S: AsRef<str>>(value: S, dsym: DebugSymRef) -> Self {
+        let value_str = value.as_ref();
+        Identifier(value_str.name(), value_str.rotation(), dsym)
+    }
+}
 
 impl Debug for Identifier {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -141,24 +147,13 @@ impl Debug for Identifier {
     }
 }
 
-impl From<String> for Identifier {
-    fn from(value: String) -> Self {
-        Identifier(value.name(), value.rotation())
-    }
-}
-
-impl From<&str> for Identifier {
-    fn from(value: &str) -> Self {
-        Identifier::from(value.to_string())
-    }
-}
-
 pub trait Identifiable {
     fn rotation(&self) -> i32;
     fn name(&self) -> String;
+    fn debug_sym_ref(&self) -> DebugSymRef;
 }
 
-impl Identifiable for String {
+impl Identifiable for &str {
     fn rotation(&self) -> i32 {
         assert!(!self.is_empty());
         let last = self.chars().last().unwrap();
@@ -174,7 +169,7 @@ impl Identifiable for String {
         let rot = self.rotation();
 
         match rot {
-            0 => self.clone(),
+            0 => self.to_string(),
             1 => {
                 let mut chars = self.chars();
                 chars.next_back();
@@ -182,6 +177,14 @@ impl Identifiable for String {
                 chars.as_str().to_string()
             }
             _ => unimplemented!(),
+        }
+    }
+
+    fn debug_sym_ref(&self) -> DebugSymRef {
+        DebugSymRef {
+            start: 0,
+            end: 0,
+            file: Arc::new(SimpleFile::new("".to_string(), "".to_string())),
         }
     }
 }
@@ -194,22 +197,41 @@ impl Identifiable for Identifier {
     fn name(&self) -> String {
         self.0.clone()
     }
+
+    fn debug_sym_ref(&self) -> DebugSymRef {
+        self.2.clone()
+    }
 }
 
 #[cfg(test)]
 mod test {
-    use crate::parser::ast::Identifier;
+    use std::sync::Arc;
+
+    use codespan_reporting::files::SimpleFile;
+
+    use crate::parser::ast::{DebugSymRef, Identifier};
 
     #[test]
     fn test_from_string() {
-        let result = Identifier::from("abc");
+        let debug_sym_ref = DebugSymRef {
+            start: 0,
+            end: 1,
+            file: Arc::new(SimpleFile::new("file_path".to_string(), "".to_string())),
+        };
+        let result = Identifier::new("abc", debug_sym_ref.clone());
 
         assert_eq!(result.0, "abc");
         assert_eq!(result.1, 0);
+        assert_eq!(result.2.start, debug_sym_ref.start);
+        assert_eq!(result.2.end, debug_sym_ref.end);
+        assert_eq!(*result.2.file.name(), *debug_sym_ref.file.name());
 
-        let result = Identifier::from("abc'");
+        let result = Identifier::new("abc'", debug_sym_ref.clone());
 
         assert_eq!(result.0, "abc");
         assert_eq!(result.1, 1);
+        assert_eq!(result.2.start, debug_sym_ref.start);
+        assert_eq!(result.2.end, debug_sym_ref.end);
+        assert_eq!(*result.2.file.name(), *debug_sym_ref.file.name());
     }
 }

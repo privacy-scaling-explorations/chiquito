@@ -193,7 +193,7 @@ impl Analyser {
             .get_symbol(&self.cur_scope, "final".to_string())
             .is_none()
         {
-            let id = Identifier("final".to_string(), 0);
+            let id = Identifier("final".to_string(), 0, block.get_dsym());
             let stmt = Statement::StateDecl(
                 block.get_dsym(),
                 id.clone(),
@@ -261,17 +261,6 @@ impl Analyser {
             // State decl symbols are added in
             // add_state_decls
             Statement::StateDecl(_, _, _) => {}
-            Statement::Transition(dsym_ref, id, _) => {
-                // Find the corresponding symbol and add usage
-                if let Some(entry) = self.symbols.find_symbol(&self.cur_scope, id.name()) {
-                    // TODO implement find by id AND category?
-                    if entry.symbol.category == SymbolCategory::State {
-                        let mut entry = entry.symbol.clone();
-                        entry.usages.push(dsym_ref);
-                        self.symbols.add_symbol(&self.cur_scope, id.name(), entry);
-                    }
-                }
-            }
             _ => {}
         }
     }
@@ -279,12 +268,18 @@ impl Analyser {
     fn analyse_statement_recursive(&mut self, stmt: Statement<BigInt, Identifier>) {
         match stmt {
             Statement::Assert(_, expr) => self.analyse_expression(expr),
-            Statement::SignalAssignment(_, _, exprs) => exprs
-                .into_iter()
-                .for_each(|expr| self.analyse_expression(expr)),
-            Statement::SignalAssignmentAssert(_, _, exprs) => exprs
-                .into_iter()
-                .for_each(|expr| self.analyse_expression(expr)),
+            Statement::SignalAssignment(_, ids, exprs) => {
+                self.extract_id_usages(&ids);
+                exprs
+                    .into_iter()
+                    .for_each(|expr| self.analyse_expression(expr))
+            }
+            Statement::SignalAssignmentAssert(_, ids, exprs) => {
+                self.extract_id_usages(&ids);
+                exprs
+                    .into_iter()
+                    .for_each(|expr| self.analyse_expression(expr))
+            }
             Statement::WGAssignment(_, _, exprs) => exprs
                 .into_iter()
                 .for_each(|expr| self.analyse_expression(expr)),
@@ -299,7 +294,10 @@ impl Analyser {
             }
 
             Statement::StateDecl(_, id, block) => self.analyse_state(id, *block),
-            Statement::Transition(_, _, block) => self.analyse_statement(*block),
+            Statement::Transition(_, id, block) => {
+                self.extract_id_usages(&vec![id]);
+                self.analyse_statement(*block)
+            }
 
             Statement::Block(_, stmts) => stmts
                 .into_iter()
@@ -315,15 +313,18 @@ impl Analyser {
         RULES.apply_expression(self, &expr)
     }
 
+    fn extract_id_usages(&mut self, ids: &[Identifier]) {
+        for id in ids {
+            self.symbols
+                .update_usages(&self.cur_scope, id.name(), id.debug_sym_ref());
+        }
+    }
+
     fn extract_usages_recursively(&mut self, expr: &Expression<BigInt, Identifier>) {
         match expr.clone() {
             Expression::Query(dsym_ref, id) => {
-                // Find the corresponding symbol and add usage
-                if let Some(entry) = self.symbols.find_symbol(&self.cur_scope, id.name()) {
-                    let mut entry = entry.symbol.clone();
-                    entry.usages.push(dsym_ref);
-                    self.symbols.add_symbol(&self.cur_scope, id.name(), entry);
-                }
+                self.symbols
+                    .update_usages(&self.cur_scope, id.name(), dsym_ref);
             }
             Expression::BinOp {
                 dsym: _,

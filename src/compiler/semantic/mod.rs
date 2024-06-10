@@ -80,6 +80,24 @@ impl SymTableEntry {
             None => "field",
         }
     }
+
+    fn look_in_usages(
+        &self,
+        filename: String,
+        offset: usize,
+        symbols_by_proximity: &mut BTreeMap<i32, SymTableEntry>,
+    ) {
+        for usage in &self.usages {
+            if usage.get_filename() != filename {
+                continue;
+            }
+            let usage_proximity = usage.proximity_score(offset);
+            if usage_proximity != -1 {
+                symbols_by_proximity.insert(usage_proximity, self.clone());
+                break;
+            }
+        }
+    }
 }
 
 /// Extra information when symbol is found in a scope or a containing scope
@@ -245,6 +263,36 @@ impl SymTable {
         }
     }
 
+    /// Update usages of a symbol.
+    /// The functions looks up the scope if symbol is not found in the current scope.
+    pub fn update_usages(&mut self, scope: &[String], id: String, usage: DebugSymRef) {
+        let scope_key = Self::get_key(scope);
+        let existing_symbol = self
+            .scopes
+            .get_mut(&scope_key)
+            .unwrap_or_else(|| panic!("scope {} not found", &scope_key))
+            .get_symbol(id.clone());
+
+        if let Some(existing_symbol) = existing_symbol {
+            let mut updated_symbol = existing_symbol.clone();
+            updated_symbol.usages.push(usage);
+            self.scopes
+                .get_mut(&scope_key)
+                .unwrap()
+                .add_symbol(id.clone(), updated_symbol.clone());
+        } else {
+            if scope.len() == 1 {
+                return;
+            }
+            let parent_scope = &scope
+                .iter()
+                .take(scope.len() - 1)
+                .cloned()
+                .collect::<Vec<_>>();
+            self.update_usages(&parent_scope, id, usage);
+        }
+    }
+
     /// Add an output variable symbol.
     /// This is special because if there is an input variable symbol with the same identifier, it
     /// should create a Input/Output symbol.
@@ -298,23 +346,13 @@ impl SymTable {
             for (_, entry) in &scope.symbols {
                 // If the entry is not in the same file, check its usages
                 if entry.definition_ref.get_filename() != filename.clone() {
-                    SymTable::look_in_usages(
-                        entry,
-                        filename.clone(),
-                        offset,
-                        &mut symbols_by_proximity,
-                    );
+                    entry.look_in_usages(filename.clone(), offset, &mut symbols_by_proximity);
                 } else {
                     let proximity = entry.definition_ref.proximity_score(offset);
                     // If the current entry is not enclosing the offset, check the usages of that
                     // entry
                     if proximity == -1 {
-                        SymTable::look_in_usages(
-                            entry,
-                            filename.clone(),
-                            offset,
-                            &mut symbols_by_proximity,
-                        );
+                        entry.look_in_usages(filename.clone(), offset, &mut symbols_by_proximity);
                     // If the current entry is enclosing the offset, add it to the map
                     } else {
                         symbols_by_proximity.insert(proximity, entry.clone());
@@ -332,24 +370,6 @@ impl SymTable {
                 .iter()
                 .next()
                 .map(|(_, entry)| entry.clone());
-        }
-    }
-
-    fn look_in_usages(
-        entry: &SymTableEntry,
-        filename: String,
-        offset: usize,
-        symbols_by_proximity: &mut BTreeMap<i32, SymTableEntry>,
-    ) {
-        for usage in &entry.usages {
-            if usage.get_filename() != filename {
-                continue;
-            }
-            let usage_proximity = usage.proximity_score(offset);
-            if usage_proximity != -1 {
-                symbols_by_proximity.insert(usage_proximity, entry.clone());
-                break;
-            }
         }
     }
 }
