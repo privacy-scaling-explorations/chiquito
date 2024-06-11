@@ -1,5 +1,7 @@
 use chiquito::{
-    frontend::dsl::{lb::LookupTable, super_circuit, CircuitContext, StepTypeWGHandler},
+    frontend::dsl::{
+        lb::LookupTable, super_circuit, trace::DSLTraceGenerator, CircuitContext, StepTypeWGHandler,
+    },
     plonkish::{
         backend::halo2::{chiquitoSuperCircuit2Halo2, ChiquitoHalo2SuperCircuit},
         compiler::{
@@ -11,7 +13,6 @@ use chiquito::{
     },
     poly::ToExpr,
     sbpir::query::Queriable,
-    wit_gen::DSLTraceGenerator,
 };
 use std::{hash::Hash, ops::Neg};
 

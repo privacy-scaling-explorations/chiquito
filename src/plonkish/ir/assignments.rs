@@ -7,7 +7,8 @@ use std::{
 
 use crate::{
     field::Field,
-    wit_gen::{AutoTraceGenerator, DSLTraceGenerator, TraceGenerator},
+    frontend::dsl::trace::DSLTraceGenerator,
+    wit_gen::{AutoTraceGenerator, TraceGenerator},
 };
 
 use halo2_proofs::plonk::{Advice, Column as Halo2Column};
@@ -64,6 +65,20 @@ impl<F> Deref for Assignments<F> {
 impl<F> DerefMut for Assignments<F> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.0
+    }
+}
+
+impl<F: Field> Assignments<F> {
+    pub fn clear(&mut self) {
+        self.0 = self
+            .iter()
+            .map(|(column, values)| {
+                (
+                    column.clone(),
+                    values.iter().map(|_| F::ZERO).collect::<Vec<F>>(),
+                )
+            })
+            .collect();
     }
 }
 

@@ -2,10 +2,11 @@ use crate::{
     field::Field,
     sbpir::{query::Queriable, ExposeOffset, StepType, StepTypeUUID, PIR, SBPIR},
     util::{uuid, UUID},
-    wit_gen::{DSLTraceGenerator, FixedGenContext, StepInstance, TraceContext, TraceGenerator},
+    wit_gen::{FixedGenContext, StepInstance, TraceGenerator},
 };
 
 use halo2_proofs::plonk::{Advice, Column as Halo2Column, Fixed};
+use trace::{DSLTraceGenerator, TraceContext};
 
 use core::{fmt::Debug, hash::Hash};
 use std::marker::PhantomData;
@@ -16,6 +17,11 @@ use self::{
 };
 
 pub use sc::*;
+
+pub mod cb;
+pub mod lb;
+pub mod sc;
+pub mod trace;
 
 #[derive(Debug, Default)]
 /// A generic structure designed to handle the context of a circuit.
@@ -433,18 +439,11 @@ where
     context.circuit
 }
 
-pub mod cb;
-pub mod lb;
-pub mod sc;
-
 #[cfg(test)]
 mod tests {
     use halo2_proofs::halo2curves::bn256::Fr;
 
-    use crate::{
-        sbpir::ForwardSignal,
-        wit_gen::{DSLTraceGenerator, NullTraceGenerator},
-    };
+    use crate::{sbpir::ForwardSignal, wit_gen::NullTraceGenerator};
 
     use super::*;
 

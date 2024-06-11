@@ -32,6 +32,7 @@ impl<F: Debug> Debug for Circuit<F> {
             .field("columns", &self.columns)
             .field("polys", &self.polys)
             .field("lookups", &self.lookups)
+            .field("fixed_assignments", &self.fixed_assignments)
             .finish()
     }
 }
