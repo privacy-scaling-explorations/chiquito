@@ -9,6 +9,7 @@ authors = ["Leo Lara <leo@leolara.me>"]
 
 [patch.crates-io]
 halo2_proofs = { git = "https://github.com/privacy-scaling-explorations/halo2.git", tag = "v0.3.0" }
+ark-grumpkin = { git = "https://github.com/arnaucube/ark-curves-cherry-picked", branch="cherry-pick"}
 
 [patch."https://github.com/scroll-tech/halo2.git"]
 halo2_proofs = { git = "https://github.com/privacy-scaling-explorations/halo2.git", tag = "v0.3.0" }
@@ -29,6 +30,12 @@ serde_json = "1.0"
 hyperplonk_benchmark = { git = "https://github.com/qwang98/plonkish.git", branch = "main", package = "benchmark" }
 plonkish_backend = { git = "https://github.com/qwang98/plonkish.git", branch = "main", package = "plonkish_backend" }
 regex = "1"
+
+ark-ff = "^0.4.0"
+ark-std = "^0.4.0"
+ark-bn254 = "0.4.0"
+folding-schemes = { git = "https://github.com/privacy-scaling-explorations/sonobe.git", commit = "ed1faee6bfdf9eb484a0b5bc6196896cc250abed"}
+
 
 [dev-dependencies]
 rand_chacha = "0.3"
