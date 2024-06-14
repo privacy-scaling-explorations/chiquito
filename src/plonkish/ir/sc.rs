@@ -174,12 +174,13 @@ mod test {
     use halo2_proofs::halo2curves::bn256::Fr;
 
     use crate::{
+        frontend::dsl::trace::DSLTraceGenerator,
         plonkish::{
             compiler::{cell_manager::Placement, step_selector::StepSelector},
             ir::Column,
         },
         util::uuid,
-        wit_gen::{AutoTraceGenerator, DSLTraceGenerator},
+        wit_gen::AutoTraceGenerator,
     };
 
     use super::*;

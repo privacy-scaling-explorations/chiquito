@@ -2,7 +2,8 @@ use std::hash::Hash;
 
 use chiquito::{
     field::Field,
-    frontend::dsl::circuit, // main function for constructing an AST circuit
+    frontend::dsl::{circuit, trace::DSLTraceGenerator}, /* main function for constructing an AST
+                                                         * circuit */
     plonkish::{
         backend::{
             halo2::{chiquito2Halo2, ChiquitoHalo2Circuit},
@@ -16,15 +17,14 @@ use chiquito::{
         },
         ir::{assignments::AssignmentGenerator, Circuit},
     }, /* compiles to
-                             * Chiquito Halo2
-                             * backend,
-                             * which can be
-                             * integrated into
-                             * Halo2
-                             * circuit */
+        * Chiquito Halo2
+        * backend,
+        * which can be
+        * integrated into
+        * Halo2
+        * circuit */
     poly::ToField,
     sbpir::SBPIR,
-    wit_gen::DSLTraceGenerator,
 };
 use halo2_proofs::dev::MockProver;
 

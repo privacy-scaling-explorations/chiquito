@@ -6,16 +6,17 @@ use crate::{
     field::Field,
     frontend::dsl::{
         cb::{Constraint, Typing},
-        circuit, CircuitContext, StepTypeContext, StepTypeHandler,
+        circuit, CircuitContext, StepTypeContext,
     },
+    interpreter::InterpreterTraceGenerator,
     parser::{
         ast::{debug_sym_factory::DebugSymRefFactory, tl::TLDecl, Identifiable, Identifier},
         lang::TLDeclsParser,
     },
-    poly::{self, cse::cse, mielim::mi_elimination, reduce::reduce_degree, Expr, HashResult},
-    sbpir::{query::Queriable, ForwardSignal, InternalSignal, SBPIR},
-    util::UUID,
-    wit_gen::{NullTraceGenerator, TraceGenerator},
+    plonkish,
+    poly::{self, mielim::mi_elimination, reduce::reduce_degree, Expr},
+    sbpir::{query::Queriable, InternalSignal, SBPIR},
+    wit_gen::{NullTraceGenerator, SymbolSignalMapping, TraceGenerator},
 };
 
 use super::{
@@ -24,6 +25,30 @@ use super::{
     Config, Message, Messages,
 };
 
+/// Contains the result of a compilation.
+#[derive(Debug)]
+pub struct CompilerResult<F: Field + Hash> {
+    pub messages: Vec<Message>,
+    // pub wit_gen: WitnessGenerator,
+    pub circuit: SBPIR<F, InterpreterTraceGenerator>,
+}
+
+impl<F: Field + Hash> CompilerResult<F> {
+    /// Compiles to the Plonkish IR, that then can be compiled to plonkish backends.
+    pub fn plonkish<
+        CM: plonkish::compiler::cell_manager::CellManager,
+        SSB: plonkish::compiler::step_selector::StepSelectorBuilder,
+    >(
+        &self,
+        config: plonkish::compiler::CompilerConfig<CM, SSB>,
+    ) -> (
+        crate::plonkish::ir::Circuit<F>,
+        Option<plonkish::ir::assignments::AssignmentGenerator<F, InterpreterTraceGenerator>>,
+    ) {
+        plonkish::compiler::compile(config, &self.circuit)
+    }
+}
+
 /// This compiler compiles from chiquito source code to the SBPIR.
 #[derive(Default)]
 pub(super) struct Compiler<F> {
@@ -31,11 +56,7 @@ pub(super) struct Compiler<F> {
 
     messages: Vec<Message>,
 
-    symbol_uuid: HashMap<(String, String), UUID>,
-
-    forward_signals: HashMap<UUID, ForwardSignal>,
-    internal_signals: HashMap<UUID, InternalSignal>,
-    step_type_handler: HashMap<UUID, StepTypeHandler>,
+    mapping: SymbolSignalMapping,
 
     _p: PhantomData<F>,
 }
@@ -51,12 +72,14 @@ impl<F: Field + Hash> Compiler<F> {
 
     /// Compile the source code.
     pub(super) fn compile(
-        &mut self,
+        mut self,
         source: &str,
         debug_sym_ref_factory: &DebugSymRefFactory,
-    ) -> Result<SBPIR<F, NullTraceGenerator>, ()> {
-        let ast = self.parse(source, debug_sym_ref_factory)?;
-        let symbols = self.semantic(&ast)?;
+    ) -> Result<CompilerResult<F>, Vec<Message>> {
+        let ast = self
+            .parse(source, debug_sym_ref_factory)
+            .map_err(|_| self.messages.clone())?;
+        let symbols = self.semantic(&ast).map_err(|_| self.messages.clone())?;
         let setup = Self::interpret(&ast, &symbols);
         let setup = Self::map_consts(setup);
         let circuit = self.build(&setup, &symbols);
@@ -67,12 +90,13 @@ impl<F: Field + Hash> Compiler<F> {
             circuit
         };
 
-        Ok(circuit)
-    }
+        let circuit =
+            circuit.with_trace(InterpreterTraceGenerator::new(ast, symbols, self.mapping));
 
-    /// Get all messages from the compilation.
-    pub(super) fn get_messages(self) -> Vec<Message> {
-        self.messages
+        Ok(CompilerResult {
+            messages: self.messages,
+            circuit,
+        })
     }
 
     fn parse(
@@ -156,25 +180,31 @@ impl<F: Field + Hash> Compiler<F> {
                 self.add_step_type_handlers(ctx, symbols, machine_id);
 
                 for state_id in machine.keys() {
-                    ctx.step_type_def(self.get_step_type_handler(machine_id, state_id), |ctx| {
-                        self.add_internals(ctx, symbols, machine_id, state_id);
+                    ctx.step_type_def(
+                        self.mapping.get_step_type_handler(machine_id, state_id),
+                        |ctx| {
+                            self.add_internals(ctx, symbols, machine_id, state_id);
 
-                        ctx.setup(|ctx| {
-                            let pis = self.translate_queries(symbols, setup, machine_id, state_id);
-                            pis.iter().for_each(|pi| {
-                                let constraint = Constraint {
-                                    annotation: format!("{:?}", pi),
-                                    expr: pi.clone(),
-                                    typing: Typing::AntiBooly,
-                                };
-                                ctx.constr(constraint);
+                            ctx.setup(|ctx| {
+                                let poly_constraints =
+                                    self.translate_queries(symbols, setup, machine_id, state_id);
+                                poly_constraints.iter().for_each(|poly| {
+                                    let constraint = Constraint {
+                                        annotation: format!("{:?}", poly),
+                                        expr: poly.clone(),
+                                        typing: Typing::AntiBooly,
+                                    };
+                                    ctx.constr(constraint);
+                                });
                             });
-                        });
 
-                        ctx.wg(|_, _: ()| {})
-                    });
+                            ctx.wg(|_, _: ()| {})
+                        },
+                    );
                 }
             }
+
+            ctx.trace(|_, _| {});
         })
         .without_trace()
     }
@@ -300,14 +330,15 @@ impl<F: Field + Hash> Compiler<F> {
             InputSignal | OutputSignal | InoutSignal => {
                 self.translate_forward_queriable(machine_id, id)
             }
-            Signal => match symbol.scope {
+            Signal => match symbol.scope_cat {
                 ScopeCategory::Machine => self.translate_forward_queriable(machine_id, id),
                 ScopeCategory::State => {
                     if id.rotation() != 0 {
                         unreachable!("semantic analyser should prevent this");
                     }
-                    let signal =
-                        self.get_internal(&format!("//{}/{}", machine_id, state_id), &id.name());
+                    let signal = self
+                        .mapping
+                        .get_internal(&format!("//{}/{}", machine_id, state_id), &id.name());
 
                     Queriable::Internal(signal)
                 }
@@ -315,14 +346,16 @@ impl<F: Field + Hash> Compiler<F> {
                 ScopeCategory::Global => unreachable!("no global signals"),
             },
 
-            State => Queriable::StepTypeNext(self.get_step_type_handler(machine_id, &id.name())),
+            State => {
+                Queriable::StepTypeNext(self.mapping.get_step_type_handler(machine_id, &id.name()))
+            }
 
             _ => unreachable!("semantic analysis should prevent this"),
         }
     }
 
     fn translate_forward_queriable(&mut self, machine_id: &str, id: &Identifier) -> Queriable<F> {
-        let forward = self.get_forward(machine_id, &id.name());
+        let forward = self.mapping.get_forward(machine_id, &id.name());
         let rot = if id.rotation() == 0 {
             false
         } else if id.rotation() == 1 {
@@ -332,36 +365,6 @@ impl<F: Field + Hash> Compiler<F> {
         };
 
         Queriable::Forward(forward, rot)
-    }
-
-    fn get_forward(&mut self, machine_id: &str, forward_id: &str) -> ForwardSignal {
-        let scope_name = format!("//{}", machine_id);
-
-        let uuid = self
-            .symbol_uuid
-            .get(&(scope_name, forward_id.to_string()))
-            .expect("semantic analyser fail: forward should exist");
-
-        *self.forward_signals.get(uuid).unwrap()
-    }
-
-    fn get_internal(&mut self, scope_name: &str, symbol_name: &str) -> InternalSignal {
-        let uuid = self
-            .symbol_uuid
-            .get(&(scope_name.to_string(), symbol_name.to_string()))
-            .expect("semantic analyser fail");
-
-        *self.internal_signals.get(uuid).unwrap()
-    }
-
-    fn get_step_type_handler(&mut self, machine_id: &str, state_id: &str) -> StepTypeHandler {
-        let scope_name = format!("//{}", machine_id);
-        let uuid = self
-            .symbol_uuid
-            .get(&(scope_name, state_id.to_string()))
-            .expect("semantic analyser fail");
-
-        *self.step_type_handler.get(uuid).unwrap()
     }
 
     fn get_all_internals(
@@ -402,9 +405,10 @@ impl<F: Field + Hash> Compiler<F> {
 
             let queriable = ctx.internal(name.as_str());
             if let Queriable::Internal(signal) = queriable {
-                self.symbol_uuid
+                self.mapping
+                    .symbol_uuid
                     .insert((scope_name.clone(), internal_id), signal.uuid());
-                self.internal_signals.insert(signal.uuid(), signal);
+                self.mapping.internal_signals.insert(signal.uuid(), signal);
             } else {
                 unreachable!("ctx.internal returns not internal signal");
             }
@@ -434,8 +438,11 @@ impl<F: Field + Hash> Compiler<F> {
             let name = format!("{}:{}", scope_name, state_id);
 
             let handler = ctx.step_type(&name);
-            self.step_type_handler.insert(handler.uuid(), handler);
-            self.symbol_uuid
+            self.mapping
+                .step_type_handler
+                .insert(handler.uuid(), handler);
+            self.mapping
+                .symbol_uuid
                 .insert((scope_name, state_id), handler.uuid());
         }
     }
@@ -446,7 +453,6 @@ impl<F: Field + Hash> Compiler<F> {
         symbols: &SymTable,
         machine_id: &str,
     ) {
-        println!("{:?}", symbols);
         let symbols = symbols
             .get_scope(&["/".to_string(), machine_id.to_string()])
             .expect("scope not found")
@@ -465,9 +471,10 @@ impl<F: Field + Hash> Compiler<F> {
 
             let queriable = ctx.forward(name.as_str());
             if let Queriable::Forward(signal, _) = queriable {
-                self.symbol_uuid
+                self.mapping
+                    .symbol_uuid
                     .insert((scope_name, forward_id), signal.uuid());
-                self.forward_signals.insert(signal.uuid(), signal);
+                self.mapping.forward_signals.insert(signal.uuid(), signal);
             } else {
                 unreachable!("ctx.internal returns not internal signal");
             }
@@ -555,9 +562,9 @@ mod test {
             &debug_sym_ref_factory,
         );
 
-        match result.0 {
-            Ok(sbpir) => println!("{:#?}", sbpir),
-            Err(_) => println!("{:#?}", result.1),
+        match result {
+            Ok(result) => println!("{:#?}", result),
+            Err(messages) => println!("{:#?}", messages),
         }
     }
 
@@ -565,11 +572,7 @@ mod test {
     fn test_compiler_fibo_file() {
         let path = "test/circuit.chiquito";
         let result = compile_file::<Fr>(path, Config::default().max_degree(2));
-        assert!(result.0.is_ok());
-        match result.0 {
-            Ok(sbpir) => println!("{:#?}", sbpir),
-            Err(_) => println!("{:#?}", result.1),
-        }
+        assert!(result.is_ok());
     }
 
     #[test]
@@ -577,8 +580,10 @@ mod test {
         let path = "test/circuit_error.chiquito";
         let result = compile_file::<Fr>(path, Config::default().max_degree(2));
 
+        assert!(result.is_err());
+
         assert_eq!(
-            format!("{:?}", result.1),
+            format!("{:?}", result.unwrap_err()),
             r#"[SemErr { msg: "use of undeclared variable c", dsym: test/circuit_error.chiquito:24:39 }, SemErr { msg: "use of undeclared variable c", dsym: test/circuit_error.chiquito:28:46 }]"#
         )
     }

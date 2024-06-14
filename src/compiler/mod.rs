@@ -4,17 +4,15 @@ use std::{
     io::{self, Read},
 };
 
-use self::compiler::Compiler;
+use self::compiler::{Compiler, CompilerResult};
 use crate::{
     field::Field,
     parser::ast::{debug_sym_factory::DebugSymRefFactory, DebugSymRef},
-    sbpir::SBPIR,
-    wit_gen::NullTraceGenerator,
 };
 
 pub mod abepi;
 #[allow(clippy::module_inception)]
-mod compiler;
+pub mod compiler;
 pub mod semantic;
 mod setup_inter;
 
@@ -32,7 +30,7 @@ impl Config {
 }
 
 /// Compiler message.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Message {
     ParseErr {
         msg: String,
@@ -65,19 +63,15 @@ pub fn compile<F: Field + Hash>(
     source: &str,
     config: Config,
     debug_sym_ref_factory: &DebugSymRefFactory,
-) -> (Result<SBPIR<F, NullTraceGenerator>, ()>, Vec<Message>) {
-    let mut compiler = Compiler::new(config);
-
-    let result = compiler.compile(source, debug_sym_ref_factory);
-
-    (result, compiler.get_messages())
+) -> Result<CompilerResult<F>, Vec<Message>> {
+    Compiler::new(config).compile(source, debug_sym_ref_factory)
 }
 
 /// Compiles chiquito source code file into a SBPIR, also returns messages.
 pub fn compile_file<F: Field + Hash>(
     file_path: &str,
     config: Config,
-) -> (Result<SBPIR<F, NullTraceGenerator>, ()>, Vec<Message>) {
+) -> Result<CompilerResult<F>, Vec<Message>> {
     let contents = read_file(file_path);
     match contents {
         Ok(source) => {
@@ -89,7 +83,7 @@ pub fn compile_file<F: Field + Hash>(
             let message = Message::ParseErr { msg };
             let messages = vec![message];
 
-            (Err(()), messages)
+            Err(messages)
         }
     }
 }

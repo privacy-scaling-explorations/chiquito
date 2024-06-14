@@ -347,7 +347,7 @@ fn place_queriable<F: Clone>(
             let dest_step = unit
                 .step_types
                 .get(&step_type_handle.uuid())
-                .expect("step not found");
+                .unwrap_or_else(|| panic!("step not found {:?}", step_type_handle.annotation));
 
             unit.selector.next_expr(dest_step.uuid(), super_rotation)
         }
@@ -586,7 +586,7 @@ fn add_halo2_columns<F, TG: TraceGenerator<F>>(
 mod test {
     use halo2_proofs::{halo2curves::bn256::Fr, plonk::Any};
 
-    use crate::wit_gen::{DSLTraceGenerator, NullTraceGenerator};
+    use crate::{frontend::dsl::trace::DSLTraceGenerator, wit_gen::NullTraceGenerator};
 
     use super::{cell_manager::SingleRowCellManager, step_selector::SimpleStepSelectorBuilder, *};
 

@@ -379,11 +379,41 @@ fn if_condition_rule(analyser: &mut Analyser, stmt: &Statement<BigInt, Identifie
     }
 }
 
+// Left side of "=" should be only wg vars, no signals.
+fn wg_assignment_rule(analyser: &mut Analyser, expr: &Statement<BigInt, Identifier>) {
+    let ids = match expr {
+        Statement::WGAssignment(_, id, _) => id,
+        _ => return,
+    };
+
+    ids.iter().for_each(|id| {
+        if let Some(symbol) = analyser.symbols.find_symbol(&analyser.cur_scope, id.name()) {
+            let is_wgvar = matches!(
+                symbol.symbol.category,
+                SymbolCategory::WGVar
+                    | SymbolCategory::InputWGVar
+                    | SymbolCategory::OutputWGVar
+                    | SymbolCategory::InoutWGVar
+            );
+            if !is_wgvar {
+                analyser.error(
+                    format!(
+                        "Cannot assign with = to {:#?} {}, you can only assign to WGVars. Use <-- or <== instead.",
+                        symbol.symbol.category,
+                        id.name()
+                    ),
+                    &expr.get_dsym(),
+                )
+            }
+        }
+    });
+}
+
 lazy_static! {
     /// Global semantic analyser rules.
     pub(super) static ref RULES: RuleSet = RuleSet {
         expression: vec![undeclared_rule, true_false_rule],
-        statement: vec![state_decl, assignment_rule, assert_rule, if_condition_rule],
+        statement: vec![state_decl, assignment_rule, assert_rule, if_condition_rule, wg_assignment_rule],
         new_symbol: vec![rotation_decl, redeclare_rule, types_rule],
         new_tl_symbol: vec![rotation_decl_tl, machine_decl_tl, types_rule_tl],
     };
@@ -1170,7 +1200,7 @@ mod test {
            }
         ";
 
-        let debug_sym_ref_factory = DebugSymRefFactory::new("", &circuit);
+        let debug_sym_ref_factory = DebugSymRefFactory::new("", circuit);
         let decls = lang::TLDeclsParser::new()
             .parse(&debug_sym_ref_factory, circuit)
             .unwrap();
@@ -1180,6 +1210,67 @@ mod test {
         assert_eq!(
             format!("{:?}", result.messages),
             r#"[SemErr { msg: "Condition i + 1 in if statement must be a logic expression", dsym: DebugSymRef { start: "36:14", end: "53:15" } }, SemErr { msg: "Signal c in if statement condition must be bool", dsym: DebugSymRef { start: "37:17", end: "39:18" } }, SemErr { msg: "Condition 4 in if statement must be a logic expression", dsym: DebugSymRef { start: "43:17", end: "45:18" } }]"#
+        );
+    }
+
+    #[test]
+    fn test_wg_assignment_rule() {
+        let circuit = "
+        machine fibo(signal n) (signal b: field) {
+            // n and be are created automatically as shared
+            // signals
+            signal a: field, i;
+            var wgvar;
+
+            // there is always a state called initial
+            // input signals get bound to the signal
+            // in the initial state (first instance)
+            state initial {
+             signal c;
+
+             wgvar = 31;
+             i = 0;                      // wrong
+
+             i, a, b, c <== 1, 1, 1, 2;
+
+             -> middle {
+              a', b', n' <== b, c, n;
+             }
+            }
+
+            state middle {
+             signal c;
+
+             c <== a + b;
+
+             if i + 1 == n {
+              -> final {
+               i', b', n' <== i + 1, c, n;
+              }
+             } else {
+              -> middle {
+               i', a', b', n' <== i + 1, b, c, n;
+              }
+             }
+            }
+
+            // There is always a state called final.
+            // Output signals get automatically bound to the signals
+            // with the same name in the final step (last instance).
+            // This state can be implicit if there are no constraints in it.
+           }
+        ";
+
+        let debug_sym_ref_factory = DebugSymRefFactory::new("", circuit);
+        let decls = lang::TLDeclsParser::new()
+            .parse(&debug_sym_ref_factory, circuit)
+            .unwrap();
+
+        let result = analyse(&decls);
+
+        assert_eq!(
+            format!("{:?}", result.messages),
+            r#"[SemErr { msg: "Cannot assign with = to Signal i, you can only assign to WGVars. Use <-- or <== instead.", dsym: DebugSymRef { line: 15, cols: "14-20" } }]"#
         );
     }
 }
