@@ -1,4 +1,4 @@
-use std::{collections::HashMap, hash::Hash, marker::PhantomData};
+use std::{collections::HashMap, hash::Hash, marker::PhantomData, rc::Rc};
 
 use num_bigint::BigInt;
 
@@ -12,7 +12,7 @@ use crate::{
         ast::{debug_sym_factory::DebugSymRefFactory, tl::TLDecl, Identifiable, Identifier},
         lang::TLDeclsParser,
     },
-    poly::{self, mielim::mi_elimination, reduce::reduce_degree, Expr},
+    poly::{self, cse::cse, mielim::mi_elimination, reduce::reduce_degree, Expr, HashResult},
     sbpir::{query::Queriable, ForwardSignal, InternalSignal, SBPIR},
     util::UUID,
     wit_gen::{NullTraceGenerator, TraceGenerator},
@@ -204,9 +204,21 @@ impl<F: Field + Hash> Compiler<F> {
         circuit
     }
 
-    #[allow(dead_code)]
-    fn cse(mut _circuit: SBPIR<F, NullTraceGenerator>) -> SBPIR<F, NullTraceGenerator> {
-        todo!()
+    fn cse(&self, exprs: Vec<Expr<F, Queriable<F>, ()>>) -> Vec<Rc<Expr<F, Queriable<F>, HashResult>>> {
+        let mut queriables: Vec<Queriable<F>> = Vec::new();
+
+        self.forward_signals.iter().for_each(|(_, signal)| {
+            queriables.push(Queriable::Forward(signal.clone(), false));
+            queriables.push(Queriable::Forward(signal.clone(), true));
+        });
+        self.internal_signals.iter().for_each(|(_, signal)| {
+            queriables.push(Queriable::Internal(signal.clone()));
+        });
+        
+        // Apply the CSE algorithm
+        let optimized_exprs = cse(exprs, &queriables);
+
+        optimized_exprs
     }
 
     fn translate_queries(
