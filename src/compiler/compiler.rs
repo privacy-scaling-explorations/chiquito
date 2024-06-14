@@ -14,7 +14,7 @@ use crate::{
         lang::TLDeclsParser,
     },
     plonkish,
-    poly::{self, mielim::mi_elimination, reduce::reduce_degree, Expr},
+    poly::{self, cse::cse, mielim::mi_elimination, reduce::reduce_degree, Expr, HashResult},
     sbpir::{query::Queriable, InternalSignal, SBPIR},
     wit_gen::{NullTraceGenerator, SymbolSignalMapping, TraceGenerator},
 };
@@ -237,11 +237,11 @@ impl<F: Field + Hash> Compiler<F> {
     fn cse(&self, exprs: Vec<Expr<F, Queriable<F>, ()>>) -> Vec<Rc<Expr<F, Queriable<F>, HashResult>>> {
         let mut queriables: Vec<Queriable<F>> = Vec::new();
 
-        self.forward_signals.iter().for_each(|(_, signal)| {
+        self.mapping.forward_signals.iter().for_each(|(_, signal)| {
             queriables.push(Queriable::Forward(signal.clone(), false));
             queriables.push(Queriable::Forward(signal.clone(), true));
         });
-        self.internal_signals.iter().for_each(|(_, signal)| {
+        self.mapping.internal_signals.iter().for_each(|(_, signal)| {
             queriables.push(Queriable::Internal(signal.clone()));
         });
         
