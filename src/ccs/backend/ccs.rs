@@ -60,6 +60,114 @@ impl<F: Field + From<u64> + Hash> ChiquitoCCSCircuit<F> {
         }
         HashMap::new()
     }
+
+    fn export_matrix_vec(
+        &self,
+        n: usize,
+        num: usize,
+        witness_pos: &PositionMap,
+    ) -> (Vec<Matrix<F>>, usize) {
+        let mut m = self.num_poly();
+        let mut matrix_vec = vec![Matrix::new(n, m); num];
+        let mut row = 0;
+        if let Some(steps_id) = self.steps_id.as_ref() {
+            for (idx, step_id) in steps_id.0.iter().enumerate() {
+                // step
+                let matrics = self.compiled.circuit.matrics.get(step_id).unwrap();
+
+                for matrics in matrics.iter() {
+                    // poly
+                    if idx == steps_id.0.len() - 1 {
+                        let mut skip = false;
+                        for (matrics, _) in matrics.iter() {
+                            if skip {
+                                break;
+                            }
+                            for (_, _, next) in matrics.concat().iter() {
+                                if *next {
+                                    skip = true;
+                                    break;
+                                }
+                            }
+                        }
+                        if skip {
+                            m -= 1;
+                            continue;
+                        }
+                    }
+
+                    for (matrix_chunks, index) in matrics.iter() {
+                        // chunk
+                        assert!(*index <= self.compiled.circuit.selectors.len());
+                        let selectors = self.compiled.circuit.selectors[*index].clone();
+                        assert_eq!(matrix_chunks.len(), selectors.len());
+
+                        for (items, (selector, _)) in matrix_chunks.iter().zip(selectors.iter()) {
+                            // one row in on matrix
+                            let mut values: Vec<(usize, usize, F)> = Vec::new();
+                            for (v, id, next) in items.iter() {
+                                let idx = if *next { idx + 1 } else { idx };
+                                let col = if *id == 0 {
+                                    witness_pos.get(&(0, 0))
+                                } else {
+                                    witness_pos.get(&(idx, *id))
+                                };
+                                match col {
+                                    None => continue,
+                                    Some(col) => values.push((row, *col, *v)),
+                                }
+                            }
+                            matrix_vec[*selector].write(&values);
+                        }
+                    }
+                    row += 1;
+                }
+            }
+        };
+
+        for matrix in matrix_vec.iter_mut() {
+            if row < matrix.m {
+                matrix.remove_rows(row);
+            }
+        }
+        (matrix_vec, m)
+    }
+
+    fn num_poly(&self) -> usize {
+        self.steps_id
+            .as_ref()
+            .map(|steps_idx| {
+                steps_idx
+                    .0
+                    .iter()
+                    .map(|idx| self.compiled.circuit.matrics.get(idx).unwrap().len())
+                    .sum()
+            })
+            .unwrap()
+    }
+
+    fn coeffs_offsets(&self) -> (PositionMap, PositionMap) {
+        let mut witness_pos = HashMap::new();
+        let mut offset = 0;
+        witness_pos.insert((0, 0), offset);
+        offset += 1;
+        if let Some(steps_id) = self.steps_id.as_ref() {
+            for (idx, step_idx) in steps_id.0.iter().enumerate() {
+                let witnesses = self.compiled.circuit.witness.get(step_idx).unwrap();
+                for id in witnesses.iter() {
+                    witness_pos.insert((idx, *id), offset);
+                    offset += 1;
+                }
+            }
+        }
+        let mut public_pos = HashMap::new();
+        for (idx, id) in self.compiled.circuit.exposed.iter() {
+            public_pos.insert((*idx, *id), offset);
+            offset += 1;
+        }
+        // todo: remove public values
+        (witness_pos, public_pos)
+    }
 }
 
 impl<F: Field + From<u64> + Hash> ChiquitoCCSCircuit<F> {
@@ -95,9 +203,7 @@ impl<F: Field + From<u64> + Hash> CCSCircuit<F> {
         assert!(n > l);
 
         let matrics = Vec::new();
-
         let selectors = (0..q).map(|_| Vec::new()).collect();
-
         let constants = (0..q).map(|_| F::ZERO).collect();
 
         Self {
@@ -114,17 +220,6 @@ impl<F: Field + From<u64> + Hash> CCSCircuit<F> {
     }
 
     pub fn from_circuit(circuit: &ChiquitoCCSCircuit<F>) -> (Self, PositionMap, PositionMap) {
-        let mut m: usize = circuit
-            .steps_id
-            .as_ref()
-            .map(|steps_idx| {
-                steps_idx
-                    .0
-                    .iter()
-                    .map(|idx| circuit.compiled.circuit.matrics.get(idx).unwrap().len())
-                    .sum()
-            })
-            .unwrap();
         let selectors = circuit.compiled.circuit.selectors.clone();
         let constants = (0..circuit.compiled.circuit.q).map(|_| F::ONE).collect();
 
@@ -135,90 +230,10 @@ impl<F: Field + From<u64> + Hash> CCSCircuit<F> {
             }
         }
 
-        let mut witness_pos = HashMap::new();
-        let mut offset = 0;
-        witness_pos.insert((0, 0), offset); // 1
-        offset += 1;
-        if let Some(steps_id) = circuit.steps_id.as_ref() {
-            for (idx, step_idx) in steps_id.0.iter().enumerate() {
-                let witnesses = circuit.compiled.circuit.witness.get(step_idx).unwrap();
-                for id in witnesses.iter() {
-                    witness_pos.insert((idx, *id), offset);
-                    offset += 1;
-                }
-            }
-        }
-        let mut public_pos = HashMap::new();
-        for (idx, id) in circuit.compiled.circuit.exposed.iter() {
-            public_pos.insert((*idx, *id), offset);
-            offset += 1;
-        }
-        // todo: remove public values
-
+        let (witness_pos, public_pos) = circuit.coeffs_offsets();
         let n = witness_pos.len() + public_pos.len();
-        let mut matrix_vec = vec![Matrix::new(n, m); matrix_num];
 
-        let mut row = 0;
-        if let Some(steps_id) = circuit.steps_id.as_ref() {
-            for (idx, step_id) in steps_id.0.iter().enumerate() {
-                // step
-                let matrics = circuit.compiled.circuit.matrics.get(step_id).unwrap();
-
-                for matrics in matrics.iter() {
-                    // poly
-                    if idx == steps_id.0.len() - 1 {
-                        let mut skip = false;
-                        for (matrics, _) in matrics.iter() {
-                            if skip {
-                                break;
-                            }
-                            for (_, _, next) in matrics.concat().iter() {
-                                if *next {
-                                    skip = true;
-                                    break;
-                                }
-                            }
-                        }
-                        if skip {
-                            m -= 1;
-                            continue;
-                        }
-                    }
-
-                    for (matrix_chunks, index) in matrics.iter() {
-                        // chunk
-                        assert!(*index <= selectors.len());
-                        let selectors = selectors[*index].clone();
-                        assert_eq!(matrix_chunks.len(), selectors.len());
-
-                        for (items, (selector, _)) in matrix_chunks.iter().zip(selectors.iter()) {
-                            // one row in on matrix
-                            let mut values: Vec<(usize, usize, F)> = Vec::new();
-                            for (v, id, next) in items.iter() {
-                                let idx = if *next { idx + 1 } else { idx };
-                                let col = if *id == 0 {
-                                    witness_pos.get(&(0, 0))
-                                } else {
-                                    witness_pos.get(&(idx, *id))
-                                };
-                                match col {
-                                    None => continue,
-                                    Some(col) => values.push((row, *col, *v)),
-                                }
-                            }
-                            matrix_vec[*selector].write(&values);
-                        }
-                    }
-                    row += 1;
-                }
-            }
-        };
-
-        for matrix in matrix_vec.iter_mut() {
-            if row < matrix.m {
-                matrix.remove_rows(row);
-            }
-        }
+        let (matrix_vec, m) = circuit.export_matrix_vec(n, matrix_num, &witness_pos);
 
         (
             Self {
@@ -251,12 +266,18 @@ impl<F: Field + From<u64> + Hash> CCSCircuit<F> {
         selectors: &[Vec<(usize, F)>],
         constants: &[F],
     ) {
-        let mut degree = 0;
-        let mut nn = 0;
+        self.write_constants(constants);
+        self.write_selectors_and_degree(selectors);
+        self.write_matrics(matrics);
+    }
 
+    pub fn write_constants(&mut self, constants: &[F]) {
         assert_eq!(constants.len(), self.q);
         self.constants = constants.to_owned().clone();
+    }
 
+    pub fn write_selectors_and_degree(&mut self, selectors: &[Vec<(usize, F)>]) {
+        let mut degree = 0;
         assert_eq!(selectors.len(), self.q);
         for selector in selectors.iter() {
             for &(s, _) in selector {
@@ -265,7 +286,10 @@ impl<F: Field + From<u64> + Hash> CCSCircuit<F> {
             degree = degree.max(selector.len())
         }
         self.selectors = selectors.to_owned().clone();
+        self.d = degree;
+    }
 
+    fn write_matrics(&mut self, matrics: &[Vec<(usize, usize, F)>]) {
         assert_eq!(matrics.len(), self.t);
 
         self.matrics = matrics
@@ -274,9 +298,6 @@ impl<F: Field + From<u64> + Hash> CCSCircuit<F> {
                 for &cell in cells.iter() {
                     assert!(cell.0 < self.m);
                     assert!(cell.1 < self.n);
-                    if cell.2 != F::ZERO {
-                        nn += 1;
-                    }
                 }
 
                 let mut matrix = Matrix::new(self.n, self.m);
@@ -284,8 +305,6 @@ impl<F: Field + From<u64> + Hash> CCSCircuit<F> {
                 matrix
             })
             .collect();
-
-        self.d = degree;
     }
 
     pub fn is_satisfied(&self, z: &Z<F>) -> bool {

@@ -26,11 +26,8 @@ pub struct CompilationUnit<F> {
     pub step_types: HashMap<UUID, Rc<StepType<F>>>,
 
     pub placement: Placement,
-
     pub exposed: Vec<(usize, SignalPlacement)>,
-
     pub polys: HashMap<UUID, Vec<Poly<F>>>,
-
     pub selector: StepSelector<F>,
     pub matrix_values: HashMap<UUID, Coeffs<F>>,
 }
@@ -41,17 +38,14 @@ impl<F> Default for CompilationUnit<F> {
             ast_id: Default::default(),
             uuid: uuid(),
             step_types: Default::default(),
-
             forward_signals: Default::default(),
             shared_signals: Default::default(),
             fixed_signals: Default::default(),
-
             annotations: Default::default(),
             exposed: Default::default(),
             num_steps: Default::default(),
             selector: Default::default(),
             polys: Default::default(),
-
             placement: Default::default(),
             matrix_values: Default::default(),
         }

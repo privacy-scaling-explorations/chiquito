@@ -225,6 +225,7 @@ impl<F: Field + Hash, TraceArgs> AssignmentGenerator<F, TraceArgs> {
                     self.placement.forward(forward.uuid()).offset()
                 }
             }
+
             Queriable::Shared(shared, _) => self.placement.shared(shared.uuid()).offset(),
 
             Queriable::Fixed(fixed, _) => self.placement.fixed(fixed.uuid()).offset(),

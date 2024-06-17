@@ -61,7 +61,7 @@ fn construct_selector<F: Field>(
     let mut total = matrix_selectors.iter().map(|v| v.len()).sum();
 
     for (idx, polys_values) in values.iter() {
-        let mut step_selector = Vec::new(); // each selector has one
+        let mut step_selector = Vec::new();
         for poly_values in polys_values.iter() {
             let mut constr_selector = Vec::new();
             let mut used = vec![false; matrix_selectors.len()];
