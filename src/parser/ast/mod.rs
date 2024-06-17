@@ -123,7 +123,7 @@ impl Debug for DebugSymRef {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, PartialEq, Eq)]
 pub struct Identifier(pub String, pub i32, pub DebugSymRef);
 impl Identifier {
     pub(crate) fn new<S: AsRef<str>>(value: S, dsym: DebugSymRef) -> Self {

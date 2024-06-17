@@ -2,7 +2,9 @@ use chiquito::{
     frontend::dsl::{
         cb::{eq, select, table},
         lb::LookupTable,
-        super_circuit, CircuitContext, StepTypeSetupContext, StepTypeWGHandler,
+        super_circuit,
+        trace::DSLTraceGenerator,
+        CircuitContext, StepTypeSetupContext, StepTypeWGHandler,
     },
     plonkish::{
         backend::halo2::{chiquitoSuperCircuit2Halo2, ChiquitoHalo2SuperCircuit},
@@ -15,7 +17,6 @@ use chiquito::{
     },
     poly::ToExpr,
     sbpir::query::Queriable,
-    wit_gen::DSLTraceGenerator,
 };
 use halo2_proofs::{
     dev::MockProver,

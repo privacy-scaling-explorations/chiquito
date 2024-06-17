@@ -4,13 +4,13 @@ use std::{collections::HashMap, fmt::Debug, hash::Hash, rc::Rc};
 
 use crate::{
     field::Field,
-    frontend::dsl::StepTypeHandler,
+    frontend::dsl::{
+        trace::{DSLTraceGenerator, TraceContext},
+        StepTypeHandler,
+    },
     poly::{ConstrDecomp, Expr},
     util::{uuid, UUID},
-    wit_gen::{
-        DSLTraceGenerator, FixedAssignment, FixedGenContext, NullTraceGenerator, TraceContext,
-        TraceGenerator,
-    },
+    wit_gen::{FixedAssignment, FixedGenContext, NullTraceGenerator, TraceGenerator},
 };
 
 use halo2_proofs::plonk::{Advice, Column as Halo2Column, ColumnType, Fixed};
@@ -199,6 +199,26 @@ impl<F, TG: TraceGenerator<F>> SBPIR<F, TG> {
             exposed: self.exposed,
             annotations: self.annotations,
             trace_generator: None, // Remove the trace.
+            fixed_assignments: self.fixed_assignments,
+            first_step: self.first_step,
+            last_step: self.last_step,
+            num_steps: self.num_steps,
+            q_enable: self.q_enable,
+            id: self.id,
+        }
+    }
+
+    pub(crate) fn with_trace<TG2: TraceGenerator<F>>(self, trace: TG2) -> SBPIR<F, TG2> {
+        SBPIR {
+            trace_generator: Some(trace), // Change trace
+            step_types: self.step_types,
+            forward_signals: self.forward_signals,
+            shared_signals: self.shared_signals,
+            fixed_signals: self.fixed_signals,
+            halo2_advice: self.halo2_advice,
+            halo2_fixed: self.halo2_fixed,
+            exposed: self.exposed,
+            annotations: self.annotations,
             fixed_assignments: self.fixed_assignments,
             first_step: self.first_step,
             last_step: self.last_step,

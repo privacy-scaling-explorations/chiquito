@@ -238,6 +238,18 @@ impl<F, V> Expression<F, V> {
         }
     }
 
+    pub fn get_dsym(&self) -> &DebugSymRef {
+        match self {
+            Expression::BinOp { dsym, .. } => dsym,
+            Expression::UnaryOp { dsym, .. } => dsym,
+            Expression::Select { dsym, .. } => dsym,
+            Expression::Query(dsym, _) => dsym,
+            Expression::Const(dsym, _) => dsym,
+            Expression::True(dsym) => dsym,
+            Expression::False(dsym) => dsym,
+        }
+    }
+
     fn is_composed(&self) -> bool {
         match self {
             Expression::BinOp { .. } => true,

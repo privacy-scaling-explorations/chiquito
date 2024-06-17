@@ -52,7 +52,7 @@ impl SetupInterpreter {
 
     fn interpret_machine(
         &mut self,
-        _dsym: &DebugSymRef,
+        dsym: &DebugSymRef,
         id: &Identifier,
         _input_params: &[Statement<BigInt, Identifier>],
         _output_params: &[Statement<BigInt, Identifier>],
@@ -61,6 +61,15 @@ impl SetupInterpreter {
         self.current_machine = id.name();
         self.setup.insert(id.name(), HashMap::default());
         self.interpret_machine_statement(block);
+
+        // There is a final state that is empty by default
+        if !self.setup.get(&id.name()).unwrap().contains_key("final") {
+            self.interpret_state_decl(
+                dsym,
+                &Identifier::from("final"),
+                &Statement::Block(dsym.clone(), vec![]),
+            )
+        }
     }
 
     fn interpret_machine_statement(&mut self, stmt: &Statement<BigInt, Identifier>) {

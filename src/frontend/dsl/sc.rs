@@ -14,10 +14,10 @@ use crate::{
         },
     },
     sbpir::SBPIR,
-    wit_gen::{DSLTraceGenerator, NullTraceGenerator, TraceGenerator},
+    wit_gen::{NullTraceGenerator, TraceGenerator},
 };
 
-use super::{lb::LookupTableRegistry, CircuitContext};
+use super::{lb::LookupTableRegistry, trace::DSLTraceGenerator, CircuitContext};
 
 pub struct SuperCircuitContext<F, MappingArgs> {
     super_circuit: SuperCircuit<F, MappingArgs>,
@@ -152,7 +152,6 @@ mod tests {
             cell_manager::SingleRowCellManager, config, step_selector::SimpleStepSelectorBuilder,
         },
         poly::ToField,
-        wit_gen::DSLTraceGenerator,
     };
 
     use super::*;
