@@ -123,6 +123,14 @@ impl Debug for DebugSymRef {
     }
 }
 
+impl Eq for DebugSymRef {}
+
+impl PartialEq for DebugSymRef {
+    fn eq(&self, other: &Self) -> bool {
+        self.start == other.start && self.end == other.end && self.file.name() == other.file.name()
+    }
+}
+
 #[derive(Clone, PartialEq, Eq)]
 pub struct Identifier(pub String, pub i32, pub DebugSymRef);
 impl Identifier {

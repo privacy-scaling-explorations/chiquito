@@ -82,7 +82,10 @@ impl<'a, F: Field + Hash> Interpreter<'a, F> {
         self.cur_frame.enter_machine(id.name());
 
         for (id, input_value) in input.iter() {
-            self.cur_frame.set_value(id, &Value::Field(*input_value));
+            self.cur_frame.set_value(
+                &Identifier::new(id, dsym.clone()),
+                &Value::Field(*input_value),
+            );
         }
 
         while next_state.is_some() {
@@ -232,7 +235,7 @@ impl<'a, F: Field + Hash> Interpreter<'a, F> {
         if self.cur_frame.get_state() == "final" {
             Some(Statement::StateDecl(
                 machine_dsym.clone(),
-                self.cur_frame.get_state().into(),
+                Identifier::new(self.cur_frame.get_state(), machine_dsym.clone()),
                 Box::new(Statement::Block(machine_dsym.clone(), vec![])),
             ))
         } else {
