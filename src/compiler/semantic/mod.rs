@@ -57,6 +57,21 @@ pub struct SymTableEntry {
 }
 
 impl SymTableEntry {
+    pub fn new(
+        id: String,
+        definition_ref: DebugSymRef,
+        category: SymbolCategory,
+        ty: Option<String>,
+    ) -> Self {
+        SymTableEntry {
+            id,
+            definition_ref,
+            usages: Vec::new(),
+            category,
+            ty,
+        }
+    }
+
     pub fn is_scoped(&self) -> bool {
         matches!(
             self.category,
@@ -81,7 +96,9 @@ impl SymTableEntry {
         }
     }
 
-    fn look_in_usages(
+    /// Checks if there is a usage of this entry at the given offset
+    /// and adds it to the `symbols_by_proximity` map.
+    fn check_usage_at(
         &self,
         filename: String,
         offset: usize,
@@ -91,8 +108,7 @@ impl SymTableEntry {
             if usage.get_filename() != filename {
                 continue;
             }
-            let usage_proximity = usage.proximity_score(offset);
-            if usage_proximity != -1 {
+            if let Some(usage_proximity) = usage.proximity_score(offset) {
                 symbols_by_proximity.insert(usage_proximity, self.clone());
                 break;
             }
@@ -353,17 +369,15 @@ impl SymTable {
             for entry in scope.symbols.values() {
                 // If the entry is not in the same file, check its usages
                 if entry.definition_ref.get_filename() != filename.clone() {
-                    entry.look_in_usages(filename.clone(), offset, &mut symbols_by_proximity);
+                    entry.check_usage_at(filename.clone(), offset, &mut symbols_by_proximity);
+                } else if let Some(proximity) = entry.definition_ref.proximity_score(offset) {
+                    // If the current entry definition is enclosing the offset,
+                    // add it to the map
+                    symbols_by_proximity.insert(proximity, entry.clone());
                 } else {
-                    let proximity = entry.definition_ref.proximity_score(offset);
-                    // If the current entry is not enclosing the offset, check the usages of that
-                    // entry
-                    if proximity == -1 {
-                        entry.look_in_usages(filename.clone(), offset, &mut symbols_by_proximity);
-                    // If the current entry is enclosing the offset, add it to the map
-                    } else {
-                        symbols_by_proximity.insert(proximity, entry.clone());
-                    }
+                    // If the current entry definition is not enclosing the offset,
+                    // check the usages of that entry
+                    entry.check_usage_at(filename.clone(), offset, &mut symbols_by_proximity);
                 }
             }
         }

@@ -61,13 +61,7 @@ impl Analyser {
                 output_params,
                 block,
             } => {
-                let sym = SymTableEntry {
-                    id: id.name(),
-                    definition_ref: dsym,
-                    usages: vec![],
-                    category: SymbolCategory::Machine,
-                    ty: None,
-                };
+                let sym = SymTableEntry::new(id.name(), dsym, SymbolCategory::Machine, None);
 
                 RULES.apply_new_symbol_tldecl(self, decl, &id, &sym);
 
@@ -100,26 +94,24 @@ impl Analyser {
     fn analyse_machine_input_params(&mut self, params: Vec<Statement<BigInt, Identifier>>) {
         params.iter().for_each(|param| match param {
             Statement::SignalDecl(dsym, ids) => ids.iter().for_each(|id| {
-                let sym = SymTableEntry {
-                    id: id.id.name(),
-                    definition_ref: dsym.clone(),
-                    usages: vec![],
-                    category: SymbolCategory::InputSignal,
-                    ty: id.ty.clone().map(|ty| ty.name()),
-                };
+                let sym = SymTableEntry::new(
+                    id.id.name(),
+                    dsym.clone(),
+                    SymbolCategory::InputSignal,
+                    id.ty.clone().map(|ty| ty.name()),
+                );
 
                 RULES.apply_new_symbol_statement(self, param, &id.id, &sym);
 
                 self.symbols.add_symbol(&self.cur_scope, id.id.name(), sym);
             }),
             Statement::WGVarDecl(dsym, ids) => ids.iter().for_each(|id| {
-                let sym = SymTableEntry {
-                    id: id.id.name(),
-                    definition_ref: dsym.clone(),
-                    usages: vec![],
-                    category: SymbolCategory::InputWGVar,
-                    ty: id.ty.clone().map(|ty| ty.name()),
-                };
+                let sym = SymTableEntry::new(
+                    id.id.name(),
+                    dsym.clone(),
+                    SymbolCategory::InputWGVar,
+                    id.ty.clone().map(|ty| ty.name()),
+                );
 
                 RULES.apply_new_symbol_statement(self, param, &id.id, &sym);
 
@@ -132,13 +124,12 @@ impl Analyser {
     fn analyse_machine_output_params(&mut self, params: Vec<Statement<BigInt, Identifier>>) {
         params.iter().for_each(|param| match param {
             Statement::SignalDecl(dsym, ids) => ids.iter().for_each(|id| {
-                let sym = SymTableEntry {
-                    id: id.id.name(),
-                    definition_ref: dsym.clone(),
-                    usages: vec![],
-                    category: SymbolCategory::OutputSignal,
-                    ty: id.ty.clone().map(|ty| ty.name()),
-                };
+                let sym = SymTableEntry::new(
+                    id.id.name(),
+                    dsym.clone(),
+                    SymbolCategory::OutputSignal,
+                    id.ty.clone().map(|ty| ty.name()),
+                );
 
                 RULES.apply_new_symbol_statement(self, param, &id.id, &sym);
 
@@ -146,13 +137,12 @@ impl Analyser {
                     .add_output_variable(&self.cur_scope, id.id.name(), sym);
             }),
             Statement::WGVarDecl(dsym, ids) => ids.iter().for_each(|id| {
-                let sym = SymTableEntry {
-                    id: id.id.name(),
-                    definition_ref: dsym.clone(),
-                    usages: vec![],
-                    category: SymbolCategory::OutputWGVar,
-                    ty: id.ty.clone().map(|ty| ty.name()),
-                };
+                let sym = SymTableEntry::new(
+                    id.id.name(),
+                    dsym.clone(),
+                    SymbolCategory::OutputWGVar,
+                    id.ty.clone().map(|ty| ty.name()),
+                );
 
                 RULES.apply_new_symbol_statement(self, param, &id.id, &sym);
 
@@ -171,13 +161,8 @@ impl Analyser {
         if let Statement::Block(_, stmts) = block {
             stmts.iter().for_each(|stmt| {
                 if let Statement::StateDecl(dsym, id, _) = stmt {
-                    let sym = SymTableEntry {
-                        id: id.name(),
-                        definition_ref: dsym.clone(),
-                        usages: vec![],
-                        category: SymbolCategory::State,
-                        ty: None,
-                    };
+                    let sym =
+                        SymTableEntry::new(id.name(), dsym.clone(), SymbolCategory::State, None);
 
                     RULES.apply_new_symbol_statement(self, stmt, id, &sym);
 
@@ -200,13 +185,7 @@ impl Analyser {
                 Box::new(Statement::Block(block.get_dsym(), vec![])),
             );
 
-            let sym = SymTableEntry {
-                id: id.name(),
-                definition_ref: block.get_dsym(),
-                usages: vec![],
-                category: SymbolCategory::State,
-                ty: None,
-            };
+            let sym = SymTableEntry::new(id.name(), block.get_dsym(), SymbolCategory::State, None);
 
             RULES.apply_new_symbol_statement(self, &stmt, &id, &sym);
 
@@ -233,26 +212,24 @@ impl Analyser {
     fn statement_add_symbols(&mut self, stmt: &Statement<BigInt, Identifier>) {
         match stmt.clone() {
             Statement::SignalDecl(dsym, ids) => ids.into_iter().for_each(|id| {
-                let sym = SymTableEntry {
-                    id: id.id.name(),
-                    category: SymbolCategory::Signal,
-                    usages: vec![],
-                    definition_ref: dsym.clone(),
-                    ty: id.ty.map(|ty| ty.name()),
-                };
+                let sym = SymTableEntry::new(
+                    id.id.name(),
+                    dsym.clone(),
+                    SymbolCategory::Signal,
+                    id.ty.map(|ty| ty.name()),
+                );
 
                 RULES.apply_new_symbol_statement(self, stmt, &id.id, &sym);
 
                 self.symbols.add_symbol(&self.cur_scope, id.id.name(), sym);
             }),
             Statement::WGVarDecl(dsym, ids) => ids.into_iter().for_each(|id| {
-                let sym = SymTableEntry {
-                    id: id.id.name(),
-                    category: SymbolCategory::WGVar,
-                    usages: vec![],
-                    definition_ref: dsym.clone(),
-                    ty: id.ty.map(|ty| ty.name()),
-                };
+                let sym = SymTableEntry::new(
+                    id.id.name(),
+                    dsym.clone(),
+                    SymbolCategory::WGVar,
+                    id.ty.map(|ty| ty.name()),
+                );
 
                 RULES.apply_new_symbol_statement(self, stmt, &id.id, &sym);
 
@@ -269,16 +246,16 @@ impl Analyser {
         match stmt {
             Statement::Assert(_, expr) => self.analyse_expression(expr),
             Statement::SignalAssignment(_, ids, exprs) => {
-                self.extract_id_usages(&ids);
                 exprs
                     .into_iter()
-                    .for_each(|expr| self.analyse_expression(expr))
+                    .for_each(|expr| self.analyse_expression(expr));
+                self.collect_id_usages(&ids);
             }
             Statement::SignalAssignmentAssert(_, ids, exprs) => {
-                self.extract_id_usages(&ids);
                 exprs
                     .into_iter()
-                    .for_each(|expr| self.analyse_expression(expr))
+                    .for_each(|expr| self.analyse_expression(expr));
+                self.collect_id_usages(&ids);
             }
             Statement::WGAssignment(_, _, exprs) => exprs
                 .into_iter()
@@ -295,8 +272,8 @@ impl Analyser {
 
             Statement::StateDecl(_, id, block) => self.analyse_state(id, *block),
             Statement::Transition(_, id, block) => {
-                self.extract_id_usages(&[id]);
-                self.analyse_statement(*block)
+                self.analyse_statement(*block);
+                self.collect_id_usages(&[id]);
             }
 
             Statement::Block(_, stmts) => stmts
@@ -313,7 +290,7 @@ impl Analyser {
         RULES.apply_expression(self, &expr)
     }
 
-    fn extract_id_usages(&mut self, ids: &[Identifier]) {
+    fn collect_id_usages(&mut self, ids: &[Identifier]) {
         for id in ids {
             self.symbols
                 .update_usages(&self.cur_scope, id.name(), id.debug_sym_ref());
@@ -421,7 +398,7 @@ mod test {
 
         assert_eq!(
             format!("{:?}", result),
-            r#"AnalysisResult { symbols: "/": ScopeTable { symbols: "\"fibo\": SymTableEntry { id: \"fibo\", definition_ref: DebugSymRef { start: \"2:9\", end: \"40:13\" }, usages: [], category: Machine, ty: None }", scope: Global },"//fibo": ScopeTable { symbols: "\"a\": SymTableEntry { id: \"a\", definition_ref: DebugSymRef { line: 5, cols: \"13-32\" }, usages: [DebugSymRef { line: 13, cols: \"17-18\" }, DebugSymRef { line: 16, cols: \"15-17\" }, DebugSymRef { line: 23, cols: \"20-21\" }, DebugSymRef { line: 31, cols: \"20-22\" }], category: Signal, ty: Some(\"field\") },\"b\": SymTableEntry { id: \"b\", definition_ref: DebugSymRef { line: 2, cols: \"33-48\" }, usages: [DebugSymRef { line: 13, cols: \"20-21\" }, DebugSymRef { line: 16, cols: \"19-21\" }, DebugSymRef { line: 16, cols: \"30-31\" }, DebugSymRef { line: 23, cols: \"24-25\" }, DebugSymRef { line: 27, cols: \"20-22\" }, DebugSymRef { line: 31, cols: \"24-26\" }, DebugSymRef { line: 31, cols: \"42-43\" }], category: OutputSignal, ty: Some(\"field\") },\"final\": SymTableEntry { id: \"final\", definition_ref: DebugSymRef { start: \"2:50\", end: \"40:13\" }, usages: [DebugSymRef { line: 26, cols: \"18-23\" }], category: State, ty: None },\"i\": SymTableEntry { id: \"i\", definition_ref: DebugSymRef { line: 5, cols: \"13-32\" }, usages: [DebugSymRef { line: 13, cols: \"14-15\" }, DebugSymRef { line: 25, cols: \"17-18\" }, DebugSymRef { line: 27, cols: \"16-18\" }, DebugSymRef { line: 27, cols: \"31-32\" }, DebugSymRef { line: 31, cols: \"16-18\" }, DebugSymRef { line: 31, cols: \"35-36\" }], category: Signal, ty: None },\"initial\": SymTableEntry { id: \"initial\", definition_ref: DebugSymRef { start: \"10:13\", end: \"18:14\" }, usages: [], category: State, ty: None },\"middle\": SymTableEntry { id: \"middle\", definition_ref: DebugSymRef { start: \"20:13\", end: \"34:14\" }, usages: [DebugSymRef { line: 15, cols: \"17-23\" }, DebugSymRef { line: 30, cols: \"18-24\" }], category: State, ty: None },\"n\": SymTableEntry { id: \"n\", definition_ref: DebugSymRef { line: 2, cols: \"22-30\" }, usages: [DebugSymRef { line: 16, cols: \"23-25\" }, DebugSymRef { line: 16, cols: \"36-37\" }, DebugSymRef { line: 25, cols: \"26-27\" }, DebugSymRef { line: 27, cols: \"24-26\" }, DebugSymRef { line: 27, cols: \"41-42\" }, DebugSymRef { line: 31, cols: \"28-30\" }, DebugSymRef { line: 31, cols: \"48-49\" }], category: InputSignal, ty: None }", scope: Machine },"//fibo/final": ScopeTable { symbols: "", scope: State },"//fibo/initial": ScopeTable { symbols: "\"c\": SymTableEntry { id: \"c\", definition_ref: DebugSymRef { line: 11, cols: \"14-23\" }, usages: [DebugSymRef { line: 13, cols: \"23-24\" }, DebugSymRef { line: 16, cols: \"33-34\" }], category: Signal, ty: None }", scope: State },"//fibo/middle": ScopeTable { symbols: "\"c\": SymTableEntry { id: \"c\", definition_ref: DebugSymRef { line: 21, cols: \"14-23\" }, usages: [DebugSymRef { line: 23, cols: \"14-15\" }, DebugSymRef { line: 27, cols: \"38-39\" }, DebugSymRef { line: 31, cols: \"45-46\" }], category: Signal, ty: None }", scope: State }, messages: [] }"#
+            r#"AnalysisResult { symbols: "/": ScopeTable { symbols: "\"fibo\": SymTableEntry { id: \"fibo\", definition_ref: DebugSymRef { start: \"2:9\", end: \"40:13\" }, usages: [], category: Machine, ty: None }", scope: Global },"//fibo": ScopeTable { symbols: "\"a\": SymTableEntry { id: \"a\", definition_ref: DebugSymRef { line: 5, cols: \"13-32\" }, usages: [DebugSymRef { line: 13, cols: \"17-18\" }, DebugSymRef { line: 16, cols: \"15-17\" }, DebugSymRef { line: 23, cols: \"20-21\" }, DebugSymRef { line: 31, cols: \"20-22\" }], category: Signal, ty: Some(\"field\") },\"b\": SymTableEntry { id: \"b\", definition_ref: DebugSymRef { line: 2, cols: \"33-48\" }, usages: [DebugSymRef { line: 13, cols: \"20-21\" }, DebugSymRef { line: 16, cols: \"30-31\" }, DebugSymRef { line: 16, cols: \"19-21\" }, DebugSymRef { line: 23, cols: \"24-25\" }, DebugSymRef { line: 27, cols: \"20-22\" }, DebugSymRef { line: 31, cols: \"42-43\" }, DebugSymRef { line: 31, cols: \"24-26\" }], category: OutputSignal, ty: Some(\"field\") },\"final\": SymTableEntry { id: \"final\", definition_ref: DebugSymRef { start: \"2:50\", end: \"40:13\" }, usages: [DebugSymRef { line: 26, cols: \"18-23\" }], category: State, ty: None },\"i\": SymTableEntry { id: \"i\", definition_ref: DebugSymRef { line: 5, cols: \"13-32\" }, usages: [DebugSymRef { line: 13, cols: \"14-15\" }, DebugSymRef { line: 25, cols: \"17-18\" }, DebugSymRef { line: 27, cols: \"31-32\" }, DebugSymRef { line: 27, cols: \"16-18\" }, DebugSymRef { line: 31, cols: \"35-36\" }, DebugSymRef { line: 31, cols: \"16-18\" }], category: Signal, ty: None },\"initial\": SymTableEntry { id: \"initial\", definition_ref: DebugSymRef { start: \"10:13\", end: \"18:14\" }, usages: [], category: State, ty: None },\"middle\": SymTableEntry { id: \"middle\", definition_ref: DebugSymRef { start: \"20:13\", end: \"34:14\" }, usages: [DebugSymRef { line: 15, cols: \"17-23\" }, DebugSymRef { line: 30, cols: \"18-24\" }], category: State, ty: None },\"n\": SymTableEntry { id: \"n\", definition_ref: DebugSymRef { line: 2, cols: \"22-30\" }, usages: [DebugSymRef { line: 16, cols: \"36-37\" }, DebugSymRef { line: 16, cols: \"23-25\" }, DebugSymRef { line: 25, cols: \"26-27\" }, DebugSymRef { line: 27, cols: \"41-42\" }, DebugSymRef { line: 27, cols: \"24-26\" }, DebugSymRef { line: 31, cols: \"48-49\" }, DebugSymRef { line: 31, cols: \"28-30\" }], category: InputSignal, ty: None }", scope: Machine },"//fibo/final": ScopeTable { symbols: "", scope: State },"//fibo/initial": ScopeTable { symbols: "\"c\": SymTableEntry { id: \"c\", definition_ref: DebugSymRef { line: 11, cols: \"14-23\" }, usages: [DebugSymRef { line: 13, cols: \"23-24\" }, DebugSymRef { line: 16, cols: \"33-34\" }], category: Signal, ty: None }", scope: State },"//fibo/middle": ScopeTable { symbols: "\"c\": SymTableEntry { id: \"c\", definition_ref: DebugSymRef { line: 21, cols: \"14-23\" }, usages: [DebugSymRef { line: 23, cols: \"14-15\" }, DebugSymRef { line: 27, cols: \"38-39\" }, DebugSymRef { line: 31, cols: \"45-46\" }], category: Signal, ty: None }", scope: State }, messages: [] }"#
         )
     }
 }

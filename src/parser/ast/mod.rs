@@ -78,14 +78,11 @@ impl DebugSymRef {
     /// Returns the proximity score of the given offset to the debug symbol.
     /// The proximity score is the sum of the distance from the start and end of the symbol.
     /// If the offset is not within the symbol, -1 is returned.
-    pub fn proximity_score(&self, offset: usize) -> i32 {
+    pub fn proximity_score(&self, offset: usize) -> Option<i32> {
         if self.start <= offset && offset <= self.end {
-            let start_diff = offset as i32 - self.start as i32;
-            let end_diff = self.end as i32 - offset as i32;
-
-            start_diff + end_diff
+            Some(self.end as i32 - self.start as i32)
         } else {
-            -1
+            None
         }
     }
 }
@@ -224,5 +221,20 @@ mod test {
         assert_eq!(result.2.start, debug_sym_ref.start);
         assert_eq!(result.2.end, debug_sym_ref.end);
         assert_eq!(*result.2.file.name(), *debug_sym_ref.file.name());
+    }
+
+    #[test]
+    fn test_proximity_score() {
+        let debug_sym_ref = DebugSymRef {
+            start: 10,
+            end: 12,
+            file: Arc::new(SimpleFile::new("file_path".to_string(), "".to_string())),
+        };
+
+        assert_eq!(debug_sym_ref.proximity_score(9), None);
+        assert_eq!(debug_sym_ref.proximity_score(10), Some(2_i32));
+        assert_eq!(debug_sym_ref.proximity_score(11), Some(2_i32));
+        assert_eq!(debug_sym_ref.proximity_score(12), Some(2_i32));
+        assert_eq!(debug_sym_ref.proximity_score(13), None);
     }
 }
