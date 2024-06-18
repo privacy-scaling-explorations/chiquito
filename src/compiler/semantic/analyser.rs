@@ -299,9 +299,9 @@ impl Analyser {
 
     fn extract_usages_recursively(&mut self, expr: &Expression<BigInt, Identifier>) {
         match expr.clone() {
-            Expression::Query(dsym_ref, id) => {
+            Expression::Query(_, id) => {
                 self.symbols
-                    .update_usages(&self.cur_scope, id.name(), dsym_ref);
+                    .update_usages(&self.cur_scope, id.name(), id.debug_sym_ref());
             }
             Expression::BinOp {
                 dsym: _,
