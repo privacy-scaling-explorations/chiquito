@@ -97,8 +97,8 @@ impl SymTableEntry {
         }
     }
 
-    /// Checks if there is a usage of this entry at the given offset
-    /// and returns its proximity score.
+    /// Checks if there is a usage of this entry at the given `offset` in the file `filename`.
+    /// Returns its proximity score if found, otherwise `None`.
     fn check_usage_at(&self, filename: &String, offset: usize) -> Option<usize> {
         for usage in &self.usages {
             if let Some(usage_proximity) = usage.proximity_score(filename, offset) {
@@ -108,7 +108,8 @@ impl SymTableEntry {
         None
     }
 
-    /// Returns the proximity score of the closest usage or definition to the given offset.
+    /// Returns the proximity score of the closest usage or definition
+    /// to the given `offset` in the file `filename`.
     fn proximity_score(&self, filename: &String, offset: usize) -> Option<usize> {
         let result = min(
             self.definition_ref
@@ -131,7 +132,6 @@ pub struct FoundSymbol {
     pub scope_cat: ScopeCategory,
     pub scope_id: String,
     pub level: usize,
-    pub usages: Vec<DebugSymRef>,
 }
 
 /// Contains the symbols of an scope
@@ -197,6 +197,7 @@ impl ScopeTable {
         self.symbols.insert(id, entry);
     }
 
+    /// Add a `usage` to the symbol `id`, if symbol exists in scope.
     fn add_symbol_usage(&mut self, id: String, usage: DebugSymRef) {
         if let Some(symbol) = self.symbols.get(&id) {
             let mut updated_symbol = symbol.clone();
@@ -268,7 +269,6 @@ impl SymTable {
                     scope_cat: table.scope.clone(),
                     scope_id: key,
                     level: (scope.len() - level_rev - 1),
-                    usages: symbol.usages.clone(),
                 });
             }
 
@@ -364,26 +364,26 @@ impl SymTable {
     /// ### Returns
     /// The `SymTableEntry` that is closest to the offset.
     pub fn find_symbol_by_offset(&self, filename: String, offset: usize) -> Option<SymTableEntry> {
-        let mut best_symbol: Option<SymTableEntry> = None;
+        let mut closest_symbol: Option<SymTableEntry> = None;
 
         for scope in self.scopes.values() {
             for entry in scope.symbols.values() {
                 if let Some(proximity) = entry.proximity_score(&filename, offset) {
-                    if best_symbol.is_none()
+                    if closest_symbol.is_none()
                         || proximity
-                            < best_symbol
+                            < closest_symbol
                                 .as_ref()
                                 .unwrap()
                                 .proximity_score(&filename, offset)
                                 .unwrap()
                     {
-                        best_symbol = Some(entry.clone());
+                        closest_symbol = Some(entry.clone());
                     }
                 }
             }
         }
 
-        best_symbol
+        closest_symbol
     }
 }
 

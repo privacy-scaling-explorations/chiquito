@@ -75,8 +75,8 @@ impl DebugSymRef {
         self.file.name().to_string()
     }
 
-    /// Returns the proximity score of the given `offset` to the debug symbol.
-    /// The proximity score is calculated as the size of the symbol.
+    /// Returns the proximity score of the given `offset` to the debug symbol in the file
+    /// `filename`. The proximity score is calculated as the size of the symbol.
     /// If the offset is not within the symbol, returns `None`.
     pub fn proximity_score(&self, filename: &String, offset: usize) -> Option<usize> {
         if self.get_filename() == *filename && self.start <= offset && offset <= self.end {
