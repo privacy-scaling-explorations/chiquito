@@ -286,8 +286,8 @@ impl Analyser {
     }
 
     fn analyse_expression(&mut self, expr: Expression<BigInt, Identifier>) {
+        RULES.apply_expression(self, &expr);
         self.extract_usages_expression(&expr);
-        RULES.apply_expression(self, &expr)
     }
 
     fn collect_id_usages(&mut self, ids: &[Identifier]) {
