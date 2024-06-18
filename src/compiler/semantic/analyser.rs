@@ -286,22 +286,21 @@ impl Analyser {
     }
 
     fn analyse_expression(&mut self, expr: Expression<BigInt, Identifier>) {
-        self.extract_usages_recursively(&expr);
+        self.extract_usages_expression(&expr);
         RULES.apply_expression(self, &expr)
     }
 
     fn collect_id_usages(&mut self, ids: &[Identifier]) {
         for id in ids {
             self.symbols
-                .update_usages(&self.cur_scope, id.name(), id.debug_sym_ref());
+                .add_symbol_usage(&self.cur_scope, id.name(), id.debug_sym_ref());
         }
     }
 
-    fn extract_usages_recursively(&mut self, expr: &Expression<BigInt, Identifier>) {
+    fn extract_usages_expression(&mut self, expr: &Expression<BigInt, Identifier>) {
         match expr.clone() {
             Expression::Query(_, id) => {
-                self.symbols
-                    .update_usages(&self.cur_scope, id.name(), id.debug_sym_ref());
+                self.collect_id_usages(&[id]);
             }
             Expression::BinOp {
                 dsym: _,
@@ -309,15 +308,15 @@ impl Analyser {
                 lhs,
                 rhs,
             } => {
-                self.extract_usages_recursively(&lhs);
-                self.extract_usages_recursively(&rhs);
+                self.extract_usages_expression(&lhs);
+                self.extract_usages_expression(&rhs);
             }
             Expression::UnaryOp {
                 dsym: _,
                 op: _,
                 sub,
             } => {
-                self.extract_usages_recursively(&sub);
+                self.extract_usages_expression(&sub);
             }
             _ => {}
         }

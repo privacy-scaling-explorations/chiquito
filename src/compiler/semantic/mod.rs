@@ -1,5 +1,6 @@
 use std::{
-    collections::{BTreeMap, HashMap},
+    cmp::min,
+    collections::HashMap,
     fmt::{Debug, Display},
 };
 
@@ -97,21 +98,28 @@ impl SymTableEntry {
     }
 
     /// Checks if there is a usage of this entry at the given offset
-    /// and adds it to the `symbols_by_proximity` map.
-    fn check_usage_at(
-        &self,
-        filename: String,
-        offset: usize,
-        symbols_by_proximity: &mut BTreeMap<i32, SymTableEntry>,
-    ) {
+    /// and returns its proximity score.
+    fn check_usage_at(&self, filename: &String, offset: usize) -> Option<usize> {
         for usage in &self.usages {
-            if usage.get_filename() != filename {
-                continue;
+            if let Some(usage_proximity) = usage.proximity_score(filename, offset) {
+                return Some(usage_proximity);
             }
-            if let Some(usage_proximity) = usage.proximity_score(offset) {
-                symbols_by_proximity.insert(usage_proximity, self.clone());
-                break;
-            }
+        }
+        None
+    }
+
+    /// Returns the proximity score of the closest usage or definition to the given offset.
+    fn proximity_score(&self, filename: &String, offset: usize) -> Option<usize> {
+        let result = min(
+            self.definition_ref
+                .proximity_score(filename, offset)
+                .unwrap_or(usize::MAX),
+            self.check_usage_at(filename, offset).unwrap_or(usize::MAX),
+        );
+        if result == usize::MAX {
+            None
+        } else {
+            Some(result)
         }
     }
 }
@@ -187,6 +195,14 @@ impl ScopeTable {
 
     fn add_symbol(&mut self, id: String, entry: SymTableEntry) {
         self.symbols.insert(id, entry);
+    }
+
+    fn add_symbol_usage(&mut self, id: String, usage: DebugSymRef) {
+        if let Some(symbol) = self.symbols.get(&id) {
+            let mut updated_symbol = symbol.clone();
+            updated_symbol.usages.push(usage);
+            self.symbols.insert(id, updated_symbol);
+        }
     }
 }
 
@@ -282,32 +298,14 @@ impl SymTable {
         }
     }
 
-    /// Update usages of a symbol.
+    /// Add a usage of a symbol.
     /// The function looks up the parent scopes if symbol is not found in the current scope.
-    pub fn update_usages(&mut self, scope: &[String], id: String, usage: DebugSymRef) {
-        let scope_key = Self::get_key(scope);
-        let scope_table = &self.scopes.get_mut(&scope_key);
-        if let Some(scope_table) = scope_table {
-            let existing_symbol = scope_table.get_symbol(id.clone());
-
-            if let Some(existing_symbol) = existing_symbol {
-                let mut updated_symbol = existing_symbol.clone();
-                updated_symbol.usages.push(usage);
-                self.scopes
-                    .get_mut(&scope_key)
-                    .unwrap()
-                    .add_symbol(id.clone(), updated_symbol.clone());
-            } else {
-                if scope.len() == 1 {
-                    return;
-                }
-                let parent_scope = &scope
-                    .iter()
-                    .take(scope.len() - 1)
-                    .cloned()
-                    .collect::<Vec<_>>();
-                self.update_usages(parent_scope, id, usage);
-            }
+    pub fn add_symbol_usage(&mut self, scope: &[String], id: String, usage: DebugSymRef) {
+        if let Some(found_symbol) = self.find_symbol(scope, id) {
+            self.scopes
+                .get_mut(&found_symbol.scope_id)
+                .unwrap()
+                .add_symbol_usage(found_symbol.symbol.id, usage);
         }
     }
 
@@ -366,35 +364,26 @@ impl SymTable {
     /// ### Returns
     /// The `SymTableEntry` that is closest to the offset.
     pub fn find_symbol_by_offset(&self, filename: String, offset: usize) -> Option<SymTableEntry> {
-        let mut symbols_by_proximity = BTreeMap::<i32, SymTableEntry>::new();
+        let mut best_symbol: Option<SymTableEntry> = None;
 
         for scope in self.scopes.values() {
             for entry in scope.symbols.values() {
-                // If the entry is not in the same file, check its usages
-                if entry.definition_ref.get_filename() != filename.clone() {
-                    entry.check_usage_at(filename.clone(), offset, &mut symbols_by_proximity);
-                } else if let Some(proximity) = entry.definition_ref.proximity_score(offset) {
-                    // If the current entry definition is enclosing the offset,
-                    // add it to the map
-                    symbols_by_proximity.insert(proximity, entry.clone());
-                } else {
-                    // If the current entry definition is not enclosing the offset,
-                    // check the usages of that entry
-                    entry.check_usage_at(filename.clone(), offset, &mut symbols_by_proximity);
+                if let Some(proximity) = entry.proximity_score(&filename, offset) {
+                    if best_symbol.is_none()
+                        || proximity
+                            < best_symbol
+                                .as_ref()
+                                .unwrap()
+                                .proximity_score(&filename, offset)
+                                .unwrap()
+                    {
+                        best_symbol = Some(entry.clone());
+                    }
                 }
             }
         }
 
-        if symbols_by_proximity.is_empty() {
-            None
-        } else {
-            // Return the first symbol in the map because BTreeMap is sorted by the key (which is
-            // the proximity in our case)
-            return symbols_by_proximity
-                .iter()
-                .next()
-                .map(|(_, entry)| entry.clone());
-        }
+        best_symbol
     }
 }
 
@@ -537,7 +526,7 @@ mod test {
            }
         ";
 
-        let debug_sym_factory = DebugSymRefFactory::new("", circuit);
+        let debug_sym_factory = DebugSymRefFactory::new("some", circuit);
         let decls = lang::TLDeclsParser::new()
             .parse(&debug_sym_factory, circuit)
             .unwrap();
@@ -584,7 +573,7 @@ mod test {
         for (offset, expected_id) in test_cases {
             let SymTableEntry { id, .. } = result
                 .symbols
-                .find_symbol_by_offset("".to_string(), offset)
+                .find_symbol_by_offset("some".to_string(), offset)
                 .unwrap();
             assert_eq!(id, expected_id);
         }

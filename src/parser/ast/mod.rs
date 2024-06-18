@@ -75,12 +75,12 @@ impl DebugSymRef {
         self.file.name().to_string()
     }
 
-    /// Returns the proximity score of the given offset to the debug symbol.
-    /// The proximity score is the sum of the distance from the start and end of the symbol.
-    /// If the offset is not within the symbol, -1 is returned.
-    pub fn proximity_score(&self, offset: usize) -> Option<i32> {
-        if self.start <= offset && offset <= self.end {
-            Some(self.end as i32 - self.start as i32)
+    /// Returns the proximity score of the given `offset` to the debug symbol.
+    /// The proximity score is calculated as the size of the symbol.
+    /// If the offset is not within the symbol, returns `None`.
+    pub fn proximity_score(&self, filename: &String, offset: usize) -> Option<usize> {
+        if self.get_filename() == *filename && self.start <= offset && offset <= self.end {
+            Some(self.end - self.start)
         } else {
             None
         }
@@ -233,16 +233,21 @@ mod test {
 
     #[test]
     fn test_proximity_score() {
+        let file_path = "file_path".to_string();
         let debug_sym_ref = DebugSymRef {
             start: 10,
             end: 12,
-            file: Arc::new(SimpleFile::new("file_path".to_string(), "".to_string())),
+            file: Arc::new(SimpleFile::new(file_path.clone(), "".to_string())),
         };
 
-        assert_eq!(debug_sym_ref.proximity_score(9), None);
-        assert_eq!(debug_sym_ref.proximity_score(10), Some(2_i32));
-        assert_eq!(debug_sym_ref.proximity_score(11), Some(2_i32));
-        assert_eq!(debug_sym_ref.proximity_score(12), Some(2_i32));
-        assert_eq!(debug_sym_ref.proximity_score(13), None);
+        assert_eq!(debug_sym_ref.proximity_score(&file_path, 9), None);
+        assert_eq!(debug_sym_ref.proximity_score(&file_path, 10), Some(2));
+        assert_eq!(
+            debug_sym_ref.proximity_score(&"different_file_path".to_string(), 10),
+            None
+        );
+        assert_eq!(debug_sym_ref.proximity_score(&file_path, 11), Some(2));
+        assert_eq!(debug_sym_ref.proximity_score(&file_path, 12), Some(2));
+        assert_eq!(debug_sym_ref.proximity_score(&file_path, 13), None);
     }
 }
