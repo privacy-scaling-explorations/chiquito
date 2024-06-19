@@ -197,7 +197,7 @@ ParsePrefix: Expr = {
 }
 
 ExpressionTerm: Expr = {
-    <l: @L> <id: Identifier> <r: @R> => build_query(dsym_factory.create(l,r), id),
+    <l: @L> <id: Identifier> <r: @R> => build_query(id, dsym_factory.create(l,r)),
     <l: @L> <lit: FieldElement> <r: @R> => lit,
     <l: @L> "true" <r: @R> => Expression::True(dsym_factory.create(l,r)),
     <l: @L> "false" <r: @R> => Expression::False(dsym_factory.create(l,r)),
@@ -211,7 +211,7 @@ ParseBinOp<Op, Next>: Expr = {
 }
 
 ParseVar: Expr = {
-    <l: @L> <id: Identifier> <r: @R> => build_query(dsym_factory.create(l,r), id),
+    <l: @L> <id: Identifier> <r: @R> => build_query(id, dsym_factory.create(l,r)),
 }
 
 // Lists
@@ -246,7 +246,7 @@ ParseTypedId: TypedIdDecl<Identifier> = {
 // Terminals
 
 Identifier: Identifier = {
-    r"[a-zA-Z_][a-zA-Z$_0-9@]*[\']?" => build_identifier(<>),
+    <l: @L> <id: r"[a-zA-Z_][a-zA-Z$_0-9@]*[\']?"> <r: @R> => build_identifier(id, dsym_factory.create(l,r)),
 }
 
 FieldElement: Expr = {

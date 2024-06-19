@@ -1,4 +1,5 @@
 use std::{
+    cmp::min,
     collections::HashMap,
     fmt::{Debug, Display},
 };
@@ -48,13 +49,30 @@ pub enum ScopeCategory {
 /// Information about a symbol
 #[derive(Clone, Debug)]
 pub struct SymTableEntry {
+    pub id: String,
     pub definition_ref: DebugSymRef,
+    pub usages: Vec<DebugSymRef>,
     pub category: SymbolCategory,
     /// Type
     pub ty: Option<String>,
 }
 
 impl SymTableEntry {
+    pub fn new(
+        id: String,
+        definition_ref: DebugSymRef,
+        category: SymbolCategory,
+        ty: Option<String>,
+    ) -> Self {
+        SymTableEntry {
+            id,
+            definition_ref,
+            usages: Vec::new(),
+            category,
+            ty,
+        }
+    }
+
     pub fn is_scoped(&self) -> bool {
         matches!(
             self.category,
@@ -76,6 +94,33 @@ impl SymTableEntry {
         match &self.ty {
             Some(ty) => ty,
             None => "field",
+        }
+    }
+
+    /// Checks if there is a usage of this entry at the given `offset` in the file `filename`.
+    /// Returns its proximity score if found, otherwise `None`.
+    fn check_usage_at(&self, filename: &String, offset: usize) -> Option<usize> {
+        for usage in &self.usages {
+            if let Some(usage_proximity) = usage.proximity_score(filename, offset) {
+                return Some(usage_proximity);
+            }
+        }
+        None
+    }
+
+    /// Returns the proximity score of the closest usage or definition
+    /// to the given `offset` in the file `filename`.
+    fn proximity_score(&self, filename: &String, offset: usize) -> Option<usize> {
+        let result = min(
+            self.definition_ref
+                .proximity_score(filename, offset)
+                .unwrap_or(usize::MAX),
+            self.check_usage_at(filename, offset).unwrap_or(usize::MAX),
+        );
+        if result == usize::MAX {
+            None
+        } else {
+            Some(result)
         }
     }
 }
@@ -150,6 +195,15 @@ impl ScopeTable {
 
     fn add_symbol(&mut self, id: String, entry: SymTableEntry) {
         self.symbols.insert(id, entry);
+    }
+
+    /// Add a `usage` to the symbol `id`, if symbol exists in scope.
+    fn add_symbol_usage(&mut self, id: String, usage: DebugSymRef) {
+        if let Some(symbol) = self.symbols.get(&id) {
+            let mut updated_symbol = symbol.clone();
+            updated_symbol.usages.push(usage);
+            self.symbols.insert(id, updated_symbol);
+        }
     }
 }
 
@@ -244,6 +298,17 @@ impl SymTable {
         }
     }
 
+    /// Add a usage of a symbol.
+    /// The function looks up the parent scopes if symbol is not found in the current scope.
+    pub fn add_symbol_usage(&mut self, scope: &[String], id: String, usage: DebugSymRef) {
+        if let Some(found_symbol) = self.find_symbol(scope, id) {
+            self.scopes
+                .get_mut(&found_symbol.scope_id)
+                .unwrap()
+                .add_symbol_usage(found_symbol.symbol.id, usage);
+        }
+    }
+
     /// Add an output variable symbol.
     /// This is special because if there is an input variable symbol with the same identifier, it
     /// should create a Input/Output symbol.
@@ -288,6 +353,32 @@ impl SymTable {
                 .collect::<Vec<_>>()
                 .join("/")
         }
+    }
+
+    /// Find a `SymTableEntry` by its byte offset in a file.
+    /// The function can be called externally (e.g., from the language server)
+    ///
+    /// ### Parameters
+    /// - `filename`: The name of the file where the symbol is searched.
+    /// - `offset`: The byte offset in the file where the symbol is searched.
+    /// ### Returns
+    /// The `SymTableEntry` that is closest to the offset.
+    pub fn find_symbol_by_offset(&self, filename: String, offset: usize) -> Option<SymTableEntry> {
+        let mut closest_symbol: Option<SymTableEntry> = None;
+        let mut best_proximity = usize::MAX;
+
+        for scope in self.scopes.values() {
+            for entry in scope.symbols.values() {
+                if let Some(proximity) = entry.proximity_score(&filename, offset)
+                    && (proximity < best_proximity)
+                {
+                    closest_symbol = Some(entry.clone());
+                    best_proximity = proximity;
+                }
+            }
+        }
+
+        closest_symbol
     }
 }
 
@@ -376,5 +467,110 @@ impl RuleSet {
         self.new_symbol
             .iter()
             .for_each(|rule| rule(analyser, stmt, id, symbol));
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use crate::{
+        compiler::semantic::SymTableEntry,
+        parser::{ast::debug_sym_factory::DebugSymRefFactory, lang},
+    };
+
+    #[test]
+    fn test_find_usages() {
+        let circuit = "
+        machine fibo(signal n) (signal b: field) {
+            // n and be are created automatically as shared
+            // signals
+            signal a: field, i;
+
+            // there is always a state called initial
+            // input signals get bound to the signal
+            // in the initial state (first instance)
+            state initial {
+             signal c;
+
+             i, a, b, c <== 1, 1, 1, 2;
+
+             -> middle {
+              a', b', n' <== b, c, n;
+             }
+            }
+
+            state middle {
+             signal c;
+
+             c <== a + b;
+
+             if i + 1 == n {
+              -> final {
+               i', b', n' <== i + 1, c, n;
+              }
+             } else {
+              -> middle {
+               i', a', b', n' <== i + 1, b, c, n;
+              }
+             }
+            }
+
+            // There is always a state called final.
+            // Output signals get automatically bound to the signals
+            // with the same name in the final step (last instance).
+            // This state can be implicit if there are no constraints in it.
+           }
+        ";
+
+        let debug_sym_factory = DebugSymRefFactory::new("some", circuit);
+        let decls = lang::TLDeclsParser::new()
+            .parse(&debug_sym_factory, circuit)
+            .unwrap();
+
+        let result = crate::compiler::semantic::analyser::analyse(&decls);
+
+        let test_cases = [
+            (396, "a"),
+            (397, "a"),
+            (395, "initial"),
+            (398, "initial"),
+            (460, "a"),
+            (584, "a"),
+            (772, "a"),
+            (402, "c"),
+            (478, "c"),
+            (578, "c"),
+            (683, "c"),
+            (797, "c"),
+            (468, "n"),
+            (481, "n"),
+            (617, "n"),
+            (669, "n"),
+            (686, "n"),
+            (780, "n"),
+            (800, "n"),
+            (399, "b"),
+            (464, "b"),
+            (475, "b"),
+            (588, "b"),
+            (665, "b"),
+            (776, "b"),
+            (794, "b"),
+            (393, "i"),
+            (608, "i"),
+            (661, "i"),
+            (676, "i"),
+            (768, "i"),
+            (787, "i"),
+            (437, "middle"),
+            (443, "middle"),
+        ];
+
+        for (offset, expected_id) in test_cases {
+            let SymTableEntry { id, .. } = result
+                .symbols
+                .find_symbol_by_offset("some".to_string(), offset)
+                .unwrap();
+            assert_eq!(id, expected_id);
+        }
     }
 }

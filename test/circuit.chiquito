@@ -23,7 +23,7 @@ machine fibo(signal n) (signal b: field) {
 
         if i + 1 == n {
         ->  final {
-            i', b', n' <== i + 1, c, n;
+                i', b', n' <== i + 1, c, n;
             }
         } else {
             -> middle {

@@ -66,7 +66,7 @@ impl SetupInterpreter {
         if !self.setup.get(&id.name()).unwrap().contains_key("final") {
             self.interpret_state_decl(
                 dsym,
-                &Identifier::from("final"),
+                &Identifier::new("final", dsym.clone()),
                 &Statement::Block(dsym.clone(), vec![]),
             )
         }

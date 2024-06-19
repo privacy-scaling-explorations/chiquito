@@ -28,12 +28,12 @@ pub fn build_unary_op<S: Into<String>, F, V>(
     }
 }
 
-pub fn build_query<F>(dsym: DebugSymRef, id: Identifier) -> Expression<F, Identifier> {
+pub fn build_query<F>(id: Identifier, dsym: DebugSymRef) -> Expression<F, Identifier> {
     Expression::Query(dsym, id)
 }
 
-pub fn build_identifier<S: Into<String>>(id: S) -> Identifier {
-    Identifier::from(id.into())
+pub fn build_identifier<S: Into<String>>(id: S, dsym: DebugSymRef) -> Identifier {
+    Identifier::new(id.into(), dsym)
 }
 
 pub fn build_assert_eq<F, V>(
