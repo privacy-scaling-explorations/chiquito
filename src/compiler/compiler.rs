@@ -1,5 +1,6 @@
-use std::{collections::HashMap, hash::Hash, marker::PhantomData, rc::Rc};
+use std::{collections::HashMap, hash::Hash, marker::PhantomData};
 
+use halo2_proofs::circuit;
 use num_bigint::BigInt;
 
 use crate::{
@@ -14,7 +15,7 @@ use crate::{
         lang::TLDeclsParser,
     },
     plonkish,
-    poly::{self, cse::cse, mielim::mi_elimination, reduce::reduce_degree, Expr, HashResult},
+    poly::{self, cse::{cse, replace_common_subexprs}, mielim::mi_elimination, reduce::reduce_degree, Expr},
     sbpir::{query::Queriable, InternalSignal, SBPIR},
     wit_gen::{NullTraceGenerator, SymbolSignalMapping, TraceGenerator},
 };
@@ -89,6 +90,14 @@ impl<F: Field + Hash> Compiler<F> {
         } else {
             circuit
         };
+
+        println!("------- Before CSE -------");
+        println!("{:#?}", circuit);
+
+        let circuit = self.cse(circuit);
+
+        println!("------- After CSE -------");
+        println!("{:#?}", circuit);
 
         let circuit =
             circuit.with_trace(InterpreterTraceGenerator::new(ast, symbols, self.mapping));
@@ -234,21 +243,40 @@ impl<F: Field + Hash> Compiler<F> {
         circuit
     }
 
-    fn cse(&self, exprs: Vec<Expr<F, Queriable<F>, ()>>) -> Vec<Rc<Expr<F, Queriable<F>, HashResult>>> {
+    fn cse(&self, mut circuit: SBPIR<F, NullTraceGenerator>) -> SBPIR<F, NullTraceGenerator> {
         let mut queriables: Vec<Queriable<F>> = Vec::new();
 
         self.mapping.forward_signals.iter().for_each(|(_, signal)| {
             queriables.push(Queriable::Forward(signal.clone(), false));
             queriables.push(Queriable::Forward(signal.clone(), true));
         });
-        self.mapping.internal_signals.iter().for_each(|(_, signal)| {
-            queriables.push(Queriable::Internal(signal.clone()));
-        });
-        
-        // Apply the CSE algorithm
-        let optimized_exprs = cse(exprs, &queriables);
+        self.mapping
+            .internal_signals
+            .iter()
+            .for_each(|(_, signal)| {
+                queriables.push(Queriable::Internal(signal.clone()));
+            });
 
-        optimized_exprs
+        let mut signal_factory: SignalFactory<F> = SignalFactory::default();
+
+        let mut exprs = Vec::new();
+        // Take all the expressions from the circuit and their subexpressions and call cse on them
+        for (_, step_type) in circuit.step_types.iter_mut() {
+            for constraint in &step_type.constraints {
+                exprs.push(constraint.expr.clone());
+            }
+        }
+
+        // hash expressions and subexpressions recursively and store in a hash table
+        let (optimized_exprs, assignments) = cse(&exprs, &queriables);
+
+        for (_, step_type) in circuit.step_types.iter_mut() {
+            step_type.decomp_constraints(|expr| {
+                replace_common_subexprs(expr.clone(), &optimized_exprs, &assignments, &mut signal_factory)
+            })
+        }
+
+        circuit
     }
 
     fn translate_queries(
