@@ -369,11 +369,11 @@ impl SymTable {
 
         for scope in self.scopes.values() {
             for entry in scope.symbols.values() {
-                if let Some(proximity) = entry.proximity_score(&filename, offset) {
-                    if proximity < best_proximity {
-                        closest_symbol = Some(entry.clone());
-                        best_proximity = proximity;
-                    }
+                if let Some(proximity) = entry.proximity_score(&filename, offset)
+                    && (proximity < best_proximity)
+                {
+                    closest_symbol = Some(entry.clone());
+                    best_proximity = proximity;
                 }
             }
         }
