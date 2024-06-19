@@ -365,19 +365,14 @@ impl SymTable {
     /// The `SymTableEntry` that is closest to the offset.
     pub fn find_symbol_by_offset(&self, filename: String, offset: usize) -> Option<SymTableEntry> {
         let mut closest_symbol: Option<SymTableEntry> = None;
+        let mut best_proximity = usize::MAX;
 
         for scope in self.scopes.values() {
             for entry in scope.symbols.values() {
                 if let Some(proximity) = entry.proximity_score(&filename, offset) {
-                    if closest_symbol.is_none()
-                        || proximity
-                            < closest_symbol
-                                .as_ref()
-                                .unwrap()
-                                .proximity_score(&filename, offset)
-                                .unwrap()
-                    {
+                    if proximity < best_proximity {
                         closest_symbol = Some(entry.clone());
+                        best_proximity = proximity;
                     }
                 }
             }
