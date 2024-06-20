@@ -1,4 +1,4 @@
-use std::fmt::Debug;
+use std::{collections::HashMap, fmt::Debug};
 
 pub mod assignments;
 pub mod circuit;
@@ -7,6 +7,7 @@ use crate::{field::Field, poly::Expr, util::UUID};
 
 #[derive(Clone)]
 pub struct Poly<F> {
+    pub uuid: UUID,
     pub step_uuid: UUID,
     pub annotation: String,
     pub expr: PolyExpr<F>,
@@ -21,27 +22,36 @@ impl<F: Debug> Debug for Poly<F> {
 // (signal_uuid, step_uuid, annotation, pos)
 pub type PolyExpr<F> = Expr<F, (UUID, UUID, String, bool)>;
 
+pub type Coeff<F> = (F, UUID, bool);
+pub type Coeffs<F> = Vec<Coeff<F>>;
+pub type CoeffsForProds<F> = Vec<Coeffs<F>>;
+pub type CoeffsOnePoly<F> = Vec<CoeffsForProds<F>>;
+pub type CoeffsOneStep<F> = Vec<CoeffsOnePoly<F>>;
+pub type CoeffsForSteps<F> = HashMap<UUID, CoeffsOneStep<F>>;
+
+pub type MatrixsCoeffs<F> = Vec<Vec<(CoeffsForProds<F>, usize)>>;
+
 impl<F: Field> PolyExpr<F> {
-    pub fn poly_to_matrix(&self, flag: bool) -> Vec<Vec<Vec<(F, UUID, bool)>>> {
+    pub fn poly_to_coeffs(&self, flag: bool) -> CoeffsOnePoly<F> {
         let matrics = match self {
             PolyExpr::Const(v) => vec![vec![vec![(*v, 0, false)]]],
             PolyExpr::Query((id, _, _, q)) => vec![vec![vec![(F::ONE, *id, *q)]]],
             PolyExpr::Neg(v) => {
-                let mut matrics = v.poly_to_matrix(flag);
-                for matrixs in matrics.iter_mut() {
-                    matrixs.push(vec![(F::ONE.neg(), 0, false)]);
+                let mut coeffs_for_one_poly = v.poly_to_coeffs(flag);
+                for coeffs_for_prods in coeffs_for_one_poly.iter_mut() {
+                    coeffs_for_prods.push(vec![(F::ONE.neg(), 0, false)]);
                 }
-                matrics
+                coeffs_for_one_poly
             }
             PolyExpr::Sum(v) => {
                 if flag {
-                    let mut matrics = Vec::new();
+                    let mut coeffs_for_one_poly: Vec<CoeffsForProds<F>> = Vec::new();
                     for e in v.iter() {
-                        matrics.append(&mut e.poly_to_matrix(false));
+                        coeffs_for_one_poly.append(&mut e.poly_to_coeffs(false));
                     }
-                    matrics
+                    coeffs_for_one_poly
                 } else {
-                    let values = v
+                    let coeffs = v
                         .iter()
                         .map(|e| match *e {
                             PolyExpr::Const(v) => (v, 0, false),
@@ -50,13 +60,13 @@ impl<F: Field> PolyExpr<F> {
                             _ => panic!("invalid poly expr"),
                         })
                         .collect();
-                    vec![vec![values]]
+                    vec![vec![coeffs]]
                 }
             }
             PolyExpr::Mul(v) => {
                 let mut matrics = Vec::new();
                 for e in v.iter() {
-                    let matrix = e.poly_to_matrix(false);
+                    let matrix = e.poly_to_coeffs(false);
                     if matrix.len() != 1 {
                         panic!("invalid poly expr");
                     }
@@ -67,12 +77,12 @@ impl<F: Field> PolyExpr<F> {
                 vec![matrics]
             }
             PolyExpr::Pow(v, exp) => {
-                let matrics = v.poly_to_matrix(flag);
-                if matrics.len() != 1 {
+                let coeffs = v.poly_to_coeffs(flag);
+                if coeffs.len() != 1 {
                     panic!("invalid poly expr");
                 }
                 (0..*exp)
-                    .map(|_| matrics.clone())
+                    .map(|_| coeffs.clone())
                     .collect::<Vec<_>>()
                     .concat()
             }

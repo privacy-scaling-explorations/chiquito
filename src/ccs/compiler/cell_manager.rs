@@ -23,7 +23,8 @@ impl CellManager for SingleRowCellManager {
         for signal in unit.forward_signals.iter() {
             placement.forward.insert(
                 signal.uuid(),
-                SignalPlacement::new(signal.uuid(), signal.annotation(), forward_signals),
+                SignalPlacement::new(signal.uuid(), signal.annotation()),
+                // SignalPlacement::new(signal.uuid(), signal.annotation(), forward_signals),
             );
             forward_signals += 1;
         }
@@ -35,7 +36,7 @@ impl CellManager for SingleRowCellManager {
                 SignalPlacement::new(
                     signal.uuid(),
                     signal.annotation(),
-                    forward_signals + shared_signals,
+                    // forward_signals + shared_signals,
                 ),
             );
             shared_signals += 1;
@@ -48,7 +49,7 @@ impl CellManager for SingleRowCellManager {
                 SignalPlacement::new(
                     signal.uuid(),
                     signal.annotation(),
-                    forward_signals + shared_signals + fixed_signals,
+                    // forward_signals + shared_signals + fixed_signals,
                 ),
             );
             fixed_signals += 1;
@@ -62,7 +63,8 @@ impl CellManager for SingleRowCellManager {
             for signal in step.signals.iter() {
                 step_placement.signals.insert(
                     signal.uuid(),
-                    SignalPlacement::new(signal.uuid(), signal.annotation(), internal_signals),
+                    // SignalPlacement::new(signal.uuid(), signal.annotation(), internal_signals),
+                    SignalPlacement::new(signal.uuid(), signal.annotation()),
                 );
                 internal_signals += 1;
             }
@@ -77,24 +79,11 @@ impl CellManager for SingleRowCellManager {
 pub struct SignalPlacement {
     id: UUID,
     annotation: String,
-    offset: u32,
 }
 
 impl SignalPlacement {
-    pub fn new(id: UUID, annotation: String, offset: u32) -> Self {
-        Self {
-            id,
-            annotation,
-            offset,
-        }
-    }
-
-    pub fn new_with_id(id: UUID, annotation: String) -> Self {
-        Self {
-            id,
-            annotation,
-            offset: 0,
-        }
+    pub fn new(id: UUID, annotation: String) -> Self {
+        Self { id, annotation }
     }
 
     pub fn uuid(&self) -> UUID {
@@ -103,10 +92,6 @@ impl SignalPlacement {
 
     pub fn annotation(&self) -> String {
         self.annotation.to_string()
-    }
-
-    pub fn offset(&self) -> u32 {
-        self.offset
     }
 }
 

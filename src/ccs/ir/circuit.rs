@@ -1,14 +1,20 @@
 use std::{collections::HashMap, hash::Hash};
 
-use super::assignments::*;
-use crate::{ccs::compiler::step_selector::StepSelector, field::Field, util::UUID};
+use super::{assignments::*, CoeffsForProds};
+use crate::{
+    ccs::compiler::step_selector::{SelectorsForALLMatrix, SelectorsForALLSteps, StepSelector},
+    field::Field,
+    util::UUID,
+};
 
+pub type MatrixCoeffsAndOffset<F> = Vec<Vec<(CoeffsForProds<F>, usize)>>;
+pub type SelectorsOffsetAndCoeff<F> = Vec<Vec<(usize, F)>>;
 #[derive(Debug)]
 pub struct Circuit<F> {
     pub ast_id: UUID,
 
-    pub matrics: HashMap<UUID, MatrixsCoeffs<F>>,
-    pub selectors: Vec<Vec<(usize, F)>>,
+    pub matrix_coeffs_and_offsets: HashMap<UUID, MatrixCoeffsAndOffset<F>>,
+    pub selectors: SelectorsOffsetAndCoeff<F>,
     pub constants: Vec<F>,
     pub exposed: Vec<(usize, UUID)>,
     pub witness: HashMap<UUID, Vec<UUID>>,
@@ -20,67 +26,76 @@ pub struct Circuit<F> {
 
 impl<F: Field + From<u64> + Hash> Circuit<F> {
     pub fn new(ast_id: UUID) -> Self {
-        let matrics = HashMap::new();
-        let selectors = Vec::new();
-        let constants = Vec::new();
-        let exposed = vec![];
-        let witness = HashMap::new();
-
         Self {
             t: 0,
             q: 0,
             d: 0,
-            matrics,
-            selectors,
-            constants,
-            exposed,
-            witness,
+            matrix_coeffs_and_offsets: HashMap::new(),
+            selectors: Vec::new(),
+            constants: Vec::new(),
+            exposed: Vec::new(),
+            witness: HashMap::new(),
             ast_id,
         }
     }
 
     pub fn write(
         &mut self,
-        matrix_values: &HashMap<UUID, Coeffs<F>>,
+        matrix_coeffs: &HashMap<UUID, Coeffs<F>>,
         selectors: &StepSelector<F>,
         exposed: &[(usize, UUID)],
         witness: &HashMap<UUID, Vec<UUID>>,
     ) {
+        self.calcu_bounds(&selectors.matrix_selectors);
+
+        self.constants = vec![F::ONE; self.q];
+        self.selectors = selectors.matrix_selectors.clone();
+        self.exposed = exposed.to_owned();
+        self.witness = witness.clone();
+
+        self.construct_matrix_coeffs_and_offsets(matrix_coeffs, &selectors.step_selectors);
+    }
+
+    fn calcu_bounds(&mut self, matrix_selectors: &SelectorsForALLMatrix<F>) {
         let mut t = 0;
         let mut d = 0;
+        self.q = matrix_selectors.len();
 
-        self.q = selectors.matrix_selectors.len();
-        self.constants = vec![F::ONE; self.q];
-
-        for selectors in selectors.matrix_selectors.iter() {
+        for selectors in matrix_selectors.iter() {
             d = d.max(selectors.len());
-            for (selector, _) in selectors.iter() {
-                t = t.max(*selector);
+            for (idx, _) in selectors.iter() {
+                t = t.max(*idx);
             }
         }
-        self.selectors = selectors.matrix_selectors.clone();
+        self.t = t;
+        self.d = d;
+    }
 
-        let mut matrics = HashMap::new();
-        for (uuid, values) in matrix_values.iter() {
-            let selectors = selectors.step_selectors.get(uuid).unwrap();
-            let v = values
+    fn construct_matrix_coeffs_and_offsets(
+        &mut self,
+        matrix_coeffs: &HashMap<UUID, Coeffs<F>>,
+        step_selectors: &SelectorsForALLSteps,
+    ) {
+        let mut matrix_coeffs_and_offsets = HashMap::new();
+        for (step_id, coeffs_one_step) in matrix_coeffs.iter() {
+            let selectors_one_step = step_selectors.get(step_id).unwrap();
+            let v = coeffs_one_step
                 .iter()
-                .zip(selectors.iter())
-                .map(|(values, selectors)| {
-                    values
+                .zip(selectors_one_step.iter())
+                .map(|(coeffs_one_poly, selectors_one_poly)| {
+                    coeffs_one_poly
                         .iter()
-                        .zip(selectors.iter())
-                        .map(|(values, selectors)| (values.clone(), *selectors))
+                        .zip(selectors_one_poly.iter())
+                        .map(|(coeffs_one_chunk, selectors_one_chunk)| {
+                            (coeffs_one_chunk.clone(), *selectors_one_chunk)
+                        })
                         .collect()
                 })
                 .collect();
 
-            matrics.insert(*uuid, v);
+            matrix_coeffs_and_offsets.insert(*step_id, v);
         }
-        self.matrics = matrics;
-        self.exposed = exposed.to_owned();
-        self.witness = witness.clone();
-        self.selectors = selectors.matrix_selectors.clone();
+        self.matrix_coeffs_and_offsets = matrix_coeffs_and_offsets;
     }
 
     pub fn instance(&self, assignments: &Assignments<F>) -> HashMap<(usize, UUID), F> {

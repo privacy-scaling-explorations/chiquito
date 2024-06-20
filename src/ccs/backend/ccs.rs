@@ -2,14 +2,16 @@ use std::{collections::HashMap, hash::Hash};
 
 use crate::{
     ccs::ir::{
-        assignments::{Assignments, StepsID},
-        circuit::Circuit,
+        assignments::Assignments,
+        circuit::{Circuit, SelectorsOffsetAndCoeff},
+        CoeffsForProds,
     },
     field::Field,
     util::UUID,
 };
 
-pub type PositionMap = HashMap<(usize, u128), usize>;
+// ((step_idx, step_UUID), assignment_offset)
+pub type AssignmentOffsets = HashMap<(usize, u128), usize>;
 
 #[allow(non_snake_case)]
 pub fn chiquito2CCS<F: Field + From<u64> + Hash>(circuit: Circuit<F>) -> ChiquitoCCS<F> {
@@ -17,7 +19,6 @@ pub fn chiquito2CCS<F: Field + From<u64> + Hash>(circuit: Circuit<F>) -> Chiquit
 }
 
 pub struct ChiquitoCCS<F: Field + From<u64>> {
-    pub debug: bool,
     pub circuit: Circuit<F>,
     pub ir_id: UUID,
 }
@@ -25,31 +26,18 @@ pub struct ChiquitoCCS<F: Field + From<u64>> {
 impl<F: Field + From<u64> + Hash> ChiquitoCCS<F> {
     pub fn new(circuit: Circuit<F>) -> ChiquitoCCS<F> {
         let ir_id = circuit.ast_id;
-        Self {
-            debug: true,
-            circuit,
-            ir_id,
-        }
+        Self { circuit, ir_id }
     }
 }
 
 pub struct ChiquitoCCSCircuit<F: Field + From<u64>> {
     pub compiled: ChiquitoCCS<F>,
-    pub steps_id: Option<StepsID>,
     pub witness: Option<Assignments<F>>,
 }
 
 impl<F: Field + From<u64> + Hash> ChiquitoCCSCircuit<F> {
-    pub fn new(
-        compiled: ChiquitoCCS<F>,
-        witness: Option<Assignments<F>>,
-        steps_id: Option<StepsID>,
-    ) -> Self {
-        Self {
-            compiled,
-            witness,
-            steps_id,
-        }
+    pub fn new(compiled: ChiquitoCCS<F>, witness: Option<Assignments<F>>) -> Self {
+        Self { compiled, witness }
     }
 
     pub fn instance(&self) -> HashMap<(usize, UUID), F> {
@@ -65,56 +53,46 @@ impl<F: Field + From<u64> + Hash> ChiquitoCCSCircuit<F> {
         &self,
         n: usize,
         num: usize,
-        witness_pos: &PositionMap,
+        assign_pos: &AssignmentOffsets,
     ) -> (Vec<Matrix<F>>, usize) {
-        let mut m = self.num_poly();
-        let mut matrix_vec = vec![Matrix::new(n, m); num];
+        let mut matrix_vec = vec![Matrix::new(n, self.num_poly()); num];
         let mut row = 0;
-        if let Some(steps_id) = self.steps_id.as_ref() {
-            for (idx, step_id) in steps_id.0.iter().enumerate() {
-                // step
-                let matrics = self.compiled.circuit.matrics.get(step_id).unwrap();
 
-                for matrics in matrics.iter() {
+        if let Some(steps_id) = self.witness.as_ref() {
+            let step_num = steps_id.len();
+            for (step_idx, (step_id, _)) in steps_id.iter().enumerate() {
+                for coeffs_one_poly in self
+                    .compiled
+                    .circuit
+                    .matrix_coeffs_and_offsets
+                    .get(step_id)
+                    .unwrap()
+                    .iter()
+                {
                     // poly
-                    if idx == steps_id.0.len() - 1 {
-                        let mut skip = false;
-                        for (matrics, _) in matrics.iter() {
-                            if skip {
-                                break;
-                            }
-                            for (_, _, next) in matrics.concat().iter() {
-                                if *next {
-                                    skip = true;
-                                    break;
-                                }
-                            }
-                        }
-                        if skip {
-                            m -= 1;
-                            continue;
-                        }
+                    if is_last_step_with_next_signal(coeffs_one_poly, step_num, step_idx) {
+                        continue;
                     }
 
-                    for (matrix_chunks, index) in matrics.iter() {
+                    for (coeffs_chunks, index) in coeffs_one_poly.iter() {
                         // chunk
                         assert!(*index <= self.compiled.circuit.selectors.len());
                         let selectors = self.compiled.circuit.selectors[*index].clone();
-                        assert_eq!(matrix_chunks.len(), selectors.len());
+                        assert_eq!(coeffs_chunks.len(), selectors.len());
 
-                        for (items, (selector, _)) in matrix_chunks.iter().zip(selectors.iter()) {
+                        for (coeffs, (selector, _)) in coeffs_chunks.iter().zip(selectors.iter()) {
                             // one row in on matrix
                             let mut values: Vec<(usize, usize, F)> = Vec::new();
-                            for (v, id, next) in items.iter() {
-                                let idx = if *next { idx + 1 } else { idx };
-                                let col = if *id == 0 {
-                                    witness_pos.get(&(0, 0))
+                            for (value, signal_id, next) in coeffs.iter() {
+                                let col = if *signal_id == 0 {
+                                    assign_pos.get(&(0, 0))
                                 } else {
-                                    witness_pos.get(&(idx, *id))
+                                    let idx = if *next { step_idx + 1 } else { step_idx };
+                                    assign_pos.get(&(idx, *signal_id))
                                 };
                                 match col {
                                     None => continue,
-                                    Some(col) => values.push((row, *col, *v)),
+                                    Some(col) => values.push((row, *col, *value)),
                                 }
                             }
                             matrix_vec[*selector].write(&values);
@@ -126,60 +104,92 @@ impl<F: Field + From<u64> + Hash> ChiquitoCCSCircuit<F> {
         };
 
         for matrix in matrix_vec.iter_mut() {
-            if row < matrix.m {
-                matrix.remove_rows(row);
-            }
+            matrix.reduce_rows(row);
         }
-        (matrix_vec, m)
+        (matrix_vec, row)
     }
 
     fn num_poly(&self) -> usize {
-        self.steps_id
+        self.witness
             .as_ref()
             .map(|steps_idx| {
                 steps_idx
-                    .0
                     .iter()
-                    .map(|idx| self.compiled.circuit.matrics.get(idx).unwrap().len())
+                    .map(|(idx, _)| {
+                        self.compiled
+                            .circuit
+                            .matrix_coeffs_and_offsets
+                            .get(idx)
+                            .unwrap()
+                            .len()
+                    })
                     .sum()
             })
             .unwrap()
     }
 
-    fn coeffs_offsets(&self) -> (PositionMap, PositionMap) {
+    fn coeffs_offsets(&self) -> (AssignmentOffsets, usize, usize) {
+        let mut public_pos = HashMap::new();
+        for (offset, (step_idx, signal_uuid)) in self.compiled.circuit.exposed.iter().enumerate() {
+            public_pos.insert((*step_idx, *signal_uuid), offset);
+        }
+
         let mut witness_pos = HashMap::new();
         let mut offset = 0;
         witness_pos.insert((0, 0), offset);
         offset += 1;
-        if let Some(steps_id) = self.steps_id.as_ref() {
-            for (idx, step_idx) in steps_id.0.iter().enumerate() {
-                let witnesses = self.compiled.circuit.witness.get(step_idx).unwrap();
-                for id in witnesses.iter() {
-                    witness_pos.insert((idx, *id), offset);
-                    offset += 1;
+        if let Some(assignments) = self.witness.as_ref() {
+            for (step_idx, (step_id, _)) in assignments.iter().enumerate() {
+                let signal_uuids = self.compiled.circuit.witness.get(step_id).unwrap();
+                for id in signal_uuids.iter() {
+                    let exist = public_pos.get(&(step_idx, *id));
+                    if exist.is_none() {
+                        witness_pos.insert((step_idx, *id), offset);
+                        offset += 1;
+                    }
                 }
             }
         }
-        let mut public_pos = HashMap::new();
-        for (idx, id) in self.compiled.circuit.exposed.iter() {
-            public_pos.insert((*idx, *id), offset);
+
+        for ((step_idx, id), v) in public_pos.iter() {
+            witness_pos.insert((*step_idx, *id), v + offset);
             offset += 1;
         }
-        // todo: remove public values
-        (witness_pos, public_pos)
+        (witness_pos, offset, public_pos.len())
     }
+}
+
+fn is_last_step_with_next_signal<F: Clone>(
+    coeffs_one_poly: &[(CoeffsForProds<F>, usize)],
+    step_num: usize,
+    step_idx: usize,
+) -> bool {
+    let mut skip = false;
+    if step_idx == step_num - 1 {
+        for (coeffs_for_prods, _) in coeffs_one_poly.iter() {
+            if skip {
+                break;
+            }
+            for (_, _, next) in coeffs_for_prods.concat().iter() {
+                if *next {
+                    skip = true;
+                    break;
+                }
+            }
+        }
+    }
+    skip
 }
 
 impl<F: Field + From<u64> + Hash> ChiquitoCCSCircuit<F> {
     pub fn configure(&self) -> (CCSCircuit<F>, Z<F>) {
-        let (ccs, witness_pos, public_pos) = CCSCircuit::from_circuit(self);
+        let (ccs, assign_pos) = CCSCircuit::from_circuit(self);
         let mut z: Z<F> = Z::new(ccs.n, ccs.l);
 
         z.write(
             &self.instance(),
             self.witness.as_deref().unwrap(),
-            &witness_pos,
-            &public_pos,
+            &assign_pos,
         );
         (ccs, z)
     }
@@ -219,27 +229,20 @@ impl<F: Field + From<u64> + Hash> CCSCircuit<F> {
         }
     }
 
-    pub fn from_circuit(circuit: &ChiquitoCCSCircuit<F>) -> (Self, PositionMap, PositionMap) {
+    pub fn from_circuit(circuit: &ChiquitoCCSCircuit<F>) -> (Self, AssignmentOffsets) {
         let selectors = circuit.compiled.circuit.selectors.clone();
-        let constants = (0..circuit.compiled.circuit.q).map(|_| F::ONE).collect();
+        let constants = circuit.compiled.circuit.constants.clone();
 
-        let mut matrix_num = 0;
-        for selector in selectors.iter() {
-            for (idx, _) in selector.iter() {
-                matrix_num = matrix_num.max(*idx + 1);
-            }
-        }
+        let (assign_pos, n, l) = circuit.coeffs_offsets();
 
-        let (witness_pos, public_pos) = circuit.coeffs_offsets();
-        let n = witness_pos.len() + public_pos.len();
-
-        let (matrix_vec, m) = circuit.export_matrix_vec(n, matrix_num, &witness_pos);
+        let matrix_num = calc_matrix_num(&selectors);
+        let (matrix_vec, m) = circuit.export_matrix_vec(n, matrix_num, &assign_pos);
 
         (
             Self {
                 n,
                 m,
-                l: public_pos.len(),
+                l,
                 t: circuit.compiled.circuit.t,
                 q: circuit.compiled.circuit.q,
                 d: circuit.compiled.circuit.d,
@@ -247,8 +250,7 @@ impl<F: Field + From<u64> + Hash> CCSCircuit<F> {
                 selectors,
                 constants,
             },
-            witness_pos,
-            public_pos,
+            assign_pos,
         )
     }
 
@@ -364,6 +366,16 @@ pub fn vec_add<F: Field + From<u64> + Hash>(vec: &[Vec<F>]) -> Vec<F> {
     })
 }
 
+fn calc_matrix_num<F>(selectors: &SelectorsOffsetAndCoeff<F>) -> usize {
+    let mut matrix_num = 0;
+    for selector in selectors.iter() {
+        for (idx, _) in selector.iter() {
+            matrix_num = matrix_num.max(*idx + 1);
+        }
+    }
+    matrix_num
+}
+
 #[derive(Debug, Clone)]
 pub struct Matrix<F> {
     n: usize,
@@ -394,10 +406,11 @@ impl<F: Field> Matrix<F> {
         self.values[row][col]
     }
 
-    pub fn remove_rows(&mut self, m: usize) {
-        assert!(m <= self.m);
-        self.values = self.values[0..m].to_owned();
-        self.m = m;
+    pub fn reduce_rows(&mut self, m: usize) {
+        if m < self.m {
+            self.values = self.values[0..m].to_owned();
+            self.m = m;
+        }
     }
 
     pub fn size(&self) -> (usize, usize) {
@@ -445,25 +458,27 @@ impl<F: Field + From<u64> + Hash> Z<F> {
     pub fn write(
         &mut self,
         inputs: &HashMap<(usize, UUID), F>,
-        witnesses: &[HashMap<UUID, F>],
-        witness_pos: &PositionMap,
-        public_pos: &PositionMap,
+        witnesses: &[(UUID, HashMap<UUID, F>)],
+        assign_pos: &AssignmentOffsets,
     ) {
         assert_eq!(inputs.len(), self.l);
-
-        let mut witness_values = vec![F::ZERO; witness_pos.len() - 1];
-        for ((step_idx, signal_id), idx) in witness_pos.iter() {
+        assert_eq!(assign_pos.len(), self.n);
+        let witness_len = self.n - self.l - 1;
+        let mut witness_values = vec![F::ZERO; witness_len];
+        let mut public_values = vec![F::ZERO; self.l];
+        for ((step_idx, signal_id), idx) in assign_pos.iter() {
             if *signal_id == 0 {
                 continue;
             }
-            witness_values[idx - 1] = *witnesses[*step_idx].get(signal_id).unwrap();
+            if *idx < self.n - self.l {
+                witness_values[*idx - 1] = *witnesses[*step_idx].1.get(signal_id).unwrap();
+            } else {
+                public_values[*idx - witness_len - 1] =
+                    *inputs.get(&(*step_idx, *signal_id)).unwrap();
+            }
         }
-        let mut public_values = vec![F::ZERO; public_pos.len()];
-        for (pos, idx) in public_pos.iter() {
-            public_values[idx - witness_pos.len()] = *inputs.get(pos).unwrap();
-        }
-        self.assignments = witness_values.clone();
-        self.public_inputs = public_values.clone();
+        self.assignments = witness_values;
+        self.public_inputs = public_values;
     }
 
     pub fn write_with_values(&mut self, inputs: &[F], witnesses: &[F]) {

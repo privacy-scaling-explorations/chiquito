@@ -1,7 +1,7 @@
 use crate::{
     ccs::{
         compiler::SignalPlacement,
-        ir::{assignments::Coeffs, circuit::Circuit, Poly},
+        ir::{circuit::Circuit, CoeffsForSteps, Poly},
     },
     field::Field,
     sbpir::{FixedSignal, ForwardSignal, SharedSignal, StepType, SBPIR as astCircuit},
@@ -18,6 +18,7 @@ pub struct CompilationUnit<F> {
     pub uuid: UUID,
     pub annotations: HashMap<UUID, String>,
 
+    pub placement: Placement,
     pub forward_signals: Vec<ForwardSignal>,
     pub shared_signals: Vec<SharedSignal>,
     pub fixed_signals: Vec<FixedSignal>,
@@ -25,11 +26,11 @@ pub struct CompilationUnit<F> {
     pub num_steps: usize,
     pub step_types: HashMap<UUID, Rc<StepType<F>>>,
 
-    pub placement: Placement,
     pub exposed: Vec<(usize, SignalPlacement)>,
+
     pub polys: HashMap<UUID, Vec<Poly<F>>>,
     pub selector: StepSelector<F>,
-    pub matrix_values: HashMap<UUID, Coeffs<F>>,
+    pub matrix_coeffs: CoeffsForSteps<F>,
 }
 
 impl<F> Default for CompilationUnit<F> {
@@ -47,7 +48,7 @@ impl<F> Default for CompilationUnit<F> {
             selector: Default::default(),
             polys: Default::default(),
             placement: Default::default(),
-            matrix_values: Default::default(),
+            matrix_coeffs: Default::default(),
         }
     }
 }
@@ -85,13 +86,13 @@ impl<F: Field + Hash> From<CompilationUnit<F>> for Circuit<F> {
             .iter()
             .map(|(step, exposed)| (*step, exposed.uuid()))
             .collect();
-        let mut witnesses = HashMap::new();
 
-        for (step_uuid, _) in unit.matrix_values.iter() {
-            let mut values: Vec<UUID> = unit.placement.forward.keys().copied().collect();
-            values.append(&mut unit.placement.shared.keys().copied().collect());
-            values.append(&mut unit.placement.fixed.keys().copied().collect());
-            values.append(
+        let mut witnesses = HashMap::new();
+        for (step_uuid, _) in unit.matrix_coeffs.iter() {
+            let mut signal_uuids: Vec<UUID> = unit.placement.forward.keys().copied().collect();
+            signal_uuids.append(&mut unit.placement.shared.keys().copied().collect());
+            signal_uuids.append(&mut unit.placement.fixed.keys().copied().collect());
+            signal_uuids.append(
                 &mut unit
                     .placement
                     .step(*step_uuid)
@@ -100,10 +101,10 @@ impl<F: Field + Hash> From<CompilationUnit<F>> for Circuit<F> {
                     .copied()
                     .collect(),
             );
-            witnesses.insert(*step_uuid, values);
+            witnesses.insert(*step_uuid, signal_uuids);
         }
 
-        circuit.write(&unit.matrix_values, &unit.selector, &exposed, &witnesses);
+        circuit.write(&unit.matrix_coeffs, &unit.selector, &exposed, &witnesses);
 
         circuit
     }

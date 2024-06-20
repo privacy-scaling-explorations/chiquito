@@ -123,8 +123,7 @@ fn main() {
     let (chiquito, wit_gen, _) = fibo_circuit_ccs::<Fr>();
     let compiled = chiquito2CCS(chiquito);
 
-    let (witness, steps) = wit_gen.map(|g| g.generate(())).unzip();
-    let circuit = ChiquitoCCSCircuit::new(compiled, witness, steps);
+    let circuit = ChiquitoCCSCircuit::new(compiled, wit_gen.map(|g| g.generate(())));
 
     let (ccs, z) = circuit.configure();
     let result = ccs.is_satisfied(&z);
@@ -132,8 +131,7 @@ fn main() {
 
     let (chiquito, wit_gen, _) = fibo_circuit_ccs::<Fr>();
     let compiled = chiquito2CCS(chiquito);
-    let (witness, steps) = wit_gen.map(|g| g.generate(())).unzip();
-    let circuit = ChiquitoCCSCircuit::new(compiled, witness, steps);
+    let circuit = ChiquitoCCSCircuit::new(compiled, wit_gen.map(|g| g.generate(())));
     let (circuit, z) = circuit.configure();
 
     let ccs = CCS {
