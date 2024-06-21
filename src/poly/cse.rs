@@ -94,103 +94,48 @@ fn replace_common_subexprs_rec<
     assignments: &VarAssignments<F, V>,
     signal_factory: &mut SF,
 ) -> Expr<F, V, ()> {
-    // find the expression on the hashed_exprs and count the occurrences for the Rc<Expr<F, V,
-    // HashResult>>
-    let hashed_constr = constr.hash(assignments);
-    if let Some(matched_expr) = hashed_exprs
-        .into_iter()
-        .find(|expr| expr.meta().hash == hashed_constr.meta().hash)
-    {
-        // if the expression is found and the occurrences are greater than 1
-        // check if there is already a signal for the expression
-        // create a new signal and add the expression to the decomp
-        // replace the expression with the new signal
-        // if the expression is not found or the occurrences are 1
-        // recursively call the function for each subexpression
-        // and return the new expression
-        if Rc::strong_count(matched_expr) > 1 {
-            // TODO: check if there is already a signal for the expression
-            // if there is, use the signal
-            // if there isn't, create a new signal
-            // add the expression to the decomp
-            // replace the expression with the new signal
-            let signal =
-                if let Some(auto_signal) = decomp.auto_signals.iter().find(|(_, expr)| {
-                    matched_expr.meta().hash == expr.hash(assignments).meta().hash
-                }) {
-                    auto_signal.0.clone()
-                } else {
-                    let new_signal = signal_factory.create("cse");
-                    decomp.auto_eq(new_signal.clone(), constr);
-                    new_signal
-                };
-
-            return Expr::Query(signal, ());
-        }
-    }
-
     match constr {
         Expr::Const(_, _) | Expr::Query(_, _) => constr,
         Expr::Halo2Expr(_, _) => unimplemented!(),
-        Expr::Sum(ses, _) => Expr::Sum(
-            ses.into_iter()
-                .map(|se| {
-                    replace_common_subexprs_rec(
-                        decomp,
-                        se,
-                        hashed_exprs,
-                        assignments,
-                        signal_factory,
-                    )
-                })
-                .collect(),
-            (),
-        ),
-        Expr::Mul(ses, _) => Expr::Mul(
-            ses.into_iter()
-                .map(|se| {
-                    replace_common_subexprs_rec(
-                        decomp,
-                        se,
-                        hashed_exprs,
-                        assignments,
-                        signal_factory,
-                    )
-                })
-                .collect(),
-            (),
-        ),
-        Expr::Neg(se, _) => Expr::Neg(
-            Box::new(replace_common_subexprs_rec(
-                decomp,
-                *se,
-                hashed_exprs,
-                assignments,
-                signal_factory,
-            )),
-            (),
-        ),
-        Expr::Pow(se, exp, _) => Expr::Pow(
-            Box::new(replace_common_subexprs_rec(
-                decomp,
-                *se,
-                hashed_exprs,
-                assignments,
-                signal_factory,
-            )),
-            exp,
-            (),
-        ),
-        Expr::MI(se, _) => Expr::MI(
-            Box::new(replace_common_subexprs_rec(
-                decomp,
-                *se,
-                hashed_exprs,
-                assignments,
-                signal_factory,
-            )),
-            (),
-        ),
+        _ => {
+            // find the expression on the hashed_exprs and count the occurrences for the Rc<Expr<F,
+            // V, HashResult>>
+            let hashed_constr = constr.hash(assignments);
+            if let Some(matched_expr) = hashed_exprs
+                .into_iter()
+                .find(|expr| expr.meta().hash == hashed_constr.meta().hash)
+            {
+                // if the expression is found and the occurrences are greater than 1
+                // check if there is already a signal for the expression
+                // create a new signal and add the expression to the decomp
+                // replace the expression with the new signal
+                // if the expression is not found or the occurrences are 1
+                // recursively call the function for each subexpression
+                // and return the new expression
+                if Rc::strong_count(matched_expr) > 1 {
+                    // TODO: check if there is already a signal for the expression
+                    // if there is, use the signal
+                    // if there isn't, create a new signal
+                    // add the expression to the decomp
+                    // replace the expression with the new signal
+                    let signal = if let Some(auto_signal) =
+                        decomp.auto_signals.iter().find(|(_, expr)| {
+                            matched_expr.meta().hash == expr.hash(assignments).meta().hash
+                        }) {
+                        auto_signal.0.clone()
+                    } else {
+                        let new_signal = signal_factory.create("cse");
+                        new_signal
+                    };
+
+                    decomp.auto_signals.insert(signal.clone(), constr);
+
+                    return Expr::Query(signal, ());
+                }
+            }
+
+            constr
+        }
     }
 }
 
@@ -306,6 +251,10 @@ mod test {
         println!("{:#?}", hashed_exprs);
 
         let mut decomp = ConstrDecomp::default();
+
+        decomp.constrs.push(expr1.clone());
+        decomp.constrs.push(expr2.clone());
+        decomp.constrs.push(expr3.clone());
 
         let signal_factory = &mut TestSignalFactory::default();
 

@@ -1,6 +1,5 @@
 use std::{collections::HashMap, hash::Hash, marker::PhantomData};
 
-use halo2_proofs::circuit;
 use num_bigint::BigInt;
 
 use crate::{
