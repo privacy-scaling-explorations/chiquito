@@ -116,9 +116,9 @@ fn fibo_circuit_ccs<F: Field + From<u64> + Hash>() -> FiboReturn<F> {
 // integrated into a Halo2 circuit, which is done by the boilerplate code below.
 
 use ark_bn254::Fr as FFr;
-use ark_std::log2;
-use folding_schemes::{ccs::CCS, utils::vec::dense_matrix_to_sparse};
+use ark_ff::BigInt;
 use halo2_proofs::halo2curves::{bn256::Fr, ff::PrimeField};
+
 fn main() {
     let (chiquito, wit_gen, _) = fibo_circuit_ccs::<Fr>();
     let compiled = chiquito2CCS(chiquito);
@@ -134,76 +134,26 @@ fn main() {
     let circuit = ChiquitoCCSCircuit::new(compiled, wit_gen.map(|g| g.generate(())));
     let (circuit, z) = circuit.configure();
 
-    let ccs = CCS {
-        m: circuit.m,
-        n: circuit.n,
-        l: circuit.l,
-        t: circuit.t,
-        q: circuit.q,
-        d: circuit.d,
-        s: log2(circuit.m) as usize,
-        s_prime: log2(circuit.n) as usize,
-        M: circuit
-            .matrics
-            .iter()
-            .map(|matrix| {
-                let values = matrix
-                    .values()
-                    .iter()
-                    .map(|m| {
-                        m.iter()
-                            .map(|r| {
-                                // todo()
-                                if Fr::ONE.neg().eq(r) {
-                                    FFr::from(-1)
-                                } else {
-                                    let mut array = [0u8; 8];
-                                    array.copy_from_slice(&r.to_repr().as_ref()[0..8]);
-                                    FFr::from(u64::from_le_bytes(array))
-                                }
-                            })
-                            .collect()
-                    })
-                    .collect();
-                dense_matrix_to_sparse(values)
-            })
-            .collect(),
-        S: circuit
-            .selectors
-            .iter()
-            .map(|selectors| selectors.iter().map(|(idx, _)| *idx).collect())
-            .collect(),
-        c: (0..circuit.q).map(|_| FFr::from(1)).collect(),
-    };
-
-    let assignments = z
-        .assignments
-        .iter()
-        .map(|r| {
-            if Fr::ONE.neg().eq(r) {
-                FFr::from(-1)
-            } else {
-                let mut array = [0u8; 8];
-                array.copy_from_slice(&r.to_repr().as_ref()[0..8]);
-                FFr::from(u64::from_le_bytes(array))
-            }
-        })
-        .collect();
-    let public_inputs = z
-        .public_inputs
-        .iter()
-        .map(|r| {
-            if Fr::ONE.neg().eq(r) {
-                FFr::from(-1)
-            } else {
-                let mut array = [0u8; 8];
-                array.copy_from_slice(&r.to_repr().as_ref()[0..8]);
-                FFr::from(u64::from_le_bytes(array))
-            }
-        })
-        .collect();
-    let inputs = [vec![FFr::from(1)], assignments, public_inputs].concat();
+    let ccs = circuit.convert_to_sonobe_circuit(fr_convert);
+    let inputs = z.convert_to_sonobe_inputs(fr_convert);
 
     let result = ccs.check_relation(&inputs);
     println!("sonobe fibonacci = {:?}", result);
+}
+
+fn fr_convert(r: &Fr) -> FFr {
+    let mut array1 = [0u8; 8];
+    array1.copy_from_slice(&r.to_repr().as_ref()[0..8]);
+    let mut array2 = [0u8; 8];
+    array2.copy_from_slice(&r.to_repr().as_ref()[8..16]);
+    let mut array3 = [0u8; 8];
+    array3.copy_from_slice(&r.to_repr().as_ref()[16..24]);
+    let mut array4 = [0u8; 8];
+    array4.copy_from_slice(&r.to_repr().as_ref()[24..32]);
+    FFr::from(BigInt::new([
+        u64::from_le_bytes(array1),
+        u64::from_le_bytes(array2),
+        u64::from_le_bytes(array3),
+        u64::from_le_bytes(array4),
+    ]))
 }

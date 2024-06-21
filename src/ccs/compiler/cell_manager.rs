@@ -24,7 +24,6 @@ impl CellManager for SingleRowCellManager {
             placement.forward.insert(
                 signal.uuid(),
                 SignalPlacement::new(signal.uuid(), signal.annotation()),
-                // SignalPlacement::new(signal.uuid(), signal.annotation(), forward_signals),
             );
             forward_signals += 1;
         }
@@ -33,11 +32,7 @@ impl CellManager for SingleRowCellManager {
         for signal in unit.shared_signals.iter() {
             placement.shared.insert(
                 signal.uuid(),
-                SignalPlacement::new(
-                    signal.uuid(),
-                    signal.annotation(),
-                    // forward_signals + shared_signals,
-                ),
+                SignalPlacement::new(signal.uuid(), signal.annotation()),
             );
             shared_signals += 1;
         }
@@ -46,11 +41,7 @@ impl CellManager for SingleRowCellManager {
         for signal in unit.fixed_signals.iter() {
             placement.fixed.insert(
                 signal.uuid(),
-                SignalPlacement::new(
-                    signal.uuid(),
-                    signal.annotation(),
-                    // forward_signals + shared_signals + fixed_signals,
-                ),
+                SignalPlacement::new(signal.uuid(), signal.annotation()),
             );
             fixed_signals += 1;
         }
@@ -63,7 +54,6 @@ impl CellManager for SingleRowCellManager {
             for signal in step.signals.iter() {
                 step_placement.signals.insert(
                     signal.uuid(),
-                    // SignalPlacement::new(signal.uuid(), signal.annotation(), internal_signals),
                     SignalPlacement::new(signal.uuid(), signal.annotation()),
                 );
                 internal_signals += 1;

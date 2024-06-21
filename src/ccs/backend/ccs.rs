@@ -69,13 +69,11 @@ impl<F: Field + From<u64> + Hash> ChiquitoCCSCircuit<F> {
                     .unwrap()
                     .iter()
                 {
-                    // poly
                     if is_last_step_with_next_signal(coeffs_one_poly, step_num, step_idx) {
                         continue;
                     }
 
                     for (coeffs_chunks, index) in coeffs_one_poly.iter() {
-                        // chunk
                         assert!(*index <= self.compiled.circuit.selectors.len());
                         let selectors = self.compiled.circuit.selectors[*index].clone();
                         assert_eq!(coeffs_chunks.len(), selectors.len());
@@ -128,7 +126,7 @@ impl<F: Field + From<u64> + Hash> ChiquitoCCSCircuit<F> {
             .unwrap()
     }
 
-    fn coeffs_offsets(&self) -> (AssignmentOffsets, usize, usize) {
+    fn assignments_coeff_offset(&self) -> (AssignmentOffsets, usize, usize) {
         let mut public_pos = HashMap::new();
         for (offset, (step_idx, signal_uuid)) in self.compiled.circuit.exposed.iter().enumerate() {
             public_pos.insert((*step_idx, *signal_uuid), offset);
@@ -164,21 +162,16 @@ fn is_last_step_with_next_signal<F: Clone>(
     step_num: usize,
     step_idx: usize,
 ) -> bool {
-    let mut skip = false;
     if step_idx == step_num - 1 {
         for (coeffs_for_prods, _) in coeffs_one_poly.iter() {
-            if skip {
-                break;
-            }
             for (_, _, next) in coeffs_for_prods.concat().iter() {
                 if *next {
-                    skip = true;
-                    break;
+                    return true;
                 }
             }
         }
     }
-    skip
+    false
 }
 
 impl<F: Field + From<u64> + Hash> ChiquitoCCSCircuit<F> {
@@ -233,7 +226,7 @@ impl<F: Field + From<u64> + Hash> CCSCircuit<F> {
         let selectors = circuit.compiled.circuit.selectors.clone();
         let constants = circuit.compiled.circuit.constants.clone();
 
-        let (assign_pos, n, l) = circuit.coeffs_offsets();
+        let (assign_pos, n, l) = circuit.assignments_coeff_offset();
 
         let matrix_num = calc_matrix_num(&selectors);
         let (matrix_vec, m) = circuit.export_matrix_vec(n, matrix_num, &assign_pos);
