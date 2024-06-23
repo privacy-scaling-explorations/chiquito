@@ -2,48 +2,153 @@ use rand_chacha::{rand_core::SeedableRng, ChaCha20Rng};
 
 use crate::field::Field;
 
-use std::{
-    collections::HashMap,
-    fmt::Debug,
-    hash::Hash,
-    rc::{Rc, Weak},
-};
+use std::{collections::HashMap, fmt::Debug, hash::Hash};
 
 use super::{ConstrDecomp, Expr, HashResult, SignalFactory, VarAssignments};
+
+#[derive(Debug, Clone)]
+pub struct CommonExpr<F, V> {
+    pub expr: Expr<F, V, HashResult>,
+    pub count: usize,
+}
+
+#[derive(Debug, Clone)]
+pub struct Config {
+    pub min_degree: Option<usize>,
+    pub min_occurrences: Option<usize>,
+}
+
+impl Default for Config {
+    fn default() -> Self {
+        Config {
+            min_degree: Some(2),
+            min_occurrences: Some(2),
+        }
+    }
+}
 
 /// Common Subexpression Elimination - takes a collection of expr
 pub fn cse<F: Field + Hash, V: Debug + Clone + Eq + Hash>(
     exprs: &Vec<Expr<F, V, ()>>,
     queriables: &Vec<V>,
-) -> (Vec<Rc<Expr<F, V, HashResult>>>, VarAssignments<F, V>) {
+    config: Option<Config>,
+) -> (Vec<CommonExpr<F, V>>, VarAssignments<F, V>) {
+    // Determine the minimum degree, defaulting to 2 if not provided
+    let config = config.unwrap_or_default();
+    let min_degree = config.min_degree.unwrap_or(2);
+    let min_occurrences = config.min_occurrences.unwrap_or(2);
+
     // generate random point in the field set
     let assignments = generate_random_assignment(queriables);
 
     // hash table with the hash of the expression as the key
     // and the weak reference to the expression as the value
-    let mut seen_hashes: HashMap<u64, Weak<Expr<F, V, HashResult>>> = HashMap::new();
+    let mut seen_hashes: HashMap<u64, Expr<F, V, HashResult>> = HashMap::new();
+    let mut all_hashed_exprs: Vec<Expr<F, V, HashResult>> = Vec::new();
 
-    let mut result = Vec::new();
-
+    // Hash expressions recursively and collect all subexpressions
     for expr in exprs {
-        let hashed_expr = Rc::new(expr.hash(&assignments));
-        let hash = hashed_expr.meta().hash;
-
-        // if the hash is already in the hash table,
-        // push the existing expression to the result
-        if let Some(existing_weak) = seen_hashes.get(&hash) {
-            if let Some(existing_expr) = existing_weak.upgrade() {
-                result.push(existing_expr);
-                continue;
-            }
-        }
-
-        // otherwise, insert the hash and the weak reference to the expression
-        seen_hashes.insert(hash, Rc::downgrade(&hashed_expr));
-        result.push(hashed_expr);
+        let subexprs = hash_recursive(expr, &assignments, &mut seen_hashes, min_degree);
+        all_hashed_exprs.extend(subexprs);
     }
 
-    (result, assignments)
+    // count how many times each expression appears
+    let expr_count = count_expression_occurrences(&all_hashed_exprs);
+
+    // Collect common expressions
+    let common_exprs = collect_common_expressions(&seen_hashes, &expr_count, min_occurrences);
+
+    (common_exprs, assignments)
+}
+
+/// Counts how many times each hashed expression appears.
+fn count_expression_occurrences<F, V>(
+    hashed_exprs: &Vec<Expr<F, V, HashResult>>,
+) -> HashMap<u64, u32> {
+    let mut expr_count = HashMap::new();
+    for hashed_expr in hashed_exprs {
+        let hash = hashed_expr.meta().hash;
+        let count = expr_count.entry(hash).or_insert(0);
+        *count += 1;
+    }
+    expr_count
+}
+
+/// Collects common expressions into a vector of CommonExpr.
+fn collect_common_expressions<F: Field + Hash, V: Debug + Clone + Eq + Hash>(
+    seen_hashes: &HashMap<u64, Expr<F, V, HashResult>>,
+    expr_count: &HashMap<u64, u32>,
+    min_occurrences: usize,
+) -> Vec<CommonExpr<F, V>> {
+    seen_hashes
+        .iter()
+        .filter_map(|(&hash, expr)| {
+            expr_count
+                .get(&hash)
+                .filter(|&&count| count >= min_occurrences as u32)
+                .map(|&count| CommonExpr {
+                    expr: expr.clone(),
+                    count: count as usize,
+                })
+        })
+        .collect()
+}
+
+/// Recursive function to hash expressions and sub-expressions
+fn hash_recursive<F: Field + Hash, V: Debug + Clone + Eq + Hash>(
+    expr: &Expr<F, V, ()>,
+    assignments: &VarAssignments<F, V>,
+    seen_hashes: &mut HashMap<u64, Expr<F, V, HashResult>>,
+    min_degree: usize,
+) -> Vec<Expr<F, V, HashResult>> {
+    let mut hashed_exprs = Vec::new();
+
+    fn hash_and_collect<F: Field + Hash, V: Debug + Clone + Eq + Hash>(
+        expr: &Expr<F, V, ()>,
+        assignments: &VarAssignments<F, V>,
+        seen_hashes: &mut HashMap<u64, Expr<F, V, HashResult>>,
+        min_degree: usize,
+        hashed_exprs: &mut Vec<Expr<F, V, HashResult>>,
+    ) {
+        let hashed_expr = expr.hash(assignments);
+
+        // Insert the hashed expression into the seen_hashes if not already present,
+        // but skip if the expression is a Const or Query
+        if !matches!(expr, Expr::Const(_, _) | Expr::Query(_, _)) {
+            let hash = hashed_expr.meta().hash;
+            seen_hashes
+                .entry(hash)
+                .or_insert_with(|| hashed_expr.clone());
+        }
+
+        // Add the hashed expression to the list of all hashed expressions
+        hashed_exprs.push(hashed_expr.clone());
+
+        // Recur for sub-expressions if the degree is above the minimum threshold
+        if expr.degree() >= min_degree {
+            match expr {
+                Expr::Sum(ses, _) | Expr::Mul(ses, _) => {
+                    for se in ses {
+                        hash_and_collect(se, assignments, seen_hashes, min_degree, hashed_exprs);
+                    }
+                }
+                Expr::Neg(se, _) | Expr::Pow(se, _, _) | Expr::MI(se, _) => {
+                    hash_and_collect(se, assignments, seen_hashes, min_degree, hashed_exprs);
+                }
+                _ => {}
+            }
+        }
+    }
+
+    hash_and_collect(
+        expr,
+        assignments,
+        seen_hashes,
+        min_degree,
+        &mut hashed_exprs,
+    );
+
+    hashed_exprs
 }
 
 fn generate_random_assignment<F: Field + Hash, V: Debug + Clone + Eq + Hash>(
@@ -67,18 +172,13 @@ pub fn replace_common_subexprs<
     SF: SignalFactory<V>,
 >(
     constr: Expr<F, V, ()>,
-    hashed_exprs: &Vec<Rc<Expr<F, V, HashResult>>>,
+    common_ses: &Vec<CommonExpr<F, V>>,
     assignments: &VarAssignments<F, V>,
     signal_factory: &mut SF,
 ) -> (Expr<F, V, ()>, ConstrDecomp<F, V>) {
     let mut decomp = ConstrDecomp::default();
-    let expr = replace_common_subexprs_rec(
-        &mut decomp,
-        constr,
-        hashed_exprs,
-        assignments,
-        signal_factory,
-    );
+    let expr =
+        replace_common_subexprs_rec(&mut decomp, constr, common_ses, assignments, signal_factory);
 
     (expr, decomp)
 }
@@ -90,51 +190,98 @@ fn replace_common_subexprs_rec<
 >(
     decomp: &mut ConstrDecomp<F, V>,
     constr: Expr<F, V, ()>,
-    hashed_exprs: &Vec<Rc<Expr<F, V, HashResult>>>,
+    common_ses: &Vec<CommonExpr<F, V>>,
     assignments: &VarAssignments<F, V>,
     signal_factory: &mut SF,
 ) -> Expr<F, V, ()> {
-    match constr {
-        Expr::Const(_, _) | Expr::Query(_, _) => constr,
-        Expr::Halo2Expr(_, _) => unimplemented!(),
-        _ => {
-            // find the expression on the hashed_exprs and count the occurrences for the Rc<Expr<F,
-            // V, HashResult>>
-            let hashed_constr = constr.hash(assignments);
-            if let Some(matched_expr) = hashed_exprs
-                .into_iter()
-                .find(|expr| expr.meta().hash == hashed_constr.meta().hash)
-            {
-                // if the expression is found and the occurrences are greater than 1
-                // check if there is already a signal for the expression
-                // create a new signal and add the expression to the decomp
-                // replace the expression with the new signal
-                // if the expression is not found or the occurrences are 1
-                // recursively call the function for each subexpression
-                // and return the new expression
-                if Rc::strong_count(matched_expr) > 1 {
-                    // TODO: check if there is already a signal for the expression
-                    // if there is, use the signal
-                    // if there isn't, create a new signal
-                    // add the expression to the decomp
-                    // replace the expression with the new signal
-                    let signal = if let Some(auto_signal) =
-                        decomp.auto_signals.iter().find(|(_, expr)| {
-                            matched_expr.meta().hash == expr.hash(assignments).meta().hash
-                        }) {
-                        auto_signal.0.clone()
-                    } else {
-                        let new_signal = signal_factory.create("cse");
-                        new_signal
-                    };
-
-                    decomp.auto_signals.insert(signal.clone(), constr);
-
-                    return Expr::Query(signal, ());
-                }
+    // check if the expression is a common subexpression
+    if let Some(_common_expr) = common_ses
+        .iter()
+        .find(|ce| constr.hash(assignments).meta().hash == ce.expr.meta().hash)
+    {
+        // if it is
+        // check if the signal already exists
+        // if it does, return the signal
+        // otherwise, create a new signal
+        let hash = constr.hash(assignments).meta().hash;
+        if let Some(signal) = decomp.auto_signals.iter().find_map(|(signal, expr)| {
+            if expr.hash(assignments).meta().hash == hash {
+                Some(signal.clone())
+            } else {
+                None
             }
-
-            constr
+        }) {
+            Expr::Query(signal, ())
+        } else {
+            let signal_key = format!("cse-{}", hash);
+            let new_signal = signal_factory.create(signal_key);
+            decomp.auto_signals.insert(new_signal.clone(), constr);
+            Expr::Query(new_signal, ())
+        }
+    } else {
+        // otherwise, replace the subexpressions recursively
+        match constr {
+            Expr::Sum(ses, meta) => {
+                let new_ses = ses
+                    .into_iter()
+                    .map(|se| {
+                        replace_common_subexprs_rec(
+                            decomp,
+                            se,
+                            common_ses,
+                            assignments,
+                            signal_factory,
+                        )
+                    })
+                    .collect();
+                Expr::Sum(new_ses, meta)
+            }
+            Expr::Mul(ses, meta) => {
+                let new_ses = ses
+                    .into_iter()
+                    .map(|se| {
+                        replace_common_subexprs_rec(
+                            decomp,
+                            se,
+                            common_ses,
+                            assignments,
+                            signal_factory,
+                        )
+                    })
+                    .collect();
+                Expr::Mul(new_ses, meta)
+            }
+            Expr::Neg(se, meta) => {
+                let new_se = replace_common_subexprs_rec(
+                    decomp,
+                    *se,
+                    common_ses,
+                    assignments,
+                    signal_factory,
+                );
+                Expr::Neg(Box::new(new_se), meta)
+            }
+            Expr::Pow(se, n, meta) => {
+                let new_se = replace_common_subexprs_rec(
+                    decomp,
+                    *se,
+                    common_ses,
+                    assignments,
+                    signal_factory,
+                );
+                Expr::Pow(Box::new(new_se), n, meta)
+            }
+            Expr::MI(se, meta) => {
+                let new_se = replace_common_subexprs_rec(
+                    decomp,
+                    *se,
+                    common_ses,
+                    assignments,
+                    signal_factory,
+                );
+                Expr::MI(Box::new(new_se), meta)
+            }
+            _ => constr,
         }
     }
 }
@@ -198,31 +345,23 @@ mod test {
         let expr5 = -(-f * g) * (-(-(-a)));
         let expr6 = -(f * g * a);
 
-        let exprs = vec![expr1, expr2, expr3, expr4, expr5, expr6];
+        // Different expressions with the same sub-expressions
+        let expr7 = a * b + b * a;
+        let expr8 = b * a + 3.expr();
 
-        let (result, _) = cse(&exprs, &vars);
+        let exprs = vec![expr1, expr2, expr3, expr4, expr5, expr6, expr7, expr8];
 
-        assert!(Rc::ptr_eq(&result[0], &result[1]));
-        assert!(Rc::ptr_eq(&result[2], &result[3]));
-        assert!(Rc::ptr_eq(&result[4], &result[5]));
-        assert!(!Rc::ptr_eq(&result[0], &result[2]));
-        assert!(!Rc::ptr_eq(&result[0], &result[4]));
-        assert!(!Rc::ptr_eq(&result[2], &result[4]));
+        let (common_ses, _) = cse(&exprs, &vars, None);
 
-        println!("Count occurrences of each expression:");
-        println!("{:#?}", Rc::strong_count(&result[0]));
+        print!("{:#?}", common_ses);
     }
 
     #[derive(Default)]
-    struct TestSignalFactory {
-        counter: u32,
-    }
+    struct TestSignalFactory {}
 
     impl SignalFactory<Queriable<Fr>> for TestSignalFactory {
-        fn create<S: Into<String>>(&mut self, _annotation: S) -> Queriable<Fr> {
-            self.counter += 1;
-
-            Queriable::Internal(InternalSignal::new(format!("cse{}", self.counter)))
+        fn create<S: Into<String>>(&mut self, annotation: S) -> Queriable<Fr> {
+            Queriable::Internal(InternalSignal::new(annotation))
         }
     }
 
@@ -242,51 +381,35 @@ mod test {
         // Equivalent expressions
         let expr1 = Pow(Box::new(e.expr()), 6, ()) * a * b + c * d - 1.expr();
         let expr2 = d * c - 1.expr() + a * b * Pow(Box::new(e.expr()), 6, ());
+
         let expr3 = a + b;
 
-        let exprs = vec![expr1.clone(), expr2.clone(), expr3.clone()];
+        // Different expressions with the same sub-expressions
+        let expr4 = a * b + b * a;
+        let expr5 = b * a + 3.expr();
 
-        let (hashed_exprs, assignments) = cse(&exprs, &vars);
+        let exprs = vec![expr1.clone(), expr2.clone(), expr3.clone(), expr4.clone(), expr5.clone()];
 
-        println!("{:#?}", hashed_exprs);
+        let (common_ses, assignments) = cse(&exprs, &vars, None);
+
+        println!("{:#?}", common_ses);
 
         let mut decomp = ConstrDecomp::default();
 
-        decomp.constrs.push(expr1.clone());
-        decomp.constrs.push(expr2.clone());
-        decomp.constrs.push(expr3.clone());
-
         let signal_factory = &mut TestSignalFactory::default();
 
-        let result1 = replace_common_subexprs_rec(
-            &mut decomp,
-            expr1,
-            &hashed_exprs,
-            &assignments,
-            signal_factory,
-        );
+        for expr in exprs {
+            decomp.constrs.push(expr.clone());
+            let result = replace_common_subexprs_rec(
+                &mut decomp,
+                expr,
+                &common_ses,
+                &assignments,
+                signal_factory,
+            );
 
-        let result2 = replace_common_subexprs_rec(
-            &mut decomp,
-            expr2,
-            &hashed_exprs,
-            &assignments,
-            signal_factory,
-        );
-
-        let result3 = replace_common_subexprs_rec(
-            &mut decomp,
-            expr3,
-            &hashed_exprs,
-            &assignments,
-            signal_factory,
-        );
-
-        println!("{:#?}", hashed_exprs);
-
-        println!("Result1: {:#?}", result1);
-        println!("Result2: {:#?}", result2);
-        println!("Result3: {:#?}", result3);
+            println!("Result: {:#?}", result);
+        }
 
         println!("Decomp: {:#?}", decomp);
     }

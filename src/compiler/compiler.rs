@@ -90,9 +90,6 @@ impl<F: Field + Hash> Compiler<F> {
             circuit
         };
 
-        println!("------- Before CSE -------");
-        println!("{:#?}", circuit);
-
         let circuit = self.cse(circuit);
 
         println!("------- After CSE -------");
@@ -259,19 +256,19 @@ impl<F: Field + Hash> Compiler<F> {
         let mut signal_factory: SignalFactory<F> = SignalFactory::default();
 
         let mut exprs = Vec::new();
-        // Take all the expressions from the circuit and their subexpressions and call cse on them
+        // Take all the constraints from the circuit
         for (_, step_type) in circuit.step_types.iter_mut() {
             for constraint in &step_type.constraints {
                 exprs.push(constraint.expr.clone());
             }
         }
-
-        // hash expressions and subexpressions recursively and store in a hash table
-        let (optimized_exprs, assignments) = cse(&exprs, &queriables);
+        // get all the common subexpressions and the random assignments used in the hash
+        let (common_ses, assignments) = cse(&exprs, &queriables, None);
 
         for (_, step_type) in circuit.step_types.iter_mut() {
+            // replace the common subexpressions with the new signals
             step_type.decomp_constraints(|expr| {
-                replace_common_subexprs(expr.clone(), &optimized_exprs, &assignments, &mut signal_factory)
+                replace_common_subexprs(expr.clone(), &common_ses, &assignments, &mut signal_factory)
             })
         }
 
