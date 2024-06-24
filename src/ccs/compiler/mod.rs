@@ -226,7 +226,8 @@ fn compile_matrix_coeffs<F: Field>(unit: &mut CompilationUnit<F>) {
             .iter()
             .map(|poly| {
                 // one poly
-                poly.expr.poly_to_coeffs(true)
+                let poly = poly.expr.factor_expr();
+                poly.poly_to_coeffs()
             })
             .collect();
         coeffs.insert(*step_id, coeffs_one_step);

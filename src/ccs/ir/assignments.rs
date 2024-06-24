@@ -14,41 +14,6 @@ use crate::{
 
 pub type Coeffs<F> = Vec<Vec<Vec<Vec<(F, UUID, bool)>>>>;
 
-// #[derive(Debug, Clone)]
-// pub struct StepsID(pub Vec<UUID>);
-
-// impl Default for StepsID {
-//     fn default() -> Self {
-//         Self::new()
-//     }
-// }
-
-// impl StepsID {
-//     pub fn new() -> Self {
-//         Self(Vec::new())
-//     }
-
-//     pub fn new_with_witness<F>(witness: &TraceWitness<F>) -> Self {
-
-//         let uuids = witness.step_instances.iter().map(|step| step.step_type_uuid).collect();
-//         Self(uuids)
-
-//     }
-
-//     pub fn len(&self) -> usize {
-//         self.0.len()
-//     }
-
-//     pub fn is_empty(&self) -> bool {
-//         self.len() == 0
-//     }
-
-//     pub fn read(&self, index: usize) -> UUID {
-//         assert!(index < self.len());
-//         self.0[index]
-//     }
-// }
-
 #[derive(Debug, Clone)]
 pub struct Assignments<F>(pub Vec<(UUID, HashMap<UUID, F>)>);
 
