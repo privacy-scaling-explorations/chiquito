@@ -1,4 +1,3 @@
-// use ark_bn254::Fr as FFr;
 use ark_ff::PrimeField;
 use ark_std::log2;
 use folding_schemes::{ccs::CCS, utils::vec::dense_matrix_to_sparse};
@@ -43,12 +42,11 @@ impl<F: Field> CCSCircuit<F> {
 
 impl<F: Field> Z<F> {
     pub fn convert_to_sonobe_inputs<Fr: PrimeField>(&self, f: fn(&F) -> Fr) -> Vec<Fr> {
-        let values = [
+        [
             vec![F::from(1u64)],
             self.assignments.clone(),
             self.public_inputs.clone(),
         ]
-        .concat();
-        values.iter().map(f).collect()
+        .concat().iter().map(f).collect()
     }
 }

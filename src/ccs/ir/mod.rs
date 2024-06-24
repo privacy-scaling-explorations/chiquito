@@ -81,7 +81,7 @@ impl<F: Field> PolyExpr<F> {
                 for e in v.iter() {
                     let matrix = e.poly_to_coeffs();
                     if matrix.len() != 1 {
-                        panic!("invalid poly expr at poly_to_coeffs with PolyExpr::Mul");
+                        panic!("[poly_to_coeffs]invalid poly expr with PolyExpr::Mul");
                     }
                     for m in matrix[0].iter() {
                         matrics.push(m.clone());
@@ -89,7 +89,7 @@ impl<F: Field> PolyExpr<F> {
                 }
                 vec![matrics]
             }
-            _ => panic!("invalid poly expr at poly_to_coeffs"),
+            _ => panic!("[poly_to_coeffs]invalid poly expr"),
         };
         matrics
     }

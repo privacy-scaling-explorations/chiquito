@@ -79,7 +79,7 @@ impl<F: Field + From<u64> + Hash> ChiquitoCCSCircuit<F> {
                         assert_eq!(coeffs_chunks.len(), selectors.len());
 
                         for (coeffs, (selector, _)) in coeffs_chunks.iter().zip(selectors.iter()) {
-                            // one row in on matrix
+                            // one row in a matrix
                             let mut values: Vec<(usize, usize, F)> = Vec::new();
                             for (value, signal_id, next) in coeffs.iter() {
                                 let col = if *signal_id == 0 {
