@@ -90,6 +90,8 @@ impl<F: Field + Hash> Compiler<F> {
             circuit
         };
 
+        let circuit = self.cse(circuit);
+
         let circuit =
             circuit.with_trace(InterpreterTraceGenerator::new(ast, symbols, self.mapping));
 
