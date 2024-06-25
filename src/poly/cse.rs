@@ -179,10 +179,15 @@ fn replace_common_subexprs_rec<
     assignments: &VarAssignments<F, V>,
     signal_factory: &mut SF,
 ) -> Expr<F, V, ()> {
+    // check if the expression is a common subexpression
     if let Some(_common_expr) = common_ses
         .iter()
         .find(|ce| constr.hash(assignments).meta().hash == ce.expr.meta().hash)
     {
+        // if it is
+        // check if the signal already exists
+        // if it does, return the signal
+        // otherwise, create a new signal
         let hash = constr.hash(assignments).meta().hash;
         if let Some(signal) = decomp.auto_signals.iter().find_map(|(signal, expr)| {
             if expr.hash(assignments).meta().hash == hash {
@@ -194,10 +199,11 @@ fn replace_common_subexprs_rec<
             Expr::Query(signal, ())
         } else {
             let new_signal = signal_factory.create("cse");
-            decomp.auto_signals.insert(new_signal.clone(), constr);
+            decomp.auto_eq(new_signal.clone(), constr);
             Expr::Query(new_signal, ())
         }
     } else {
+        // otherwise, replace the subexpressions recursively
         match constr {
             Expr::Sum(ses, meta) => {
                 let new_ses = ses
@@ -261,5 +267,177 @@ fn replace_common_subexprs_rec<
             }
             _ => constr,
         }
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    use std::collections::HashSet;
+    use halo2_proofs::halo2curves::bn256::Fr;
+    use crate::{
+        poly::{Expr::*, ToExpr},
+        sbpir::{query::Queriable, ForwardSignal, InternalSignal},
+    };
+
+    #[test]
+    fn test_generate_random_assignment() {
+        let internal = InternalSignal::new("internal");
+        let forward = ForwardSignal::new("forward");
+
+        let a: Queriable<Fr> = Queriable::Internal(internal);
+        let b: Queriable<Fr> = Queriable::Forward(forward, false);
+        let c: Queriable<Fr> = Queriable::Forward(forward, true);
+
+        let vars = vec![a, b, c];
+        let keys: HashSet<Queriable<Fr>> = vars.iter().cloned().collect();
+        let assignments: VarAssignments<Fr, Queriable<Fr>> = generate_random_assignment(&vars);
+
+        for key in &keys {
+            assert!(assignments.contains_key(key));
+        }
+    }
+
+    #[test]
+    fn test_cse() {
+        let forward = ForwardSignal::new("forward");
+        let a: Queriable<Fr> = Queriable::Internal(InternalSignal::new("a"));
+        let b: Queriable<Fr> = Queriable::Internal(InternalSignal::new("b"));
+        let c: Queriable<Fr> = Queriable::Forward(forward, false);
+        let d: Queriable<Fr> = Queriable::Forward(forward, true);
+        let e: Queriable<Fr> = Queriable::Internal(InternalSignal::new("e"));
+        let f: Queriable<Fr> = Queriable::Internal(InternalSignal::new("f"));
+        let g: Queriable<Fr> = Queriable::Internal(InternalSignal::new("g"));
+        let vars = vec![a, b, c, d, e, f, g];
+
+        // Equivalent expressions
+        let expr1 = Pow(Box::new(e.expr()), 6, ()) * a * b + c * d - 1.expr();
+        let expr2 = d * c - 1.expr() + a * b * Pow(Box::new(e.expr()), 6, ());
+
+        // Equivalent expressions
+        let expr3 = f * b - c * d - 1.expr();
+        let expr4 = -(1.expr()) - c * d + b * f;
+
+        // Equivalent expressions
+        let expr5 = -(-f * g) * (-(-(-a)));
+        let expr6 = -(f * g * a);
+
+        // Different expressions with the same sub-expressions
+        let expr7 = a * b + b * a;
+        let expr8 = b * a + 3.expr();
+
+        let exprs = vec![expr1, expr2, expr3, expr4, expr5, expr6, expr7, expr8];
+        let (common_ses, _) = cse(&exprs, &vars, None);
+
+        assert!(common_ses
+            .iter()
+            .any(|cse| format!("{:#?}", cse.expr) == "((e)^6 * a * b)"));
+        assert!(common_ses
+            .iter()
+            .any(|cse| format!("{:#?}", cse.expr)
+                == "((f * b) + (-(forward * next(forward))) + (-0x1))"));
+        assert!(common_ses
+            .iter()
+            .any(|cse| format!("{:#?}", cse.expr) == "(-(forward * next(forward)))"));
+        assert!(common_ses
+            .iter()
+            .any(|cse| format!("{:#?}", cse.expr) == "((-((-f) * g)) * (-a))"));
+        assert!(common_ses
+            .iter()
+            .any(|cse| format!("{:#?}", cse.expr) == "(f * b)"));
+        assert!(common_ses.iter().any(|cse| format!("{:#?}", cse.expr)
+            == "(((e)^6 * a * b) + (forward * next(forward)) + (-0x1))"));
+        assert!(common_ses
+            .iter()
+            .any(|cse| format!("{:#?}", cse.expr) == "(-0x1)"));
+        assert!(common_ses
+            .iter()
+            .any(|cse| format!("{:#?}", cse.expr) == "(e)^6"));
+        assert!(common_ses
+            .iter()
+            .any(|cse| format!("{:#?}", cse.expr) == "(a * b)"));
+        assert!(common_ses
+            .iter()
+            .any(|cse| format!("{:#?}", cse.expr) == "(forward * next(forward))"));
+    }
+
+    #[derive(Default)]
+    struct TestSignalFactory {
+        counter: usize,
+    }
+
+    impl SignalFactory<Queriable<Fr>> for TestSignalFactory {
+        fn create<S: Into<String>>(&mut self, _annotation: S) -> Queriable<Fr> {
+            self.counter += 1;
+            Queriable::Internal(InternalSignal::new(format!("cse-{}", self.counter)))
+        }
+    }
+
+    #[test]
+    fn test_replace_common_ses() {
+        let forward = ForwardSignal::new("forward");
+        let a: Queriable<Fr> = Queriable::Internal(InternalSignal::new("a"));
+        let b: Queriable<Fr> = Queriable::Internal(InternalSignal::new("b"));
+        let c: Queriable<Fr> = Queriable::Forward(forward, false);
+        let d: Queriable<Fr> = Queriable::Forward(forward, true);
+        let e: Queriable<Fr> = Queriable::Internal(InternalSignal::new("e"));
+        let f: Queriable<Fr> = Queriable::Internal(InternalSignal::new("f"));
+        let g: Queriable<Fr> = Queriable::Internal(InternalSignal::new("g"));
+        let vars = vec![a, b, c, d, e, f, g];
+
+        // Equivalent expressions
+        let expr1 = Pow(Box::new(e.expr()), 6, ()) * a * b + c * d - 1.expr();
+        let expr2 = d * c - 1.expr() + a * b * Pow(Box::new(e.expr()), 6, ());
+
+        let expr3 = a + b;
+
+        // Different expressions with the same sub-expressions
+        let expr4 = a * b + b * a;
+        let expr5 = b * a + 3.expr();
+
+        let exprs = vec![
+            expr1.clone(),
+            expr2.clone(),
+            expr3.clone(),
+            expr4.clone(),
+            expr5.clone(),
+        ];
+
+        let (common_ses, assignments) = cse(&exprs, &vars, None);
+
+        let mut decomp = ConstrDecomp::default();
+        let signal_factory = &mut TestSignalFactory::default();
+
+        for expr in exprs {
+            decomp.constrs.push(expr.clone());
+            replace_common_subexprs_rec(
+                &mut decomp,
+                expr,
+                &common_ses,
+                &assignments,
+                signal_factory,
+            );
+        }
+
+        // Assert that there are 6 common subexpressions
+        assert_eq!(common_ses.len(), 6);
+
+        // Assert that there are only 2 auto signals created
+        // Because the other are inner expressions inside a bigger common one
+        assert_eq!(
+            decomp
+                .auto_signals
+                .iter()
+                .any(|(s, expr)| format!("{:#?}: {:#?}", s, expr)
+                    == "cse-1: (((e)^6 * a * b) + (forward * next(forward)) + (-0x1))"),
+            true
+        );
+        assert_eq!(
+            decomp
+                .auto_signals
+                .iter()
+                .any(|(s, expr)| format!("{:#?}: {:#?}", s, expr) == "cse-2: (a * b)"),
+            true
+        );
     }
 }
