@@ -27,7 +27,8 @@ impl Default for Config {
     }
 }
 
-/// Common Subexpression Elimination - takes a collection of expr
+/// Common Subexpression Elimination - takes a collection of expressions
+/// and returns a collection of common subexpressions and a VarAssignments
 pub fn cse<F: Field + Hash, V: Debug + Clone + Eq + Hash>(
     exprs: &Vec<Expr<F, V, ()>>,
     queriables: &Vec<V>,
@@ -151,6 +152,7 @@ fn hash_recursive<F: Field + Hash, V: Debug + Clone + Eq + Hash>(
     hashed_exprs
 }
 
+/// Generates a random assignment for the queriables given.
 fn generate_random_assignment<F: Field + Hash, V: Debug + Clone + Eq + Hash>(
     queriables: &Vec<V>,
 ) -> VarAssignments<F, V> {
@@ -166,6 +168,8 @@ fn generate_random_assignment<F: Field + Hash, V: Debug + Clone + Eq + Hash>(
     assignments
 }
 
+/// This function replaces common subexpressions from the PI expression, by creating new signals
+/// that are constraint to the common sub-expressions.
 pub fn replace_common_subexprs<
     F: Field + Hash,
     V: Clone + Eq + PartialEq + Hash + Debug,
@@ -213,8 +217,7 @@ fn replace_common_subexprs_rec<
         }) {
             Expr::Query(signal, ())
         } else {
-            let signal_key = format!("cse-{}", hash);
-            let new_signal = signal_factory.create(signal_key);
+            let new_signal = signal_factory.create("cse");
             decomp.auto_signals.insert(new_signal.clone(), constr);
             Expr::Query(new_signal, ())
         }
@@ -313,8 +316,6 @@ mod test {
 
         let assignments: VarAssignments<Fr, Queriable<Fr>> = generate_random_assignment(&vars);
 
-        println!("Assignments: {:#?}", assignments);
-
         for key in &keys {
             assert!(assignments.contains_key(key));
         }
@@ -353,15 +354,47 @@ mod test {
 
         let (common_ses, _) = cse(&exprs, &vars, None);
 
-        print!("{:#?}", common_ses);
+        assert!(common_ses
+            .iter()
+            .any(|cse| format!("{:#?}", cse.expr) == "((e)^6 * a * b)"));
+        assert!(common_ses
+            .iter()
+            .any(|cse| format!("{:#?}", cse.expr)
+                == "((f * b) + (-(forward * next(forward))) + (-0x1))"));
+        assert!(common_ses
+            .iter()
+            .any(|cse| format!("{:#?}", cse.expr) == "(-(forward * next(forward)))"));
+        assert!(common_ses
+            .iter()
+            .any(|cse| format!("{:#?}", cse.expr) == "((-((-f) * g)) * (-a))"));
+        assert!(common_ses
+            .iter()
+            .any(|cse| format!("{:#?}", cse.expr) == "(f * b)"));
+        assert!(common_ses.iter().any(|cse| format!("{:#?}", cse.expr)
+            == "(((e)^6 * a * b) + (forward * next(forward)) + (-0x1))"));
+        assert!(common_ses
+            .iter()
+            .any(|cse| format!("{:#?}", cse.expr) == "(-0x1)"));
+        assert!(common_ses
+            .iter()
+            .any(|cse| format!("{:#?}", cse.expr) == "(e)^6"));
+        assert!(common_ses
+            .iter()
+            .any(|cse| format!("{:#?}", cse.expr) == "(a * b)"));
+        assert!(common_ses
+            .iter()
+            .any(|cse| format!("{:#?}", cse.expr) == "(forward * next(forward))"));
     }
 
     #[derive(Default)]
-    struct TestSignalFactory {}
+    struct TestSignalFactory {
+        counter: usize,
+    }
 
     impl SignalFactory<Queriable<Fr>> for TestSignalFactory {
-        fn create<S: Into<String>>(&mut self, annotation: S) -> Queriable<Fr> {
-            Queriable::Internal(InternalSignal::new(annotation))
+        fn create<S: Into<String>>(&mut self, _annotation: S) -> Queriable<Fr> {
+            self.counter += 1;
+            Queriable::Internal(InternalSignal::new(format!("cse-{}", self.counter)))
         }
     }
 
@@ -388,11 +421,15 @@ mod test {
         let expr4 = a * b + b * a;
         let expr5 = b * a + 3.expr();
 
-        let exprs = vec![expr1.clone(), expr2.clone(), expr3.clone(), expr4.clone(), expr5.clone()];
+        let exprs = vec![
+            expr1.clone(),
+            expr2.clone(),
+            expr3.clone(),
+            expr4.clone(),
+            expr5.clone(),
+        ];
 
         let (common_ses, assignments) = cse(&exprs, &vars, None);
-
-        println!("{:#?}", common_ses);
 
         let mut decomp = ConstrDecomp::default();
 
@@ -400,17 +437,34 @@ mod test {
 
         for expr in exprs {
             decomp.constrs.push(expr.clone());
-            let result = replace_common_subexprs_rec(
+            replace_common_subexprs_rec(
                 &mut decomp,
                 expr,
                 &common_ses,
                 &assignments,
                 signal_factory,
             );
-
-            println!("Result: {:#?}", result);
         }
 
-        println!("Decomp: {:#?}", decomp);
+        // Assert that there are 6 common subexpressions
+        assert_eq!(common_ses.len(), 6);
+
+        // Assert that there are only 2 auto signals created
+        // Because the other are inner expressions inside a bigger common one
+        assert_eq!(
+            decomp
+                .auto_signals
+                .iter()
+                .any(|(s, expr)| format!("{:#?}: {:#?}", s, expr)
+                    == "cse-1: (((e)^6 * a * b) + (forward * next(forward)) + (-0x1))"),
+            true
+        );
+        assert_eq!(
+            decomp
+                .auto_signals
+                .iter()
+                .any(|(s, expr)| format!("{:#?}: {:#?}", s, expr) == "cse-2: (a * b)"),
+            true
+        );
     }
 }
