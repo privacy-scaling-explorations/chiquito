@@ -5,7 +5,7 @@ use chiquito::{
     frontend::dsl::{circuit, trace::DSLTraceGenerator}, /* main function for constructing an AST
                                                          * circuit */
     plonkish::{
-        backend::halo2::{chiquito2Halo2, ChiquitoHalo2Circuit},
+        backend::halo2::{get_halo2, halo2_prove, halo2_verify, OneNg},
         compiler::{
             cell_manager::SingleRowCellManager, // input for constructing the compiler
             compile,                            // input for constructing the compiler
@@ -22,7 +22,8 @@ use chiquito::{
         * circuit */
     poly::ToField,
 };
-use halo2_proofs::{dev::MockProver, halo2curves::bn256::Fr};
+use halo2_proofs::halo2curves::bn256::Fr;
+use rand_chacha::rand_core::block::BlockRng;
 
 const MAX_FACTORIAL: usize = 10;
 
@@ -134,50 +135,65 @@ fn generate<F: Field + From<u64> + Hash>() -> (Circuit<F>, Option<AssignGen<F>>)
 
 // standard main function for a Halo2 circuit
 fn main() {
-    let (chiquito, wit_gen) = generate::<Fr>();
-    let compiled = chiquito2Halo2(chiquito);
-    let circuit = ChiquitoHalo2Circuit::new(compiled, wit_gen.map(|g| g.generate(0)));
+    let plonkish = generate::<Fr>();
+    let rng = BlockRng::new(OneNg {});
 
-    let prover = MockProver::<Fr>::run(10, &circuit, circuit.instance()).unwrap();
+    let (cs, params, vk, pk, chiquito_halo2) = get_halo2(10, plonkish.0, rng);
 
-    let result = prover.verify();
+    let rng = BlockRng::new(OneNg {});
+    let witness = plonkish.1.unwrap().generate(0);
+    let instances = &chiquito_halo2.instance(&witness);
+    let instance = if instances.is_empty() {
+        vec![]
+    } else {
+        vec![instances.clone()]
+    };
+    let proof = halo2_prove(
+        &params,
+        pk,
+        rng,
+        cs,
+        vec![&witness],
+        vec![chiquito_halo2],
+        instance.clone(),
+    );
+
+    let result = halo2_verify(proof, params, vk, instance);
 
     println!("result = {:#?}", result);
 
-    if let Err(failures) = &result {
-        for failure in failures.iter() {
-            println!("{}", failure);
-        }
+    if let Err(error) = &result {
+        println!("{}", error);
     }
 
-    // plaf boilerplate
-    use chiquito::plonkish::backend::plaf::chiquito2Plaf;
-    use polyexen::plaf::backends::halo2::PlafH2Circuit;
+    let plonkish = generate::<Fr>();
+    let rng = BlockRng::new(OneNg {});
 
-    // get Chiquito ir
-    let (circuit, wit_gen) = generate::<Fr>();
-    // get Plaf
-    let (plaf, plaf_wit_gen) = chiquito2Plaf(circuit, 8, false);
-    let wit = plaf_wit_gen.generate(wit_gen.map(|v| v.generate(7)));
+    let (cs, params, vk, pk, chiquito_halo2) = get_halo2(8, plonkish.0, rng);
 
-    // debug only: print witness
-    // println!("{}", polyexen::plaf::WitnessDisplayCSV(&wit));
+    let rng = BlockRng::new(OneNg {});
+    let witness = plonkish.1.unwrap().generate(7);
+    let instances = &chiquito_halo2.instance(&witness);
+    let instance = if instances.is_empty() {
+        vec![]
+    } else {
+        vec![instances.clone()]
+    };
+    let proof = halo2_prove(
+        &params,
+        pk,
+        rng,
+        cs,
+        vec![&witness],
+        vec![chiquito_halo2],
+        instance.clone(),
+    );
 
-    // get Plaf halo2 circuit from Plaf's halo2 backend
-    // this is just a proof of concept, because Plaf only has backend for halo2
-    // this is unnecessary because Chiquito has a halo2 backend already
-    let plaf_circuit = PlafH2Circuit { plaf, wit };
+    let result = halo2_verify(proof, params, vk, instance);
 
-    // same as halo2 boilerplate above
-    let prover_plaf = MockProver::<Fr>::run(8, &plaf_circuit, Vec::new()).unwrap();
+    println!("result = {:#?}", result);
 
-    let result_plaf = prover_plaf.verify();
-
-    println!("result = {:#?}", result_plaf);
-
-    if let Err(failures) = &result_plaf {
-        for failure in failures.iter() {
-            println!("{}", failure);
-        }
+    if let Err(error) = &result {
+        println!("{}", error);
     }
 }

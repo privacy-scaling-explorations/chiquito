@@ -1,7 +1,10 @@
 use chiquito::{
     frontend::dsl::{lb::LookupTable, super_circuit, trace::DSLTraceGenerator, CircuitContext},
     plonkish::{
-        backend::halo2::{chiquitoSuperCircuit2Halo2, ChiquitoHalo2SuperCircuit},
+        backend::halo2::{
+            chiquitoSuperCircuit2Halo2, get_super_circuit_halo2, halo2_prove, halo2_verify,
+            ChiquitoHalo2SuperCircuit, OneNg,
+        },
         compiler::{
             cell_manager::{MaxWidthCellManager, SingleRowCellManager},
             config,
@@ -11,13 +14,11 @@ use chiquito::{
     },
     sbpir::query::Queriable,
 };
+use rand_chacha::rand_core::block::BlockRng;
 
 use std::hash::Hash;
 
-use halo2_proofs::{
-    dev::MockProver,
-    halo2curves::{bn256::Fr, group::ff::PrimeField},
-};
+use halo2_proofs::halo2curves::{bn256::Fr, group::ff::PrimeField};
 
 #[derive(Clone)]
 struct RoundValues<F: PrimeField> {
@@ -705,19 +706,31 @@ fn main() {
 
     let super_circuit = poseidon_super_circuit(lens);
     let compiled = chiquitoSuperCircuit2Halo2(&super_circuit);
-    let circuit =
-        ChiquitoHalo2SuperCircuit::new(compiled, super_circuit.get_mapping().generate(values));
+    let witness = super_circuit.get_mapping().generate(values);
+    let mut circuit = ChiquitoHalo2SuperCircuit::new(compiled, witness.clone());
 
-    let prover = MockProver::<Fr>::run(12, &circuit, Vec::new()).unwrap();
+    let rng = BlockRng::new(OneNg {});
 
-    let result = prover.verify();
+    let (cs, params, vk, pk) = get_super_circuit_halo2(12, &mut circuit, rng);
+
+    let rng = BlockRng::new(OneNg {});
+    let instance = circuit.instance();
+    let proof = halo2_prove(
+        &params,
+        pk,
+        rng,
+        cs,
+        witness.values().collect(),
+        circuit.sub_circuits,
+        instance.clone(),
+    );
+
+    let result = halo2_verify(proof, params, vk, instance);
 
     println!("result = {:#?}", result);
 
-    if let Err(failures) = &result {
-        for failure in failures.iter() {
-            println!("{}", failure);
-        }
+    if let Err(failure) = &result {
+        println!("{}", failure);
     }
 }
 

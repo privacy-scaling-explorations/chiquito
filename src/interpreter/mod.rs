@@ -324,12 +324,15 @@ mod test {
     use std::collections::HashMap;
 
     use halo2_proofs::{dev::MockProver, halo2curves::bn256::Fr};
+    use rand_chacha::rand_core::block::BlockRng;
 
     use crate::{
         compiler::{compile, Config},
         parser::ast::debug_sym_factory::DebugSymRefFactory,
         plonkish::{
-            backend::halo2::{chiquito2Halo2, ChiquitoHalo2Circuit},
+            backend::halo2::{
+                chiquito2Halo2, get_halo2, halo2_prove, halo2_verify, ChiquitoHalo2Circuit, OneNg,
+            },
             compiler::{
                 cell_manager::SingleRowCellManager, config,
                 step_selector::SimpleStepSelectorBuilder,
@@ -395,7 +398,7 @@ mod test {
     }
 
     #[test]
-    fn test_run_halo2_mock_prover() {
+    fn test_run_halo2_prover() {
         let code = "
         machine fibo(signal n) (signal b: field) {
             // n and be are created automatically as shared
@@ -448,19 +451,32 @@ mod test {
             SimpleStepSelectorBuilder {},
         ));
 
-        let compiled = chiquito2Halo2(plonkish.0);
+        let rng = BlockRng::new(OneNg {});
 
-        let circuit = ChiquitoHalo2Circuit::new(
-            compiled,
-            plonkish
-                .1
-                .map(|g| g.generate(HashMap::from([("n".to_string(), Fr::from(12))]))),
+        let (cs, params, vk, pk, chiquito_halo2) = get_halo2(7, plonkish.0, rng);
+
+        let rng = BlockRng::new(OneNg {});
+        let witness = plonkish
+            .1
+            .unwrap()
+            .generate(HashMap::from([("n".to_string(), Fr::from(12))]));
+        let instances = &chiquito_halo2.instance(&witness);
+        let instance = if instances.is_empty() {
+            vec![]
+        } else {
+            vec![instances.clone()]
+        };
+        let proof = halo2_prove(
+            &params,
+            pk,
+            rng,
+            cs,
+            vec![&witness],
+            vec![chiquito_halo2],
+            instance.clone(),
         );
 
-        let prover = MockProver::<Fr>::run(7, &circuit, circuit.instance()).unwrap();
-
-        let result = prover.verify();
-
+        let result = halo2_verify(proof, params, vk, instance);
         assert!(result.is_ok());
     }
 
@@ -474,7 +490,7 @@ mod test {
             signal a: field, i;
 
             // there is always a state called initial
-            // input signals get binded to the signal
+            // input signals get bound to the signal
             // in the initial state (first instance)
             state initial {
              signal c;
