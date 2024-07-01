@@ -5,7 +5,7 @@ use chiquito::{
     frontend::dsl::{circuit, trace::DSLTraceGenerator}, /* main function for constructing an AST
                                                          * circuit */
     plonkish::{
-        backend::halo2::{get_halo2, halo2_prove, halo2_verify, OneNg},
+        backend::halo2::{get_halo2_settings, halo2_prove, halo2_verify, OneNg},
         compiler::{
             cell_manager::SingleRowCellManager, // input for constructing the compiler
             compile,                            // input for constructing the compiler
@@ -209,11 +209,11 @@ fn main() {
     let (chiquito, wit_gen) = fibo_circuit::<Fr>();
     let rng = BlockRng::new(OneNg {});
 
-    let (cs, params, vk, pk, chiquito_halo2) = get_halo2(7, chiquito, rng);
+    let (cs, params, vk, pk, chiquito_halo2) = get_halo2_settings(7, chiquito, rng);
 
     let rng = BlockRng::new(OneNg {});
     let witness = &wit_gen.unwrap().generate(7);
-    let instances = &chiquito_halo2.instance(&witness);
+    let instances = &chiquito_halo2.instance(witness);
     let instance = if instances.is_empty() {
         vec![]
     } else {

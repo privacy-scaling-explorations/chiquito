@@ -8,25 +8,19 @@ authors = ["Leo Lara <leo@leolara.me>"]
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [patch.crates-io]
-halo2_proofs = { git = "https://github.com/privacy-scaling-explorations/halo2.git", default-features = false, rev = "1a6468e" }
-#halo2_proofs = { path = "../halo2/halo2_proofs", default-features = false }
+halo2_proofs = { git = "https://github.com/privacy-scaling-explorations/halo2.git", default-features = false, rev = "bc857a7" }
 
 [patch."https://github.com/scroll-tech/halo2.git"]
-halo2_proofs = { git = "https://github.com/privacy-scaling-explorations/halo2.git", default-features = false, rev = "1a6468e" }
-#halo2_proofs = { path = "../halo2/halo2_proofs", default-features = false }
+halo2_proofs = { git = "https://github.com/privacy-scaling-explorations/halo2.git", default-features = false, rev = "bc857a7" }
 
 [dependencies]
 pyo3 = { version = "0.19.1", features = ["extension-module"] }
 
-halo2_proofs = { git = "https://github.com/privacy-scaling-explorations/halo2.git", default-features = false, features = [ "circuit-params", "derive_serde"], rev = "1a6468e"}
-#halo2_proofs = { path = "../halo2/halo2_proofs", default-features = false, features = [ "circuit-params", "derive_serde"]}
+halo2_proofs = { git = "https://github.com/privacy-scaling-explorations/halo2.git", default-features = false, features = [ "circuit-params", "derive_serde"], rev = "bc857a7"}
 
-halo2_middleware = { git = "https://github.com/privacy-scaling-explorations/halo2.git", rev = "1a6468e" }
-#halo2_middleware = { path = "../halo2/halo2_middleware" }
-halo2_frontend = { git = "https://github.com/privacy-scaling-explorations/halo2.git", default-features = false, features = ["bits"], rev = "1a6468e" }
-#halo2_frontend = { path = "../halo2/halo2_frontend", default-features = false, features = ["bits"]}
-halo2_backend = { git = "https://github.com/privacy-scaling-explorations/halo2.git", rev = "1a6468e" }
-#halo2_backend = { path = "../halo2/halo2_backend" }
+halo2_middleware = { git = "https://github.com/privacy-scaling-explorations/halo2.git", rev = "bc857a7" }
+halo2_frontend = { git = "https://github.com/privacy-scaling-explorations/halo2.git", default-features = false, features = ["bits"], rev = "bc857a7" }
+halo2_backend = { git = "https://github.com/privacy-scaling-explorations/halo2.git", rev = "bc857a7" }
 
 num-bigint = { version = "0.4", features = ["rand"] }
 uuid = { version = "1.4.0", features = ["v1", "rng"] }

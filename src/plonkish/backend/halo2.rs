@@ -585,6 +585,7 @@ impl<F: PrimeField + From<u64> + Hash> h2Circuit<F> for ChiquitoHalo2Circuit<F> 
 #[derive(Debug, Default)]
 pub struct ChiquitoHalo2SuperCircuit<F: PrimeField + From<u64>> {
     pub sub_circuits: Vec<ChiquitoHalo2<F>>,
+    // TODO witness is only necessary to get the instance values, can it be removed later?
     witness: SuperAssignments<F>,
 }
 
@@ -759,6 +760,7 @@ pub fn halo2_prove(
 
         // TODO ignoring the challenges produced by the phase, but can they be useful later?
         let _ = prover.commit_phase(phase as u8, assigned_witness).unwrap();
+        println!("phase {phase} completed");
     }
     prover.create_proof().unwrap();
     let proof = transcript.finalize();
@@ -767,7 +769,8 @@ pub fn halo2_prove(
     proof
 }
 
-pub fn get_halo2(
+#[allow(clippy::type_complexity)]
+pub fn get_halo2_settings(
     k: u32,
     circuit: Circuit<Fr>,
     rng: BlockRng<OneNg>,

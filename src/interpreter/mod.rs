@@ -331,7 +331,8 @@ mod test {
         parser::ast::debug_sym_factory::DebugSymRefFactory,
         plonkish::{
             backend::halo2::{
-                chiquito2Halo2, get_halo2, halo2_prove, halo2_verify, ChiquitoHalo2Circuit, OneNg,
+                chiquito2Halo2, get_halo2_settings, halo2_prove, halo2_verify,
+                ChiquitoHalo2Circuit, OneNg,
             },
             compiler::{
                 cell_manager::SingleRowCellManager, config,
@@ -453,7 +454,7 @@ mod test {
 
         let rng = BlockRng::new(OneNg {});
 
-        let (cs, params, vk, pk, chiquito_halo2) = get_halo2(7, plonkish.0, rng);
+        let (cs, params, vk, pk, chiquito_halo2) = get_halo2_settings(7, plonkish.0, rng);
 
         let rng = BlockRng::new(OneNg {});
         let witness = plonkish

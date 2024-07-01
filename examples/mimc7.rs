@@ -1,14 +1,14 @@
 use std::hash::Hash;
 
-use halo2_proofs::{
-    dev::MockProver,
-    halo2curves::{bn256::Fr, group::ff::PrimeField},
-};
+use halo2_proofs::halo2curves::{bn256::Fr, group::ff::PrimeField};
 
 use chiquito::{
     frontend::dsl::{lb::LookupTable, super_circuit, trace::DSLTraceGenerator, CircuitContext},
     plonkish::{
-        backend::halo2::{chiquitoSuperCircuit2Halo2, ChiquitoHalo2SuperCircuit},
+        backend::halo2::{
+            chiquitoSuperCircuit2Halo2, get_super_circuit_halo2, halo2_prove, halo2_verify,
+            ChiquitoHalo2SuperCircuit, OneNg,
+        },
         compiler::{
             cell_manager::SingleRowCellManager, config, step_selector::SimpleStepSelectorBuilder,
         },
@@ -18,6 +18,7 @@ use chiquito::{
 };
 
 use mimc7_constants::ROUND_CONSTANTS;
+use rand_chacha::rand_core::block::BlockRng;
 
 // MiMC7 always has 91 rounds
 pub const ROUNDS: usize = 91;
@@ -203,21 +204,31 @@ fn main() {
 
     let super_circuit = mimc7_super_circuit::<Fr>();
     let compiled = chiquitoSuperCircuit2Halo2(&super_circuit);
-    let circuit = ChiquitoHalo2SuperCircuit::new(
-        compiled,
-        super_circuit.get_mapping().generate((x_in_value, k_value)),
+    let witness = super_circuit.get_mapping().generate((x_in_value, k_value));
+    let mut circuit = ChiquitoHalo2SuperCircuit::new(compiled, witness.clone());
+
+    let rng = BlockRng::new(OneNg {});
+
+    let (cs, params, vk, pk) = get_super_circuit_halo2(10, &mut circuit, rng);
+
+    let rng = BlockRng::new(OneNg {});
+    let instance = circuit.instance();
+    let proof = halo2_prove(
+        &params,
+        pk,
+        rng,
+        cs,
+        witness.values().collect(),
+        circuit.sub_circuits,
+        instance.clone(),
     );
 
-    let prover = MockProver::<Fr>::run(10, &circuit, circuit.instance()).unwrap();
-
-    let result = prover.verify();
+    let result = halo2_verify(proof, params, vk, instance);
 
     println!("result = {:#?}", result);
 
-    if let Err(failures) = &result {
-        for failure in failures.iter() {
-            println!("{}", failure);
-        }
+    if let Err(failure) = &result {
+        println!("{}", failure);
     }
 
     // pil boilerplate
