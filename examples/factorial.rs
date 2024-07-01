@@ -5,7 +5,7 @@ use chiquito::{
     frontend::dsl::{circuit, trace::DSLTraceGenerator}, /* main function for constructing an AST
                                                          * circuit */
     plonkish::{
-        backend::halo2::{get_halo2_settings, halo2_prove, halo2_verify, OneNg},
+        backend::halo2::{get_halo2_setup, halo2_prove, halo2_verify, OneNg},
         compiler::{
             cell_manager::SingleRowCellManager, // input for constructing the compiler
             compile,                            // input for constructing the compiler
@@ -138,7 +138,7 @@ fn main() {
     let plonkish = generate::<Fr>();
     let rng = BlockRng::new(OneNg {});
 
-    let (cs, params, vk, pk, chiquito_halo2) = get_halo2_settings(10, plonkish.0, rng);
+    let (cs, params, vk, pk, chiquito_halo2) = get_halo2_setup(10, plonkish.0, rng);
 
     let rng = BlockRng::new(OneNg {});
     let witness = plonkish.1.unwrap().generate(0);
@@ -169,7 +169,7 @@ fn main() {
     let plonkish = generate::<Fr>();
     let rng = BlockRng::new(OneNg {});
 
-    let (cs, params, vk, pk, chiquito_halo2) = get_halo2_settings(8, plonkish.0, rng);
+    let (cs, params, vk, pk, chiquito_halo2) = get_halo2_setup(8, plonkish.0, rng);
 
     let rng = BlockRng::new(OneNg {});
     let witness = plonkish.1.unwrap().generate(7);

@@ -320,6 +320,7 @@ impl<F: PrimeField + From<u64> + Hash> ChiquitoHalo2<F> {
         }
     }
 
+    // TODO remove
     pub fn synthesize(&self, layouter: &mut impl Layouter<F>, witness: Option<&Assignments<F>>) {
         let _ = layouter.assign_region(
             || "circuit",
@@ -658,6 +659,7 @@ impl<F: PrimeField + From<u64> + Hash> h2Circuit<F> for ChiquitoHalo2SuperCircui
         sub_circuits
     }
 
+    // TODO remove
     fn synthesize(
         &self,
         sub_circuits: Self::Config,
@@ -770,7 +772,7 @@ pub fn halo2_prove(
 }
 
 #[allow(clippy::type_complexity)]
-pub fn get_halo2_settings(
+pub fn get_halo2_setup(
     k: u32,
     circuit: Circuit<Fr>,
     rng: BlockRng<OneNg>,
@@ -792,7 +794,7 @@ pub fn get_halo2_settings(
     (compiled.cs, params, vk, pk, chiquito_halo2)
 }
 
-pub fn get_super_circuit_halo2(
+pub fn get_super_circuit_halo2_setup(
     k: u32,
     circuit: &mut ChiquitoHalo2SuperCircuit<Fr>,
     rng: BlockRng<OneNg>,

@@ -6,7 +6,7 @@ use chiquito::{
     frontend::dsl::{lb::LookupTable, super_circuit, trace::DSLTraceGenerator, CircuitContext},
     plonkish::{
         backend::halo2::{
-            chiquitoSuperCircuit2Halo2, get_super_circuit_halo2, halo2_prove, halo2_verify,
+            chiquitoSuperCircuit2Halo2, get_super_circuit_halo2_setup, halo2_prove, halo2_verify,
             ChiquitoHalo2SuperCircuit, OneNg,
         },
         compiler::{
@@ -209,7 +209,7 @@ fn main() {
 
     let rng = BlockRng::new(OneNg {});
 
-    let (cs, params, vk, pk) = get_super_circuit_halo2(10, &mut circuit, rng);
+    let (cs, params, vk, pk) = get_super_circuit_halo2_setup(10, &mut circuit, rng);
 
     let rng = BlockRng::new(OneNg {});
     let instance = circuit.instance();
