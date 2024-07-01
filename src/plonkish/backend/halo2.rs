@@ -85,7 +85,7 @@ pub fn compile_halo2_middleware<F: PrimeField + From<u64> + Hash>(
     let mut cs = ConstraintSystem::default();
 
     if n < cs.minimum_rows() {
-        return Err(Error::Frontend(ErrorFront::NotEnoughRowsAvailable {
+        return Err(Error::Backend(ErrorBack::NotEnoughRowsAvailable {
             current_k: k,
         }));
     }
@@ -155,7 +155,7 @@ pub fn compile_super_circuit_halo2_middleware<F: PrimeField + From<u64> + Hash>(
     let mut cs = ConstraintSystem::default();
 
     if n < cs.minimum_rows() {
-        return Err(Error::Frontend(ErrorFront::NotEnoughRowsAvailable {
+        return Err(Error::Backend(ErrorBack::NotEnoughRowsAvailable {
             current_k: k,
         }));
     }
@@ -352,6 +352,7 @@ impl<F: PrimeField + From<u64> + Hash> ChiquitoHalo2<F> {
         }
     }
 
+    // TODO remove
     fn assign_advice(
         &self,
         region: &mut Region<F>,
@@ -368,6 +369,7 @@ impl<F: PrimeField + From<u64> + Hash> ChiquitoHalo2<F> {
         Ok(())
     }
 
+    // TODO remove
     fn assign_fixed(
         &self,
         region: &mut Region<F>,
@@ -384,6 +386,7 @@ impl<F: PrimeField + From<u64> + Hash> ChiquitoHalo2<F> {
         Ok(())
     }
 
+    // TODO remove
     fn annotate_circuit(&self, region: &mut Region<F>) {
         for column in self.circuit.columns.iter() {
             match column.ctype {
