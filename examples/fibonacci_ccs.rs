@@ -142,18 +142,12 @@ fn main() {
 }
 
 fn fr_convert(r: &Fr) -> FFr {
-    let mut array1 = [0u8; 8];
-    array1.copy_from_slice(&r.to_repr().as_ref()[0..8]);
-    let mut array2 = [0u8; 8];
-    array2.copy_from_slice(&r.to_repr().as_ref()[8..16]);
-    let mut array3 = [0u8; 8];
-    array3.copy_from_slice(&r.to_repr().as_ref()[16..24]);
-    let mut array4 = [0u8; 8];
-    array4.copy_from_slice(&r.to_repr().as_ref()[24..32]);
-    FFr::from(BigInt::new([
-        u64::from_le_bytes(array1),
-        u64::from_le_bytes(array2),
-        u64::from_le_bytes(array3),
-        u64::from_le_bytes(array4),
-    ]))
+
+    let converted =  (0..3).map(|i|{
+        let mut values = [0u8; 8];
+        values.copy_from_slice(&r.to_repr().as_ref()[i * 8..i * 8 + 8]);
+        u64::from_le_bytes(values)
+    }).collect::<Vec<_>>().try_into().unwrap();
+
+    FFr::from(BigInt::new(converted))
 }
