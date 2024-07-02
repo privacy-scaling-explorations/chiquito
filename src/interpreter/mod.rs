@@ -332,7 +332,7 @@ mod test {
         plonkish::{
             backend::halo2::{
                 chiquito2Halo2, get_halo2_setup, halo2_prove, halo2_verify, ChiquitoHalo2Circuit,
-                OneNg,
+                DummyRng,
             },
             compiler::{
                 cell_manager::SingleRowCellManager, config,
@@ -452,11 +452,11 @@ mod test {
             SimpleStepSelectorBuilder {},
         ));
 
-        let rng = BlockRng::new(OneNg {});
+        let rng = BlockRng::new(DummyRng {});
 
         let (cs, params, vk, pk, chiquito_halo2) = get_halo2_setup(7, plonkish.0, rng);
 
-        let rng = BlockRng::new(OneNg {});
+        let rng = BlockRng::new(DummyRng {});
         let witness = plonkish
             .1
             .unwrap()

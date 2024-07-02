@@ -6,7 +6,7 @@ use chiquito::{
                                                          * circuit */
     plonkish::{
         backend::{
-            halo2::{get_halo2_setup, halo2_prove, halo2_verify, OneNg},
+            halo2::{get_halo2_setup, halo2_prove, halo2_verify, DummyRng},
             hyperplonk::ChiquitoHyperPlonkCircuit,
         },
         compiler::{
@@ -135,11 +135,11 @@ fn fibo_circuit<F: Field + From<u64> + Hash>() -> FiboReturn<F> {
 fn main() {
     let (chiquito, wit_gen, _) = fibo_circuit::<Fr>();
 
-    let rng = BlockRng::new(OneNg {});
+    let rng = BlockRng::new(DummyRng {});
 
     let (cs, params, vk, pk, chiquito_halo2) = get_halo2_setup(7, chiquito, rng);
 
-    let rng = BlockRng::new(OneNg {});
+    let rng = BlockRng::new(DummyRng {});
     let witness = &wit_gen.unwrap().generate(());
     let instances = &chiquito_halo2.instance(witness);
     let instance = if instances.is_empty() {

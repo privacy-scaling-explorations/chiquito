@@ -5,7 +5,7 @@ use chiquito::{
     frontend::dsl::{circuit, trace::DSLTraceGenerator}, /* main function for constructing an AST
                                                          * circuit */
     plonkish::{
-        backend::halo2::{get_halo2_setup, halo2_prove, halo2_verify, OneNg},
+        backend::halo2::{get_halo2_setup, halo2_prove, halo2_verify, DummyRng},
         compiler::{
             cell_manager::SingleRowCellManager, // input for constructing the compiler
             compile,                            // input for constructing the compiler
@@ -136,11 +136,11 @@ fn generate<F: Field + From<u64> + Hash>() -> (Circuit<F>, Option<AssignGen<F>>)
 // standard main function for a Halo2 circuit
 fn main() {
     let plonkish = generate::<Fr>();
-    let rng = BlockRng::new(OneNg {});
+    let rng = BlockRng::new(DummyRng {});
 
     let (cs, params, vk, pk, chiquito_halo2) = get_halo2_setup(10, plonkish.0, rng);
 
-    let rng = BlockRng::new(OneNg {});
+    let rng = BlockRng::new(DummyRng {});
     let witness = plonkish.1.unwrap().generate(0);
     let instances = &chiquito_halo2.instance(&witness);
     let instance = if instances.is_empty() {
@@ -167,11 +167,11 @@ fn main() {
     }
 
     let plonkish = generate::<Fr>();
-    let rng = BlockRng::new(OneNg {});
+    let rng = BlockRng::new(DummyRng {});
 
     let (cs, params, vk, pk, chiquito_halo2) = get_halo2_setup(8, plonkish.0, rng);
 
-    let rng = BlockRng::new(OneNg {});
+    let rng = BlockRng::new(DummyRng {});
     let witness = plonkish.1.unwrap().generate(7);
     let instances = &chiquito_halo2.instance(&witness);
     let instance = if instances.is_empty() {

@@ -7,7 +7,7 @@ use chiquito::{
     plonkish::{
         backend::halo2::{
             chiquitoSuperCircuit2Halo2, get_super_circuit_halo2_setup, halo2_prove, halo2_verify,
-            ChiquitoHalo2SuperCircuit, OneNg,
+            ChiquitoHalo2SuperCircuit, DummyRng,
         },
         compiler::{
             cell_manager::SingleRowCellManager, config, step_selector::SimpleStepSelectorBuilder,
@@ -207,11 +207,11 @@ fn main() {
     let witness = super_circuit.get_mapping().generate((x_in_value, k_value));
     let mut circuit = ChiquitoHalo2SuperCircuit::new(compiled, witness.clone());
 
-    let rng = BlockRng::new(OneNg {});
+    let rng = BlockRng::new(DummyRng {});
 
     let (cs, params, vk, pk) = get_super_circuit_halo2_setup(10, &mut circuit, rng);
 
-    let rng = BlockRng::new(OneNg {});
+    let rng = BlockRng::new(DummyRng {});
     let instance = circuit.instance();
     let proof = halo2_prove(
         &params,

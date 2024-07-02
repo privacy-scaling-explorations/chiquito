@@ -82,7 +82,8 @@ pub fn compile_halo2_middleware<F: PrimeField + From<u64> + Hash>(
 ) -> Result<CompiledCircuit<F>, Error> {
     let n = 2usize.pow(k);
 
-    let mut cs = ConstraintSystem::default();
+    let mut cs: ConstraintSystem<F> = ConstraintSystem::default();
+    circuit.configure(&mut cs);
 
     if n < cs.minimum_rows() {
         return Err(Error::Backend(ErrorBack::NotEnoughRowsAvailable {
@@ -90,55 +91,7 @@ pub fn compile_halo2_middleware<F: PrimeField + From<u64> + Hash>(
         }));
     }
 
-    circuit.configure(&mut cs);
-
-    let fixed_count = circuit.circuit.fixed_assignments.0.len();
-    let mut fixed = vec![vec![F::default(); n]; fixed_count];
-
-    for (column, values) in circuit.circuit.fixed_assignments.iter() {
-        let column = circuit.convert_fixed_column(column);
-
-        for (offset, value) in values.iter().enumerate() {
-            fixed[column.index][offset] = *value;
-        }
-    }
-
-    let mut copies = vec![];
-    circuit
-        .circuit
-        .exposed
-        .iter()
-        .enumerate()
-        .for_each(|(row, (column, offset))| {
-            let col_type: Columns = match column.ctype {
-                cAdvice | Halo2Advice => Columns::Advice,
-                cFixed | Halo2Fixed => Columns::Fixed,
-            };
-
-            let index = if col_type == Columns::Advice {
-                circuit.convert_advice_column(column).index
-            } else {
-                circuit.convert_fixed_column(column).index
-            };
-
-            let column_mid = ColumnMid::new(col_type, index);
-
-            copies.push((
-                CellMid {
-                    column: column_mid,
-                    row: *offset as usize,
-                },
-                CellMid {
-                    column: ColumnMid::new(Columns::Instance, 0),
-                    row,
-                },
-            ));
-        });
-
-    let preprocessing = Preprocessing {
-        permutation: halo2_middleware::permutation::AssemblyMid { copies: vec![] },
-        fixed,
-    };
+    let preprocessing = circuit.get_preprocessing(&mut cs, n);
 
     Ok(CompiledCircuit {
         cs: cs.clone().into(),
@@ -163,32 +116,7 @@ pub fn compile_super_circuit_halo2_middleware<F: PrimeField + From<u64> + Hash>(
     circuit.sub_circuits =
         ChiquitoHalo2SuperCircuit::configure_with_params(&mut cs, circuit.sub_circuits.clone());
 
-    let fixed_columns: HashMap<UUID, Column<Fixed>> =
-        circuit
-            .sub_circuits
-            .iter()
-            .fold(HashMap::default(), |mut acc, s| {
-                acc.extend(s.fixed_columns.clone());
-                acc
-            });
-
-    let fixed_count = fixed_columns.len();
-    let mut fixed = vec![vec![F::default(); n]; fixed_count];
-
-    for subcircuit in circuit.sub_circuits.iter() {
-        for (column, values) in subcircuit.circuit.fixed_assignments.iter() {
-            let column = fixed_columns.get(&column.uuid()).unwrap();
-
-            for (offset, value) in values.iter().enumerate() {
-                fixed[column.index][offset] = *value;
-            }
-        }
-    }
-
-    let preprocessing = Preprocessing {
-        permutation: halo2_middleware::permutation::AssemblyMid { copies: vec![] },
-        fixed,
-    };
+    let preprocessing = circuit.get_preprocessing(&mut cs, n);
 
     Ok(CompiledCircuit {
         cs: cs.clone().into(),
@@ -485,6 +413,69 @@ impl<F: PrimeField + From<u64> + Hash> ChiquitoHalo2<F> {
             _ => panic!("wrong column type"),
         }
     }
+
+    fn collect_permutations(
+        &self,
+        cs: &mut ConstraintSystem<F>,
+        copies: &mut Vec<(CellMid, CellMid)>,
+    ) {
+        self.circuit
+            .exposed
+            .iter()
+            .enumerate()
+            .for_each(|(row, (column, offset))| {
+                let col_type: Columns = match column.ctype {
+                    cAdvice | Halo2Advice => Columns::Advice,
+                    cFixed | Halo2Fixed => Columns::Fixed,
+                };
+
+                let index = if col_type == Columns::Advice {
+                    let column = self.convert_advice_column(column);
+                    cs.enable_equality(column);
+                    column.index
+                } else {
+                    let column = self.convert_fixed_column(column);
+                    cs.enable_equality(column);
+                    column.index
+                };
+
+                let column_mid = ColumnMid::new(col_type, index);
+
+                let instance_column = ColumnMid::new(Columns::Instance, 0);
+                cs.enable_equality(instance_column);
+                copies.push((
+                    CellMid {
+                        column: column_mid,
+                        row: *offset as usize,
+                    },
+                    CellMid {
+                        column: instance_column,
+                        row,
+                    },
+                ));
+            });
+    }
+
+    fn get_preprocessing(&self, cs: &mut ConstraintSystem<F>, n: usize) -> Preprocessing<F> {
+        let fixed_count = self.circuit.fixed_assignments.0.len();
+        let mut fixed = vec![vec![F::default(); n]; fixed_count];
+
+        for (column, values) in self.circuit.fixed_assignments.iter() {
+            let column = self.convert_fixed_column(column);
+
+            for (offset, value) in values.iter().enumerate() {
+                fixed[column.index][offset] = *value;
+            }
+        }
+
+        let mut copies = vec![];
+        self.collect_permutations(cs, &mut copies);
+
+        Preprocessing {
+            permutation: halo2_middleware::permutation::AssemblyMid { copies },
+            fixed,
+        }
+    }
 }
 
 #[allow(dead_code)]
@@ -617,6 +608,36 @@ impl<F: PrimeField + From<u64> + Hash> ChiquitoHalo2SuperCircuit<F> {
 
         result
     }
+
+    fn get_preprocessing(&self, cs: &mut ConstraintSystem<F>, n: usize) -> Preprocessing<F> {
+        let fixed_columns: HashMap<UUID, Column<Fixed>> =
+            self.sub_circuits
+                .iter()
+                .fold(HashMap::default(), |mut acc, s| {
+                    acc.extend(s.fixed_columns.clone());
+                    acc
+                });
+
+        let fixed_count = fixed_columns.len();
+        let mut fixed = vec![vec![F::default(); n]; fixed_count];
+
+        let mut copies = vec![];
+        for subcircuit in self.sub_circuits.iter() {
+            for (column, values) in subcircuit.circuit.fixed_assignments.iter() {
+                let column = fixed_columns.get(&column.uuid()).unwrap();
+
+                for (offset, value) in values.iter().enumerate() {
+                    fixed[column.index][offset] = *value;
+                }
+            }
+            subcircuit.collect_permutations(cs, &mut copies);
+        }
+
+        Preprocessing {
+            permutation: halo2_middleware::permutation::AssemblyMid { copies },
+            fixed,
+        }
+    }
 }
 
 impl<F: PrimeField + From<u64> + Hash> h2Circuit<F> for ChiquitoHalo2SuperCircuit<F> {
@@ -708,7 +729,7 @@ pub fn halo2_verify(
 pub fn halo2_prove(
     params: &ParamsKZG<Bn256>,
     pk: ProvingKey<G1Affine>,
-    mut rng: BlockRng<OneNg>,
+    mut rng: BlockRng<DummyRng>,
     cs: ConstraintSystemMid<Fr>,
     witnesses: Vec<&Assignments<Fr>>,
     circuits: Vec<ChiquitoHalo2<Fr>>,
@@ -778,7 +799,7 @@ pub fn halo2_prove(
 pub fn get_halo2_setup(
     k: u32,
     circuit: Circuit<Fr>,
-    rng: BlockRng<OneNg>,
+    rng: BlockRng<DummyRng>,
 ) -> (
     ConstraintSystemMid<Fr>,
     ParamsKZG<Bn256>,
@@ -790,7 +811,7 @@ pub fn get_halo2_setup(
 
     let compiled = compile_halo2_middleware::<Fr>(k, &mut chiquito_halo2).unwrap();
     // Setup
-    let params = ParamsKZG::<Bn256>::setup::<BlockRng<OneNg>>(k, rng);
+    let params = ParamsKZG::<Bn256>::setup::<BlockRng<DummyRng>>(k, rng);
     let vk = keygen_vk(&params, &compiled).expect("keygen_vk should not fail");
     let pk = keygen_pk(&params, vk.clone(), &compiled).expect("keygen_pk should not fail");
 
@@ -800,7 +821,7 @@ pub fn get_halo2_setup(
 pub fn get_super_circuit_halo2_setup(
     k: u32,
     circuit: &mut ChiquitoHalo2SuperCircuit<Fr>,
-    rng: BlockRng<OneNg>,
+    rng: BlockRng<DummyRng>,
 ) -> (
     ConstraintSystemMid<Fr>,
     ParamsKZG<Bn256>,
@@ -809,17 +830,19 @@ pub fn get_super_circuit_halo2_setup(
 ) {
     let compiled = compile_super_circuit_halo2_middleware::<Fr>(k, circuit).unwrap();
     // Setup
-    let params = ParamsKZG::<Bn256>::setup::<BlockRng<OneNg>>(k, rng);
+    let params = ParamsKZG::<Bn256>::setup::<BlockRng<DummyRng>>(k, rng);
     let vk = keygen_vk(&params, &compiled).expect("keygen_vk should not fail");
     let pk = keygen_pk(&params, vk.clone(), &compiled).expect("keygen_pk should not fail");
 
     (compiled.cs, params, vk, pk)
 }
 
-// One number generator, that can be used as a deterministic Rng, outputting fixed values.
-pub struct OneNg {}
+/// ⚠️ Not for production use! ⚠️
+///
+/// One-number generator that can be used as a deterministic Rng outputting fixed values.
+pub struct DummyRng {}
 
-impl BlockRngCore for OneNg {
+impl BlockRngCore for DummyRng {
     type Item = u32;
     type Results = [u32; 16];
 
