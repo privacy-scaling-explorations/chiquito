@@ -14,13 +14,7 @@ use crate::{
         lang::TLDeclsParser,
     },
     plonkish,
-    poly::{
-        self,
-        cse::{cse, replace_common_subexprs},
-        mielim::mi_elimination,
-        reduce::reduce_degree,
-        Expr,
-    },
+    poly::{self, mielim::mi_elimination, reduce::reduce_degree, Expr},
     sbpir::{query::Queriable, InternalSignal, SBPIR},
     wit_gen::{NullTraceGenerator, SymbolSignalMapping, TraceGenerator},
 };
@@ -95,8 +89,6 @@ impl<F: Field + Hash> Compiler<F> {
         } else {
             circuit
         };
-
-        let circuit = self.cse(circuit);
 
         let circuit =
             circuit.with_trace(InterpreterTraceGenerator::new(ast, symbols, self.mapping));
@@ -237,42 +229,6 @@ impl<F: Field + Hash> Compiler<F> {
             step_type.decomp_constraints(|expr| {
                 reduce_degree(expr.clone(), degree, &mut signal_factory)
             });
-        }
-
-        circuit
-    }
-
-    fn cse(&self, mut circuit: SBPIR<F, NullTraceGenerator>) -> SBPIR<F, NullTraceGenerator> {
-        let mut queriables: Vec<Queriable<F>> = Vec::new();
-
-        self.mapping.forward_signals.iter().for_each(|(_, signal)| {
-            queriables.push(Queriable::Forward(signal.clone(), false));
-            queriables.push(Queriable::Forward(signal.clone(), true));
-        });
-        self.mapping
-            .internal_signals
-            .iter()
-            .for_each(|(_, signal)| {
-                queriables.push(Queriable::Internal(signal.clone()));
-            });
-
-        for (_, step_type) in circuit.step_types.iter_mut() {
-            let mut exprs = Vec::new();
-            exprs.extend(step_type.constraints.iter().map(|c| c.expr.clone()));
-
-            // get all the common subexpressions and the random assignments used in the hash
-            let (common_ses, assignments) = cse(&exprs, &queriables, None);
-            
-            let mut signal_factory: SignalFactory<F> = SignalFactory::default();
-            // replace the common subexpressions with the new signals
-            step_type.decomp_constraints(|expr| {
-                replace_common_subexprs(
-                    expr.clone(),
-                    &common_ses,
-                    &assignments,
-                    &mut signal_factory,
-                )
-            })
         }
 
         circuit
