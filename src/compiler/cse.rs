@@ -7,7 +7,7 @@ use crate::{
 use rand_chacha::{rand_core::SeedableRng, ChaCha20Rng};
 use std::{collections::HashMap, fmt::Debug, hash::Hash, marker::PhantomData};
 
-pub(super) fn cse<F: Field + Hash, V: Debug + Clone + Eq + Hash>(
+pub(super) fn cse<F: Field + Hash>(
     mut circuit: SBPIR<F, NullTraceGenerator>,
 ) -> SBPIR<F, NullTraceGenerator> {
     // for each step in the circuit we collect the exprs in the constraints
@@ -36,7 +36,7 @@ pub(super) fn cse<F: Field + Hash, V: Debug + Clone + Eq + Hash>(
         let common_ses = cse
             .common_exprs
             .iter()
-            .map(|ce| ce.expr.clone())
+            .map(|ce| ce.clone())
             .collect::<Vec<_>>();
 
         step_type.decomp_constraints(|expr| {
@@ -50,12 +50,6 @@ pub(super) fn cse<F: Field + Hash, V: Debug + Clone + Eq + Hash>(
     }
 
     circuit
-}
-
-#[derive(Debug, Clone)]
-pub struct CommonExpr<F, V> {
-    expr: Expr<F, V, HashResult>,
-    count: usize,
 }
 
 #[derive(Debug, Clone)]
@@ -76,7 +70,7 @@ impl Default for Config {
 struct CSE<F, V> {
     random_assignments: VarAssignments<F, V>,
 
-    common_exprs: Vec<CommonExpr<F, V>>,
+    common_exprs: Vec<Expr<F, V, HashResult>>,
 
     hashed_exprs_map: HashMap<u64, Expr<F, V, HashResult>>,
     count_map: HashMap<u64, u32>,
@@ -166,10 +160,7 @@ impl<F: Field + Hash, V: Debug + Clone + Eq + Hash> CSE<F, V> {
                 self.count_map
                     .get(&hash)
                     .filter(|&&count| count >= self.config.min_occurrences.unwrap_or(2) as u32)
-                    .map(|&count| CommonExpr {
-                        expr: expr.clone(),
-                        count: count as usize,
-                    })
+                    .map(|_| expr.clone())
             })
             .collect();
     }
@@ -191,4 +182,9 @@ impl<F> poly::SignalFactory<Queriable<F>> for SignalFactory<F> {
             self.count
         )))
     }
+}
+
+#[cfg(test)]
+mod test {
+
 }

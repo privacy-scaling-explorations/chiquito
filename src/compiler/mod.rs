@@ -13,9 +13,9 @@ use crate::{
 pub mod abepi;
 #[allow(clippy::module_inception)]
 pub mod compiler;
-mod cse;
 pub mod semantic;
 mod setup_inter;
+mod cse;
 
 #[derive(Default)]
 pub struct Config {
