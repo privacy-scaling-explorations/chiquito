@@ -1,7 +1,7 @@
-use rand_chacha::{rand_core::SeedableRng, ChaCha20Rng};
-use crate::field::Field;
-use std::{collections::HashMap, fmt::Debug, hash::Hash};
 use super::{ConstrDecomp, Expr, HashResult, SignalFactory, VarAssignments};
+use crate::field::Field;
+use rand_chacha::{rand_core::SeedableRng, ChaCha20Rng};
+use std::{collections::HashMap, fmt::Debug, hash::Hash};
 
 #[derive(Debug, Clone)]
 pub struct CommonExpr<F, V> {
@@ -29,15 +29,15 @@ pub type CountMap = HashMap<u64, u32>;
 
 /// Common Subexpression Elimination - takes a collection of expressions
 /// and returns a collection of common subexpressions and variable assignments.
-/// 
+///
 /// # Parameters
-/// 
+///
 /// - `exprs`: A slice of expressions to analyze.
 /// - `queriables`: A slice of variables that can be queried.
 /// - `config`: Optional configuration for the minimum degree and occurrences.
-/// 
+///
 /// # Returns
-/// 
+///
 /// A tuple containing a vector of common expressions and variable assignments.
 pub fn cse<F: Field + Hash, V: Debug + Clone + Eq + Hash>(
     exprs: &[Expr<F, V, ()>],
@@ -64,9 +64,7 @@ pub fn cse<F: Field + Hash, V: Debug + Clone + Eq + Hash>(
     (common_exprs, assignments)
 }
 
-fn count_expression_occurrences<F, V>(
-    hashed_exprs: &[Expr<F, V, HashResult>],
-) -> CountMap {
+fn count_expression_occurrences<F, V>(hashed_exprs: &[Expr<F, V, HashResult>]) -> CountMap {
     let mut expr_count = HashMap::new();
     for hashed_expr in hashed_exprs {
         let hash = hashed_expr.meta().hash;
@@ -148,7 +146,11 @@ fn generate_random_assignment<F: Field + Hash, V: Debug + Clone + Eq + Hash>(
     queriables: &[V],
 ) -> VarAssignments<F, V> {
     let mut rng = ChaCha20Rng::seed_from_u64(0);
-    queriables.iter().cloned().map(|q| (q, F::random(&mut rng))).collect()
+    queriables
+        .iter()
+        .cloned()
+        .map(|q| (q, F::random(&mut rng)))
+        .collect()
 }
 
 pub fn replace_common_subexprs<
@@ -179,15 +181,12 @@ fn replace_common_subexprs_rec<
     assignments: &VarAssignments<F, V>,
     signal_factory: &mut SF,
 ) -> Expr<F, V, ()> {
-    // check if the expression is a common subexpression
+    // Check if the expression is a common subexpression
     if let Some(_common_expr) = common_ses
         .iter()
         .find(|ce| constr.hash(assignments).meta().hash == ce.expr.meta().hash)
     {
-        // if it is
-        // check if the signal already exists
-        // if it does, return the signal
-        // otherwise, create a new signal
+        // If it is, check if the signal already exists
         let hash = constr.hash(assignments).meta().hash;
         if let Some(signal) = decomp.auto_signals.iter().find_map(|(signal, expr)| {
             if expr.hash(assignments).meta().hash == hash {
@@ -203,7 +202,7 @@ fn replace_common_subexprs_rec<
             Expr::Query(new_signal, ())
         }
     } else {
-        // otherwise, replace the subexpressions recursively
+        // Otherwise, replace the subexpressions recursively
         match constr {
             Expr::Sum(ses, meta) => {
                 let new_ses = ses
@@ -273,12 +272,12 @@ fn replace_common_subexprs_rec<
 #[cfg(test)]
 mod test {
     use super::*;
-    use std::collections::HashSet;
-    use halo2_proofs::halo2curves::bn256::Fr;
     use crate::{
         poly::{Expr::*, ToExpr},
         sbpir::{query::Queriable, ForwardSignal, InternalSignal},
     };
+    use halo2_proofs::halo2curves::bn256::Fr;
+    use std::collections::HashSet;
 
     #[test]
     fn test_generate_random_assignment() {

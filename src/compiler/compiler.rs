@@ -14,7 +14,13 @@ use crate::{
         lang::TLDeclsParser,
     },
     plonkish,
-    poly::{self, cse::{cse, replace_common_subexprs}, mielim::mi_elimination, reduce::reduce_degree, Expr},
+    poly::{
+        self,
+        cse::{cse, replace_common_subexprs},
+        mielim::mi_elimination,
+        reduce::reduce_degree,
+        Expr,
+    },
     sbpir::{query::Queriable, InternalSignal, SBPIR},
     wit_gen::{NullTraceGenerator, SymbolSignalMapping, TraceGenerator},
 };
@@ -250,22 +256,22 @@ impl<F: Field + Hash> Compiler<F> {
                 queriables.push(Queriable::Internal(signal.clone()));
             });
 
-        let mut signal_factory: SignalFactory<F> = SignalFactory::default();
-
-        let mut exprs = Vec::new();
-        // Take all the constraints from the circuit
         for (_, step_type) in circuit.step_types.iter_mut() {
-            for constraint in &step_type.constraints {
-                exprs.push(constraint.expr.clone());
-            }
-        }
-        // get all the common subexpressions and the random assignments used in the hash
-        let (common_ses, assignments) = cse(&exprs, &queriables, None);
+            let mut exprs = Vec::new();
+            exprs.extend(step_type.constraints.iter().map(|c| c.expr.clone()));
 
-        for (_, step_type) in circuit.step_types.iter_mut() {
+            // get all the common subexpressions and the random assignments used in the hash
+            let (common_ses, assignments) = cse(&exprs, &queriables, None);
+            
+            let mut signal_factory: SignalFactory<F> = SignalFactory::default();
             // replace the common subexpressions with the new signals
             step_type.decomp_constraints(|expr| {
-                replace_common_subexprs(expr.clone(), &common_ses, &assignments, &mut signal_factory)
+                replace_common_subexprs(
+                    expr.clone(),
+                    &common_ses,
+                    &assignments,
+                    &mut signal_factory,
+                )
             })
         }
 
