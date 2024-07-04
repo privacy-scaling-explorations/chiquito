@@ -2,14 +2,16 @@ use pyo3::{
     prelude::*,
     types::{PyDict, PyList, PyLong, PyString},
 };
+use rand_chacha::rand_core::block::BlockRng;
 
 use crate::{
     frontend::dsl::{StepTypeHandler, SuperCircuitContext},
     pil::backend::powdr_pil::chiquito2Pil,
     plonkish::{
         backend::halo2::{
-            chiquito2Halo2, chiquitoSuperCircuit2Halo2, ChiquitoHalo2, ChiquitoHalo2Circuit,
-            ChiquitoHalo2SuperCircuit,
+            chiquito2Halo2, chiquitoSuperCircuit2Halo2, get_halo2_setup,
+            get_super_circuit_halo2_setup, halo2_prove, halo2_verify, ChiquitoHalo2,
+            ChiquitoHalo2SuperCircuit, DummyRng,
         },
         compiler::{
             cell_manager::SingleRowCellManager, compile, config,
@@ -27,7 +29,7 @@ use crate::{
 };
 
 use core::result::Result;
-use halo2_proofs::{dev::MockProver, halo2curves::bn256::Fr};
+use halo2_proofs::halo2curves::bn256::Fr;
 use serde::de::{self, Deserialize, Deserializer, IgnoredAny, MapAccess, Visitor};
 use std::{cell::RefCell, collections::HashMap, fmt};
 
@@ -149,18 +151,28 @@ pub fn chiquito_super_circuit_halo2_mock_prover(
 
     let super_assignments = mapping_ctx.get_super_assignments();
 
-    let circuit = ChiquitoHalo2SuperCircuit::new(compiled, super_assignments);
+    let mut circuit = ChiquitoHalo2SuperCircuit::new(compiled);
 
-    let prover = MockProver::<Fr>::run(k as u32, &circuit, circuit.instance()).unwrap();
+    let rng = BlockRng::new(DummyRng {});
 
-    let result = prover.verify();
+    let (cs, params, vk, pk) = get_super_circuit_halo2_setup(k as u32, &mut circuit, rng);
+
+    let rng = BlockRng::new(DummyRng {});
+    let (proof, instance) = halo2_prove(
+        &params,
+        pk,
+        rng,
+        cs,
+        super_assignments,
+        &circuit.sub_circuits,
+    );
+
+    let result = halo2_verify(proof, params, vk, instance);
 
     println!("result = {:#?}", result);
 
-    if let Err(failures) = &result {
-        for failure in failures.iter() {
-            println!("{}", failure);
-        }
+    if let Err(failure) = &result {
+        println!("{}", failure);
     }
 }
 
@@ -179,21 +191,31 @@ pub fn chiquito_halo2_mock_prover(witness_json: &str, rust_id: UUID, k: usize) {
     let trace_witness: TraceWitness<Fr> =
         serde_json::from_str(witness_json).expect("Json deserialization to TraceWitness failed.");
     let (_, compiled, assignment_generator) = rust_id_to_halo2(rust_id);
-    let circuit: ChiquitoHalo2Circuit<_> = ChiquitoHalo2Circuit::new(
-        compiled,
-        assignment_generator.map(|g| g.generate(trace_witness)),
+    let witness = assignment_generator
+        .map(|g| g.generate(trace_witness))
+        .unwrap();
+
+    let rng = BlockRng::new(DummyRng {});
+
+    let (cs, params, vk, pk, chiquito_halo2) = get_halo2_setup(k as u32, compiled, rng);
+
+    let rng = BlockRng::new(DummyRng {});
+
+    let (proof, instance) = halo2_prove(
+        &params,
+        pk,
+        rng,
+        cs,
+        HashMap::from([(chiquito_halo2.ir_id, witness)]),
+        &vec![chiquito_halo2],
     );
 
-    let prover = MockProver::<Fr>::run(k as u32, &circuit, circuit.instance()).unwrap();
+    let result = halo2_verify(proof, params, vk, instance);
 
-    let result = prover.verify();
+    println!("result = {:#?}", result);
 
-    println!("{:#?}", result);
-
-    if let Err(failures) = &result {
-        for failure in failures.iter() {
-            println!("{}", failure);
-        }
+    if let Err(error) = &result {
+        println!("{}", error);
     }
 }
 

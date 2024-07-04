@@ -1482,23 +1482,14 @@ fn main() {
     };
 
     let witness = super_circuit.get_mapping().generate(values);
-    let mut circuit = ChiquitoHalo2SuperCircuit::new(compiled, witness.clone());
+    let mut circuit = ChiquitoHalo2SuperCircuit::new(compiled);
 
     let rng = BlockRng::new(DummyRng {});
 
     let (cs, params, vk, pk) = get_super_circuit_halo2_setup(9, &mut circuit, rng);
 
     let rng = BlockRng::new(DummyRng {});
-    let instance = circuit.instance();
-    let proof = halo2_prove(
-        &params,
-        pk,
-        rng,
-        cs,
-        witness.values().collect(),
-        circuit.sub_circuits,
-        instance.clone(),
-    );
+    let (proof, instance) = halo2_prove(&params, pk, rng, cs, witness, &circuit.sub_circuits);
 
     let result = halo2_verify(proof, params, vk, instance);
 

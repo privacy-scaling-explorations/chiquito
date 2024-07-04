@@ -204,24 +204,17 @@ fn main() {
 
     let super_circuit = mimc7_super_circuit::<Fr>();
     let compiled = chiquitoSuperCircuit2Halo2(&super_circuit);
-    let witness = super_circuit.get_mapping().generate((x_in_value, k_value));
-    let mut circuit = ChiquitoHalo2SuperCircuit::new(compiled, witness.clone());
+
+    let mut circuit = ChiquitoHalo2SuperCircuit::new(compiled);
 
     let rng = BlockRng::new(DummyRng {});
 
     let (cs, params, vk, pk) = get_super_circuit_halo2_setup(10, &mut circuit, rng);
 
     let rng = BlockRng::new(DummyRng {});
-    let instance = circuit.instance();
-    let proof = halo2_prove(
-        &params,
-        pk,
-        rng,
-        cs,
-        witness.values().collect(),
-        circuit.sub_circuits,
-        instance.clone(),
-    );
+
+    let witness = super_circuit.get_mapping().generate((x_in_value, k_value));
+    let (proof, instance) = halo2_prove(&params, pk, rng, cs, witness, &circuit.sub_circuits);
 
     let result = halo2_verify(proof, params, vk, instance);
 

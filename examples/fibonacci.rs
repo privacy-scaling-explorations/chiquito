@@ -1,4 +1,4 @@
-use std::hash::Hash;
+use std::{collections::HashMap, hash::Hash};
 
 use chiquito::{
     field::Field,
@@ -6,7 +6,7 @@ use chiquito::{
                                                          * circuit */
     plonkish::{
         backend::{
-            halo2::{get_halo2_setup, halo2_prove, halo2_verify, DummyRng},
+            halo2::{get_halo2_setup, halo2_prove, halo2_verify, ChiquitoHalo2, DummyRng},
             hyperplonk::ChiquitoHyperPlonkCircuit,
         },
         compiler::{
@@ -137,24 +137,19 @@ fn main() {
 
     let rng = BlockRng::new(DummyRng {});
 
-    let (cs, params, vk, pk, chiquito_halo2) = get_halo2_setup(7, chiquito, rng);
+    let (cs, params, vk, pk, chiquito_halo2) =
+        get_halo2_setup(7, ChiquitoHalo2::new(chiquito), rng);
 
     let rng = BlockRng::new(DummyRng {});
-    let witness = &wit_gen.unwrap().generate(());
-    let instances = &chiquito_halo2.instance(witness);
-    let instance = if instances.is_empty() {
-        vec![]
-    } else {
-        vec![instances.clone()]
-    };
-    let proof = halo2_prove(
+    let witness = wit_gen.unwrap().generate(());
+
+    let (proof, instance) = halo2_prove(
         &params,
         pk,
         rng,
         cs,
-        vec![&witness],
-        vec![chiquito_halo2],
-        instance.clone(),
+        HashMap::from([(chiquito_halo2.ir_id, witness)]),
+        &vec![chiquito_halo2],
     );
 
     let result = halo2_verify(proof, params, vk, instance);

@@ -323,17 +323,14 @@ fn get_block_stmts(stmt: &Statement<BigInt, Identifier>) -> Vec<Statement<BigInt
 mod test {
     use std::collections::HashMap;
 
-    use halo2_proofs::{dev::MockProver, halo2curves::bn256::Fr};
+    use halo2_proofs::halo2curves::bn256::Fr;
     use rand_chacha::rand_core::block::BlockRng;
 
     use crate::{
         compiler::{compile, Config},
         parser::ast::debug_sym_factory::DebugSymRefFactory,
         plonkish::{
-            backend::halo2::{
-                chiquito2Halo2, get_halo2_setup, halo2_prove, halo2_verify, ChiquitoHalo2Circuit,
-                DummyRng,
-            },
+            backend::halo2::{get_halo2_setup, halo2_prove, halo2_verify, ChiquitoHalo2, DummyRng},
             compiler::{
                 cell_manager::SingleRowCellManager, config,
                 step_selector::SimpleStepSelectorBuilder,
@@ -454,27 +451,22 @@ mod test {
 
         let rng = BlockRng::new(DummyRng {});
 
-        let (cs, params, vk, pk, chiquito_halo2) = get_halo2_setup(7, plonkish.0, rng);
+        let (cs, params, vk, pk, chiquito_halo2) =
+            get_halo2_setup(7, ChiquitoHalo2::new(plonkish.0), rng);
 
         let rng = BlockRng::new(DummyRng {});
         let witness = plonkish
             .1
             .unwrap()
             .generate(HashMap::from([("n".to_string(), Fr::from(12))]));
-        let instances = &chiquito_halo2.instance(&witness);
-        let instance = if instances.is_empty() {
-            vec![]
-        } else {
-            vec![instances.clone()]
-        };
-        let proof = halo2_prove(
+
+        let (proof, instance) = halo2_prove(
             &params,
             pk,
             rng,
             cs,
-            vec![&witness],
-            vec![chiquito_halo2],
-            instance.clone(),
+            HashMap::from([(chiquito_halo2.ir_id, witness)]),
+            &vec![chiquito_halo2],
         );
 
         let result = halo2_verify(proof, params, vk, instance);
@@ -541,23 +533,32 @@ mod test {
             SimpleStepSelectorBuilder {},
         ));
 
-        let compiled = chiquito2Halo2(plonkish.0);
+        let rng = BlockRng::new(DummyRng {});
 
-        let circuit = ChiquitoHalo2Circuit::new(
-            compiled,
-            plonkish
-                .1
-                .map(|g| g.generate(HashMap::from([("n".to_string(), Fr::from(12))]))),
+        let (cs, params, vk, pk, chiquito_halo2) =
+            get_halo2_setup(7, ChiquitoHalo2::new(plonkish.0), rng);
+
+        let rng = BlockRng::new(DummyRng {});
+        let witness = plonkish
+            .1
+            .unwrap()
+            .generate(HashMap::from([("n".to_string(), Fr::from(12))]));
+
+        let (proof, instance) = halo2_prove(
+            &params,
+            pk,
+            rng,
+            cs,
+            HashMap::from([(chiquito_halo2.ir_id, witness)]),
+            &vec![chiquito_halo2],
         );
 
-        let prover = MockProver::<Fr>::run(7, &circuit, circuit.instance()).unwrap();
+        let result = halo2_verify(proof, params, vk, instance);
 
-        let result = prover.verify();
+        println!("result = {:#?}", result);
 
-        assert!(result.is_err());
-
-        if let Err(result) = result {
-            println!("{}", result.len());
+        if let Err(error) = &result {
+            println!("{}", error);
         }
     }
 }

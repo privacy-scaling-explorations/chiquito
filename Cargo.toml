@@ -19,7 +19,6 @@ pyo3 = { version = "0.19.1", features = ["extension-module"] }
 halo2_proofs = { git = "https://github.com/privacy-scaling-explorations/halo2.git", default-features = false, features = [ "circuit-params", "derive_serde"], rev = "da4983e"}
 
 halo2_middleware = { git = "https://github.com/privacy-scaling-explorations/halo2.git", rev = "da4983e" }
-halo2_frontend = { git = "https://github.com/privacy-scaling-explorations/halo2.git", default-features = false, features = ["bits"], rev = "da4983e" }
 halo2_backend = { git = "https://github.com/privacy-scaling-explorations/halo2.git", rev = "da4983e" }
 
 num-bigint = { version = "0.4", features = ["rand"] }

@@ -1,11 +1,11 @@
-use std::hash::Hash;
+use std::{collections::HashMap, hash::Hash};
 
 use chiquito::{
     field::Field,
     frontend::dsl::{circuit, trace::DSLTraceGenerator}, /* main function for constructing an AST
                                                          * circuit */
     plonkish::{
-        backend::halo2::{get_halo2_setup, halo2_prove, halo2_verify, DummyRng},
+        backend::halo2::{get_halo2_setup, halo2_prove, halo2_verify, ChiquitoHalo2, DummyRng},
         compiler::{
             cell_manager::SingleRowCellManager, // input for constructing the compiler
             compile,                            // input for constructing the compiler
@@ -138,24 +138,19 @@ fn main() {
     let plonkish = generate::<Fr>();
     let rng = BlockRng::new(DummyRng {});
 
-    let (cs, params, vk, pk, chiquito_halo2) = get_halo2_setup(10, plonkish.0, rng);
+    let (cs, params, vk, pk, chiquito_halo2) =
+        get_halo2_setup(10, ChiquitoHalo2::new(plonkish.0), rng);
 
     let rng = BlockRng::new(DummyRng {});
     let witness = plonkish.1.unwrap().generate(0);
-    let instances = &chiquito_halo2.instance(&witness);
-    let instance = if instances.is_empty() {
-        vec![]
-    } else {
-        vec![instances.clone()]
-    };
-    let proof = halo2_prove(
+
+    let (proof, instance) = halo2_prove(
         &params,
         pk,
         rng,
         cs,
-        vec![&witness],
-        vec![chiquito_halo2],
-        instance.clone(),
+        HashMap::from([(chiquito_halo2.ir_id, witness)]),
+        &vec![chiquito_halo2],
     );
 
     let result = halo2_verify(proof, params, vk, instance);
@@ -169,24 +164,19 @@ fn main() {
     let plonkish = generate::<Fr>();
     let rng = BlockRng::new(DummyRng {});
 
-    let (cs, params, vk, pk, chiquito_halo2) = get_halo2_setup(8, plonkish.0, rng);
+    let (cs, params, vk, pk, chiquito_halo2) =
+        get_halo2_setup(8, ChiquitoHalo2::new(plonkish.0), rng);
 
     let rng = BlockRng::new(DummyRng {});
     let witness = plonkish.1.unwrap().generate(7);
-    let instances = &chiquito_halo2.instance(&witness);
-    let instance = if instances.is_empty() {
-        vec![]
-    } else {
-        vec![instances.clone()]
-    };
-    let proof = halo2_prove(
+
+    let (proof, instance) = halo2_prove(
         &params,
         pk,
         rng,
         cs,
-        vec![&witness],
-        vec![chiquito_halo2],
-        instance.clone(),
+        HashMap::from([(chiquito_halo2.ir_id, witness)]),
+        &vec![chiquito_halo2],
     );
 
     let result = halo2_verify(proof, params, vk, instance);
