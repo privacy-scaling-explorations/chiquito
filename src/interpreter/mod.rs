@@ -444,19 +444,27 @@ mod test {
 
         chiquito.circuit.num_steps = 12;
 
-        let plonkish = chiquito.plonkish(config(
+        let mut plonkish = chiquito.plonkish(config(
             SingleRowCellManager {},
             SimpleStepSelectorBuilder {},
         ));
 
         let rng = BlockRng::new(DummyRng {});
 
-        let halo2_setup =
-            plonkish.get_halo2_setup(7, rng, HashMap::from([("n".to_string(), Fr::from(12))]));
+        let halo2_setup = plonkish.halo2_setup(7, rng);
 
         let rng = BlockRng::new(DummyRng {});
 
-        let (proof, instance) = halo2_setup.generate_proof(rng);
+        let (proof, instance) = halo2_setup.generate_proof(
+            rng,
+            HashMap::from([(
+                halo2_setup.circuits[0].ir_id,
+                plonkish
+                    .assignment_generator
+                    .unwrap()
+                    .generate(HashMap::from([("n".to_string(), Fr::from(12))])),
+            )]),
+        );
 
         let result = halo2_verify(proof, halo2_setup.params, halo2_setup.vk, instance);
         assert!(result.is_ok());
@@ -517,19 +525,27 @@ mod test {
         // .wit_gen
         // .evil_assign(&mut witness, 1, ("//fibo", "i"), Fr::zero());
 
-        let plonkish = chiquito.plonkish(config(
+        let mut plonkish = chiquito.plonkish(config(
             SingleRowCellManager {},
             SimpleStepSelectorBuilder {},
         ));
 
         let rng = BlockRng::new(DummyRng {});
 
-        let halo2_setup =
-            plonkish.get_halo2_setup(7, rng, HashMap::from([("n".to_string(), Fr::from(12))]));
+        let halo2_setup = plonkish.halo2_setup(7, rng);
 
         let rng = BlockRng::new(DummyRng {});
 
-        let (proof, instance) = halo2_setup.generate_proof(rng);
+        let (proof, instance) = halo2_setup.generate_proof(
+            rng,
+            HashMap::from([(
+                halo2_setup.circuits[0].ir_id,
+                plonkish
+                    .assignment_generator
+                    .unwrap()
+                    .generate(HashMap::from([("n".to_string(), Fr::from(12))])),
+            )]),
+        );
 
         let result = halo2_verify(proof, halo2_setup.params, halo2_setup.vk, instance);
 

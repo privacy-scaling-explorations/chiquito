@@ -104,10 +104,8 @@ fn compile_super_circuit_halo2_middleware<F: PrimeField + From<u64> + Hash>(
         }));
     }
 
-    circuit.sub_circuits =
-        ChiquitoHalo2SuperCircuit::configure_with_params(&mut cs, circuit.sub_circuits.clone());
-
-    let preprocessing = circuit.get_preprocessing(&mut cs, n);
+    circuit.configure_with_params(&mut cs);
+    let preprocessing = circuit.preprocessing(&mut cs, n);
 
     Ok(CompiledCircuit {
         cs: cs.clone().into(),
@@ -167,7 +165,7 @@ impl<F: PrimeField + From<u64> + Hash> ChiquitoHalo2<F> {
             }));
         }
 
-        Ok((self.get_preprocessing(&mut cs, n), cs))
+        Ok((self.preprocessing(&mut cs, n), cs))
     }
 
     fn configure_columns_sub_circuit(&mut self, meta: &mut ConstraintSystem<F>) {
@@ -365,7 +363,7 @@ impl<F: PrimeField + From<u64> + Hash> ChiquitoHalo2<F> {
             });
     }
 
-    fn get_preprocessing(&self, cs: &mut ConstraintSystem<F>, n: usize) -> Preprocessing<F> {
+    fn preprocessing(&self, cs: &mut ConstraintSystem<F>, n: usize) -> Preprocessing<F> {
         let fixed_count = self.circuit.fixed_assignments.0.len();
         let mut fixed = vec![vec![F::default(); n]; fixed_count];
 
@@ -409,7 +407,7 @@ impl<F: PrimeField + From<u64> + Hash> ChiquitoHalo2SuperCircuit<F> {
         Self { sub_circuits }
     }
 
-    fn get_preprocessing(&self, cs: &mut ConstraintSystem<F>, n: usize) -> Preprocessing<F> {
+    fn preprocessing(&self, cs: &mut ConstraintSystem<F>, n: usize) -> Preprocessing<F> {
         let fixed_columns: HashMap<UUID, Column<Fixed>> =
             self.sub_circuits
                 .iter()
@@ -439,32 +437,31 @@ impl<F: PrimeField + From<u64> + Hash> ChiquitoHalo2SuperCircuit<F> {
         }
     }
 
-    fn configure_with_params(
-        meta: &mut ConstraintSystem<F>,
-        mut sub_circuits: Vec<ChiquitoHalo2<F>>,
-    ) -> Vec<ChiquitoHalo2<F>> {
-        sub_circuits
+    fn configure_with_params(&mut self, meta: &mut ConstraintSystem<F>) {
+        self.sub_circuits
             .iter_mut()
             .for_each(|c| c.configure_columns_sub_circuit(meta));
 
         let advice_columns: HashMap<UUID, Column<Advice>> =
-            sub_circuits.iter().fold(HashMap::default(), |mut acc, s| {
-                acc.extend(s.advice_columns.clone());
-                acc
-            });
+            self.sub_circuits
+                .iter()
+                .fold(HashMap::default(), |mut acc, s| {
+                    acc.extend(s.advice_columns.clone());
+                    acc
+                });
         let fixed_columns: HashMap<UUID, Column<Fixed>> =
-            sub_circuits.iter().fold(HashMap::default(), |mut acc, s| {
-                acc.extend(s.fixed_columns.clone());
-                acc
-            });
+            self.sub_circuits
+                .iter()
+                .fold(HashMap::default(), |mut acc, s| {
+                    acc.extend(s.fixed_columns.clone());
+                    acc
+                });
 
-        sub_circuits.iter_mut().for_each(|sub_circuit| {
+        self.sub_circuits.iter_mut().for_each(|sub_circuit| {
             sub_circuit.advice_columns = advice_columns.clone();
             sub_circuit.fixed_columns = fixed_columns.clone();
             sub_circuit.configure_sub_circuit(meta)
         });
-
-        sub_circuits
     }
 }
 
@@ -498,8 +495,7 @@ pub struct Halo2Setup {
     pub params: ParamsKZG<Bn256>,
     pub vk: VerifyingKey<G1Affine>,
     pk: ProvingKey<G1Affine>,
-    circuits: Vec<ChiquitoHalo2<Fr>>,
-    witnesses: HashMap<UUID, Assignments<Fr>>,
+    pub circuits: Vec<ChiquitoHalo2<Fr>>,
 }
 
 impl Halo2Setup {
@@ -509,7 +505,6 @@ impl Halo2Setup {
         vk: VerifyingKey<G1Affine>,
         pk: ProvingKey<G1Affine>,
         circuits: Vec<ChiquitoHalo2<Fr>>,
-        witnesses: HashMap<UUID, Assignments<Fr>>,
     ) -> Self {
         Self {
             cs,
@@ -517,17 +512,20 @@ impl Halo2Setup {
             vk,
             pk,
             circuits,
-            witnesses,
         }
     }
 
-    pub fn generate_proof(&self, mut rng: BlockRng<DummyRng>) -> (Vec<u8>, Vec<Vec<Fr>>) {
+    pub fn generate_proof(
+        &self,
+        mut rng: BlockRng<DummyRng>,
+        witnesses: HashMap<UUID, Assignments<Fr>>,
+    ) -> (Vec<u8>, Vec<Vec<Fr>>) {
         let mut instance = Vec::new();
 
         for circuit in self.circuits.iter() {
             if !circuit.circuit.exposed.is_empty() {
                 let instance_values = circuit.circuit.instance(
-                    self.witnesses
+                    witnesses
                         .get(&circuit.ir_id)
                         .expect("No matching witness found for given UUID."),
                 );
@@ -570,7 +568,7 @@ impl Halo2Setup {
             ];
 
             for circuit in self.circuits.iter() {
-                if let Some(assignments) = self.witnesses.get(&circuit.ir_id) {
+                if let Some(assignments) = witnesses.get(&circuit.ir_id) {
                     for (column, values) in assignments.iter() {
                         let circuit_column = circuit.advice_columns.get(&column.uuid()).unwrap();
                         let halo2_column = Column::<Any>::from(*circuit_column);
@@ -594,54 +592,33 @@ impl Halo2Setup {
     }
 }
 
-pub trait PlonkishHalo2<F: PrimeField, TG: TraceGenerator<F>>
-where
-    TG: TraceGenerator<F> + Default,
-{
-    fn get_halo2_setup(&self, k: u32, rng: BlockRng<DummyRng>, args: TG::TraceArgs) -> Halo2Setup;
+pub trait PlonkishHalo2<F: PrimeField> {
+    fn halo2_setup(&mut self, k: u32, rng: BlockRng<DummyRng>) -> Halo2Setup;
 }
 
-impl<TG: TraceGenerator<Fr> + Default> PlonkishHalo2<Fr, TG> for PlonkishCompilationResult<Fr, TG> {
-    fn get_halo2_setup(&self, k: u32, rng: BlockRng<DummyRng>, args: TG::TraceArgs) -> Halo2Setup {
+impl<TG: TraceGenerator<Fr> + Default> PlonkishHalo2<Fr> for PlonkishCompilationResult<Fr, TG> {
+    fn halo2_setup(&mut self, k: u32, rng: BlockRng<DummyRng>) -> Halo2Setup {
         let mut chiquito_halo2 = ChiquitoHalo2::new(self.circuit.clone());
-        let ir_id = chiquito_halo2.ir_id;
         let compiled = compile_halo2_middleware(k, &mut chiquito_halo2).unwrap();
         // Setup
         let params = ParamsKZG::<Bn256>::setup::<BlockRng<DummyRng>>(k, rng);
         let vk = keygen_vk(&params, &compiled).expect("keygen_vk should not fail");
         let pk = keygen_pk(&params, vk.clone(), &compiled).expect("keygen_pk should not fail");
 
-        Halo2Setup::new(
-            compiled.cs,
-            params,
-            vk,
-            pk,
-            vec![chiquito_halo2],
-            HashMap::from([(
-                ir_id,
-                self.assignment_generator.as_ref().unwrap().generate(args),
-            )]),
-        )
+        Halo2Setup::new(compiled.cs, params, vk, pk, vec![chiquito_halo2])
     }
 }
 
-pub fn get_super_circuit_halo2_setup(
-    k: u32,
-    circuit: &mut ChiquitoHalo2SuperCircuit<Fr>,
-    rng: BlockRng<DummyRng>,
-) -> (
-    ConstraintSystemMid<Fr>,
-    ParamsKZG<Bn256>,
-    halo2_proofs::plonk::VerifyingKey<G1Affine>,
-    halo2_proofs::plonk::ProvingKey<G1Affine>,
-) {
-    let compiled = compile_super_circuit_halo2_middleware::<Fr>(k, circuit).unwrap();
-    // Setup
-    let params = ParamsKZG::<Bn256>::setup::<BlockRng<DummyRng>>(k, rng);
-    let vk = keygen_vk(&params, &compiled).expect("keygen_vk should not fail");
-    let pk = keygen_pk(&params, vk.clone(), &compiled).expect("keygen_pk should not fail");
+impl PlonkishHalo2<Fr> for ChiquitoHalo2SuperCircuit<Fr> {
+    fn halo2_setup(&mut self, k: u32, rng: BlockRng<DummyRng>) -> Halo2Setup {
+        let compiled = compile_super_circuit_halo2_middleware::<Fr>(k, self).unwrap();
+        // Setup
+        let params = ParamsKZG::<Bn256>::setup::<BlockRng<DummyRng>>(k, rng);
+        let vk = keygen_vk(&params, &compiled).expect("keygen_vk should not fail");
+        let pk = keygen_pk(&params, vk.clone(), &compiled).expect("keygen_pk should not fail");
 
-    (compiled.cs, params, vk, pk)
+        Halo2Setup::new(compiled.cs, params, vk, pk, self.sub_circuits.clone())
+    }
 }
 
 /// ⚠️ Not for production use! ⚠️

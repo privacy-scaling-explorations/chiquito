@@ -1,4 +1,4 @@
-use std::hash::Hash;
+use std::{collections::HashMap, hash::Hash};
 
 use chiquito::{
     field::Field,
@@ -132,15 +132,21 @@ fn fibo_circuit<F: Field + From<u64> + Hash>() -> FiboReturn<F> {
 
 // standard main function for a Halo2 circuit
 fn main() {
-    let (chiquito, _) = fibo_circuit::<Fr>();
+    let (mut chiquito, _) = fibo_circuit::<Fr>();
 
     let rng = BlockRng::new(DummyRng {});
 
-    let halo2_setup = chiquito.get_halo2_setup(7, rng, ());
+    let halo2_setup = chiquito.halo2_setup(7, rng);
 
     let rng = BlockRng::new(DummyRng {});
 
-    let (proof, instance) = halo2_setup.generate_proof(rng);
+    let (proof, instance) = halo2_setup.generate_proof(
+        rng,
+        HashMap::from([(
+            halo2_setup.circuits[0].ir_id,
+            chiquito.assignment_generator.unwrap().generate(()),
+        )]),
+    );
 
     let result = halo2_verify(proof, halo2_setup.params, halo2_setup.vk, instance);
 

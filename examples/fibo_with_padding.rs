@@ -1,4 +1,4 @@
-use std::hash::Hash;
+use std::{collections::HashMap, hash::Hash};
 
 use chiquito::{
     field::Field,
@@ -205,14 +205,20 @@ fn fibo_circuit<F: Field + From<u64> + Hash>(
 
 // standard main function for a Halo2 circuit
 fn main() {
-    let plonkish_compilation_result = fibo_circuit::<Fr>();
+    let mut plonkish = fibo_circuit::<Fr>();
     let rng = BlockRng::new(DummyRng {});
 
-    let halo2_setup = plonkish_compilation_result.get_halo2_setup(7, rng, 7);
+    let halo2_setup = plonkish.halo2_setup(7, rng);
 
     let rng = BlockRng::new(DummyRng {});
 
-    let (proof, instance) = halo2_setup.generate_proof(rng);
+    let (proof, instance) = halo2_setup.generate_proof(
+        rng,
+        HashMap::from([(
+            halo2_setup.circuits[0].ir_id,
+            plonkish.assignment_generator.unwrap().generate(7),
+        )]),
+    );
 
     let result = halo2_verify(proof, halo2_setup.params, halo2_setup.vk, instance);
 

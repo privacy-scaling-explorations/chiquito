@@ -8,8 +8,8 @@ use chiquito::{
     },
     plonkish::{
         backend::halo2::{
-            chiquitoSuperCircuit2Halo2, get_super_circuit_halo2_setup, halo2_verify,
-            ChiquitoHalo2SuperCircuit, DummyRng, Halo2Setup,
+            chiquitoSuperCircuit2Halo2, halo2_verify, ChiquitoHalo2SuperCircuit, DummyRng,
+            PlonkishHalo2,
         },
         compiler::{
             cell_manager::{MaxWidthCellManager, SingleRowCellManager},
@@ -1486,11 +1486,10 @@ fn main() {
 
     let rng = BlockRng::new(DummyRng {});
 
-    let (cs, params, vk, pk) = get_super_circuit_halo2_setup(9, &mut circuit, rng);
-    let halo2_setup = Halo2Setup::new(cs, params, vk, pk, circuit.sub_circuits, witness);
+    let halo2_setup = circuit.halo2_setup(9, rng);
 
     let rng = BlockRng::new(DummyRng {});
-    let (proof, instance) = halo2_setup.generate_proof(rng);
+    let (proof, instance) = halo2_setup.generate_proof(rng, witness);
 
     let result = halo2_verify(proof, halo2_setup.params, halo2_setup.vk, instance);
 

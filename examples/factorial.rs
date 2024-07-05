@@ -1,4 +1,4 @@
-use std::hash::Hash;
+use std::{collections::HashMap, hash::Hash};
 
 use chiquito::{
     field::Field,
@@ -135,14 +135,20 @@ fn generate<F: Field + From<u64> + Hash>() -> PlonkishCompilationResult<F, DSLTr
 
 // standard main function for a Halo2 circuit
 fn main() {
-    let plonkish = generate::<Fr>();
+    let mut plonkish = generate::<Fr>();
     let rng = BlockRng::new(DummyRng {});
 
-    let halo2_setup = plonkish.get_halo2_setup(10, rng, 0);
+    let halo2_setup = plonkish.halo2_setup(10, rng);
 
     let rng = BlockRng::new(DummyRng {});
 
-    let (proof, instance) = halo2_setup.generate_proof(rng);
+    let (proof, instance) = halo2_setup.generate_proof(
+        rng,
+        HashMap::from([(
+            halo2_setup.circuits[0].ir_id,
+            plonkish.assignment_generator.unwrap().generate(0),
+        )]),
+    );
 
     let result = halo2_verify(proof, halo2_setup.params, halo2_setup.vk, instance);
 
@@ -152,14 +158,20 @@ fn main() {
         println!("{}", error);
     }
 
-    let plonkish = generate::<Fr>();
+    let mut plonkish = generate::<Fr>();
     let rng = BlockRng::new(DummyRng {});
 
-    let halo2_setup = plonkish.get_halo2_setup(8, rng, 7);
+    let halo2_setup = plonkish.halo2_setup(8, rng);
 
     let rng = BlockRng::new(DummyRng {});
 
-    let (proof, instance) = halo2_setup.generate_proof(rng);
+    let (proof, instance) = halo2_setup.generate_proof(
+        rng,
+        HashMap::from([(
+            halo2_setup.circuits[0].ir_id,
+            plonkish.assignment_generator.unwrap().generate(7),
+        )]),
+    );
 
     let result = halo2_verify(proof, halo2_setup.params, halo2_setup.vk, instance);
 
