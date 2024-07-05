@@ -321,16 +321,16 @@ fn get_block_stmts(stmt: &Statement<BigInt, Identifier>) -> Vec<Statement<BigInt
 
 #[cfg(test)]
 mod test {
-    use std::collections::HashMap;
-
+    use crate::plonkish::backend::halo2::PlonkishHalo2;
     use halo2_proofs::halo2curves::bn256::Fr;
     use rand_chacha::rand_core::block::BlockRng;
+    use std::collections::HashMap;
 
     use crate::{
         compiler::{compile, Config},
         parser::ast::debug_sym_factory::DebugSymRefFactory,
         plonkish::{
-            backend::halo2::{get_halo2_setup, halo2_prove, halo2_verify, ChiquitoHalo2, DummyRng},
+            backend::halo2::{halo2_verify, DummyRng},
             compiler::{
                 cell_manager::SingleRowCellManager, config,
                 step_selector::SimpleStepSelectorBuilder,
@@ -451,25 +451,14 @@ mod test {
 
         let rng = BlockRng::new(DummyRng {});
 
-        let (cs, params, vk, pk, chiquito_halo2) =
-            get_halo2_setup(7, ChiquitoHalo2::new(plonkish.0), rng);
+        let halo2_setup =
+            plonkish.get_halo2_setup(7, rng, HashMap::from([("n".to_string(), Fr::from(12))]));
 
         let rng = BlockRng::new(DummyRng {});
-        let witness = plonkish
-            .1
-            .unwrap()
-            .generate(HashMap::from([("n".to_string(), Fr::from(12))]));
 
-        let (proof, instance) = halo2_prove(
-            &params,
-            pk,
-            rng,
-            cs,
-            HashMap::from([(chiquito_halo2.ir_id, witness)]),
-            &vec![chiquito_halo2],
-        );
+        let (proof, instance) = halo2_setup.generate_proof(rng);
 
-        let result = halo2_verify(proof, params, vk, instance);
+        let result = halo2_verify(proof, halo2_setup.params, halo2_setup.vk, instance);
         assert!(result.is_ok());
     }
 
@@ -535,25 +524,14 @@ mod test {
 
         let rng = BlockRng::new(DummyRng {});
 
-        let (cs, params, vk, pk, chiquito_halo2) =
-            get_halo2_setup(7, ChiquitoHalo2::new(plonkish.0), rng);
+        let halo2_setup =
+            plonkish.get_halo2_setup(7, rng, HashMap::from([("n".to_string(), Fr::from(12))]));
 
         let rng = BlockRng::new(DummyRng {});
-        let witness = plonkish
-            .1
-            .unwrap()
-            .generate(HashMap::from([("n".to_string(), Fr::from(12))]));
 
-        let (proof, instance) = halo2_prove(
-            &params,
-            pk,
-            rng,
-            cs,
-            HashMap::from([(chiquito_halo2.ir_id, witness)]),
-            &vec![chiquito_halo2],
-        );
+        let (proof, instance) = halo2_setup.generate_proof(rng);
 
-        let result = halo2_verify(proof, params, vk, instance);
+        let result = halo2_verify(proof, halo2_setup.params, halo2_setup.vk, instance);
 
         println!("result = {:#?}", result);
 

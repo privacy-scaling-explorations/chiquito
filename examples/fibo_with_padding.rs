@@ -1,18 +1,18 @@
-use std::{collections::HashMap, hash::Hash};
+use std::hash::Hash;
 
 use chiquito::{
     field::Field,
     frontend::dsl::{circuit, trace::DSLTraceGenerator}, /* main function for constructing an AST
                                                          * circuit */
     plonkish::{
-        backend::halo2::{get_halo2_setup, halo2_prove, halo2_verify, ChiquitoHalo2, DummyRng},
+        backend::halo2::{halo2_verify, DummyRng, PlonkishHalo2},
         compiler::{
             cell_manager::SingleRowCellManager, // input for constructing the compiler
             compile,                            // input for constructing the compiler
             config,
             step_selector::SimpleStepSelectorBuilder,
+            PlonkishCompilationResult,
         },
-        ir::{assignments::AssignmentGenerator, Circuit},
     }, /* compiles to
         * Chiquito Halo2
         * backend,
@@ -28,10 +28,9 @@ use rand_chacha::rand_core::block::BlockRng;
 // This example file extends the rust example file 'fibonacci.rs',
 // describing usage of multiple steptypes, padding, and exposing signals.
 
-type AssignGen<F> = AssignmentGenerator<F, DSLTraceGenerator<F, u32>>;
-
 // the main circuit function
-fn fibo_circuit<F: Field + From<u64> + Hash>() -> (Circuit<F>, Option<AssignGen<F>>)
+fn fibo_circuit<F: Field + From<u64> + Hash>(
+) -> PlonkishCompilationResult<F, DSLTraceGenerator<F, u32>>
 // u32 is for external input that indicates the number of fibnoacci iterations
 {
     use chiquito::{
@@ -206,25 +205,16 @@ fn fibo_circuit<F: Field + From<u64> + Hash>() -> (Circuit<F>, Option<AssignGen<
 
 // standard main function for a Halo2 circuit
 fn main() {
-    let (chiquito, wit_gen) = fibo_circuit::<Fr>();
+    let plonkish_compilation_result = fibo_circuit::<Fr>();
     let rng = BlockRng::new(DummyRng {});
 
-    let (cs, params, vk, pk, chiquito_halo2) =
-        get_halo2_setup(7, ChiquitoHalo2::new(chiquito), rng);
+    let halo2_setup = plonkish_compilation_result.get_halo2_setup(7, rng, 7);
 
     let rng = BlockRng::new(DummyRng {});
-    let witness = wit_gen.unwrap().generate(7);
 
-    let (proof, instance) = halo2_prove(
-        &params,
-        pk,
-        rng,
-        cs,
-        HashMap::from([(chiquito_halo2.ir_id, witness)]),
-        &vec![chiquito_halo2],
-    );
+    let (proof, instance) = halo2_setup.generate_proof(rng);
 
-    let result = halo2_verify(proof, params, vk, instance);
+    let result = halo2_verify(proof, halo2_setup.params, halo2_setup.vk, instance);
 
     println!("{:#?}", result);
 

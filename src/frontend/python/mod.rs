@@ -9,13 +9,13 @@ use crate::{
     pil::backend::powdr_pil::chiquito2Pil,
     plonkish::{
         backend::halo2::{
-            chiquito2Halo2, chiquitoSuperCircuit2Halo2, get_halo2_setup,
-            get_super_circuit_halo2_setup, halo2_prove, halo2_verify, ChiquitoHalo2,
-            ChiquitoHalo2SuperCircuit, DummyRng,
+            chiquito2Halo2, chiquitoSuperCircuit2Halo2, get_super_circuit_halo2_setup,
+            halo2_verify, ChiquitoHalo2, ChiquitoHalo2SuperCircuit, DummyRng, Halo2Setup,
+            PlonkishHalo2,
         },
         compiler::{
             cell_manager::SingleRowCellManager, compile, config,
-            step_selector::SimpleStepSelectorBuilder,
+            step_selector::SimpleStepSelectorBuilder, PlonkishCompilationResult,
         },
         ir::{assignments::AssignmentGenerator, sc::MappingContext},
     },
@@ -64,14 +64,15 @@ pub fn chiquito_ast_to_halo2(ast_json: &str) -> UUID {
         serde_json::from_str(ast_json).expect("Json deserialization to Circuit failed.");
 
     let config = config(SingleRowCellManager {}, SimpleStepSelectorBuilder {});
-    let (chiquito, assignment_generator) = compile(config, &circuit);
-    let chiquito_halo2 = chiquito2Halo2(chiquito);
+    let plonkish = compile(config, &circuit);
+    let chiquito_halo2 = chiquito2Halo2(plonkish.circuit);
     let uuid = uuid();
 
     CIRCUIT_MAP.with(|circuit_map| {
-        circuit_map
-            .borrow_mut()
-            .insert(uuid, (circuit, chiquito_halo2, assignment_generator));
+        circuit_map.borrow_mut().insert(
+            uuid,
+            (circuit, chiquito_halo2, plonkish.assignment_generator),
+        );
     });
 
     uuid
@@ -158,16 +159,10 @@ pub fn chiquito_super_circuit_halo2_mock_prover(
     let (cs, params, vk, pk) = get_super_circuit_halo2_setup(k as u32, &mut circuit, rng);
 
     let rng = BlockRng::new(DummyRng {});
-    let (proof, instance) = halo2_prove(
-        &params,
-        pk,
-        rng,
-        cs,
-        super_assignments,
-        &circuit.sub_circuits,
-    );
+    let halo2_setup = Halo2Setup::new(cs, params, vk, pk, circuit.sub_circuits, super_assignments);
+    let (proof, instance) = halo2_setup.generate_proof(rng);
 
-    let result = halo2_verify(proof, params, vk, instance);
+    let result = halo2_verify(proof, halo2_setup.params, halo2_setup.vk, instance);
 
     println!("result = {:#?}", result);
 
@@ -191,26 +186,21 @@ pub fn chiquito_halo2_mock_prover(witness_json: &str, rust_id: UUID, k: usize) {
     let trace_witness: TraceWitness<Fr> =
         serde_json::from_str(witness_json).expect("Json deserialization to TraceWitness failed.");
     let (_, compiled, assignment_generator) = rust_id_to_halo2(rust_id);
-    let witness = assignment_generator
-        .map(|g| g.generate(trace_witness))
-        .unwrap();
 
     let rng = BlockRng::new(DummyRng {});
 
-    let (cs, params, vk, pk, chiquito_halo2) = get_halo2_setup(k as u32, compiled, rng);
+    let plonkish_compilation_result = PlonkishCompilationResult {
+        circuit: compiled.circuit,
+        assignment_generator,
+    };
+
+    let halo2_setup = plonkish_compilation_result.get_halo2_setup(k as u32, rng, trace_witness);
 
     let rng = BlockRng::new(DummyRng {});
 
-    let (proof, instance) = halo2_prove(
-        &params,
-        pk,
-        rng,
-        cs,
-        HashMap::from([(chiquito_halo2.ir_id, witness)]),
-        &vec![chiquito_halo2],
-    );
+    let (proof, instance) = halo2_setup.generate_proof(rng);
 
-    let result = halo2_verify(proof, params, vk, instance);
+    let result = halo2_verify(proof, halo2_setup.params, halo2_setup.vk, instance);
 
     println!("result = {:#?}", result);
 

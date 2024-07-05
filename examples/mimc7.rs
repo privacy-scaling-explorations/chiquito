@@ -6,8 +6,8 @@ use chiquito::{
     frontend::dsl::{lb::LookupTable, super_circuit, trace::DSLTraceGenerator, CircuitContext},
     plonkish::{
         backend::halo2::{
-            chiquitoSuperCircuit2Halo2, get_super_circuit_halo2_setup, halo2_prove, halo2_verify,
-            ChiquitoHalo2SuperCircuit, DummyRng,
+            chiquitoSuperCircuit2Halo2, get_super_circuit_halo2_setup, halo2_verify,
+            ChiquitoHalo2SuperCircuit, DummyRng, Halo2Setup,
         },
         compiler::{
             cell_manager::SingleRowCellManager, config, step_selector::SimpleStepSelectorBuilder,
@@ -211,12 +211,13 @@ fn main() {
 
     let (cs, params, vk, pk) = get_super_circuit_halo2_setup(10, &mut circuit, rng);
 
-    let rng = BlockRng::new(DummyRng {});
-
     let witness = super_circuit.get_mapping().generate((x_in_value, k_value));
-    let (proof, instance) = halo2_prove(&params, pk, rng, cs, witness, &circuit.sub_circuits);
+    let halo2_setup = Halo2Setup::new(cs, params, vk, pk, circuit.sub_circuits, witness);
 
-    let result = halo2_verify(proof, params, vk, instance);
+    let rng = BlockRng::new(DummyRng {});
+    let (proof, instance) = halo2_setup.generate_proof(rng);
+
+    let result = halo2_verify(proof, halo2_setup.params, halo2_setup.vk, instance);
 
     println!("result = {:#?}", result);
 

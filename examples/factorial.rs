@@ -1,18 +1,18 @@
-use std::{collections::HashMap, hash::Hash};
+use std::hash::Hash;
 
 use chiquito::{
     field::Field,
     frontend::dsl::{circuit, trace::DSLTraceGenerator}, /* main function for constructing an AST
                                                          * circuit */
     plonkish::{
-        backend::halo2::{get_halo2_setup, halo2_prove, halo2_verify, ChiquitoHalo2, DummyRng},
+        backend::halo2::{halo2_verify, DummyRng, PlonkishHalo2},
         compiler::{
             cell_manager::SingleRowCellManager, // input for constructing the compiler
             compile,                            // input for constructing the compiler
             config,
             step_selector::SimpleStepSelectorBuilder,
+            PlonkishCompilationResult,
         },
-        ir::{assignments::AssignmentGenerator, Circuit},
     }, /* compiles to
         * Chiquito Halo2
         * backend,
@@ -27,8 +27,8 @@ use rand_chacha::rand_core::block::BlockRng;
 
 const MAX_FACTORIAL: usize = 10;
 
-type AssignGen<F> = AssignmentGenerator<F, DSLTraceGenerator<F, u32>>;
-fn generate<F: Field + From<u64> + Hash>() -> (Circuit<F>, Option<AssignGen<F>>) {
+fn generate<F: Field + From<u64> + Hash>() -> PlonkishCompilationResult<F, DSLTraceGenerator<F, u32>>
+{
     // table for the circuit:
     // |    step_type      |  i  |  x   |
     // ----------------------------------
@@ -138,22 +138,13 @@ fn main() {
     let plonkish = generate::<Fr>();
     let rng = BlockRng::new(DummyRng {});
 
-    let (cs, params, vk, pk, chiquito_halo2) =
-        get_halo2_setup(10, ChiquitoHalo2::new(plonkish.0), rng);
+    let halo2_setup = plonkish.get_halo2_setup(10, rng, 0);
 
     let rng = BlockRng::new(DummyRng {});
-    let witness = plonkish.1.unwrap().generate(0);
 
-    let (proof, instance) = halo2_prove(
-        &params,
-        pk,
-        rng,
-        cs,
-        HashMap::from([(chiquito_halo2.ir_id, witness)]),
-        &vec![chiquito_halo2],
-    );
+    let (proof, instance) = halo2_setup.generate_proof(rng);
 
-    let result = halo2_verify(proof, params, vk, instance);
+    let result = halo2_verify(proof, halo2_setup.params, halo2_setup.vk, instance);
 
     println!("result = {:#?}", result);
 
@@ -164,22 +155,13 @@ fn main() {
     let plonkish = generate::<Fr>();
     let rng = BlockRng::new(DummyRng {});
 
-    let (cs, params, vk, pk, chiquito_halo2) =
-        get_halo2_setup(8, ChiquitoHalo2::new(plonkish.0), rng);
+    let halo2_setup = plonkish.get_halo2_setup(8, rng, 7);
 
     let rng = BlockRng::new(DummyRng {});
-    let witness = plonkish.1.unwrap().generate(7);
 
-    let (proof, instance) = halo2_prove(
-        &params,
-        pk,
-        rng,
-        cs,
-        HashMap::from([(chiquito_halo2.ir_id, witness)]),
-        &vec![chiquito_halo2],
-    );
+    let (proof, instance) = halo2_setup.generate_proof(rng);
 
-    let result = halo2_verify(proof, params, vk, instance);
+    let result = halo2_verify(proof, halo2_setup.params, halo2_setup.vk, instance);
 
     println!("result = {:#?}", result);
 

@@ -13,7 +13,7 @@ use crate::{
         ast::{debug_sym_factory::DebugSymRefFactory, tl::TLDecl, Identifiable, Identifier},
         lang::TLDeclsParser,
     },
-    plonkish,
+    plonkish::{self, compiler::PlonkishCompilationResult},
     poly::{self, mielim::mi_elimination, reduce::reduce_degree, Expr},
     sbpir::{query::Queriable, InternalSignal, SBPIR},
     wit_gen::{NullTraceGenerator, SymbolSignalMapping, TraceGenerator},
@@ -41,10 +41,7 @@ impl<F: Field + Hash> CompilerResult<F> {
     >(
         &self,
         config: plonkish::compiler::CompilerConfig<CM, SSB>,
-    ) -> (
-        crate::plonkish::ir::Circuit<F>,
-        Option<plonkish::ir::assignments::AssignmentGenerator<F, InterpreterTraceGenerator>>,
-    ) {
+    ) -> PlonkishCompilationResult<F, InterpreterTraceGenerator> {
         plonkish::compiler::compile(config, &self.circuit)
     }
 }

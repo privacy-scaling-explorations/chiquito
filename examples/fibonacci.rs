@@ -1,4 +1,4 @@
-use std::{collections::HashMap, hash::Hash};
+use std::hash::Hash;
 
 use chiquito::{
     field::Field,
@@ -6,7 +6,7 @@ use chiquito::{
                                                          * circuit */
     plonkish::{
         backend::{
-            halo2::{get_halo2_setup, halo2_prove, halo2_verify, ChiquitoHalo2, DummyRng},
+            halo2::{halo2_verify, DummyRng, PlonkishHalo2},
             hyperplonk::ChiquitoHyperPlonkCircuit,
         },
         compiler::{
@@ -14,8 +14,8 @@ use chiquito::{
             compile,                            // input for constructing the compiler
             config,
             step_selector::SimpleStepSelectorBuilder,
+            PlonkishCompilationResult,
         },
-        ir::{assignments::AssignmentGenerator, Circuit},
     }, /* compiles to
         * Chiquito Halo2
         * backend,
@@ -36,8 +36,7 @@ use rand_chacha::rand_core::block::BlockRng;
 // 3. two witness generation arguments both of u64 type, i.e. (u64, u64)
 
 type FiboReturn<F> = (
-    Circuit<F>,
-    Option<AssignmentGenerator<F>>,
+    PlonkishCompilationResult<F, DSLTraceGenerator<F>>,
     SBPIR<F, DSLTraceGenerator<F>>,
 );
 
@@ -125,7 +124,7 @@ fn fibo_circuit<F: Field + From<u64> + Hash>() -> FiboReturn<F> {
         &fibo,
     );
 
-    (compiled.0, compiled.1, fibo)
+    (compiled, fibo)
 }
 
 // After compiling Chiquito AST to an IR, it is further parsed by a Chiquito Halo2 backend and
@@ -133,26 +132,17 @@ fn fibo_circuit<F: Field + From<u64> + Hash>() -> FiboReturn<F> {
 
 // standard main function for a Halo2 circuit
 fn main() {
-    let (chiquito, wit_gen, _) = fibo_circuit::<Fr>();
+    let (chiquito, _) = fibo_circuit::<Fr>();
 
     let rng = BlockRng::new(DummyRng {});
 
-    let (cs, params, vk, pk, chiquito_halo2) =
-        get_halo2_setup(7, ChiquitoHalo2::new(chiquito), rng);
+    let halo2_setup = chiquito.get_halo2_setup(7, rng, ());
 
     let rng = BlockRng::new(DummyRng {});
-    let witness = wit_gen.unwrap().generate(());
 
-    let (proof, instance) = halo2_prove(
-        &params,
-        pk,
-        rng,
-        cs,
-        HashMap::from([(chiquito_halo2.ir_id, witness)]),
-        &vec![chiquito_halo2],
-    );
+    let (proof, instance) = halo2_setup.generate_proof(rng);
 
-    let result = halo2_verify(proof, params, vk, instance);
+    let result = halo2_verify(proof, halo2_setup.params, halo2_setup.vk, instance);
 
     println!("result = {:#?}", result);
 
@@ -168,11 +158,15 @@ fn main() {
         pcs::{multilinear, univariate},
     };
     // get Chiquito ir
-    let (circuit, assignment_generator, _) = fibo_circuit::<hpFr>();
+    let (plonkish_compilation_result, _) = fibo_circuit::<hpFr>();
     // get assignments
-    let assignments = assignment_generator.unwrap().generate(());
+    let assignments = plonkish_compilation_result
+        .assignment_generator
+        .unwrap()
+        .generate(());
     // get hyperplonk circuit
-    let mut hyperplonk_circuit = ChiquitoHyperPlonkCircuit::new(4, circuit);
+    let mut hyperplonk_circuit =
+        ChiquitoHyperPlonkCircuit::new(4, plonkish_compilation_result.circuit);
     hyperplonk_circuit.set_assignment(assignments);
 
     type GeminiKzg = multilinear::Gemini<univariate::UnivariateKzg<Bn256>>;
@@ -182,10 +176,15 @@ fn main() {
     // pil boilerplate
     use chiquito::pil::backend::powdr_pil::chiquito2Pil;
 
-    let (_, wit_gen, circuit) = fibo_circuit::<hpFr>();
+    let (plonkish_compilation_result, circuit) = fibo_circuit::<hpFr>();
     let pil = chiquito2Pil(
         circuit,
-        Some(wit_gen.unwrap().generate_trace_witness(())),
+        Some(
+            plonkish_compilation_result
+                .assignment_generator
+                .unwrap()
+                .generate_trace_witness(()),
+        ),
         String::from("FiboCircuit"),
     );
     print!("{}", pil);
