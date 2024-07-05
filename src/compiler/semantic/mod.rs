@@ -531,8 +531,8 @@ mod test {
         let test_cases = [
             (396, "a"),
             (397, "a"),
-            (395, "initial"),
-            (398, "initial"),
+            (395, "final"),
+            (398, "final"),
             (460, "a"),
             (584, "a"),
             (772, "a"),

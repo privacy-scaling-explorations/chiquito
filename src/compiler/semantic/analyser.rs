@@ -55,13 +55,18 @@ impl Analyser {
     fn analyse_tldcl(&mut self, decl: &TLDecl<BigInt, Identifier>) {
         match decl.clone() {
             TLDecl::MachineDecl {
-                dsym,
+                dsym: _,
                 id,
                 input_params,
                 output_params,
                 block,
             } => {
-                let sym = SymTableEntry::new(id.name(), dsym, SymbolCategory::Machine, None);
+                let sym = SymTableEntry::new(
+                    id.name(),
+                    id.debug_sym_ref(),
+                    SymbolCategory::Machine,
+                    None,
+                );
 
                 RULES.apply_new_symbol_tldecl(self, decl, &id, &sym);
 
@@ -93,10 +98,10 @@ impl Analyser {
 
     fn analyse_machine_input_params(&mut self, params: Vec<Statement<BigInt, Identifier>>) {
         params.iter().for_each(|param| match param {
-            Statement::SignalDecl(dsym, ids) => ids.iter().for_each(|id| {
+            Statement::SignalDecl(_, ids) => ids.iter().for_each(|id| {
                 let sym = SymTableEntry::new(
                     id.id.name(),
-                    dsym.clone(),
+                    id.id.debug_sym_ref(),
                     SymbolCategory::InputSignal,
                     id.ty.clone().map(|ty| ty.name()),
                 );
@@ -105,10 +110,10 @@ impl Analyser {
 
                 self.symbols.add_symbol(&self.cur_scope, id.id.name(), sym);
             }),
-            Statement::WGVarDecl(dsym, ids) => ids.iter().for_each(|id| {
+            Statement::WGVarDecl(_, ids) => ids.iter().for_each(|id| {
                 let sym = SymTableEntry::new(
                     id.id.name(),
-                    dsym.clone(),
+                    id.id.debug_sym_ref(),
                     SymbolCategory::InputWGVar,
                     id.ty.clone().map(|ty| ty.name()),
                 );
@@ -123,10 +128,10 @@ impl Analyser {
 
     fn analyse_machine_output_params(&mut self, params: Vec<Statement<BigInt, Identifier>>) {
         params.iter().for_each(|param| match param {
-            Statement::SignalDecl(dsym, ids) => ids.iter().for_each(|id| {
+            Statement::SignalDecl(_, ids) => ids.iter().for_each(|id| {
                 let sym = SymTableEntry::new(
                     id.id.name(),
-                    dsym.clone(),
+                    id.id.debug_sym_ref(),
                     SymbolCategory::OutputSignal,
                     id.ty.clone().map(|ty| ty.name()),
                 );
@@ -136,10 +141,10 @@ impl Analyser {
                 self.symbols
                     .add_output_variable(&self.cur_scope, id.id.name(), sym);
             }),
-            Statement::WGVarDecl(dsym, ids) => ids.iter().for_each(|id| {
+            Statement::WGVarDecl(_, ids) => ids.iter().for_each(|id| {
                 let sym = SymTableEntry::new(
                     id.id.name(),
-                    dsym.clone(),
+                    id.id.debug_sym_ref(),
                     SymbolCategory::OutputWGVar,
                     id.ty.clone().map(|ty| ty.name()),
                 );
@@ -160,9 +165,13 @@ impl Analyser {
     fn add_state_decls(&mut self, block: &Statement<BigInt, Identifier>) {
         if let Statement::Block(_, stmts) = block {
             stmts.iter().for_each(|stmt| {
-                if let Statement::StateDecl(dsym, id, _) = stmt {
-                    let sym =
-                        SymTableEntry::new(id.name(), dsym.clone(), SymbolCategory::State, None);
+                if let Statement::StateDecl(_, id, _) = stmt {
+                    let sym = SymTableEntry::new(
+                        id.name(),
+                        id.debug_sym_ref(),
+                        SymbolCategory::State,
+                        None,
+                    );
 
                     RULES.apply_new_symbol_statement(self, stmt, id, &sym);
 
@@ -192,10 +201,10 @@ impl Analyser {
 
     fn statement_add_symbols(&mut self, stmt: &Statement<BigInt, Identifier>) {
         match stmt.clone() {
-            Statement::SignalDecl(dsym, ids) => ids.into_iter().for_each(|id| {
+            Statement::SignalDecl(_, ids) => ids.into_iter().for_each(|id| {
                 let sym = SymTableEntry::new(
                     id.id.name(),
-                    dsym.clone(),
+                    id.id.debug_sym_ref(),
                     SymbolCategory::Signal,
                     id.ty.map(|ty| ty.name()),
                 );
@@ -204,10 +213,10 @@ impl Analyser {
 
                 self.symbols.add_symbol(&self.cur_scope, id.id.name(), sym);
             }),
-            Statement::WGVarDecl(dsym, ids) => ids.into_iter().for_each(|id| {
+            Statement::WGVarDecl(_, ids) => ids.into_iter().for_each(|id| {
                 let sym = SymTableEntry::new(
                     id.id.name(),
-                    dsym.clone(),
+                    id.id.debug_sym_ref(),
                     SymbolCategory::WGVar,
                     id.ty.map(|ty| ty.name()),
                 );
