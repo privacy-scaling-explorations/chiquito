@@ -1,4 +1,4 @@
-use std::{collections::HashMap, hash::Hash, time::Instant, vec};
+use std::{collections::HashMap, hash::Hash, vec};
 
 use halo2_backend::plonk::{
     keygen::{keygen_pk, keygen_vk},
@@ -469,8 +469,6 @@ pub fn halo2_verify(
     instance: Vec<Vec<Fr>>,
 ) -> Result<(), ErrorBack> {
     // Verify
-    let start = Instant::now();
-    println!("Verifying...");
     let mut verifier_transcript =
         Blake2bRead::<_, G1Affine, Challenge255<_>>::init(proof.as_slice());
     let verifier_params = params.verifier_params();
@@ -483,7 +481,6 @@ pub fn halo2_verify(
         instance,
         &mut verifier_transcript,
     );
-    println!("Verify: {:?}", start.elapsed());
     result
 }
 
@@ -531,8 +528,6 @@ impl Halo2Setup {
         }
 
         // Proving
-        println!("Proving...");
-        let start = Instant::now();
         let mut transcript = Blake2bWrite::<_, G1Affine, Challenge255<_>>::init(vec![]);
         let engine = PlonkEngineConfig::new()
             .set_curve::<G1Affine>()
@@ -557,8 +552,6 @@ impl Halo2Setup {
         .unwrap();
 
         for phase in 0..self.cs.phases() {
-            println!("Phase {phase}");
-
             let mut assigned_witness = vec![
                 Some(vec![Fr::default(); self.params.n() as usize]);
                 self.cs.num_advice_columns
@@ -578,12 +571,9 @@ impl Halo2Setup {
 
             // TODO ignoring the challenges produced by the phase, but can they be useful later?
             let _ = prover.commit_phase(phase as u8, assigned_witness).unwrap();
-            println!("Phase {phase} completed");
         }
-        println!("Creating proof...");
         prover.create_proof().unwrap();
         let proof = transcript.finalize();
-        println!("Prove: {:?}", start.elapsed());
 
         (proof, instance)
     }
