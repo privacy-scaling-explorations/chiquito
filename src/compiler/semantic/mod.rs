@@ -156,7 +156,7 @@ impl Debug for ScopeTable {
             .symbols
             .keys()
             .sorted()
-            .map(|id| format!("\"{}\": {:?}", id, self.symbols[id]))
+            .map(|id| format!("{}: {:?}", id, self.symbols[id]))
             .collect::<Vec<_>>()
             .join(",");
 
@@ -232,7 +232,7 @@ impl Debug for SymTable {
             .scopes
             .keys()
             .sorted()
-            .map(|scope| format!("\"{}\": {:?}", scope, self.scopes[scope]))
+            .map(|scope| format!("{}: {:?}", scope, self.scopes[scope]))
             .collect::<Vec<_>>()
             .join(",");
 

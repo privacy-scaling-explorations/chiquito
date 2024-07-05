@@ -172,25 +172,6 @@ impl Analyser {
         } else {
             unreachable!("the parser should produce machine declaration with a block");
         }
-
-        if self
-            .symbols
-            .get_symbol(&self.cur_scope, "final".to_string())
-            .is_none()
-        {
-            let id = Identifier("final".to_string(), 0, block.get_dsym());
-            let stmt = Statement::StateDecl(
-                block.get_dsym(),
-                id.clone(),
-                Box::new(Statement::Block(block.get_dsym(), vec![])),
-            );
-
-            let sym = SymTableEntry::new(id.name(), block.get_dsym(), SymbolCategory::State, None);
-
-            RULES.apply_new_symbol_statement(self, &stmt, &id, &sym);
-
-            self.symbols.add_symbol(&self.cur_scope, id.name(), sym);
-        }
     }
 
     fn analyse_state(&mut self, id: Identifier, block: Statement<BigInt, Identifier>) {
@@ -397,7 +378,7 @@ mod test {
 
         assert_eq!(
             format!("{:?}", result),
-            r#"AnalysisResult { symbols: "/": ScopeTable { symbols: "\"fibo\": SymTableEntry { id: \"fibo\", definition_ref: DebugSymRef { start: \"2:9\", end: \"40:13\" }, usages: [], category: Machine, ty: None }", scope: Global },"//fibo": ScopeTable { symbols: "\"a\": SymTableEntry { id: \"a\", definition_ref: DebugSymRef { line: 5, cols: \"13-32\" }, usages: [DebugSymRef { line: 13, cols: \"17-18\" }, DebugSymRef { line: 16, cols: \"15-17\" }, DebugSymRef { line: 23, cols: \"20-21\" }, DebugSymRef { line: 31, cols: \"20-22\" }], category: Signal, ty: Some(\"field\") },\"b\": SymTableEntry { id: \"b\", definition_ref: DebugSymRef { line: 2, cols: \"33-48\" }, usages: [DebugSymRef { line: 13, cols: \"20-21\" }, DebugSymRef { line: 16, cols: \"30-31\" }, DebugSymRef { line: 16, cols: \"19-21\" }, DebugSymRef { line: 23, cols: \"24-25\" }, DebugSymRef { line: 27, cols: \"20-22\" }, DebugSymRef { line: 31, cols: \"42-43\" }, DebugSymRef { line: 31, cols: \"24-26\" }], category: OutputSignal, ty: Some(\"field\") },\"final\": SymTableEntry { id: \"final\", definition_ref: DebugSymRef { start: \"2:50\", end: \"40:13\" }, usages: [DebugSymRef { line: 26, cols: \"18-23\" }], category: State, ty: None },\"i\": SymTableEntry { id: \"i\", definition_ref: DebugSymRef { line: 5, cols: \"13-32\" }, usages: [DebugSymRef { line: 13, cols: \"14-15\" }, DebugSymRef { line: 25, cols: \"17-18\" }, DebugSymRef { line: 27, cols: \"31-32\" }, DebugSymRef { line: 27, cols: \"16-18\" }, DebugSymRef { line: 31, cols: \"35-36\" }, DebugSymRef { line: 31, cols: \"16-18\" }], category: Signal, ty: None },\"initial\": SymTableEntry { id: \"initial\", definition_ref: DebugSymRef { start: \"10:13\", end: \"18:14\" }, usages: [], category: State, ty: None },\"middle\": SymTableEntry { id: \"middle\", definition_ref: DebugSymRef { start: \"20:13\", end: \"34:14\" }, usages: [DebugSymRef { line: 15, cols: \"17-23\" }, DebugSymRef { line: 30, cols: \"18-24\" }], category: State, ty: None },\"n\": SymTableEntry { id: \"n\", definition_ref: DebugSymRef { line: 2, cols: \"22-30\" }, usages: [DebugSymRef { line: 16, cols: \"36-37\" }, DebugSymRef { line: 16, cols: \"23-25\" }, DebugSymRef { line: 25, cols: \"26-27\" }, DebugSymRef { line: 27, cols: \"41-42\" }, DebugSymRef { line: 27, cols: \"24-26\" }, DebugSymRef { line: 31, cols: \"48-49\" }, DebugSymRef { line: 31, cols: \"28-30\" }], category: InputSignal, ty: None }", scope: Machine },"//fibo/final": ScopeTable { symbols: "", scope: State },"//fibo/initial": ScopeTable { symbols: "\"c\": SymTableEntry { id: \"c\", definition_ref: DebugSymRef { line: 11, cols: \"14-23\" }, usages: [DebugSymRef { line: 13, cols: \"23-24\" }, DebugSymRef { line: 16, cols: \"33-34\" }], category: Signal, ty: None }", scope: State },"//fibo/middle": ScopeTable { symbols: "\"c\": SymTableEntry { id: \"c\", definition_ref: DebugSymRef { line: 21, cols: \"14-23\" }, usages: [DebugSymRef { line: 23, cols: \"14-15\" }, DebugSymRef { line: 27, cols: \"38-39\" }, DebugSymRef { line: 31, cols: \"45-46\" }], category: Signal, ty: None }", scope: State }, messages: [] }"#
-        )
+            r#"AnalysisResult { symbols: /: ScopeTable { symbols: "fibo: SymTableEntry { id: \"fibo\", definition_ref: nofile:2:9, usages: [], category: Machine, ty: None }", scope: Global },//fibo: ScopeTable { symbols: "a: SymTableEntry { id: \"a\", definition_ref: nofile:5:13, usages: [nofile:13:17, nofile:16:15, nofile:23:20, nofile:31:20], category: Signal, ty: Some(\"field\") },b: SymTableEntry { id: \"b\", definition_ref: nofile:2:33, usages: [nofile:13:20, nofile:16:30, nofile:16:19, nofile:23:24, nofile:27:20, nofile:31:42, nofile:31:24], category: OutputSignal, ty: Some(\"field\") },i: SymTableEntry { id: \"i\", definition_ref: nofile:5:13, usages: [nofile:13:14, nofile:25:17, nofile:27:31, nofile:27:16, nofile:31:35, nofile:31:16], category: Signal, ty: None },initial: SymTableEntry { id: \"initial\", definition_ref: nofile:10:13, usages: [], category: State, ty: None },middle: SymTableEntry { id: \"middle\", definition_ref: nofile:20:13, usages: [nofile:15:17, nofile:30:18], category: State, ty: None },n: SymTableEntry { id: \"n\", definition_ref: nofile:2:22, usages: [nofile:16:36, nofile:16:23, nofile:25:26, nofile:27:41, nofile:27:24, nofile:31:48, nofile:31:28], category: InputSignal, ty: None }", scope: Machine },//fibo/initial: ScopeTable { symbols: "c: SymTableEntry { id: \"c\", definition_ref: nofile:11:14, usages: [nofile:13:23, nofile:16:33], category: Signal, ty: None }", scope: State },//fibo/middle: ScopeTable { symbols: "c: SymTableEntry { id: \"c\", definition_ref: nofile:21:14, usages: [nofile:23:14, nofile:27:38, nofile:31:45], category: Signal, ty: None }", scope: State }, messages: [] }"#
+        );
     }
 }

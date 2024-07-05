@@ -1,18 +1,20 @@
 use std::collections::HashMap;
 
+use itertools::Itertools;
 use num_bigint::BigInt;
 
 use crate::{
-    parser::ast::{statement::Statement, tl::TLDecl, DebugSymRef, Identifiable, Identifier},
+    parser::ast::{
+        statement::{Statement, TypedIdDecl},
+        tl::TLDecl,
+        DebugSymRef, Identifiable, Identifier,
+    },
     poly::Expr,
 };
 
 use super::{abepi::CompilationUnit, semantic::SymTable};
 
-pub(super) fn interpret(
-    ast: &[TLDecl<BigInt, Identifier>],
-    _symbols: &SymTable,
-) -> Setup<BigInt, Identifier> {
+pub(super) fn interpret(ast: &[TLDecl<BigInt, Identifier>], _symbols: &SymTable) -> Setup<BigInt> {
     let mut interpreter = SetupInterpreter {
         abepi: CompilationUnit::default(),
         setup: Setup::default(),
@@ -25,12 +27,99 @@ pub(super) fn interpret(
     interpreter.setup
 }
 
-pub(super) type Setup<F, V> = HashMap<String, HashMap<String, Vec<Expr<F, V, ()>>>>;
+pub(super) type Setup<F> = HashMap<String, MachineSetup<F>>;
 
-pub(super) struct SetupInterpreter {
+pub(super) struct MachineSetup<F> {
+    poly_constraints: HashMap<String, Vec<Expr<F, Identifier, ()>>>,
+
+    input_signals: Vec<TypedIdDecl<Identifier>>,
+    output_signals: Vec<TypedIdDecl<Identifier>>,
+}
+
+impl<F> Default for MachineSetup<F> {
+    fn default() -> Self {
+        Self {
+            poly_constraints: HashMap::new(),
+            input_signals: vec![],
+            output_signals: vec![],
+        }
+    }
+}
+
+impl<F: Clone> MachineSetup<F> {
+    fn new(
+        inputs: Vec<Statement<BigInt, Identifier>>,
+        outputs: Vec<Statement<BigInt, Identifier>>,
+    ) -> Self {
+        let mut created = Self::default();
+
+        for input in inputs {
+            if let Statement::SignalDecl(_, ids) = input {
+                created.input_signals.extend(ids)
+            }
+        }
+
+        for output in outputs {
+            if let Statement::SignalDecl(_, ids) = output {
+                created.output_signals.extend(ids)
+            }
+        }
+
+        created
+    }
+
+    fn new_state<S: Into<String>>(&mut self, id: S) {
+        self.poly_constraints.insert(id.into(), vec![]);
+    }
+
+    fn _has_state<S: Into<String>>(&self, id: S) -> bool {
+        self.poly_constraints.contains_key(&id.into())
+    }
+
+    fn add_poly_constraints<S: Into<String>>(
+        &mut self,
+        state: S,
+        poly_constraints: Vec<Expr<F, Identifier, ()>>,
+    ) {
+        self.poly_constraints
+            .get_mut(&state.into())
+            .unwrap()
+            .extend(poly_constraints);
+    }
+
+    pub(super) fn iter_states_poly_constraints(
+        &self,
+    ) -> std::collections::hash_map::Iter<String, Vec<Expr<F, Identifier, ()>>> {
+        self.poly_constraints.iter()
+    }
+
+    pub(super) fn replace_poly_constraints<F2>(
+        &self,
+        poly_constraints: HashMap<String, Vec<Expr<F2, Identifier, ()>>>,
+    ) -> MachineSetup<F2> {
+        MachineSetup {
+            poly_constraints,
+            input_signals: self.input_signals.clone(),
+            output_signals: self.output_signals.clone(),
+        }
+    }
+
+    pub(super) fn states(&self) -> Vec<&String> {
+        self.poly_constraints.keys().collect_vec()
+    }
+
+    pub(super) fn get_poly_constraints<S: Into<String>>(
+        &self,
+        state: S,
+    ) -> Option<&Vec<Expr<F, Identifier, ()>>> {
+        self.poly_constraints.get(&state.into())
+    }
+}
+
+struct SetupInterpreter {
     abepi: CompilationUnit<BigInt, Identifier>,
 
-    setup: Setup<BigInt, Identifier>,
+    setup: Setup<BigInt>,
 
     current_machine: String,
     current_state: String,
@@ -52,24 +141,18 @@ impl SetupInterpreter {
 
     fn interpret_machine(
         &mut self,
-        dsym: &DebugSymRef,
+        _dsym: &DebugSymRef,
         id: &Identifier,
-        _input_params: &[Statement<BigInt, Identifier>],
-        _output_params: &[Statement<BigInt, Identifier>],
+        input_params: &[Statement<BigInt, Identifier>],
+        output_params: &[Statement<BigInt, Identifier>],
         block: &Statement<BigInt, Identifier>,
     ) {
         self.current_machine = id.name();
-        self.setup.insert(id.name(), HashMap::default());
+        self.setup.insert(
+            id.name(),
+            MachineSetup::new(input_params.to_owned(), output_params.to_owned()),
+        );
         self.interpret_machine_statement(block);
-
-        // There is a final state that is empty by default
-        if !self.setup.get(&id.name()).unwrap().contains_key("final") {
-            self.interpret_state_decl(
-                dsym,
-                &Identifier::new("final", dsym.clone()),
-                &Statement::Block(dsym.clone(), vec![]),
-            )
-        }
     }
 
     fn interpret_machine_statement(&mut self, stmt: &Statement<BigInt, Identifier>) {
@@ -97,7 +180,7 @@ impl SetupInterpreter {
         self.setup
             .get_mut(&self.current_machine)
             .unwrap()
-            .insert(id.name(), Vec::default());
+            .new_state(id.name());
         self.interpret_state_statement(stmt);
     }
 
@@ -122,15 +205,13 @@ impl SetupInterpreter {
             SignalDecl(_, _) | WGVarDecl(_, _) => vec![],
         };
 
-        self.add_pis(result.into_iter().map(|cr| cr.anti_booly).collect());
+        self.add_poly_constraints(result.into_iter().map(|cr| cr.anti_booly).collect());
     }
 
-    fn add_pis(&mut self, pis: Vec<Expr<BigInt, Identifier, ()>>) {
+    fn add_poly_constraints(&mut self, pis: Vec<Expr<BigInt, Identifier, ()>>) {
         self.setup
             .get_mut(&self.current_machine)
             .unwrap()
-            .get_mut(&self.current_state)
-            .unwrap()
-            .extend(pis);
+            .add_poly_constraints(&self.current_state, pis);
     }
 }
