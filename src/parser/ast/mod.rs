@@ -93,7 +93,11 @@ impl DebugSymRef {
     /// `filename`. The proximity score is calculated as the size of the symbol.
     /// If the offset is not within the symbol, returns `None`.
     pub fn proximity_score(&self, filename: &String, offset: usize) -> Option<usize> {
-        if self.get_filename() == *filename && self.start <= offset && offset <= self.end {
+        if !self.virt
+            && self.get_filename() == *filename
+            && self.start <= offset
+            && offset <= self.end
+        {
             Some(self.end - self.start)
         } else {
             None
