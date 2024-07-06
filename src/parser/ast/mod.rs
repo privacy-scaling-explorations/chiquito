@@ -75,12 +75,12 @@ impl DebugSymRef {
         self.get_column_number(line_idx, self.start)
     }
 
-    fn get_line_end(&self) -> usize {
+    pub fn get_line_end(&self) -> usize {
         let line_idx = self.get_line_index(self.end);
         self.get_line_number(line_idx)
     }
 
-    fn get_col_end(&self) -> usize {
+    pub fn get_col_end(&self) -> usize {
         let line_idx = self.get_line_index(self.end);
         self.get_column_number(line_idx, self.end)
     }
@@ -109,20 +109,20 @@ impl Debug for DebugSymRef {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         if !self.file.name().is_empty() {
             // Produces clickable output in the terminal
-            return write!(
+            write!(
                 f,
                 "{}:{}:{}",
                 self.file.name(),
                 self.get_line_start(),
                 self.get_col_start()
-            );
+            )
         } else {
-            return write!(
+            write!(
                 f,
                 "nofile:{}:{}",
                 self.get_line_start(),
                 self.get_col_start()
-            );
+            )
         }
     }
 }
