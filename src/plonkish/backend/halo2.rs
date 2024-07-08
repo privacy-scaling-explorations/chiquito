@@ -112,7 +112,7 @@ pub struct ChiquitoHalo2<F: PrimeField + From<u64>> {
     fixed_columns: HashMap<UUID, Column<Fixed>>,
     instance_column: Option<Column<Instance>>,
 
-    pub ir_id: UUID,
+    ir_id: UUID,
 }
 
 trait Halo2Configurable<F: Field> {
@@ -490,54 +490,18 @@ pub struct Setup {
     pub params: ParamsKZG<Bn256>,
     pub vk: VerifyingKey<G1Affine>,
     pub pk: ProvingKey<G1Affine>,
+    rng: BlockRng<DummyRng>,
 }
 
 pub struct SingleCircuitProver<F: PrimeField> {
     pub setup: Setup,
     circuit: ChiquitoHalo2<F>,
 }
-impl SingleCircuitProver<Fr> {
-    pub fn generate_proof(
-        &self,
-        mut rng: BlockRng<DummyRng>,
-        witness: &Assignments<Fr>,
-    ) -> (Vec<u8>, Vec<Vec<Fr>>) {
-        let mut instance = Vec::new();
-
-        if !self.circuit.circuit.exposed.is_empty() {
-            let instance_values = self.circuit.circuit.instance(witness);
-            instance.push(instance_values);
-        }
-
-        // Proving
-        let mut transcript = Blake2bWrite::<_, G1Affine, Challenge255<_>>::init(vec![]);
-
-        let mut prover = create_prover(&self.setup, &instance, &mut rng, &mut transcript);
-
-        for phase in 0..self.setup.cs.phases() {
-            let mut assigned_witness =
-                vec![
-                    Some(vec![Fr::default(); self.setup.params.n() as usize]);
-                    self.setup.cs.num_advice_columns
-                ];
-
-            assign_witness(&self.circuit, witness, &mut assigned_witness);
-
-            // TODO ignoring the challenges produced by the phase, but can they be useful later?
-            let _ = prover.commit_phase(phase as u8, assigned_witness).unwrap();
-        }
-        prover.create_proof().unwrap();
-        let proof = transcript.finalize();
-
-        (proof, instance)
-    }
-}
 
 #[allow(clippy::type_complexity)]
 fn create_prover<'a>(
     setup: &'a Setup,
     instance: &[Vec<Fr>],
-    rng: &'a mut BlockRng<DummyRng>,
     transcript: &'a mut Blake2bWrite<Vec<u8>, G1Affine, Challenge255<G1Affine>>,
 ) -> ProverSingle<
     'a,
@@ -545,7 +509,7 @@ fn create_prover<'a>(
     KZGCommitmentScheme<Bn256>,
     ProverSHPLONK<'a, Bn256>,
     Challenge255<G1Affine>,
-    &'a mut BlockRng<DummyRng>,
+    BlockRng<DummyRng>,
     Blake2bWrite<Vec<u8>, G1Affine, Challenge255<G1Affine>>,
     H2cEngine,
 > {
@@ -564,7 +528,7 @@ fn create_prover<'a>(
             &setup.params,
             &setup.pk,
             instance.to_vec(),
-             rng,
+            setup.rng.clone(),
             transcript,
         )
         .unwrap()
@@ -588,12 +552,16 @@ pub struct SuperCircuitProver<F: PrimeField> {
     pub setup: Setup,
     circuit: ChiquitoHalo2SuperCircuit<F>,
 }
-impl SuperCircuitProver<Fr> {
-    pub fn generate_proof(
-        &self,
-        mut rng: BlockRng<DummyRng>,
-        witnesses: HashMap<UUID, Assignments<Fr>>,
-    ) -> (Vec<u8>, Vec<Vec<Fr>>) {
+
+pub trait Halo2Prover {
+    type W;
+    fn generate_proof(&self, witness: Self::W) -> (Vec<u8>, Vec<Vec<Fr>>);
+}
+
+impl Halo2Prover for SuperCircuitProver<Fr> {
+    type W = HashMap<UUID, Assignments<Fr>>;
+
+    fn generate_proof(&self, witnesses: Self::W) -> (Vec<u8>, Vec<Vec<Fr>>) {
         let mut instance = Vec::new();
 
         for circuit in self.circuit.sub_circuits.iter() {
@@ -609,8 +577,7 @@ impl SuperCircuitProver<Fr> {
 
         // Proving
         let mut transcript = Blake2bWrite::<_, G1Affine, Challenge255<_>>::init(vec![]);
-
-        let mut prover = create_prover(&self.setup, &instance, &mut rng, &mut transcript);
+        let mut prover = create_prover(&self.setup, &instance, &mut transcript);
 
         for phase in 0..self.setup.cs.phases() {
             let mut assigned_witness =
@@ -635,7 +602,42 @@ impl SuperCircuitProver<Fr> {
     }
 }
 
-pub trait PlonkishHalo2<F: PrimeField, P> {
+impl Halo2Prover for SingleCircuitProver<Fr> {
+    type W = Assignments<Fr>;
+
+    fn generate_proof(&self, witness: Self::W) -> (Vec<u8>, Vec<Vec<Fr>>) {
+        let mut instance = Vec::new();
+
+        if !self.circuit.circuit.exposed.is_empty() {
+            let instance_values = self.circuit.circuit.instance(&witness);
+            instance.push(instance_values);
+        }
+
+        // Proving
+        let mut transcript = Blake2bWrite::<_, G1Affine, Challenge255<_>>::init(vec![]);
+
+        let mut prover = create_prover(&self.setup, &instance, &mut transcript);
+
+        for phase in 0..self.setup.cs.phases() {
+            let mut assigned_witness =
+                vec![
+                    Some(vec![Fr::default(); self.setup.params.n() as usize]);
+                    self.setup.cs.num_advice_columns
+                ];
+
+            assign_witness(&self.circuit, &witness, &mut assigned_witness);
+
+            // TODO ignoring the challenges produced by the phase, but can they be useful later?
+            let _ = prover.commit_phase(phase as u8, assigned_witness).unwrap();
+        }
+        prover.create_proof().unwrap();
+        let proof = transcript.finalize();
+
+        (proof, instance)
+    }
+}
+
+pub trait PlonkishHalo2<F: PrimeField, P: Halo2Prover> {
     fn create_halo2_prover(&mut self, k: u32, rng: BlockRng<DummyRng>) -> P;
 }
 
@@ -662,7 +664,7 @@ impl PlonkishHalo2<Fr, SuperCircuitProver<Fr>> for ChiquitoHalo2SuperCircuit<Fr>
 }
 
 fn create_setup(k: u32, rng: BlockRng<DummyRng>, circuit: CompiledCircuit<Fr>) -> Setup {
-    let params = ParamsKZG::<Bn256>::setup::<BlockRng<DummyRng>>(k, rng);
+    let params = ParamsKZG::<Bn256>::setup::<BlockRng<DummyRng>>(k, rng.clone());
     let vk = keygen_vk(&params, &circuit).expect("keygen_vk should not fail");
     let pk = keygen_pk(&params, vk.clone(), &circuit).expect("keygen_pk should not fail");
 
@@ -671,12 +673,14 @@ fn create_setup(k: u32, rng: BlockRng<DummyRng>, circuit: CompiledCircuit<Fr>) -
         params,
         vk,
         pk,
+        rng,
     }
 }
 
 /// ⚠️ Not for production use! ⚠️
 ///
 /// One-number generator that can be used as a deterministic Rng outputting fixed values.
+#[derive(Clone)]
 pub struct DummyRng {}
 
 impl BlockRngCore for DummyRng {

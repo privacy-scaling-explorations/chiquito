@@ -10,7 +10,7 @@ use crate::{
     plonkish::{
         backend::halo2::{
             chiquito2Halo2, chiquitoSuperCircuit2Halo2, halo2_verify, ChiquitoHalo2,
-            ChiquitoHalo2SuperCircuit, DummyRng, PlonkishHalo2,
+            ChiquitoHalo2SuperCircuit, DummyRng, Halo2Prover, PlonkishHalo2,
         },
         compiler::{
             cell_manager::SingleRowCellManager, compile, config,
@@ -157,8 +157,7 @@ pub fn chiquito_super_circuit_halo2_mock_prover(
 
     let halo2_prover = circuit.create_halo2_prover(k as u32, rng);
 
-    let rng = BlockRng::new(DummyRng {});
-    let (proof, instance) = halo2_prover.generate_proof(rng, super_assignments);
+    let (proof, instance) = halo2_prover.generate_proof(super_assignments);
 
     let result = halo2_verify(
         proof,
@@ -199,11 +198,8 @@ pub fn chiquito_halo2_mock_prover(witness_json: &str, rust_id: UUID, k: usize) {
 
     let halo2_prover = plonkish.create_halo2_prover(k as u32, rng);
 
-    let rng = BlockRng::new(DummyRng {});
-
     let (proof, instance) = halo2_prover.generate_proof(
-        rng,
-        &plonkish
+        plonkish
             .assignment_generator
             .unwrap()
             .generate(trace_witness),
