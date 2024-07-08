@@ -1,4 +1,4 @@
-use std::{collections::HashMap, hash::Hash};
+use std::hash::Hash;
 
 use chiquito::{
     field::Field,
@@ -138,19 +138,19 @@ fn main() {
     let mut plonkish = generate::<Fr>();
     let rng = BlockRng::new(DummyRng {});
 
-    let halo2_setup = plonkish.halo2_setup(10, rng);
+    let halo2_prover = plonkish.create_halo2_prover(10, rng);
 
     let rng = BlockRng::new(DummyRng {});
 
-    let (proof, instance) = halo2_setup.generate_proof(
-        rng,
-        HashMap::from([(
-            halo2_setup.circuits[0].ir_id,
-            plonkish.assignment_generator.unwrap().generate(0),
-        )]),
-    );
+    let (proof, instance) =
+        halo2_prover.generate_proof(rng, &plonkish.assignment_generator.unwrap().generate(0));
 
-    let result = halo2_verify(proof, halo2_setup.params, halo2_setup.vk, instance);
+    let result = halo2_verify(
+        proof,
+        &halo2_prover.setup.params,
+        &halo2_prover.setup.vk,
+        instance,
+    );
 
     println!("result = {:#?}", result);
 
@@ -161,19 +161,19 @@ fn main() {
     let mut plonkish = generate::<Fr>();
     let rng = BlockRng::new(DummyRng {});
 
-    let halo2_setup = plonkish.halo2_setup(8, rng);
+    let halo2_prover = plonkish.create_halo2_prover(8, rng);
 
     let rng = BlockRng::new(DummyRng {});
 
-    let (proof, instance) = halo2_setup.generate_proof(
-        rng,
-        HashMap::from([(
-            halo2_setup.circuits[0].ir_id,
-            plonkish.assignment_generator.unwrap().generate(7),
-        )]),
-    );
+    let (proof, instance) =
+        halo2_prover.generate_proof(rng, &plonkish.assignment_generator.unwrap().generate(7));
 
-    let result = halo2_verify(proof, halo2_setup.params, halo2_setup.vk, instance);
+    let result = halo2_verify(
+        proof,
+        &halo2_prover.setup.params,
+        &halo2_prover.setup.vk,
+        instance,
+    );
 
     println!("result = {:#?}", result);
 

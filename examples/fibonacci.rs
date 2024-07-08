@@ -1,4 +1,4 @@
-use std::{collections::HashMap, hash::Hash};
+use std::hash::Hash;
 
 use chiquito::{
     field::Field,
@@ -136,19 +136,19 @@ fn main() {
 
     let rng = BlockRng::new(DummyRng {});
 
-    let halo2_setup = chiquito.halo2_setup(7, rng);
+    let halo2_prover = chiquito.create_halo2_prover(7, rng);
 
     let rng = BlockRng::new(DummyRng {});
 
-    let (proof, instance) = halo2_setup.generate_proof(
-        rng,
-        HashMap::from([(
-            halo2_setup.circuits[0].ir_id,
-            chiquito.assignment_generator.unwrap().generate(()),
-        )]),
-    );
+    let (proof, instance) =
+        halo2_prover.generate_proof(rng, &chiquito.assignment_generator.unwrap().generate(()));
 
-    let result = halo2_verify(proof, halo2_setup.params, halo2_setup.vk, instance);
+    let result = halo2_verify(
+        proof,
+        &halo2_prover.setup.params,
+        &halo2_prover.setup.vk,
+        instance,
+    );
 
     println!("result = {:#?}", result);
 

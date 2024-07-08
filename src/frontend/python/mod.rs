@@ -155,12 +155,17 @@ pub fn chiquito_super_circuit_halo2_mock_prover(
 
     let rng = BlockRng::new(DummyRng {});
 
-    let halo2_setup = circuit.halo2_setup(k as u32, rng);
+    let halo2_prover = circuit.create_halo2_prover(k as u32, rng);
 
     let rng = BlockRng::new(DummyRng {});
-    let (proof, instance) = halo2_setup.generate_proof(rng, super_assignments);
+    let (proof, instance) = halo2_prover.generate_proof(rng, super_assignments);
 
-    let result = halo2_verify(proof, halo2_setup.params, halo2_setup.vk, instance);
+    let result = halo2_verify(
+        proof,
+        &halo2_prover.setup.params,
+        &halo2_prover.setup.vk,
+        instance,
+    );
 
     println!("result = {:#?}", result);
 
@@ -192,22 +197,24 @@ pub fn chiquito_halo2_mock_prover(witness_json: &str, rust_id: UUID, k: usize) {
         assignment_generator,
     };
 
-    let halo2_setup = plonkish.halo2_setup(k as u32, rng);
+    let halo2_prover = plonkish.create_halo2_prover(k as u32, rng);
 
     let rng = BlockRng::new(DummyRng {});
 
-    let (proof, instance) = halo2_setup.generate_proof(
+    let (proof, instance) = halo2_prover.generate_proof(
         rng,
-        HashMap::from([(
-            halo2_setup.circuits[0].ir_id,
-            plonkish
-                .assignment_generator
-                .unwrap()
-                .generate(trace_witness),
-        )]),
+        &plonkish
+            .assignment_generator
+            .unwrap()
+            .generate(trace_witness),
     );
 
-    let result = halo2_verify(proof, halo2_setup.params, halo2_setup.vk, instance);
+    let result = halo2_verify(
+        proof,
+        &halo2_prover.setup.params,
+        &halo2_prover.setup.vk,
+        instance,
+    );
 
     println!("result = {:#?}", result);
 

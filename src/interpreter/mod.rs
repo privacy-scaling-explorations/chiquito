@@ -451,22 +451,24 @@ mod test {
 
         let rng = BlockRng::new(DummyRng {});
 
-        let halo2_setup = plonkish.halo2_setup(7, rng);
+        let halo2_prover = plonkish.create_halo2_prover(7, rng);
 
         let rng = BlockRng::new(DummyRng {});
 
-        let (proof, instance) = halo2_setup.generate_proof(
+        let (proof, instance) = halo2_prover.generate_proof(
             rng,
-            HashMap::from([(
-                halo2_setup.circuits[0].ir_id,
-                plonkish
-                    .assignment_generator
-                    .unwrap()
-                    .generate(HashMap::from([("n".to_string(), Fr::from(12))])),
-            )]),
+            &plonkish
+                .assignment_generator
+                .unwrap()
+                .generate(HashMap::from([("n".to_string(), Fr::from(12))])),
         );
 
-        let result = halo2_verify(proof, halo2_setup.params, halo2_setup.vk, instance);
+        let result = halo2_verify(
+            proof,
+            &halo2_prover.setup.params,
+            &halo2_prover.setup.vk,
+            instance,
+        );
         assert!(result.is_ok());
     }
 
@@ -532,22 +534,24 @@ mod test {
 
         let rng = BlockRng::new(DummyRng {});
 
-        let halo2_setup = plonkish.halo2_setup(7, rng);
+        let halo2_prover = plonkish.create_halo2_prover(7, rng);
 
         let rng = BlockRng::new(DummyRng {});
 
-        let (proof, instance) = halo2_setup.generate_proof(
+        let (proof, instance) = halo2_prover.generate_proof(
             rng,
-            HashMap::from([(
-                halo2_setup.circuits[0].ir_id,
-                plonkish
-                    .assignment_generator
-                    .unwrap()
-                    .generate(HashMap::from([("n".to_string(), Fr::from(12))])),
-            )]),
+            &plonkish
+                .assignment_generator
+                .unwrap()
+                .generate(HashMap::from([("n".to_string(), Fr::from(12))])),
         );
 
-        let result = halo2_verify(proof, halo2_setup.params, halo2_setup.vk, instance);
+        let result = halo2_verify(
+            proof,
+            &halo2_prover.setup.params,
+            &halo2_prover.setup.vk,
+            instance,
+        );
 
         println!("result = {:#?}", result);
 

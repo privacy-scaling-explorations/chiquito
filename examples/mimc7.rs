@@ -211,12 +211,17 @@ fn main() {
 
     let witness = super_circuit.get_mapping().generate((x_in_value, k_value));
 
-    let halo2_setup = circuit.halo2_setup(10, rng);
+    let halo2_prover = circuit.create_halo2_prover(10, rng);
 
     let rng = BlockRng::new(DummyRng {});
-    let (proof, instance) = halo2_setup.generate_proof(rng, witness);
+    let (proof, instance) = halo2_prover.generate_proof(rng, witness);
 
-    let result = halo2_verify(proof, halo2_setup.params, halo2_setup.vk, instance);
+    let result = halo2_verify(
+        proof,
+        &halo2_prover.setup.params,
+        &halo2_prover.setup.vk,
+        instance,
+    );
 
     println!("result = {:#?}", result);
 
