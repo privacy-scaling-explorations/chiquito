@@ -42,7 +42,7 @@ use crate::{
         compiler::PlonkishCompilationResult,
         ir::{
             assignments::Assignments,
-            sc::SuperCircuit,
+            sc::{SuperAssignments, SuperCircuit},
             Circuit, Column as cColumn,
             ColumnType::{Advice as cAdvice, Fixed as cFixed, Halo2Advice, Halo2Fixed},
             PolyExpr,
@@ -463,6 +463,15 @@ impl<F: PrimeField + Hash> Halo2Configurable<F> for ChiquitoHalo2SuperCircuit<F>
     }
 }
 
+/// Verify Halo2 proof
+/// ### Arguments
+/// * `proof` - Halo2 proof
+/// * `params` - KZG parameters
+/// * `vk` - Verifying key
+/// * `instance` - circuit instance values
+/// ### Returns
+/// * `Ok(())` if the proof is valid
+/// * `Err(ErrorBack)` if the proof is invalid
 pub fn halo2_verify(
     proof: Vec<u8>,
     params: &ParamsKZG<Bn256>,
@@ -485,6 +494,7 @@ pub fn halo2_verify(
     result
 }
 
+/// Halo2 setup
 pub struct Setup {
     pub cs: ConstraintSystemMid<Fr>,
     pub params: ParamsKZG<Bn256>,
@@ -493,6 +503,7 @@ pub struct Setup {
     rng: BlockRng<DummyRng>,
 }
 
+/// Halo2 prover for a single circuit
 pub struct SingleCircuitProver<F: PrimeField> {
     pub setup: Setup,
     circuit: ChiquitoHalo2<F>,
@@ -548,18 +559,25 @@ fn assign_witness(
     }
 }
 
+/// Halo2 prover for a super circuit
 pub struct SuperCircuitProver<F: PrimeField> {
     pub setup: Setup,
     circuit: ChiquitoHalo2SuperCircuit<F>,
 }
 
 pub trait Halo2Prover {
+    /// Witness type
     type W;
+    /// Generate Halo2 proof
+    /// #### Arguments
+    /// * `witness` - circuit witness
+    /// #### Returns
+    /// * a tuple of proof and instance values
     fn generate_proof(&self, witness: Self::W) -> (Vec<u8>, Vec<Vec<Fr>>);
 }
 
 impl Halo2Prover for SuperCircuitProver<Fr> {
-    type W = HashMap<UUID, Assignments<Fr>>;
+    type W = SuperAssignments<Fr>;
 
     fn generate_proof(&self, witnesses: Self::W) -> (Vec<u8>, Vec<Vec<Fr>>) {
         let mut instance = Vec::new();
@@ -638,6 +656,14 @@ impl Halo2Prover for SingleCircuitProver<Fr> {
 }
 
 pub trait PlonkishHalo2<F: PrimeField, P: Halo2Prover> {
+    /// Create a Halo2 prover
+    ///
+    /// ### Arguments
+    /// * `k` - logaritmic size of the circuit
+    /// * `rng` - random number generator
+    ///
+    /// ### Returns
+    /// * a Halo2 prover
     fn create_halo2_prover(&mut self, k: u32, rng: BlockRng<DummyRng>) -> P;
 }
 
