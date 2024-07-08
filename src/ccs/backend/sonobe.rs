@@ -47,6 +47,9 @@ impl<F: Field> Z<F> {
             self.assignments.clone(),
             self.public_inputs.clone(),
         ]
-        .concat().iter().map(f).collect()
+        .concat()
+        .iter()
+        .map(f)
+        .collect()
     }
 }

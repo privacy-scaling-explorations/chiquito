@@ -1,7 +1,7 @@
-use std::hash::Hash;
 use ark_bn254::{Fr as FFr, G1Projective as Projective};
 use ark_ff::BigInt;
 use halo2_proofs::halo2curves::{bn256::Fr, ff::PrimeField};
+use std::hash::Hash;
 
 use chiquito::{
     ccs::{
@@ -13,7 +13,6 @@ use chiquito::{
             step_selector::SimpleStepSelectorBuilder,
         },
         ir::{assignments::AssignmentGenerator, circuit::Circuit},
-        
     },
     field::Field,
     frontend::dsl::circuit,
@@ -154,7 +153,7 @@ fn run_hypernova(ccs: CCS<FFr>, z: Vec<FFr>) {
     use ark_ff::PrimeField;
 
     let mut rng = ark_std::test_rng();
-    let n: usize = 256;
+    let n: usize = 64;
     // setup params
     let (params, _) = Pedersen::<Projective>::setup(&mut rng, n).unwrap();
 
@@ -201,9 +200,7 @@ fn run_hypernova(ccs: CCS<FFr>, z: Vec<FFr>) {
     assert_eq!(folded_lcccs, folded_lcccs_v);
     let res = folded_lcccs.check_relation(&params, &ccs, &folded_witness);
     println!("sonobe fibonacci folded lcccs check_relation = {:?}", res);
-    
 }
-
 
 fn fr_convert(r: &Fr) -> FFr {
     let converted = (0..4)
