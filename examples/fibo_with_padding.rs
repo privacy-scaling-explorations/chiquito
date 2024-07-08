@@ -5,14 +5,14 @@ use chiquito::{
     frontend::dsl::{circuit, trace::DSLTraceGenerator}, /* main function for constructing an AST
                                                          * circuit */
     plonkish::{
-        backend::halo2::{chiquito2Halo2, ChiquitoHalo2Circuit},
+        backend::halo2::{halo2_verify, DummyRng, Halo2Prover, PlonkishHalo2},
         compiler::{
             cell_manager::SingleRowCellManager, // input for constructing the compiler
             compile,                            // input for constructing the compiler
             config,
             step_selector::SimpleStepSelectorBuilder,
+            PlonkishCompilationResult,
         },
-        ir::{assignments::AssignmentGenerator, Circuit},
     }, /* compiles to
         * Chiquito Halo2
         * backend,
@@ -22,15 +22,15 @@ use chiquito::{
         * circuit */
     poly::ToField,
 };
-use halo2_proofs::{dev::MockProver, halo2curves::bn256::Fr};
+use halo2_proofs::halo2curves::bn256::Fr;
+use rand_chacha::rand_core::block::BlockRng;
 
 // This example file extends the rust example file 'fibonacci.rs',
 // describing usage of multiple steptypes, padding, and exposing signals.
 
-type AssignGen<F> = AssignmentGenerator<F, DSLTraceGenerator<F, u32>>;
-
 // the main circuit function
-fn fibo_circuit<F: Field + From<u64> + Hash>() -> (Circuit<F>, Option<AssignGen<F>>)
+fn fibo_circuit<F: Field + From<u64> + Hash>(
+) -> PlonkishCompilationResult<F, DSLTraceGenerator<F, u32>>
 // u32 is for external input that indicates the number of fibnoacci iterations
 {
     use chiquito::{
@@ -205,50 +205,24 @@ fn fibo_circuit<F: Field + From<u64> + Hash>() -> (Circuit<F>, Option<AssignGen<
 
 // standard main function for a Halo2 circuit
 fn main() {
-    let (chiquito, wit_gen) = fibo_circuit::<Fr>();
-    let compiled = chiquito2Halo2(chiquito);
-    let circuit = ChiquitoHalo2Circuit::new(compiled, wit_gen.map(|g| g.generate(7)));
+    let mut plonkish = fibo_circuit::<Fr>();
+    let rng = BlockRng::new(DummyRng {});
 
-    let prover = MockProver::<Fr>::run(7, &circuit, circuit.instance()).unwrap();
+    let halo2_prover = plonkish.create_halo2_prover(7, rng);
 
-    let result = prover.verify();
+    let (proof, instance) =
+        halo2_prover.generate_proof(plonkish.assignment_generator.unwrap().generate(7));
+
+    let result = halo2_verify(
+        proof,
+        &halo2_prover.setup.params,
+        &halo2_prover.setup.vk,
+        instance,
+    );
 
     println!("{:#?}", result);
 
-    if let Err(failures) = &result {
-        for failure in failures.iter() {
-            println!("{}", failure);
-        }
-    }
-
-    // plaf boilerplate
-    use chiquito::plonkish::backend::plaf::chiquito2Plaf;
-    use polyexen::plaf::{backends::halo2::PlafH2Circuit, WitnessDisplayCSV};
-
-    // get Chiquito ir
-    let (circuit, wit_gen) = fibo_circuit::<Fr>();
-    // get Plaf
-    let (plaf, plaf_wit_gen) = chiquito2Plaf(circuit, 8, false);
-    let wit = plaf_wit_gen.generate(wit_gen.map(|v| v.generate(7)));
-
-    // debug only: print witness
-    println!("{}", WitnessDisplayCSV(&wit));
-
-    // get Plaf halo2 circuit from Plaf's halo2 backend
-    // this is just a proof of concept, because Plaf only has backend for halo2
-    // this is unnecessary because Chiquito has a halo2 backend already
-    let plaf_circuit = PlafH2Circuit { plaf, wit };
-
-    // same as halo2 boilerplate above
-    let prover_plaf = MockProver::<Fr>::run(8, &plaf_circuit, plaf_circuit.instance()).unwrap();
-
-    let result_plaf = prover_plaf.verify();
-
-    println!("result = {:#?}", result_plaf);
-
-    if let Err(failures) = &result_plaf {
-        for failure in failures.iter() {
-            println!("{}", failure);
-        }
+    if let Err(failure) = &result {
+        println!("{}", failure);
     }
 }
