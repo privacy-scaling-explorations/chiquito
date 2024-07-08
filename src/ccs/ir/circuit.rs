@@ -64,7 +64,7 @@ impl<F: Field + From<u64> + Hash> Circuit<F> {
         for selectors in matrix_selectors.iter() {
             d = d.max(selectors.len());
             for (idx, _) in selectors.iter() {
-                t = t.max(*idx);
+                t = t.max(*idx + 1);
             }
         }
         self.t = t;

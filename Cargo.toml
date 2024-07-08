@@ -34,8 +34,7 @@ regex = "1"
 ark-ff = "^0.4.0"
 ark-std = "^0.4.0"
 ark-bn254 = "0.4.0"
-folding-schemes = { git = "https://github.com/privacy-scaling-explorations/sonobe.git", commit = "ed1faee6bfdf9eb484a0b5bc6196896cc250abed"}
-
+folding-schemes = { git = "https://github.com/privacy-scaling-explorations/sonobe.git", commit = "fd942bda713082239738c97c02a1e8ad02ecdfd5"}
 
 [dev-dependencies]
 rand_chacha = "0.3"
