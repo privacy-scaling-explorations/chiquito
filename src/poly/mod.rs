@@ -102,6 +102,27 @@ impl<F: Field + Hash, V: Debug + Clone + Eq + Hash> Expr<F, V, ()> {
     }
 }
 
+impl<F: Field, V: Clone, M> Expr<F, V, M> {
+    pub fn without_meta(&self) -> Expr<F, V, ()> {
+        match self {
+            Expr::Const(v, _) => Expr::Const(*v, ()),
+            Expr::Sum(ses, _) => {
+                let new_ses = ses.iter().map(|se| se.without_meta()).collect();
+                Expr::Sum(new_ses, ())
+            }
+            Expr::Mul(ses, _) => {
+                let new_ses = ses.iter().map(|se| se.without_meta()).collect();
+                Expr::Mul(new_ses, ())
+            }
+            Expr::Neg(se, _) => Expr::Neg(Box::new(se.without_meta()), ()),
+            Expr::Pow(se, exp, _) => Expr::Pow(Box::new(se.without_meta()), *exp, ()),
+            Expr::Query(v, _) => Expr::Query(v.clone(), ()),
+            Expr::Halo2Expr(_, _) => panic!("not implemented"),
+            Expr::MI(se, _) => Expr::MI(Box::new(se.without_meta()), ()),
+        }
+    }
+}
+
 impl<F: Debug, V: Debug, M: Debug> Debug for Expr<F, V, M> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
@@ -338,6 +359,18 @@ pub struct ConstrDecomp<F, V> {
     /// Expressions for how to create the witness for the generated signals the orginal expression
     /// has be decomposed into.
     pub auto_signals: HashMap<V, Expr<F, V, ()>>,
+}
+
+impl<F, V: Debug> ConstrDecomp<F, V> {
+    pub fn get_auto_signal<S: Into<String> + Copy>(&self, annotation: S) -> Option<(&V, &Expr<F, V, ()>)> {
+        self.auto_signals.iter().find_map(|(s, e)| {
+            if format!("{:#?}", s) == annotation.into() {
+                Some((s, e))
+            } else {
+                None
+            }
+        })
+    }
 }
 
 impl<F, V> Default for ConstrDecomp<F, V> {
