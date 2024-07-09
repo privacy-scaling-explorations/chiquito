@@ -98,17 +98,6 @@ fn compile_middleware<F: PrimeField + From<u64> + Hash, C: Halo2Configurable<F>>
     ))
 }
 
-#[allow(non_snake_case)]
-pub fn chiquitoSuperCircuit2Halo2<F: PrimeField + From<u64> + Hash, MappingArgs>(
-    super_circuit: &SuperCircuit<F, MappingArgs>,
-) -> Vec<ChiquitoHalo2<F>> {
-    super_circuit
-        .get_sub_circuits()
-        .iter()
-        .map(|c| chiquito2Halo2((*c).clone()))
-        .collect()
-}
-
 #[derive(Clone, Debug, Default)]
 pub struct ChiquitoHalo2<F: PrimeField + From<u64>> {
     pub debug: bool,
@@ -127,19 +116,19 @@ pub struct ChiquitoHalo2<F: PrimeField + From<u64>> {
 /// only by the number of assigned values)
 struct PreprocessingCompact<F: Field> {
     permutation: AssemblyMid,
-    fixed: Vec<Vec<F>>,
+    fixed_compact: Vec<Vec<F>>,
 }
 
 impl<F: Field> PreprocessingCompact<F> {
     /// Extend the preprocessing to the full circuit size
     fn extend(mut self, n: usize) -> Preprocessing<F> {
-        self.fixed
+        self.fixed_compact
             .iter_mut()
             .for_each(|f| f.extend(iter::repeat(F::default()).take(n - f.len())));
 
         Preprocessing {
             permutation: self.permutation,
-            fixed: self.fixed,
+            fixed: self.fixed_compact,
         }
     }
 }
@@ -173,7 +162,7 @@ impl<F: PrimeField + Hash> Halo2Configurable<F> for ChiquitoHalo2<F> {
 
         PreprocessingCompact {
             permutation: AssemblyMid { copies },
-            fixed,
+            fixed_compact: fixed,
         }
     }
 
@@ -410,12 +399,12 @@ fn to_halo2_advice<F: PrimeField>(
 }
 
 #[derive(Clone, Debug, Default)]
-pub struct ChiquitoHalo2SuperCircuit<F: PrimeField + From<u64>> {
+struct ChiquitoHalo2SuperCircuit<F: PrimeField + From<u64>> {
     sub_circuits: Vec<ChiquitoHalo2<F>>,
 }
 
 impl<F: PrimeField + From<u64> + Hash> ChiquitoHalo2SuperCircuit<F> {
-    pub fn new(sub_circuits: Vec<ChiquitoHalo2<F>>) -> Self {
+    fn new(sub_circuits: Vec<ChiquitoHalo2<F>>) -> Self {
         Self { sub_circuits }
     }
 }
@@ -476,7 +465,7 @@ impl<F: PrimeField + Hash> Halo2Configurable<F> for ChiquitoHalo2SuperCircuit<F>
 
         PreprocessingCompact {
             permutation: AssemblyMid { copies },
-            fixed,
+            fixed_compact: fixed,
         }
     }
 }
@@ -697,22 +686,27 @@ impl<TG: TraceGenerator<Fr> + Default> PlonkishHalo2<Fr, SingleCircuitProver<Fr>
     }
 }
 
-impl PlonkishHalo2<Fr, SuperCircuitProver<Fr>> for ChiquitoHalo2SuperCircuit<Fr> {
+impl<MappingArgs> PlonkishHalo2<Fr, SuperCircuitProver<Fr>> for SuperCircuit<Fr, MappingArgs> {
     fn create_halo2_prover(&mut self, rng: BlockRng<DummyRng>) -> SuperCircuitProver<Fr> {
-        let tallest_subcircuit_size = self
+        let compiled = self
+            .get_sub_circuits()
+            .iter()
+            .map(|c| chiquito2Halo2((*c).clone()))
+            .collect();
+
+        let mut circuit = ChiquitoHalo2SuperCircuit::new(compiled);
+
+        let tallest_subcircuit_size = circuit
             .sub_circuits
             .iter()
             .map(|c| c.circuit.num_rows)
             .max()
             .unwrap_or(0);
 
-        let (compiled, k) = compile_middleware(self, tallest_subcircuit_size).unwrap();
+        let (compiled, k) = compile_middleware(&mut circuit, tallest_subcircuit_size).unwrap();
 
         let setup = create_setup(rng, compiled, k);
-        SuperCircuitProver {
-            circuit: self.clone(),
-            setup,
-        }
+        SuperCircuitProver { circuit, setup }
     }
 }
 

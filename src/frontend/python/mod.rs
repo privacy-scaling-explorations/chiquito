@@ -9,8 +9,7 @@ use crate::{
     pil::backend::powdr_pil::chiquito2Pil,
     plonkish::{
         backend::halo2::{
-            chiquito2Halo2, chiquitoSuperCircuit2Halo2, halo2_verify, ChiquitoHalo2,
-            ChiquitoHalo2SuperCircuit, DummyRng, Halo2Prover, PlonkishHalo2,
+            chiquito2Halo2, halo2_verify, ChiquitoHalo2, DummyRng, Halo2Prover, PlonkishHalo2,
         },
         compiler::{
             cell_manager::SingleRowCellManager, compile, config,
@@ -133,8 +132,7 @@ pub fn chiquito_super_circuit_halo2_mock_prover(
         add_assignment_generator_to_rust_id(assignment, rust_id);
     }
 
-    let super_circuit = super_circuit_ctx.compile();
-    let compiled = chiquitoSuperCircuit2Halo2(&super_circuit);
+    let mut super_circuit = super_circuit_ctx.compile();
 
     let mut mapping_ctx = MappingContext::default();
     for rust_id in rust_ids {
@@ -150,11 +148,9 @@ pub fn chiquito_super_circuit_halo2_mock_prover(
 
     let super_assignments = mapping_ctx.get_super_assignments();
 
-    let mut circuit = ChiquitoHalo2SuperCircuit::new(compiled);
-
     let rng = BlockRng::new(DummyRng {});
 
-    let halo2_prover = circuit.create_halo2_prover(rng);
+    let halo2_prover = super_circuit.create_halo2_prover(rng);
     println!("k={}", halo2_prover.setup.k);
 
     let (proof, instance) = halo2_prover.generate_proof(super_assignments);
