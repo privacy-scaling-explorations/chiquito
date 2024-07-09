@@ -111,28 +111,6 @@ pub struct ChiquitoHalo2<F: PrimeField + From<u64>> {
     ir_id: UUID,
 }
 
-/// "Compact" preprocessing
-/// Created before the circuit size is known (here the height of the fixed assignments is defined
-/// only by the number of assigned values)
-struct PreprocessingCompact<F: Field> {
-    permutation: AssemblyMid,
-    fixed_compact: Vec<Vec<F>>,
-}
-
-impl<F: Field> PreprocessingCompact<F> {
-    /// Extend the preprocessing to the full circuit size
-    fn extend(mut self, n: usize) -> Preprocessing<F> {
-        self.fixed_compact
-            .iter_mut()
-            .for_each(|f| f.extend(iter::repeat(F::default()).take(n - f.len())));
-
-        Preprocessing {
-            permutation: self.permutation,
-            fixed: self.fixed_compact,
-        }
-    }
-}
-
 trait Halo2Configurable<F: Field> {
     fn configure(&mut self) -> Result<(ConstraintSystem<F>, PreprocessingCompact<F>), Error> {
         let mut cs = self.configure_cs();
@@ -174,6 +152,28 @@ impl<F: PrimeField + Hash> Halo2Configurable<F> for ChiquitoHalo2<F> {
         self.configure_sub_circuit(&mut cs);
 
         cs
+    }
+}
+
+/// "Compact" preprocessing
+/// Created before the circuit size is known (here the height of the fixed assignments is defined
+/// only by the number of assigned values)
+struct PreprocessingCompact<F: Field> {
+    permutation: AssemblyMid,
+    fixed_compact: Vec<Vec<F>>,
+}
+
+impl<F: Field> PreprocessingCompact<F> {
+    /// Extend the preprocessing to the full circuit size
+    fn extend(mut self, n: usize) -> Preprocessing<F> {
+        self.fixed_compact
+            .iter_mut()
+            .for_each(|f| f.extend(iter::repeat(F::default()).take(n - f.len())));
+
+        Preprocessing {
+            permutation: self.permutation,
+            fixed: self.fixed_compact,
+        }
     }
 }
 
@@ -696,14 +696,14 @@ impl<MappingArgs> PlonkishHalo2<Fr, SuperCircuitProver<Fr>> for SuperCircuit<Fr,
 
         let mut circuit = ChiquitoHalo2SuperCircuit::new(compiled);
 
-        let tallest_subcircuit_size = circuit
+        let tallest_subcircuit_height = circuit
             .sub_circuits
             .iter()
             .map(|c| c.circuit.num_rows)
             .max()
             .unwrap_or(0);
 
-        let (compiled, k) = compile_middleware(&mut circuit, tallest_subcircuit_size).unwrap();
+        let (compiled, k) = compile_middleware(&mut circuit, tallest_subcircuit_height).unwrap();
 
         let setup = create_setup(rng, compiled, k);
         SuperCircuitProver { circuit, setup }
