@@ -22,8 +22,11 @@ pub trait ToField<F> {
     fn field(&self) -> F;
 }
 
-pub trait Meta: Clone + Default + Debug {
-    // You can add any common methods for metadata here
+pub trait Meta: Clone + Default + Debug + Hash {
+    fn from_expr<F: Field + Hash, V: Debug + Clone + Eq + Hash>(
+        expr: &Expr<F, V, ()>,
+        assignments: &VarAssignments<F, V>
+    ) -> Self;
 }
 
 #[derive(Clone)]
@@ -38,10 +41,26 @@ pub enum Expr<F, V, M: Meta> {
     MI(Box<Expr<F, V, M>>, M), //  Multiplicative inverse, but MI(0) = 0
 }
 
-impl Meta for () {}
-impl Meta for HashResult {}
+impl Meta for () {
+    fn from_expr<F: Field + Hash, V: Debug + Clone + Eq + Hash>(
+        _expr: &Expr<F, V, ()>,
+        _assignments: &VarAssignments<F, V>
+    ) -> Self {
+        ()
+    }
+}
 
-#[derive(Debug, Clone, Default)]
+impl Meta for HashResult {
+    fn from_expr<F: Field + Hash, V: Debug + Clone + Eq + Hash>(
+        expr: &Expr<F, V, ()>,
+        assignments: &VarAssignments<F, V>
+    ) -> Self {
+        let hashed_expr = expr.hash(assignments);
+        hashed_expr.meta().clone()
+    }
+}
+
+#[derive(Debug, Clone, Default, Hash)]
 pub struct HashResult {
     pub hash: u64,
     pub degree: usize,
@@ -74,22 +93,7 @@ impl<F: Clone, V: Clone, M: Meta> Expr<F, V, M> {
         }
     }
 
-    pub fn with_meta<N: Meta>(&self, new_meta: N) -> Expr<F, V, N> {
-        match self {
-            Expr::Const(v, _) => Expr::Const(v.clone(), new_meta),
-            Expr::Sum(ses, _) => Expr::Sum(ses.iter().map(|e| e.with_meta(new_meta.clone())).collect(), new_meta),
-            Expr::Mul(ses, _) => Expr::Mul(ses.iter().map(|e| e.with_meta(new_meta.clone())).collect(), new_meta),
-            Expr::Neg(se, _) => Expr::Neg(Box::new(se.with_meta(new_meta.clone())), new_meta),
-            Expr::Pow(se, exp, _) => Expr::Pow(Box::new(se.with_meta(new_meta.clone())), *exp, new_meta),
-            Expr::Query(v, _) => Expr::Query(v.clone(), new_meta),
-            Expr::Halo2Expr(e, _) => Expr::Halo2Expr(e.clone(), new_meta),
-            Expr::MI(se, _) => Expr::MI(Box::new(se.with_meta(new_meta.clone())), new_meta),
-        }
-    }
-
-    pub fn without_meta(&self) -> Expr<F, V, ()> {
-        self.with_meta(())
-    }
+    
 
     pub fn map_meta<N: Meta, Func: Fn(&M) -> N>(&self, f: Func) -> Expr<F, V, N> {
         match self {
@@ -101,6 +105,38 @@ impl<F: Clone, V: Clone, M: Meta> Expr<F, V, M> {
             Expr::Query(v, m) => Expr::Query(v.clone(), f(m)),
             Expr::Halo2Expr(e, m) => Expr::Halo2Expr(e.clone(), f(m)),
             Expr::MI(se, m) => Expr::MI(Box::new(se.map_meta(&f)), f(m)),
+        }
+    }
+}
+
+impl<F: Field + Hash, V: Debug + Clone + Eq + Hash, M: Meta> Expr<F, V, M> {
+    pub fn with_meta<N: Meta>(&self, assignments: &VarAssignments<F, V>) -> Expr<F, V, N> {
+        let expr_without_meta = self.without_meta();
+        let new_meta = N::from_expr(&expr_without_meta, assignments);
+        match self {
+            Expr::Const(v, _) => Expr::Const(v.clone(), new_meta),
+            Expr::Sum(ses, _) => Expr::Sum(ses.iter().map(|e| e.with_meta(assignments)).collect(), new_meta),
+            Expr::Mul(ses, _) => Expr::Mul(ses.iter().map(|e| e.with_meta(assignments)).collect(), new_meta),
+            Expr::Neg(se, _) => Expr::Neg(Box::new(se.with_meta(assignments)), new_meta),
+            Expr::Pow(se, exp, _) => Expr::Pow(Box::new(se.with_meta(assignments)), *exp, new_meta),
+            Expr::Query(v, _) => Expr::Query(v.clone(), new_meta),
+            Expr::Halo2Expr(e, _) => Expr::Halo2Expr(e.clone(), new_meta),
+            Expr::MI(se, _) => Expr::MI(Box::new(se.with_meta(assignments)), new_meta),
+        }
+    }
+}
+
+impl<F: Field, V: Clone, M: Meta> Expr<F, V, M> {
+    pub fn without_meta(&self) -> Expr<F, V, ()> {
+        match self {
+            Expr::Const(v, _) => Expr::Const(v.clone(), ()),
+            Expr::Sum(ses, _) => Expr::Sum(ses.iter().map(|e| e.without_meta()).collect(), ()),
+            Expr::Mul(ses, _) => Expr::Mul(ses.iter().map(|e| e.without_meta()).collect(), ()),
+            Expr::Neg(se, _) => Expr::Neg(Box::new(se.without_meta()), ()),
+            Expr::Pow(se, exp, _) => Expr::Pow(Box::new(se.without_meta()), *exp, ()),
+            Expr::Query(v, _) => Expr::Query(v.clone(), ()),
+            Expr::Halo2Expr(e, _) => Expr::Halo2Expr(e.clone(), ()),
+            Expr::MI(se, _) => Expr::MI(Box::new(se.without_meta()), ()),
         }
     }
 }

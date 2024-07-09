@@ -8,7 +8,7 @@ use crate::{
         trace::{DSLTraceGenerator, TraceContext},
         StepTypeHandler,
     },
-    poly::{ConstrDecomp, Expr, Meta},
+    poly::{ConstrDecomp, Expr, Meta, VarAssignments},
     util::{uuid, UUID},
     wit_gen::{FixedAssignment, FixedGenContext, NullTraceGenerator, TraceGenerator},
 };
@@ -229,10 +229,17 @@ impl<F, TG: TraceGenerator<F>, M: Meta> SBPIR<F, TG, M> {
     }
 }
 
-impl<F: Field + Hash, TG: TraceGenerator<F> + Clone, M1: Meta> SBPIR<F, TG, M1> {
-    pub fn map_meta<M2: Meta, F2: Fn(&M1) -> M2>(&self, f: F2) -> SBPIR<F, TG, M2> {
+impl<F: Field + Hash, TG: TraceGenerator<F> + Clone, M: Meta> SBPIR<F, TG, M> {
+    pub fn with_meta<N: Meta>(
+        &self,
+        assignments: &VarAssignments<F, Queriable<F>>,
+    ) -> SBPIR<F, TG, N> {
         SBPIR {
-            step_types: self.step_types.iter().map(|(k, v)| (*k, v.map_meta(&f))).collect(),
+            step_types: self
+                .step_types
+                .iter()
+                .map(|(k, v)| (*k, v.with_meta(assignments)))
+                .collect(),
             forward_signals: self.forward_signals.clone(),
             shared_signals: self.shared_signals.clone(),
             fixed_signals: self.fixed_signals.clone(),
@@ -240,22 +247,36 @@ impl<F: Field + Hash, TG: TraceGenerator<F> + Clone, M1: Meta> SBPIR<F, TG, M1> 
             halo2_fixed: self.halo2_fixed.clone(),
             exposed: self.exposed.clone(),
             annotations: self.annotations.clone(),
+            trace_generator: self.trace_generator.clone(),
             fixed_assignments: self.fixed_assignments.clone(),
             first_step: self.first_step,
             last_step: self.last_step,
             num_steps: self.num_steps,
             q_enable: self.q_enable,
             id: self.id,
-            trace_generator: self.trace_generator.clone(),
         }
     }
+}
 
-    pub fn with_meta<M2: Meta>(&self, new_meta: M2) -> SBPIR<F, TG, M2> {
-        self.map_meta(|_| new_meta.clone())
-    }
-
+impl<F: Field + Hash, TG: TraceGenerator<F> + Clone, M: Meta> SBPIR<F, TG, M> {
     pub fn without_meta(&self) -> SBPIR<F, TG, ()> {
-        self.with_meta(())
+        SBPIR {
+            step_types: self.step_types.iter().map(|(k, v)| (*k, v.without_meta())).collect(),
+            forward_signals: self.forward_signals.clone(),
+            shared_signals: self.shared_signals.clone(),
+            fixed_signals: self.fixed_signals.clone(),
+            halo2_advice: self.halo2_advice.clone(),
+            halo2_fixed: self.halo2_fixed.clone(),
+            exposed: self.exposed.clone(),
+            annotations: self.annotations.clone(),
+            trace_generator: self.trace_generator.clone(),
+            fixed_assignments: self.fixed_assignments.clone(),
+            first_step: self.first_step,
+            last_step: self.last_step,
+            num_steps: self.num_steps,
+            q_enable: self.q_enable,
+            id: self.id,
+        }
     }
 }
 
@@ -380,26 +401,52 @@ impl<F, M: Meta> StepType<F, M> {
     }
 }
 
-impl<F: Field + Hash, M1: Meta> StepType<F, M1> {
-    pub fn map_meta<M2: Meta, F2: Fn(&M1) -> M2>(&self, f: F2) -> StepType<F, M2> {
+impl<F: Field + Hash, M: Meta> StepType<F, M> {
+    pub fn with_meta<N: Meta>(
+        &self,
+        assignments: &VarAssignments<F, Queriable<F>>,
+    ) -> StepType<F, N> {
         StepType {
             id: self.id,
             name: self.name.clone(),
             signals: self.signals.clone(),
-            constraints: self.constraints.iter().map(|c| c.map_meta(&f)).collect(),
-            transition_constraints: self.transition_constraints.iter().map(|c| c.map_meta(&f)).collect(),
-            lookups: self.lookups.iter().map(|l| l.map_meta(&f)).collect(),
-            auto_signals: self.auto_signals.iter().map(|(k, v)| (*k, v.map_meta(&f))).collect(),
+            constraints: self
+                .constraints
+                .iter()
+                .map(|c| c.with_meta(assignments))
+                .collect(),
+            transition_constraints: self
+                .transition_constraints
+                .iter()
+                .map(|c| c.with_meta(assignments))
+                .collect(),
+            lookups: self
+                .lookups
+                .iter()
+                .map(|l| l.with_meta(assignments))
+                .collect(),
+            auto_signals: self
+                .auto_signals
+                .iter()
+                .map(|(k, v)| (*k, v.with_meta(assignments)))
+                .collect(),
             annotations: self.annotations.clone(),
         }
     }
+}
 
-    pub fn with_meta<M2: Meta>(&self, new_meta: M2) -> StepType<F, M2> {
-        self.map_meta(|_| new_meta.clone())
-    }
-
+impl<F: Field + Hash, M: Meta> StepType<F, M> {
     pub fn without_meta(&self) -> StepType<F, ()> {
-        self.with_meta(())
+        StepType {
+            id: self.id,
+            name: self.name.clone(),
+            signals: self.signals.clone(),
+            constraints: self.constraints.iter().map(|c| c.without_meta()).collect(),
+            transition_constraints: self.transition_constraints.iter().map(|c| c.without_meta()).collect(),
+            lookups: self.lookups.iter().map(|l| l.without_meta()).collect(),
+            auto_signals: self.auto_signals.iter().map(|(k, v)| (*k, v.without_meta())).collect(),
+            annotations: self.annotations.clone(),
+        }
     }
 }
 
@@ -486,20 +533,21 @@ pub struct Constraint<F, M: Meta> {
     pub expr: PIR<F, M>,
 }
 
-impl<F: Field + Hash, M1: Meta> Constraint<F, M1> {
-    pub fn map_meta<M2: Meta, F2: Fn(&M1) -> M2>(&self, f: F2) -> Constraint<F, M2> {
+impl<F: Field + Hash, M: Meta> Constraint<F, M> {
+    pub fn with_meta<N: Meta>(&self, assignments: &VarAssignments<F, Queriable<F>>) -> Constraint<F, N> {
         Constraint {
             annotation: self.annotation.clone(),
-            expr: self.expr.map_meta(&f),
+            expr: self.expr.with_meta(assignments),
         }
     }
+}
 
-    pub fn with_meta<M2: Meta>(&self, new_meta: M2) -> Constraint<F, M2> {
-        self.map_meta(|_| new_meta.clone())
-    }
-
+impl<F: Field, M: Meta> Constraint<F, M> {
     pub fn without_meta(&self) -> Constraint<F, ()> {
-        self.with_meta(())
+        Constraint {
+            annotation: self.annotation.clone(),
+            expr: self.expr.without_meta(),
+        }
     }
 }
 
@@ -510,20 +558,21 @@ pub struct TransitionConstraint<F, M: Meta> {
     pub expr: PIR<F, M>,
 }
 
-impl<F: Field + Hash, M1: Meta> TransitionConstraint<F, M1> {
-    pub fn map_meta<M2: Meta, F2: Fn(&M1) -> M2>(&self, f: F2) -> TransitionConstraint<F, M2> {
+impl<F: Field + Hash, M: Meta> TransitionConstraint<F, M> {
+    pub fn with_meta<N: Meta>(&self, assignments: &VarAssignments<F, Queriable<F>>) -> TransitionConstraint<F, N> {
         TransitionConstraint {
             annotation: self.annotation.clone(),
-            expr: self.expr.map_meta(&f),
+            expr: self.expr.with_meta(assignments),
         }
     }
+}
 
-    pub fn with_meta<M2: Meta>(&self, new_meta: M2) -> TransitionConstraint<F, M2> {
-        self.map_meta(|_| new_meta.clone())
-    }
-
+impl<F: Field, M: Meta> TransitionConstraint<F, M> {
     pub fn without_meta(&self) -> TransitionConstraint<F, ()> {
-        self.with_meta(())
+        TransitionConstraint {
+            annotation: self.annotation.clone(),
+            expr: self.expr.without_meta(),
+        }
     }
 }
 
@@ -594,7 +643,10 @@ impl<F: Debug + Clone, M: Meta> Lookup<F, M> {
     }
 
     // Function: helper function for multiplying enabler to constraint
-    fn multiply_constraints(enable: Constraint<F, M>, constraint: Constraint<F, M>) -> Constraint<F, M> {
+    fn multiply_constraints(
+        enable: Constraint<F, M>,
+        constraint: Constraint<F, M>,
+    ) -> Constraint<F, M> {
         Constraint {
             annotation: constraint.annotation.clone(), /* annotation only takes the constraint's
                                                         * annotation, because enabler's
@@ -606,21 +658,31 @@ impl<F: Debug + Clone, M: Meta> Lookup<F, M> {
     }
 }
 
-impl<F: Field + Hash, M1: Meta> Lookup<F, M1> {
-    pub fn map_meta<M2: Meta, F2: Fn(&M1) -> M2>(&self, f: F2) -> Lookup<F, M2> {
+impl<F: Field + Hash, M: Meta> Lookup<F, M> {
+    pub fn with_meta<N: Meta>(&self, assignments: &VarAssignments<F, Queriable<F>>) -> Lookup<F, N> {
         Lookup {
             annotation: self.annotation.clone(),
-            exprs: self.exprs.iter().map(|(c, e)| (c.map_meta(&f), e.map_meta(&f))).collect(),
-            enable: self.enable.as_ref().map(|c| c.map_meta(&f)),
+            exprs: self
+                .exprs
+                .iter()
+                .map(|(c, e)| (c.with_meta(assignments), e.with_meta(assignments)))
+                .collect(),
+            enable: self.enable.as_ref().map(|e| e.with_meta(assignments)),
         }
     }
+}
 
-    pub fn with_meta<M2: Meta>(&self, new_meta: M2) -> Lookup<F, M2> {
-        self.map_meta(|_| new_meta.clone())
-    }
-
+impl<F: Field, M: Meta> Lookup<F, M> {
     pub fn without_meta(&self) -> Lookup<F, ()> {
-        self.with_meta(())
+        Lookup {
+            annotation: self.annotation.clone(),
+            exprs: self
+                .exprs
+                .iter()
+                .map(|(c, e)| (c.without_meta(), e.without_meta()))
+                .collect(),
+            enable: self.enable.as_ref().map(|e| e.without_meta()),
+        }
     }
 }
 
