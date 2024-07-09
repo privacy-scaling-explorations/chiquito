@@ -5,7 +5,7 @@ use std::hash::Hash;
 
 pub fn replace_expr<F: Field + Hash, V: Clone + Eq + Hash>(
     expr: &Expr<F, V, HashResult>,
-    common_exprs: &Vec<Expr<F, V, HashResult>>,
+    common_exprs: &[Expr<F, V, HashResult>],
     signal_factory: &mut impl SignalFactory<V>,
 ) -> (Expr<F, V, HashResult>, ConstrDecomp<F, V, HashResult>) {
     let mut decomp = ConstrDecomp::default();

@@ -94,12 +94,12 @@ impl<F: Field + Hash> CommonSubexpressionEliminator<F> {
 
         // Collect subexpressions from constraints
         for constraint in &step.constraints {
-            self.collect_subexpressions(&constraint.expr, &mut all_subexpressions);
+            Self::collect_subexpressions(&constraint.expr, &mut all_subexpressions);
         }
 
         // Collect subexpressions from transition constraints
         for constraint in &step.transition_constraints {
-            self.collect_subexpressions(&constraint.expr, &mut all_subexpressions);
+            Self::collect_subexpressions(&constraint.expr, &mut all_subexpressions);
         }
 
         // Count occurrences of each subexpression
@@ -111,7 +111,6 @@ impl<F: Field + Hash> CommonSubexpressionEliminator<F> {
     }
 
     fn collect_subexpressions(
-        &self,
         expr: &Expr<F, Queriable<F>, HashResult>,
         subexpressions: &mut Vec<Expr<F, Queriable<F>, HashResult>>,
     ) {
@@ -122,11 +121,11 @@ impl<F: Field + Hash> CommonSubexpressionEliminator<F> {
         match expr {
             Expr::Sum(ses, _) | Expr::Mul(ses, _) => {
                 for se in ses {
-                    self.collect_subexpressions(se, subexpressions);
+                    Self::collect_subexpressions(se, subexpressions);
                 }
             }
             Expr::Neg(se, _) | Expr::Pow(se, _, _) | Expr::MI(se, _) => {
-                self.collect_subexpressions(se, subexpressions);
+                Self::collect_subexpressions(se, subexpressions);
             }
             Expr::Const(_, _) | Expr::Query(_, _) | Expr::Halo2Expr(_, _) => {
                 // These are leaf nodes, so we don't need to collect subexpressions
@@ -162,7 +161,7 @@ struct SignalFactory<F> {
 
 impl<F> poly::SignalFactory<Queriable<F>> for SignalFactory<F> {
     fn create<S: Into<String>>(&mut self, annotation: S) -> Queriable<F> {
-        Queriable::Internal(InternalSignal::new(format!("{}", annotation.into())))
+        Queriable::Internal(InternalSignal::new(annotation.into()))
     }
 }
 
