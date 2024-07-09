@@ -76,7 +76,7 @@ impl<F: Clone, V: Clone, M: Meta> Expr<F, V, M> {
             Expr::Pow(se, exp, _) => se.degree() * (*exp as usize),
             Expr::Query(_, _) => 1,
             Expr::Halo2Expr(_, _) => panic!("not implemented"),
-            Expr::MI(_, _) => panic!("not implemented"),
+            Expr::MI(se, _) => se.degree(), // Treat MI as not changing the degree of the inner expression
         }
     }
 

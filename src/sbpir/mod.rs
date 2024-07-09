@@ -524,7 +524,7 @@ impl<F, M: Meta> core::hash::Hash for StepType<F, M> {
     }
 }
 
-pub type PIR<F, M: Meta> = Expr<F, Queriable<F>, M>;
+pub type PIR<F, M> = Expr<F, Queriable<F>, M>;
 
 #[derive(Clone, Debug)]
 /// Condition

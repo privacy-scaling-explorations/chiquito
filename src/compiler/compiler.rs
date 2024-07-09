@@ -20,9 +20,7 @@ use crate::{
 };
 
 use super::{
-    semantic::{SymTable, SymbolCategory},
-    setup_inter::{interpret, Setup},
-    Config, Message, Messages,
+    cse::cse, semantic::{SymTable, SymbolCategory}, setup_inter::{interpret, Setup}, Config, Message, Messages
 };
 
 /// Contains the result of a compilation.
@@ -89,6 +87,10 @@ impl<F: Field + Hash> Compiler<F> {
         } else {
             circuit
         };
+
+        let circuit = cse(circuit);
+
+        println!("{:?}", circuit);
 
         let circuit =
             circuit.with_trace(InterpreterTraceGenerator::new(ast, symbols, self.mapping));
