@@ -3,7 +3,7 @@ use chiquito::{
     plonkish::{
         backend::halo2::{
             chiquitoSuperCircuit2Halo2, halo2_verify, ChiquitoHalo2SuperCircuit, DummyRng,
-            Halo2Prover, PlonkishHalo2,
+            PlonkishHalo2,
         },
         compiler::{
             cell_manager::{MaxWidthCellManager, SingleRowCellManager},
@@ -717,8 +717,8 @@ fn main() {
 
     let result = halo2_verify(
         proof,
-        &halo2_prover.setup.params,
-        &halo2_prover.setup.vk,
+        halo2_prover.get_params(),
+        halo2_prover.get_vk(),
         instance,
     );
 

@@ -321,7 +321,7 @@ fn get_block_stmts(stmt: &Statement<BigInt, Identifier>) -> Vec<Statement<BigInt
 
 #[cfg(test)]
 mod test {
-    use crate::plonkish::backend::halo2::{Halo2Prover, PlonkishHalo2};
+    use crate::plonkish::backend::halo2::PlonkishHalo2;
     use halo2_proofs::halo2curves::bn256::Fr;
     use rand_chacha::rand_core::block::BlockRng;
     use std::collections::HashMap;
@@ -462,8 +462,8 @@ mod test {
 
         let result = halo2_verify(
             proof,
-            &halo2_prover.setup.params,
-            &halo2_prover.setup.vk,
+            halo2_prover.get_params(),
+            halo2_prover.get_vk(),
             instance,
         );
         assert!(result.is_ok());
@@ -542,8 +542,8 @@ mod test {
 
         let result = halo2_verify(
             proof,
-            &halo2_prover.setup.params,
-            &halo2_prover.setup.vk,
+            halo2_prover.get_params(),
+            halo2_prover.get_vk(),
             instance,
         );
 

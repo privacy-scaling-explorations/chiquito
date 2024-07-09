@@ -6,7 +6,7 @@ use chiquito::{
                                                          * circuit */
     plonkish::{
         backend::{
-            halo2::{halo2_verify, DummyRng, Halo2Prover, PlonkishHalo2},
+            halo2::{halo2_verify, DummyRng, PlonkishHalo2},
             hyperplonk::ChiquitoHyperPlonkCircuit,
         },
         compiler::{
@@ -143,8 +143,8 @@ fn main() {
 
     let result = halo2_verify(
         proof,
-        &halo2_prover.setup.params,
-        &halo2_prover.setup.vk,
+        halo2_prover.get_params(),
+        halo2_prover.get_vk(),
         instance,
     );
 
