@@ -153,8 +153,8 @@ impl<F: Field + Hash, V: Debug + Clone + Eq + Hash, M: Meta> Expr<F, V, M> {
         T: FnMut(&Self) -> Self,
     {
         match self {
-            Expr::Sum(ses, m) => Expr::Sum(ses.iter().map(|e| f(e)).collect(), m.clone()),
-            Expr::Mul(ses, m) => Expr::Mul(ses.iter().map(|e| f(e)).collect(), m.clone()),
+            Expr::Sum(ses, m) => Expr::Sum(ses.iter().map(&mut f).collect(), m.clone()),
+            Expr::Mul(ses, m) => Expr::Mul(ses.iter().map(&mut f).collect(), m.clone()),
             Expr::Neg(se, m) => Expr::Neg(Box::new(f(se)), m.clone()),
             Expr::Pow(se, exp, m) => Expr::Pow(Box::new(f(se)), *exp, m.clone()),
             Expr::MI(se, m) => Expr::MI(Box::new(f(se)), m.clone()),

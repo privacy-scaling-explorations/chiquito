@@ -20,7 +20,6 @@ use crate::{
 };
 
 use super::{
-    cse::cse,
     semantic::{SymTable, SymbolCategory},
     setup_inter::{interpret, Setup},
     Config, Message, Messages,
@@ -90,10 +89,6 @@ impl<F: Field + Hash> Compiler<F> {
         } else {
             circuit
         };
-
-        let circuit = cse(circuit);
-
-        println!("{:?}", circuit);
 
         let circuit =
             circuit.with_trace(InterpreterTraceGenerator::new(ast, symbols, self.mapping));
