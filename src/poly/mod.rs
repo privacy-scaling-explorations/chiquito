@@ -66,14 +66,17 @@ pub struct HashResult {
 }
 
 impl HashResult {
-    pub fn new<F: Field + Hash, V: Clone + Eq + Hash>(expr: &Expr<F, V, ()>, assignments: &VarAssignments<F, V>) -> Self {
+    pub fn new<F: Field + Hash, V: Clone + Eq + Hash>(
+        expr: &Expr<F, V, ()>,
+        assignments: &VarAssignments<F, V>,
+    ) -> Self {
         let mut hasher = DefaultHasher::new();
-        
+
         // Custom hashing logic
         if let Some(result) = expr.eval(assignments) {
             result.hash(&mut hasher);
         }
-        
+
         HashResult {
             hash: hasher.finish(),
             degree: expr.degree(),

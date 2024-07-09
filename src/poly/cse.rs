@@ -1,7 +1,7 @@
 use crate::field::Field;
 
 use super::{ConstrDecomp, Expr, HashResult, SignalFactory};
-use std::{hash::Hash, fmt::Debug};
+use std::{fmt::Debug, hash::Hash};
 
 pub fn replace_expr<F: Field + Hash, V: Clone + Eq + Hash + Debug, SF: SignalFactory<V>>(
     expr: &Expr<F, V, HashResult>,
