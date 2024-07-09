@@ -364,7 +364,11 @@ impl<F: PrimeField + From<u64> + Hash> ChiquitoHalo2<F> {
 
 impl<F: PrimeField> Halo2WitnessGenerator<F, Assignments<F>> for ChiquitoHalo2<F> {
     fn instance(&self, witness: &Assignments<F>) -> Vec<Vec<F>> {
-        vec![self.plonkish_ir.instance(witness)]
+        if !self.plonkish_ir.exposed.is_empty() {
+            vec![self.plonkish_ir.instance(witness)]
+        } else {
+            vec![]
+        }
     }
 
     fn assigned_witness(
