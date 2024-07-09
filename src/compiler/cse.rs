@@ -13,13 +13,13 @@ pub(super) fn cse<F: Field + Hash>(
     // Create dummy assignments
     let mut queriables: Vec<Queriable<F>> = Vec::new();
     for signal in circuit.forward_signals.iter() {
-        queriables.push(Queriable::Forward(signal.clone(), false));
-        queriables.push(Queriable::Forward(signal.clone(), true));
+        queriables.push(Queriable::Forward(*signal, false));
+        queriables.push(Queriable::Forward(*signal, true));
     }
 
     // For each step type run a CSE pass
     for (_, step_type) in circuit.step_types.iter_mut() {
-        let mut cse = CSE::new();
+        let mut cse = CommonSubexpressionEliminator::new();
         cse.run(step_type, &mut queriables);
     }
 
@@ -41,7 +41,7 @@ impl Default for Config {
     }
 }
 
-struct CSE<F> {
+struct CommonSubexpressionEliminator<F> {
     common_exprs: Vec<Expr<F, Queriable<F>, HashResult>>,
 
     hashed_exprs_map: HashMap<u64, Expr<F, Queriable<F>, HashResult>>,
@@ -50,11 +50,11 @@ struct CSE<F> {
     config: Config,
 }
 
-impl<F: Field + Hash> CSE<F> {
+impl<F: Field + Hash> CommonSubexpressionEliminator<F> {
     pub(super) fn run(&mut self, step: &mut StepType<F, ()>, queriables: &mut Vec<Queriable<F>>) {
         // Collect internal queriables from the step type and add them to the list of queriables
         step.signals.iter().for_each(|signal| {
-            queriables.push(Queriable::Internal(signal.clone()));
+            queriables.push(Queriable::Internal(*signal));
         });
 
         // Generate random assignments for the queriables
@@ -81,7 +81,7 @@ impl<F: Field + Hash> CSE<F> {
     }
 
     fn new() -> Self {
-        CSE {
+        CommonSubexpressionEliminator {
             common_exprs: Vec::new(),
             hashed_exprs_map: HashMap::new(),
             count_map: HashMap::new(),
@@ -157,13 +157,12 @@ impl<F: Field + Hash> CSE<F> {
 // Basic signal factory.
 #[derive(Default)]
 struct SignalFactory<F> {
-    count: u64,
     _p: PhantomData<F>,
 }
 
 impl<F> poly::SignalFactory<Queriable<F>> for SignalFactory<F> {
     fn create<S: Into<String>>(&mut self, annotation: S) -> Queriable<F> {
-        Queriable::Internal(InternalSignal::new(format!("{}", annotation.into(),)))
+        Queriable::Internal(InternalSignal::new(format!("{}", annotation.into())))
     }
 }
 

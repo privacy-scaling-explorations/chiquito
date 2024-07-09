@@ -45,9 +45,7 @@ impl Meta for () {
     fn from_expr<F: Field + Hash, V: Debug + Clone + Eq + Hash>(
         _expr: &Expr<F, V, ()>,
         _assignments: &VarAssignments<F, V>,
-    ) -> Self {
-        ()
-    }
+    ) -> Self {}
 }
 
 impl Meta for HashResult {
@@ -113,7 +111,7 @@ impl<F: Field + Hash, V: Debug + Clone + Eq + Hash, M: Meta> Expr<F, V, M> {
         let expr_without_meta = self.without_meta();
         let new_meta = N::from_expr(&expr_without_meta, assignments);
         match self {
-            Expr::Const(v, _) => Expr::Const(v.clone(), new_meta),
+            Expr::Const(v, _) => Expr::Const(*v, new_meta),
             Expr::Sum(ses, _) => Expr::Sum(
                 ses.iter().map(|e| e.with_meta(assignments)).collect(),
                 new_meta,
@@ -134,12 +132,12 @@ impl<F: Field + Hash, V: Debug + Clone + Eq + Hash, M: Meta> Expr<F, V, M> {
 impl<F: Field, V: Clone, M: Meta> Expr<F, V, M> {
     pub fn without_meta(&self) -> Expr<F, V, ()> {
         match self {
-            Expr::Const(v, _) => Expr::Const(v.clone(), ()),
+            Expr::Const(v, _) => Expr::Const(*v, ()),
+            Expr::Query(v, _) => Expr::Query(v.clone(), ()),
             Expr::Sum(ses, _) => Expr::Sum(ses.iter().map(|e| e.without_meta()).collect(), ()),
             Expr::Mul(ses, _) => Expr::Mul(ses.iter().map(|e| e.without_meta()).collect(), ()),
             Expr::Neg(se, _) => Expr::Neg(Box::new(se.without_meta()), ()),
             Expr::Pow(se, exp, _) => Expr::Pow(Box::new(se.without_meta()), *exp, ()),
-            Expr::Query(v, _) => Expr::Query(v.clone(), ()),
             Expr::Halo2Expr(e, _) => Expr::Halo2Expr(e.clone(), ()),
             Expr::MI(se, _) => Expr::MI(Box::new(se.without_meta()), ()),
         }
@@ -424,6 +422,18 @@ impl<F, V: Debug, M: Meta> ConstrDecomp<F, V, M> {
     ) -> Option<(&V, &Expr<F, V, M>)> {
         self.auto_signals.iter().find_map(|(s, e)| {
             if format!("{:#?}", s) == annotation.into() {
+                Some((s, e))
+            } else {
+                None
+            }
+        })
+    }
+}
+
+impl<F: Clone, V: Clone> ConstrDecomp<F, V, HashResult> {
+    pub fn find_auto_signal_by_hash(&self, hash: u64) -> Option<(&V, &Expr<F, V, HashResult>)> {
+        self.auto_signals.iter().find_map(|(s, e)| {
+            if e.meta().hash == hash {
                 Some((s, e))
             } else {
                 None

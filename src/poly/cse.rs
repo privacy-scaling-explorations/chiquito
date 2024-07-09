@@ -25,9 +25,7 @@ fn replace_subexpr<F: Field + Hash, V: Clone + Eq + Hash>(
     {
         // Check if there is already a signal for this expression
         if let Some(signal) = decomp
-            .auto_signals
-            .iter()
-            .find(|(_, e)| e.meta().hash == expr.meta().hash)
+            .find_auto_signal_by_hash(expr.meta().hash)
         {
             return Expr::Query(signal.0.clone(), expr.meta().clone());
         } else {
