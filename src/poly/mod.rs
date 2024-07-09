@@ -14,7 +14,7 @@ pub mod mielim;
 pub mod reduce;
 pub mod simplify;
 
-pub trait ToExpr<F, V, M> {
+pub trait ToExpr<F, V, M: Meta> {
     fn expr(&self) -> Expr<F, V, M>;
 }
 
@@ -22,8 +22,12 @@ pub trait ToField<F> {
     fn field(&self) -> F;
 }
 
+pub trait Meta: Clone + Default + Debug {
+    // You can add any common methods for metadata here
+}
+
 #[derive(Clone)]
-pub enum Expr<F, V, M> {
+pub enum Expr<F, V, M: Meta> {
     Const(F, M),
     Sum(Vec<Expr<F, V, M>>, M),
     Mul(Vec<Expr<F, V, M>>, M),
@@ -31,15 +35,23 @@ pub enum Expr<F, V, M> {
     Pow(Box<Expr<F, V, M>>, u32, M),
     Query(V, M),
     Halo2Expr(Expression<F>, M),
-
     MI(Box<Expr<F, V, M>>, M), //  Multiplicative inverse, but MI(0) = 0
 }
 
-impl<F, V, M> Expr<F, V, M> {
+impl Meta for () {}
+impl Meta for HashResult {}
+
+#[derive(Debug, Clone, Default)]
+pub struct HashResult {
+    pub hash: u64,
+    pub degree: usize,
+}
+
+impl<F: Field, V: Clone, M: Meta> Expr<F, V, M> {
     pub fn degree(&self) -> usize {
         match self {
             Expr::Const(_, _) => 0,
-            Expr::Sum(ses, _) => ses.iter().map(|se| se.degree()).max().unwrap(),
+            Expr::Sum(ses, _) => ses.iter().map(|se| se.degree()).max().unwrap_or(0),
             Expr::Mul(ses, _) => ses.iter().fold(0, |acc, se| acc + se.degree()),
             Expr::Neg(se, _) => se.degree(),
             Expr::Pow(se, exp, _) => se.degree() * (*exp as usize),
@@ -61,12 +73,36 @@ impl<F, V, M> Expr<F, V, M> {
             Expr::MI(_, m) => m,
         }
     }
-}
 
-#[derive(Debug, Clone)]
-pub struct HashResult {
-    pub hash: u64,
-    pub degree: usize,
+    pub fn with_meta<N: Meta>(&self, new_meta: N) -> Expr<F, V, N> {
+        match self {
+            Expr::Const(v, _) => Expr::Const(v.clone(), new_meta),
+            Expr::Sum(ses, _) => Expr::Sum(ses.iter().map(|e| e.with_meta(new_meta.clone())).collect(), new_meta),
+            Expr::Mul(ses, _) => Expr::Mul(ses.iter().map(|e| e.with_meta(new_meta.clone())).collect(), new_meta),
+            Expr::Neg(se, _) => Expr::Neg(Box::new(se.with_meta(new_meta.clone())), new_meta),
+            Expr::Pow(se, exp, _) => Expr::Pow(Box::new(se.with_meta(new_meta.clone())), *exp, new_meta),
+            Expr::Query(v, _) => Expr::Query(v.clone(), new_meta),
+            Expr::Halo2Expr(e, _) => Expr::Halo2Expr(e.clone(), new_meta),
+            Expr::MI(se, _) => Expr::MI(Box::new(se.with_meta(new_meta.clone())), new_meta),
+        }
+    }
+
+    pub fn without_meta(&self) -> Expr<F, V, ()> {
+        self.with_meta(())
+    }
+
+    pub fn map_meta<N: Meta, Func: Fn(&M) -> N>(&self, f: Func) -> Expr<F, V, N> {
+        match self {
+            Expr::Const(v, m) => Expr::Const(v.clone(), f(m)),
+            Expr::Sum(ses, m) => Expr::Sum(ses.iter().map(|e| e.map_meta(&f)).collect(), f(m)),
+            Expr::Mul(ses, m) => Expr::Mul(ses.iter().map(|e| e.map_meta(&f)).collect(), f(m)),
+            Expr::Neg(se, m) => Expr::Neg(Box::new(se.map_meta(&f)), f(m)),
+            Expr::Pow(se, exp, m) => Expr::Pow(Box::new(se.map_meta(&f)), *exp, f(m)),
+            Expr::Query(v, m) => Expr::Query(v.clone(), f(m)),
+            Expr::Halo2Expr(e, m) => Expr::Halo2Expr(e.clone(), f(m)),
+            Expr::MI(se, m) => Expr::MI(Box::new(se.map_meta(&f)), f(m)),
+        }
+    }
 }
 
 impl<F: Field + Hash, V: Debug + Clone + Eq + Hash> Expr<F, V, ()> {
@@ -102,28 +138,7 @@ impl<F: Field + Hash, V: Debug + Clone + Eq + Hash> Expr<F, V, ()> {
     }
 }
 
-impl<F: Field, V: Clone, M> Expr<F, V, M> {
-    pub fn without_meta(&self) -> Expr<F, V, ()> {
-        match self {
-            Expr::Const(v, _) => Expr::Const(*v, ()),
-            Expr::Sum(ses, _) => {
-                let new_ses = ses.iter().map(|se| se.without_meta()).collect();
-                Expr::Sum(new_ses, ())
-            }
-            Expr::Mul(ses, _) => {
-                let new_ses = ses.iter().map(|se| se.without_meta()).collect();
-                Expr::Mul(new_ses, ())
-            }
-            Expr::Neg(se, _) => Expr::Neg(Box::new(se.without_meta()), ()),
-            Expr::Pow(se, exp, _) => Expr::Pow(Box::new(se.without_meta()), *exp, ()),
-            Expr::Query(v, _) => Expr::Query(v.clone(), ()),
-            Expr::Halo2Expr(_, _) => panic!("not implemented"),
-            Expr::MI(se, _) => Expr::MI(Box::new(se.without_meta()), ()),
-        }
-    }
-}
-
-impl<F: Debug, V: Debug, M: Debug> Debug for Expr<F, V, M> {
+impl<F: Debug, V: Debug, M: Meta> Debug for Expr<F, V, M> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::Const(arg0, _) => {
@@ -165,7 +180,7 @@ impl<F: Debug, V: Debug, M: Debug> Debug for Expr<F, V, M> {
 
 pub type VarAssignments<F, V> = HashMap<V, F>;
 
-impl<F: Field + Hash, V: Eq + PartialEq + Hash, M: Clone + Default> Expr<F, V, M> {
+impl<F: Field + Hash, V: Eq + PartialEq + Hash, M: Meta> Expr<F, V, M> {
     pub fn eval(&self, assignments: &VarAssignments<F, V>) -> Option<F> {
         match self {
             Expr::Const(v, _) => Some(*v),
@@ -186,7 +201,7 @@ impl<F: Field + Hash, V: Eq + PartialEq + Hash, M: Clone + Default> Expr<F, V, M
     }
 }
 
-impl<F: Field + Hash, V: Eq + PartialEq + Hash + Clone, M: Clone + Default> Expr<F, V, M> {
+impl<F: Field + Hash, V: Eq + PartialEq + Hash + Clone, M: Meta> Expr<F, V, M> {
     /// Returns all the keys of the queries
     pub fn get_queries(&self) -> Vec<V> {
         match self {
@@ -201,14 +216,14 @@ impl<F: Field + Hash, V: Eq + PartialEq + Hash + Clone, M: Clone + Default> Expr
     }
 }
 
-impl<F: Clone, V: Clone, M: Clone> ToExpr<F, V, M> for Expr<F, V, M> {
+impl<F: Clone, V: Clone, M: Meta> ToExpr<F, V, M> for Expr<F, V, M> {
     fn expr(&self) -> Expr<F, V, M> {
         self.clone()
     }
 }
 
 /// TODO: M::default is a placeholder for now, the metadata should be updated
-impl<F: Clone + From<u64>, V: Clone, M: Clone + Default> Expr<F, V, M> {
+impl<F: Clone + From<u64>, V: Clone, M: Meta> Expr<F, V, M> {
     /// Returns (1-self).
     pub fn one_minus(&self) -> Self {
         use Expr::Const;
@@ -229,7 +244,7 @@ impl<F: Clone + From<u64>, V: Clone, M: Clone + Default> Expr<F, V, M> {
     }
 }
 
-impl<F, V, M: Default, RHS: Into<Expr<F, V, M>>> Add<RHS> for Expr<F, V, M> {
+impl<F, V, M: Meta, RHS: Into<Expr<F, V, M>>> Add<RHS> for Expr<F, V, M> {
     type Output = Self;
     fn add(self, rhs: RHS) -> Self {
         use Expr::*;
@@ -243,7 +258,7 @@ impl<F, V, M: Default, RHS: Into<Expr<F, V, M>>> Add<RHS> for Expr<F, V, M> {
     }
 }
 
-impl<F, V, M: Default, RHS: Into<Expr<F, V, M>>> Sub<RHS> for Expr<F, V, M> {
+impl<F, V, M: Meta, RHS: Into<Expr<F, V, M>>> Sub<RHS> for Expr<F, V, M> {
     type Output = Self;
     fn sub(self, rhs: RHS) -> Self {
         use Expr::*;
@@ -257,7 +272,7 @@ impl<F, V, M: Default, RHS: Into<Expr<F, V, M>>> Sub<RHS> for Expr<F, V, M> {
     }
 }
 
-impl<F, V, M: Default, RHS: Into<Expr<F, V, M>>> Mul<RHS> for Expr<F, V, M> {
+impl<F, V, M: Meta, RHS: Into<Expr<F, V, M>>> Mul<RHS> for Expr<F, V, M> {
     type Output = Self;
     fn mul(self, rhs: RHS) -> Self {
         use Expr::*;
@@ -271,7 +286,7 @@ impl<F, V, M: Default, RHS: Into<Expr<F, V, M>>> Mul<RHS> for Expr<F, V, M> {
     }
 }
 
-impl<F, V, M: Default> Neg for Expr<F, V, M> {
+impl<F, V, M: Meta> Neg for Expr<F, V, M> {
     type Output = Self;
     fn neg(self) -> Self {
         match self {
@@ -283,14 +298,14 @@ impl<F, V, M: Default> Neg for Expr<F, V, M> {
 
 macro_rules! impl_expr_like {
     ($type:ty) => {
-        impl<F: From<u64>, V, M: Default> From<$type> for Expr<F, V, M> {
+        impl<F: From<u64>, V, M: Meta> From<$type> for Expr<F, V, M> {
             #[inline]
             fn from(value: $type) -> Self {
                 Expr::Const(F::from(value as u64), M::default())
             }
         }
 
-        impl<F: From<u64>, V, M: Default> $crate::poly::ToExpr<F, V, M> for $type {
+        impl<F: From<u64>, V, M: Meta> $crate::poly::ToExpr<F, V, M> for $type {
             #[inline]
             fn expr(&self) -> Expr<F, V, M> {
                 Expr::Const(F::from(*self as u64), M::default())
@@ -312,7 +327,7 @@ impl_expr_like!(u32);
 impl_expr_like!(u64);
 impl_expr_like!(usize);
 
-impl<F: Field + From<u64>, V, M: Default> From<i32> for Expr<F, V, M> {
+impl<F: Field + From<u64>, V, M: Meta> From<i32> for Expr<F, V, M> {
     #[inline]
     fn from(value: i32) -> Self {
         Expr::Const(
@@ -323,7 +338,7 @@ impl<F: Field + From<u64>, V, M: Default> From<i32> for Expr<F, V, M> {
     }
 }
 
-impl<F: Field + From<u64>, V, M: Default> ToExpr<F, V, M> for i32 {
+impl<F: Field + From<u64>, V, M: Meta> ToExpr<F, V, M> for i32 {
     #[inline]
     fn expr(&self) -> Expr<F, V, M> {
         Expr::Const(
@@ -353,16 +368,16 @@ pub trait SignalFactory<V> {
 
 /// The result of decomposing a PI into several
 #[derive(Debug, Clone)]
-pub struct ConstrDecomp<F, V> {
+pub struct ConstrDecomp<F, V, M: Meta> {
     /// PI constraint for the new signals introduced.
-    pub constrs: Vec<Expr<F, V, ()>>,
+    pub constrs: Vec<Expr<F, V, M>>,
     /// Expressions for how to create the witness for the generated signals the orginal expression
     /// has be decomposed into.
-    pub auto_signals: HashMap<V, Expr<F, V, ()>>,
+    pub auto_signals: HashMap<V, Expr<F, V, M>>,
 }
 
-impl<F, V: Debug> ConstrDecomp<F, V> {
-    pub fn get_auto_signal<S: Into<String> + Copy>(&self, annotation: S) -> Option<(&V, &Expr<F, V, ()>)> {
+impl<F, V: Debug, M: Meta> ConstrDecomp<F, V, M> {
+    pub fn get_auto_signal<S: Into<String> + Copy>(&self, annotation: S) -> Option<(&V, &Expr<F, V, M>)> {
         self.auto_signals.iter().find_map(|(s, e)| {
             if format!("{:#?}", s) == annotation.into() {
                 Some((s, e))
@@ -373,7 +388,7 @@ impl<F, V: Debug> ConstrDecomp<F, V> {
     }
 }
 
-impl<F, V> Default for ConstrDecomp<F, V> {
+impl<F, V, M: Meta> Default for ConstrDecomp<F, V, M> {
     fn default() -> Self {
         Self {
             constrs: Default::default(),
@@ -382,17 +397,26 @@ impl<F, V> Default for ConstrDecomp<F, V> {
     }
 }
 
-impl<F: Clone, V: Clone + Eq + PartialEq + Hash> ConstrDecomp<F, V> {
-    fn auto_eq(&mut self, signal: V, expr: Expr<F, V, ()>) {
+impl<F: Clone, V: Clone + Eq + PartialEq + Hash, M: Meta> ConstrDecomp<F, V, M> {
+    fn auto_eq(&mut self, signal: V, expr: Expr<F, V, M>) {
         self.constrs.push(Expr::Sum(
             vec![
                 expr.clone(),
-                Expr::Neg(Box::new(Expr::Query(signal.clone(), ())), ()),
+                Expr::Neg(Box::new(Expr::Query(signal.clone(), M::default())), M::default()),
             ],
-            (),
+            M::default(),
         ));
 
         self.auto_signals.insert(signal, expr);
+    }
+}
+
+impl<F: Field, V: Clone + Hash + Eq> ConstrDecomp<F, V, HashResult> {
+    pub fn without_meta(&self) -> ConstrDecomp<F, V, ()> {
+        ConstrDecomp {
+            constrs: self.constrs.iter().map(|c| c.without_meta()).collect(),
+            auto_signals: self.auto_signals.iter().map(|(k, v)| (k.clone(), v.without_meta())).collect(),
+        }
     }
 }
 

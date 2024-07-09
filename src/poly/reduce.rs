@@ -12,7 +12,7 @@ pub fn reduce_degree<F: Field, V: Clone + Eq + PartialEq + Hash + Debug, SF: Sig
     constr: Expr<F, V, ()>,
     max_degree: usize,
     signal_factory: &mut SF,
-) -> (Expr<F, V, ()>, ConstrDecomp<F, V>) {
+) -> (Expr<F, V, ()>, ConstrDecomp<F, V, ()>) {
     let mut decomp = ConstrDecomp::default();
     let expr = reduce_degree_recursive(&mut decomp, constr, max_degree, max_degree, signal_factory);
 
@@ -39,7 +39,7 @@ fn reduce_degree_recursive<
     V: Clone + Eq + PartialEq + Hash + Debug,
     SF: SignalFactory<V>,
 >(
-    decomp: &mut ConstrDecomp<F, V>,
+    decomp: &mut ConstrDecomp<F, V, ()>,
     constr: Expr<F, V, ()>,
     total_max_degree: usize,
     partial_max_degree: usize,
@@ -97,7 +97,7 @@ fn reduce_degree_recursive<
 }
 
 fn reduce_degree_mul<F: Field, V: Clone + Eq + PartialEq + Hash + Debug, SF: SignalFactory<V>>(
-    decomp: &mut ConstrDecomp<F, V>,
+    decomp: &mut ConstrDecomp<F, V, ()>,
     ses: Vec<Expr<F, V, ()>>,
     total_max_degree: usize,
     partial_max_degree: usize,

@@ -229,7 +229,7 @@ impl<'de> Visitor<'de> for CircuitVisitor {
                     if step_types.is_some() {
                         return Err(de::Error::duplicate_field("step_types"));
                     }
-                    step_types = Some(map.next_value::<HashMap<UUID, StepType<Fr>>>()?);
+                    step_types = Some(map.next_value::<HashMap<UUID, StepType<Fr, ()>>>()?);
                 }
                 "forward_signals" => {
                     if forward_signals.is_some() {
@@ -359,13 +359,13 @@ impl<'de> Visitor<'de> for CircuitVisitor {
 struct StepTypeVisitor;
 
 impl<'de> Visitor<'de> for StepTypeVisitor {
-    type Value = StepType<Fr>;
+    type Value = StepType<Fr, ()>;
 
     fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
         formatter.write_str("struct StepType")
     }
 
-    fn visit_map<A>(self, mut map: A) -> Result<StepType<Fr>, A::Error>
+    fn visit_map<A>(self, mut map: A) -> Result<StepType<Fr, ()>, A::Error>
     where
         A: MapAccess<'de>,
     {
@@ -401,20 +401,20 @@ impl<'de> Visitor<'de> for StepTypeVisitor {
                     if constraints.is_some() {
                         return Err(de::Error::duplicate_field("constraints"));
                     }
-                    constraints = Some(map.next_value::<Vec<Constraint<Fr>>>()?);
+                    constraints = Some(map.next_value::<Vec<Constraint<Fr, ()>>>()?);
                 }
                 "transition_constraints" => {
                     if transition_constraints.is_some() {
                         return Err(de::Error::duplicate_field("transition_constraints"));
                     }
                     transition_constraints =
-                        Some(map.next_value::<Vec<TransitionConstraint<Fr>>>()?);
+                        Some(map.next_value::<Vec<TransitionConstraint<Fr, ()>>>()?);
                 }
                 "lookups" => {
                     if lookups.is_some() {
                         return Err(de::Error::duplicate_field("lookups"));
                     }
-                    lookups = Some(map.next_value::<Vec<Lookup<Fr>>>()?);
+                    lookups = Some(map.next_value::<Vec<Lookup<Fr, ()>>>()?);
                 }
                 "annotations" => {
                     if annotations.is_some() {
@@ -447,7 +447,7 @@ impl<'de> Visitor<'de> for StepTypeVisitor {
         let lookups = lookups.ok_or_else(|| de::Error::missing_field("lookups"))?;
         let annotations = annotations.ok_or_else(|| de::Error::missing_field("annotations"))?;
 
-        let mut step_type = StepType::<Fr>::new(id, name);
+        let mut step_type = StepType::<Fr, ()>::new(id, name);
         step_type.signals = signals;
         step_type.constraints = constraints;
         step_type.transition_constraints = transition_constraints;
@@ -501,23 +501,23 @@ macro_rules! impl_visitor_constraint_transition {
     };
 }
 
-impl_visitor_constraint_transition!(ConstraintVisitor, Constraint<Fr>, "struct Constraint");
+impl_visitor_constraint_transition!(ConstraintVisitor, Constraint<Fr, ()>, "struct Constraint");
 impl_visitor_constraint_transition!(
     TransitionConstraintVisitor,
-    TransitionConstraint<Fr>,
+    TransitionConstraint<Fr, ()>,
     "struct TransitionConstraint"
 );
 
 struct LookupVisitor;
 
 impl<'de> Visitor<'de> for LookupVisitor {
-    type Value = Lookup<Fr>;
+    type Value = Lookup<Fr, ()>;
 
     fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
         formatter.write_str("struct Lookup")
     }
 
-    fn visit_map<A>(self, mut map: A) -> Result<Lookup<Fr>, A::Error>
+    fn visit_map<A>(self, mut map: A) -> Result<Lookup<Fr, ()>, A::Error>
     where
         A: MapAccess<'de>,
     {
@@ -537,14 +537,14 @@ impl<'de> Visitor<'de> for LookupVisitor {
                         return Err(de::Error::duplicate_field("exprs"));
                     }
                     exprs = Some(
-                        map.next_value::<Vec<(Constraint<Fr>, Expr<Fr, Queriable<Fr>, ()>)>>()?,
+                        map.next_value::<Vec<(Constraint<Fr, ()>, Expr<Fr, Queriable<Fr>, ()>)>>()?,
                     );
                 }
                 "enable" => {
                     if enable.is_some() {
                         return Err(de::Error::duplicate_field("enable"));
                     }
-                    enable = Some(map.next_value::<Option<Constraint<Fr>>>()?);
+                    enable = Some(map.next_value::<Option<Constraint<Fr, ()>>>()?);
                 }
                 _ => {
                     return Err(de::Error::unknown_field(
@@ -910,12 +910,12 @@ impl_deserialize!(FixedSignalVisitor, FixedSignal);
 impl_deserialize!(ForwardSignalVisitor, ForwardSignal);
 impl_deserialize!(SharedSignalVisitor, SharedSignal);
 impl_deserialize!(StepTypeHandlerVisitor, StepTypeHandler);
-impl_deserialize!(ConstraintVisitor, Constraint<Fr>);
-impl_deserialize!(TransitionConstraintVisitor, TransitionConstraint<Fr>);
-impl_deserialize!(StepTypeVisitor, StepType<Fr>);
+impl_deserialize!(ConstraintVisitor, Constraint<Fr, ()>);
+impl_deserialize!(TransitionConstraintVisitor, TransitionConstraint<Fr, ()>);
+impl_deserialize!(StepTypeVisitor, StepType<Fr, ()>);
 impl_deserialize!(TraceWitnessVisitor, TraceWitness<Fr>);
 impl_deserialize!(StepInstanceVisitor, StepInstance<Fr>);
-impl_deserialize!(LookupVisitor, Lookup<Fr>);
+impl_deserialize!(LookupVisitor, Lookup<Fr, ()>);
 
 impl<'de> Deserialize<'de> for SBPIR<Fr, PythonTraceGenerator> {
     fn deserialize<D>(deserializer: D) -> Result<SBPIR<Fr, PythonTraceGenerator>, D::Error>
@@ -1679,7 +1679,7 @@ mod tests {
             }
         }
         "#;
-        let step_type: StepType<Fr> = serde_json::from_str(json).unwrap();
+        let step_type: StepType<Fr, ()> = serde_json::from_str(json).unwrap();
         println!("{:?}", step_type);
     }
 
@@ -1761,9 +1761,9 @@ mod tests {
             ]
             }
         }"#;
-        let constraint: Constraint<Fr> = serde_json::from_str(json).unwrap();
+        let constraint: Constraint<Fr, ()> = serde_json::from_str(json).unwrap();
         println!("{:?}", constraint);
-        let transition_constraint: TransitionConstraint<Fr> = serde_json::from_str(json).unwrap();
+        let transition_constraint: TransitionConstraint<Fr, ()> = serde_json::from_str(json).unwrap();
         println!("{:?}", transition_constraint);
     }
 

@@ -22,7 +22,7 @@ use super::{
 pub struct CompilationUnit<F> {
     pub placement: Placement,
     pub selector: StepSelector<F>,
-    pub step_types: HashMap<UUID, StepType<F>>,
+    pub step_types: HashMap<UUID, StepType<F, ()>>,
     pub forward_signals: Vec<ForwardSignal>,
     pub shared_signals: Vec<SharedSignal>,
     pub fixed_signals: Vec<FixedSignal>,

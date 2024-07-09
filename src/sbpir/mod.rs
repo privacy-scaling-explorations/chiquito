@@ -8,7 +8,7 @@ use crate::{
         trace::{DSLTraceGenerator, TraceContext},
         StepTypeHandler,
     },
-    poly::{ConstrDecomp, Expr},
+    poly::{ConstrDecomp, Expr, Meta},
     util::{uuid, UUID},
     wit_gen::{FixedAssignment, FixedGenContext, NullTraceGenerator, TraceGenerator},
 };
@@ -19,8 +19,8 @@ use self::query::Queriable;
 
 /// Circuit (Step-Based Polynomial Identity Representation)
 #[derive(Clone)]
-pub struct SBPIR<F, TG: TraceGenerator<F> = DSLTraceGenerator<F>> {
-    pub step_types: HashMap<UUID, StepType<F>>,
+pub struct SBPIR<F, TG: TraceGenerator<F> = DSLTraceGenerator<F>, M: Meta = ()> {
+    pub step_types: HashMap<UUID, StepType<F, M>>,     // TODO: for now there is only this meta type
 
     pub forward_signals: Vec<ForwardSignal>,
     pub shared_signals: Vec<SharedSignal>,
@@ -42,7 +42,7 @@ pub struct SBPIR<F, TG: TraceGenerator<F> = DSLTraceGenerator<F>> {
     pub id: UUID,
 }
 
-impl<F: Debug, TG: TraceGenerator<F>> Debug for SBPIR<F, TG> {
+impl<F: Debug, TG: TraceGenerator<F>, M: Meta> Debug for SBPIR<F, TG, M> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("Circuit")
             .field("step_types", &self.step_types)
@@ -62,7 +62,7 @@ impl<F: Debug, TG: TraceGenerator<F>> Debug for SBPIR<F, TG> {
     }
 }
 
-impl<F, TG: TraceGenerator<F>> Default for SBPIR<F, TG> {
+impl<F, TG: TraceGenerator<F>, M: Meta> Default for SBPIR<F, TG, M> {
     fn default() -> Self {
         Self {
             step_types: Default::default(),
@@ -89,7 +89,7 @@ impl<F, TG: TraceGenerator<F>> Default for SBPIR<F, TG> {
     }
 }
 
-impl<F, TG: TraceGenerator<F>> SBPIR<F, TG> {
+impl<F, TG: TraceGenerator<F>, M: Meta> SBPIR<F, TG, M> {
     pub fn add_forward<N: Into<String>>(&mut self, name: N, phase: usize) -> ForwardSignal {
         let name = name.into();
         let signal = ForwardSignal::new_with_phase(phase, name.clone());
@@ -172,7 +172,7 @@ impl<F, TG: TraceGenerator<F>> SBPIR<F, TG> {
         self.annotations.insert(handler.uuid(), name.into());
     }
 
-    pub fn add_step_type_def(&mut self, step: StepType<F>) -> StepTypeUUID {
+    pub fn add_step_type_def(&mut self, step: StepType<F, M>) -> StepTypeUUID {
         let uuid = step.uuid();
         self.step_types.insert(uuid, step);
 
@@ -188,7 +188,7 @@ impl<F, TG: TraceGenerator<F>> SBPIR<F, TG> {
         }
     }
 
-    pub fn without_trace(self) -> SBPIR<F, NullTraceGenerator> {
+    pub fn without_trace(self) -> SBPIR<F, NullTraceGenerator, M> {
         SBPIR {
             step_types: self.step_types,
             forward_signals: self.forward_signals,
@@ -208,7 +208,7 @@ impl<F, TG: TraceGenerator<F>> SBPIR<F, TG> {
         }
     }
 
-    pub(crate) fn with_trace<TG2: TraceGenerator<F>>(self, trace: TG2) -> SBPIR<F, TG2> {
+    pub(crate) fn with_trace<TG2: TraceGenerator<F>>(self, trace: TG2) -> SBPIR<F, TG2, M> {
         SBPIR {
             trace_generator: Some(trace), // Change trace
             step_types: self.step_types,
@@ -273,21 +273,21 @@ pub type StepTypeUUID = UUID;
 
 #[derive(Clone)]
 /// Step
-pub struct StepType<F> {
+pub struct StepType<F, M: Meta> {
     id: StepTypeUUID,
 
     pub name: String,
     pub signals: Vec<InternalSignal>,
-    pub constraints: Vec<Constraint<F>>,
-    pub transition_constraints: Vec<TransitionConstraint<F>>,
-    pub lookups: Vec<Lookup<F>>,
+    pub constraints: Vec<Constraint<F, M>>,
+    pub transition_constraints: Vec<TransitionConstraint<F, M>>,
+    pub lookups: Vec<Lookup<F, M>>,
 
-    pub auto_signals: HashMap<Queriable<F>, PIR<F>>,
+    pub auto_signals: HashMap<Queriable<F>, PIR<F, M>>,
 
     pub annotations: HashMap<UUID, String>,
 }
 
-impl<F: Debug> Debug for StepType<F> {
+impl<F: Debug, M: Meta> Debug for StepType<F, M> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("StepType")
             .field("id", &self.id)
@@ -300,7 +300,7 @@ impl<F: Debug> Debug for StepType<F> {
     }
 }
 
-impl<F> StepType<F> {
+impl<F, M: Meta> StepType<F, M> {
     pub fn new(uuid: UUID, name: String) -> Self {
         Self {
             id: uuid,
@@ -337,25 +337,25 @@ impl<F> StepType<F> {
         self.signals.push(signal);
     }
 
-    pub fn add_constr(&mut self, annotation: String, expr: PIR<F>) {
+    pub fn add_constr(&mut self, annotation: String, expr: PIR<F, M>) {
         let condition = Constraint { annotation, expr };
 
         self.constraints.push(condition)
     }
 
-    pub fn add_transition(&mut self, annotation: String, expr: PIR<F>) {
+    pub fn add_transition(&mut self, annotation: String, expr: PIR<F, M>) {
         let condition = TransitionConstraint { annotation, expr };
 
         self.transition_constraints.push(condition)
     }
 }
 
-impl<F: Clone + Eq + Hash> StepType<F> {
-    pub fn decomp_constraints<M>(&mut self, mut decomposer: M)
+impl<F: Clone + Eq + Hash, M: Meta> StepType<F, M> {
+    pub fn decomp_constraints<D>(&mut self, mut decomposer: D)
     where
-        M: FnMut(
-            &Expr<F, Queriable<F>, ()>,
-        ) -> (Expr<F, Queriable<F>, ()>, ConstrDecomp<F, Queriable<F>>),
+        D: FnMut(
+            &Expr<F, Queriable<F>, M>,
+        ) -> (Expr<F, Queriable<F>, M>, ConstrDecomp<F, Queriable<F>, M>),
     {
         let mut new_constraints = vec![];
         for i in 0..self.constraints.len() {
@@ -410,54 +410,54 @@ impl<F: Clone + Eq + Hash> StepType<F> {
     }
 }
 
-impl<F> PartialEq for StepType<F> {
+impl<F, M: Meta> PartialEq for StepType<F, M> {
     fn eq(&self, other: &Self) -> bool {
         self.id == other.id
     }
 }
 
-impl<F> Eq for StepType<F> {}
+impl<F, M: Meta> Eq for StepType<F, M> {}
 
-impl<F> core::hash::Hash for StepType<F> {
+impl<F, M: Meta> core::hash::Hash for StepType<F, M> {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         self.id.hash(state);
     }
 }
 
-pub type PIR<F> = Expr<F, Queriable<F>, ()>;
+pub type PIR<F, M: Meta> = Expr<F, Queriable<F>, M>;
 
 #[derive(Clone, Debug)]
 /// Condition
-pub struct Constraint<F> {
+pub struct Constraint<F, M: Meta> {
     pub annotation: String,
-    pub expr: PIR<F>,
+    pub expr: PIR<F, M>,
 }
 
 #[derive(Clone, Debug)]
 /// TransitionCondition
-pub struct TransitionConstraint<F> {
+pub struct TransitionConstraint<F, M: Meta> {
     pub annotation: String,
-    pub expr: PIR<F>,
+    pub expr: PIR<F, M>,
 }
 
 #[derive(Clone, Debug)]
-pub struct Lookup<F> {
+pub struct Lookup<F, M: Meta> {
     pub annotation: String,
-    pub exprs: Vec<(Constraint<F>, PIR<F>)>,
-    pub enable: Option<Constraint<F>>,
+    pub exprs: Vec<(Constraint<F, M>, PIR<F, M>)>,
+    pub enable: Option<Constraint<F, M>>,
 }
 
-impl<F> Default for Lookup<F> {
+impl<F, M: Meta> Default for Lookup<F, M> {
     fn default() -> Self {
         Lookup {
             annotation: String::new(),
-            exprs: Vec::<(Constraint<F>, PIR<F>)>::new(),
+            exprs: Vec::<(Constraint<F, M>, PIR<F, M>)>::new(),
             enable: None,
         }
     }
 }
 
-impl<F: Debug + Clone> Lookup<F> {
+impl<F: Debug + Clone, M: Meta> Lookup<F, M> {
     // Function: adds (constraint, expression) to exprs if there's no enabler, OR add (enabler *
     // constraint, expression) to exprs if there's enabler Note that constraint_annotation and
     // constraint_expr are passed in as separate parameters, and then reconstructed as Constraint,
@@ -465,8 +465,8 @@ impl<F: Debug + Clone> Lookup<F> {
     pub fn add(
         &mut self,
         constraint_annotation: String,
-        constraint_expr: PIR<F>,
-        expression: PIR<F>,
+        constraint_expr: PIR<F, M>,
+        expression: PIR<F, M>,
     ) {
         let constraint = Constraint {
             annotation: constraint_annotation,
@@ -488,7 +488,7 @@ impl<F: Debug + Clone> Lookup<F> {
 
     // Function: setup the enabler field and multiply all LHS constraints by the enabler if there's
     // no enabler, OR panic if there's an enabler already
-    pub fn enable(&mut self, enable_annotation: String, enable_expr: PIR<F>) {
+    pub fn enable(&mut self, enable_annotation: String, enable_expr: PIR<F, M>) {
         let enable = Constraint {
             annotation: enable_annotation.clone(),
             expr: enable_expr,
@@ -507,7 +507,7 @@ impl<F: Debug + Clone> Lookup<F> {
     }
 
     // Function: helper function for multiplying enabler to constraint
-    fn multiply_constraints(enable: Constraint<F>, constraint: Constraint<F>) -> Constraint<F> {
+    fn multiply_constraints(enable: Constraint<F, M>, constraint: Constraint<F, M>) -> Constraint<F, M> {
         Constraint {
             annotation: constraint.annotation.clone(), /* annotation only takes the constraint's
                                                         * annotation, because enabler's

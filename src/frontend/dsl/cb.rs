@@ -15,11 +15,11 @@ use super::{
 #[derive(Clone)]
 pub struct Constraint<F> {
     pub annotation: String,
-    pub expr: PIR<F>,
+    pub expr: PIR<F, ()>,
     pub typing: Typing,
 }
 
-impl<F> From<Constraint<F>> for PIR<F> {
+impl<F> From<Constraint<F>> for PIR<F, ()> {
     fn from(c: Constraint<F>) -> Self {
         c.expr
     }
@@ -32,8 +32,8 @@ pub enum Typing {
     AntiBooly,
 }
 
-impl<F: Debug> From<PIR<F>> for Constraint<F> {
-    fn from(expr: PIR<F>) -> Self {
+impl<F: Debug> From<PIR<F, ()>> for Constraint<F> {
+    fn from(expr: PIR<F, ()>) -> Self {
         let annotation = format!("{:?}", &expr);
         match expr {
             Expr::Query(Queriable::StepTypeNext(_), _) => Self {
@@ -97,7 +97,7 @@ pub fn and<F: From<u64>, E: Into<Constraint<F>>, I: IntoIterator<Item = E>>(
     inputs: I,
 ) -> Constraint<F> {
     let mut annotations: Vec<String> = vec![];
-    let mut expr: PIR<F> = 1u64.expr();
+    let mut expr: PIR<F, ()> = 1u64.expr();
 
     for constraint in inputs.into_iter() {
         let constraint = constraint.into();
@@ -131,7 +131,7 @@ pub fn or<
     inputs: I,
 ) -> Constraint<F> {
     let mut annotations: Vec<String> = vec![];
-    let mut exprs: Vec<PIR<F>> = vec![];
+    let mut exprs: Vec<PIR<F, ()>> = vec![];
 
     for constraint in inputs.into_iter() {
         let constraint = constraint.into();
@@ -372,7 +372,7 @@ pub fn next_step_must_not_be<F: From<u64>, ST: Into<StepTypeHandler>>(
 
 /// Takes a string annotation and an expression, and returns a new constraint with the given
 /// annotation and expression.
-pub fn annotate<F, E: Into<PIR<F>>>(annotation: String, expr: E, typing: Typing) -> Constraint<F> {
+pub fn annotate<F, E: Into<PIR<F, ()>>>(annotation: String, expr: E, typing: Typing) -> Constraint<F> {
     Constraint {
         annotation,
         expr: expr.into(),
@@ -381,10 +381,10 @@ pub fn annotate<F, E: Into<PIR<F>>>(annotation: String, expr: E, typing: Typing)
 }
 
 /// Computes the randomized linear combination of the given expressions and randomness.
-pub fn rlc<F: From<u64>, E: Into<PIR<F>> + Clone, R: Into<PIR<F>> + Clone>(
+pub fn rlc<F: From<u64>, E: Into<PIR<F, ()>> + Clone, R: Into<PIR<F, ()>> + Clone>(
     exprs: &[E],
     randomness: R,
-) -> PIR<F> {
+) -> PIR<F, ()> {
     if !exprs.is_empty() {
         let mut exprs = exprs.iter().rev().map(|e| e.clone().into());
         let init = exprs.next().expect("should not be empty");
