@@ -23,7 +23,7 @@ pub trait ToField<F> {
 }
 
 pub trait Meta: Clone + Default + Debug + Hash {
-    fn from_expr<F: Field + Hash, V: Debug + Clone + Eq + Hash>(
+    fn from_expr<F: Field + Hash, V: Clone + Eq + Hash>(
         expr: &Expr<F, V, ()>,
         assignments: &VarAssignments<F, V>,
     ) -> Self;
@@ -42,14 +42,15 @@ pub enum Expr<F, V, M: Meta> {
 }
 
 impl Meta for () {
-    fn from_expr<F: Field + Hash, V: Debug + Clone + Eq + Hash>(
+    fn from_expr<F: Field + Hash, V: Clone + Eq + Hash>(
         _expr: &Expr<F, V, ()>,
         _assignments: &VarAssignments<F, V>,
-    ) -> Self {}
+    ) -> Self {
+    }
 }
 
 impl Meta for HashResult {
-    fn from_expr<F: Field + Hash, V: Debug + Clone + Eq + Hash>(
+    fn from_expr<F: Field + Hash, V: Clone + Eq + Hash>(
         expr: &Expr<F, V, ()>,
         assignments: &VarAssignments<F, V>,
     ) -> Self {
@@ -62,6 +63,22 @@ impl Meta for HashResult {
 pub struct HashResult {
     pub hash: u64,
     pub degree: usize,
+}
+
+impl HashResult {
+    pub fn new<F: Field + Hash, V: Clone + Eq + Hash>(expr: &Expr<F, V, ()>, assignments: &VarAssignments<F, V>) -> Self {
+        let mut hasher = DefaultHasher::new();
+        
+        // Custom hashing logic
+        if let Some(result) = expr.eval(assignments) {
+            result.hash(&mut hasher);
+        }
+        
+        HashResult {
+            hash: hasher.finish(),
+            degree: expr.degree(),
+        }
+    }
 }
 
 impl<F: Clone, V: Clone, M: Meta> Expr<F, V, M> {
@@ -127,6 +144,20 @@ impl<F: Field + Hash, V: Debug + Clone + Eq + Hash, M: Meta> Expr<F, V, M> {
             Expr::MI(se, _) => Expr::MI(Box::new(se.with_meta(assignments)), new_meta),
         }
     }
+
+    pub fn apply_subexpressions<T>(&self, mut f: T) -> Self
+    where
+        T: FnMut(&Self) -> Self,
+    {
+        match self {
+            Expr::Sum(ses, m) => Expr::Sum(ses.iter().map(|e| f(e)).collect(), m.clone()),
+            Expr::Mul(ses, m) => Expr::Mul(ses.iter().map(|e| f(e)).collect(), m.clone()),
+            Expr::Neg(se, m) => Expr::Neg(Box::new(f(se)), m.clone()),
+            Expr::Pow(se, exp, m) => Expr::Pow(Box::new(f(se)), *exp, m.clone()),
+            Expr::MI(se, m) => Expr::MI(Box::new(f(se)), m.clone()),
+            _ => self.clone(),
+        }
+    }
 }
 
 impl<F: Field, V: Clone, M: Meta> Expr<F, V, M> {
@@ -144,19 +175,9 @@ impl<F: Field, V: Clone, M: Meta> Expr<F, V, M> {
     }
 }
 
-impl<F: Field + Hash, V: Debug + Clone + Eq + Hash> Expr<F, V, ()> {
-    /// Uses Schwartz-Zippel Lemma to hash
+impl<F: Field + Hash, V: Clone + Eq + Hash> Expr<F, V, ()> {
     pub fn hash(&self, assignments: &VarAssignments<F, V>) -> Expr<F, V, HashResult> {
-        let mut hasher = DefaultHasher::new();
-
-        if let Some(result) = self.eval(assignments) {
-            result.hash(&mut hasher);
-        }
-
-        let hash_result = HashResult {
-            hash: hasher.finish(),
-            degree: self.degree(),
-        };
+        let hash_result = HashResult::new(self, assignments);
 
         match self {
             Expr::Const(v, _) => Expr::Const(*v, hash_result),
