@@ -138,7 +138,8 @@ fn main() {
     let mut plonkish = generate::<Fr>();
     let rng = BlockRng::new(DummyRng {});
 
-    let halo2_prover = plonkish.create_halo2_prover(10, rng);
+    let halo2_prover = plonkish.create_halo2_prover(rng);
+    println!("k={}", halo2_prover.setup.k);
 
     let (proof, instance) =
         halo2_prover.generate_proof(plonkish.assignment_generator.unwrap().generate(0));
@@ -159,7 +160,8 @@ fn main() {
     let mut plonkish = generate::<Fr>();
     let rng = BlockRng::new(DummyRng {});
 
-    let halo2_prover = plonkish.create_halo2_prover(8, rng);
+    let halo2_prover = plonkish.create_halo2_prover(rng);
+    println!("k={}", halo2_prover.setup.k);
 
     let (proof, instance) =
         halo2_prover.generate_proof(plonkish.assignment_generator.unwrap().generate(7));

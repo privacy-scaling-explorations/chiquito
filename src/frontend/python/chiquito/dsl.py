@@ -75,9 +75,7 @@ class SuperCircuit:
         )  # so that we can generate different witness mapping in the next gen_witness() call
         return super_witness
 
-    def halo2_mock_prover(
-        self: SuperCircuit, super_witness: Dict[int, TraceWitness], k: int = 16
-    ):
+    def halo2_mock_prover(self: SuperCircuit, super_witness: Dict[int, TraceWitness]):
         witness_json = {}
         for rust_id, witness in super_witness.items():
             if rust_id not in self.ast.sub_circuits:
@@ -86,7 +84,7 @@ class SuperCircuit:
                 )
             witness_json[rust_id] = witness.get_witness_json()
         rust_chiquito.super_circuit_halo2_mock_prover(
-            list(self.ast.sub_circuits.keys()), witness_json, k
+            list(self.ast.sub_circuits.keys()), witness_json
         )
 
 
@@ -218,12 +216,12 @@ class Circuit:
     def get_ast_json(self: Circuit) -> str:
         return json.dumps(self.ast, cls=CustomEncoder, indent=4)
 
-    def halo2_mock_prover(self: Circuit, witness: TraceWitness, k: int = 16):
+    def halo2_mock_prover(self: Circuit, witness: TraceWitness):
         if self.rust_id == 0:
             ast_json: str = self.get_ast_json()
             self.rust_id: int = rust_chiquito.ast_to_halo2(ast_json)
         witness_json: str = witness.get_witness_json()
-        rust_chiquito.halo2_mock_prover(witness_json, self.rust_id, k)
+        rust_chiquito.halo2_mock_prover(witness_json, self.rust_id)
 
     def to_pil(
         self: Circuit, witness: TraceWitness, circuit_name: str = "Circuit"

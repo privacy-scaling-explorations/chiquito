@@ -1,4 +1,4 @@
-use std::{collections::HashMap, hash::Hash, vec};
+use std::{collections::HashMap, hash::Hash, iter, vec};
 
 use halo2_backend::plonk::{
     keygen::{keygen_pk, keygen_vk},
@@ -80,15 +80,22 @@ pub fn chiquito2Halo2<F: PrimeField + From<u64> + Hash>(circuit: Circuit<F>) -> 
 }
 
 fn compile_middleware<F: PrimeField + From<u64> + Hash, C: Halo2Configurable<F>>(
-    k: u32,
     circuit: &mut C,
-) -> Result<CompiledCircuit<F>, Error> {
-    let (cs, preprocessing) = circuit.configure(k)?;
+    assigned_row_count: usize,
+) -> Result<(CompiledCircuit<F>, u32), Error> {
+    let (cs, preprocessing) = circuit.configure()?;
 
-    Ok(CompiledCircuit {
-        cs: cs.clone().into(),
-        preprocessing,
-    })
+    let occupied_rows = assigned_row_count + cs.minimum_rows();
+    let k = occupied_rows.next_power_of_two().trailing_zeros();
+    let n = 2usize.pow(k);
+
+    Ok((
+        CompiledCircuit {
+            cs: cs.clone().into(),
+            preprocessing: preprocessing.extend(n),
+        },
+        k,
+    ))
 }
 
 #[allow(non_snake_case)]
@@ -115,43 +122,56 @@ pub struct ChiquitoHalo2<F: PrimeField + From<u64>> {
     ir_id: UUID,
 }
 
-trait Halo2Configurable<F: Field> {
-    fn configure(&mut self, k: u32) -> Result<(ConstraintSystem<F>, Preprocessing<F>), Error> {
-        let mut cs = self.configure_cs();
-        let n = 2usize.pow(k);
+/// "Compact" preprocessing
+/// Created before the circuit size is known (here the height of the fixed assignments is defined
+/// only by the number of assigned values)
+struct PreprocessingCompact<F: Field> {
+    permutation: AssemblyMid,
+    fixed: Vec<Vec<F>>,
+}
 
-        if n < cs.minimum_rows() {
-            return Err(Error::Backend(ErrorBack::NotEnoughRowsAvailable {
-                current_k: k,
-            }));
+impl<F: Field> PreprocessingCompact<F> {
+    /// Extend the preprocessing to the full circuit size
+    fn extend(mut self, n: usize) -> Preprocessing<F> {
+        self.fixed
+            .iter_mut()
+            .for_each(|f| f.extend(iter::repeat(F::default()).take(n - f.len())));
+
+        Preprocessing {
+            permutation: self.permutation,
+            fixed: self.fixed,
         }
+    }
+}
 
-        let preprocessing = self.preprocessing(&mut cs, n);
+trait Halo2Configurable<F: Field> {
+    fn configure(&mut self) -> Result<(ConstraintSystem<F>, PreprocessingCompact<F>), Error> {
+        let mut cs = self.configure_cs();
+
+        let preprocessing = self.preprocessing(&mut cs);
 
         Ok((cs.clone(), preprocessing))
     }
 
     fn configure_cs(&mut self) -> ConstraintSystem<F>;
-    fn preprocessing(&self, cs: &mut ConstraintSystem<F>, n: usize) -> Preprocessing<F>;
+    fn preprocessing(&self, cs: &mut ConstraintSystem<F>) -> PreprocessingCompact<F>;
 }
 
 impl<F: PrimeField + Hash> Halo2Configurable<F> for ChiquitoHalo2<F> {
-    fn preprocessing(&self, cs: &mut ConstraintSystem<F>, n: usize) -> Preprocessing<F> {
+    fn preprocessing(&self, cs: &mut ConstraintSystem<F>) -> PreprocessingCompact<F> {
         let fixed_count = self.circuit.fixed_assignments.0.len();
-        let mut fixed = vec![vec![F::default(); n]; fixed_count];
+        let mut fixed = vec![vec![]; fixed_count];
 
         for (column, values) in self.circuit.fixed_assignments.iter() {
             let column = self.convert_fixed_column(column);
 
-            for (offset, value) in values.iter().enumerate() {
-                fixed[column.index][offset] = *value;
-            }
+            fixed[column.index].extend(values.iter().cloned());
         }
 
         let mut copies = vec![];
         self.collect_permutations(cs, &mut copies);
 
-        Preprocessing {
+        PreprocessingCompact {
             permutation: AssemblyMid { copies },
             fixed,
         }
@@ -432,7 +452,7 @@ impl<F: PrimeField + Hash> Halo2Configurable<F> for ChiquitoHalo2SuperCircuit<F>
         cs
     }
 
-    fn preprocessing(&self, cs: &mut ConstraintSystem<F>, n: usize) -> Preprocessing<F> {
+    fn preprocessing(&self, cs: &mut ConstraintSystem<F>) -> PreprocessingCompact<F> {
         let fixed_columns: HashMap<UUID, Column<Fixed>> =
             self.sub_circuits
                 .iter()
@@ -442,21 +462,19 @@ impl<F: PrimeField + Hash> Halo2Configurable<F> for ChiquitoHalo2SuperCircuit<F>
                 });
 
         let fixed_count = fixed_columns.len();
-        let mut fixed = vec![vec![F::default(); n]; fixed_count];
+        let mut fixed = vec![vec![]; fixed_count];
 
         let mut copies = vec![];
         for subcircuit in self.sub_circuits.iter() {
             for (column, values) in subcircuit.circuit.fixed_assignments.iter() {
                 let column = fixed_columns.get(&column.uuid()).unwrap();
 
-                for (offset, value) in values.iter().enumerate() {
-                    fixed[column.index][offset] = *value;
-                }
+                fixed[column.index].extend(values.iter().cloned());
             }
             subcircuit.collect_permutations(cs, &mut copies);
         }
 
-        Preprocessing {
+        PreprocessingCompact {
             permutation: AssemblyMid { copies },
             fixed,
         }
@@ -496,6 +514,7 @@ pub fn halo2_verify(
 
 /// Halo2 setup
 pub struct Setup {
+    pub k: u32,
     pub cs: ConstraintSystemMid<Fr>,
     pub params: ParamsKZG<Bn256>,
     pub vk: VerifyingKey<G1Affine>,
@@ -659,29 +678,37 @@ pub trait PlonkishHalo2<F: PrimeField, P: Halo2Prover> {
     /// Create a Halo2 prover
     ///
     /// ### Arguments
-    /// * `k` - logaritmic size of the circuit
     /// * `rng` - random number generator
     ///
     /// ### Returns
     /// * a Halo2 prover
-    fn create_halo2_prover(&mut self, k: u32, rng: BlockRng<DummyRng>) -> P;
+    fn create_halo2_prover(&mut self, rng: BlockRng<DummyRng>) -> P;
 }
 
 impl<TG: TraceGenerator<Fr> + Default> PlonkishHalo2<Fr, SingleCircuitProver<Fr>>
     for PlonkishCompilationResult<Fr, TG>
 {
-    fn create_halo2_prover(&mut self, k: u32, rng: BlockRng<DummyRng>) -> SingleCircuitProver<Fr> {
+    fn create_halo2_prover(&mut self, rng: BlockRng<DummyRng>) -> SingleCircuitProver<Fr> {
         let mut circuit = ChiquitoHalo2::new(self.circuit.clone());
-        let compiled = compile_middleware(k, &mut circuit).unwrap();
-        let setup = create_setup(k, rng, compiled);
+        let (compiled, k) = compile_middleware(&mut circuit, self.circuit.num_rows).unwrap();
+
+        let setup = create_setup(rng, compiled, k);
         SingleCircuitProver { setup, circuit }
     }
 }
 
 impl PlonkishHalo2<Fr, SuperCircuitProver<Fr>> for ChiquitoHalo2SuperCircuit<Fr> {
-    fn create_halo2_prover(&mut self, k: u32, rng: BlockRng<DummyRng>) -> SuperCircuitProver<Fr> {
-        let compiled = compile_middleware(k, self).unwrap();
-        let setup = create_setup(k, rng, compiled);
+    fn create_halo2_prover(&mut self, rng: BlockRng<DummyRng>) -> SuperCircuitProver<Fr> {
+        let tallest_subcircuit_size = self
+            .sub_circuits
+            .iter()
+            .map(|c| c.circuit.num_rows)
+            .max()
+            .unwrap_or(0);
+
+        let (compiled, k) = compile_middleware(self, tallest_subcircuit_size).unwrap();
+
+        let setup = create_setup(rng, compiled, k);
         SuperCircuitProver {
             circuit: self.clone(),
             setup,
@@ -689,12 +716,13 @@ impl PlonkishHalo2<Fr, SuperCircuitProver<Fr>> for ChiquitoHalo2SuperCircuit<Fr>
     }
 }
 
-fn create_setup(k: u32, rng: BlockRng<DummyRng>, circuit: CompiledCircuit<Fr>) -> Setup {
+fn create_setup(rng: BlockRng<DummyRng>, circuit: CompiledCircuit<Fr>, k: u32) -> Setup {
     let params = ParamsKZG::<Bn256>::setup::<BlockRng<DummyRng>>(k, rng.clone());
     let vk = keygen_vk(&params, &circuit).expect("keygen_vk should not fail");
     let pk = keygen_pk(&params, vk.clone(), &circuit).expect("keygen_pk should not fail");
 
     Setup {
+        k,
         cs: circuit.cs,
         params,
         vk,

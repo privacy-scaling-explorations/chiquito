@@ -211,7 +211,8 @@ fn main() {
 
     let witness = super_circuit.get_mapping().generate((x_in_value, k_value));
 
-    let halo2_prover = circuit.create_halo2_prover(10, rng);
+    let halo2_prover = circuit.create_halo2_prover(rng);
+    println!("k={}", halo2_prover.setup.k);
 
     let (proof, instance) = halo2_prover.generate_proof(witness);
 
