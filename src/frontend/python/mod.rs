@@ -1763,7 +1763,8 @@ mod tests {
         }"#;
         let constraint: Constraint<Fr, ()> = serde_json::from_str(json).unwrap();
         println!("{:?}", constraint);
-        let transition_constraint: TransitionConstraint<Fr, ()> = serde_json::from_str(json).unwrap();
+        let transition_constraint: TransitionConstraint<Fr, ()> =
+            serde_json::from_str(json).unwrap();
         println!("{:?}", transition_constraint);
     }
 

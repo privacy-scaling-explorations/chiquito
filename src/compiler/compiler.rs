@@ -20,7 +20,10 @@ use crate::{
 };
 
 use super::{
-    cse::cse, semantic::{SymTable, SymbolCategory}, setup_inter::{interpret, Setup}, Config, Message, Messages
+    cse::cse,
+    semantic::{SymTable, SymbolCategory},
+    setup_inter::{interpret, Setup},
+    Config, Message, Messages,
 };
 
 /// Contains the result of a compilation.

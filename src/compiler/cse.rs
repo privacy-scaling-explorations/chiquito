@@ -73,9 +73,8 @@ impl<F: Field + Hash> CSE<F> {
         self.identify_common_subexpressions();
 
         let mut signal_factory = SignalFactory::default();
-        hashed_step.decomp_constraints(|expr| {
-            replace_expr(expr, &self.common_exprs, &mut signal_factory)
-        });
+        hashed_step
+            .decomp_constraints(|expr| replace_expr(expr, &self.common_exprs, &mut signal_factory));
 
         // Convert back to StepType<F, ()> and update the original step
         *step = hashed_step.without_meta();
@@ -143,7 +142,8 @@ impl<F: Field + Hash> CSE<F> {
                 if self.count_map.get(&hash).copied().unwrap_or(0)
                     >= self.config.min_occurrences.unwrap_or(2) as u32
                     && expr.degree() >= self.config.min_degree.unwrap_or(2)
-                    && !matches!(expr, Expr::MI(_, _)) // Exclude MI expressions
+                    && !matches!(expr, Expr::MI(_, _))
+                // Exclude MI expressions
                 {
                     Some(expr.clone())
                 } else {

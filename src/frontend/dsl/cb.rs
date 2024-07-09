@@ -372,7 +372,11 @@ pub fn next_step_must_not_be<F: From<u64>, ST: Into<StepTypeHandler>>(
 
 /// Takes a string annotation and an expression, and returns a new constraint with the given
 /// annotation and expression.
-pub fn annotate<F, E: Into<PIR<F, ()>>>(annotation: String, expr: E, typing: Typing) -> Constraint<F> {
+pub fn annotate<F, E: Into<PIR<F, ()>>>(
+    annotation: String,
+    expr: E,
+    typing: Typing,
+) -> Constraint<F> {
     Constraint {
         annotation,
         expr: expr.into(),

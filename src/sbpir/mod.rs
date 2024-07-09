@@ -261,7 +261,11 @@ impl<F: Field + Hash, TG: TraceGenerator<F> + Clone, M: Meta> SBPIR<F, TG, M> {
 impl<F: Field + Hash, TG: TraceGenerator<F> + Clone, M: Meta> SBPIR<F, TG, M> {
     pub fn without_meta(&self) -> SBPIR<F, TG, ()> {
         SBPIR {
-            step_types: self.step_types.iter().map(|(k, v)| (*k, v.without_meta())).collect(),
+            step_types: self
+                .step_types
+                .iter()
+                .map(|(k, v)| (*k, v.without_meta()))
+                .collect(),
             forward_signals: self.forward_signals.clone(),
             shared_signals: self.shared_signals.clone(),
             fixed_signals: self.fixed_signals.clone(),
@@ -442,9 +446,17 @@ impl<F: Field + Hash, M: Meta> StepType<F, M> {
             name: self.name.clone(),
             signals: self.signals.clone(),
             constraints: self.constraints.iter().map(|c| c.without_meta()).collect(),
-            transition_constraints: self.transition_constraints.iter().map(|c| c.without_meta()).collect(),
+            transition_constraints: self
+                .transition_constraints
+                .iter()
+                .map(|c| c.without_meta())
+                .collect(),
             lookups: self.lookups.iter().map(|l| l.without_meta()).collect(),
-            auto_signals: self.auto_signals.iter().map(|(k, v)| (*k, v.without_meta())).collect(),
+            auto_signals: self
+                .auto_signals
+                .iter()
+                .map(|(k, v)| (*k, v.without_meta()))
+                .collect(),
             annotations: self.annotations.clone(),
         }
     }
@@ -534,7 +546,10 @@ pub struct Constraint<F, M: Meta> {
 }
 
 impl<F: Field + Hash, M: Meta> Constraint<F, M> {
-    pub fn with_meta<N: Meta>(&self, assignments: &VarAssignments<F, Queriable<F>>) -> Constraint<F, N> {
+    pub fn with_meta<N: Meta>(
+        &self,
+        assignments: &VarAssignments<F, Queriable<F>>,
+    ) -> Constraint<F, N> {
         Constraint {
             annotation: self.annotation.clone(),
             expr: self.expr.with_meta(assignments),
@@ -559,7 +574,10 @@ pub struct TransitionConstraint<F, M: Meta> {
 }
 
 impl<F: Field + Hash, M: Meta> TransitionConstraint<F, M> {
-    pub fn with_meta<N: Meta>(&self, assignments: &VarAssignments<F, Queriable<F>>) -> TransitionConstraint<F, N> {
+    pub fn with_meta<N: Meta>(
+        &self,
+        assignments: &VarAssignments<F, Queriable<F>>,
+    ) -> TransitionConstraint<F, N> {
         TransitionConstraint {
             annotation: self.annotation.clone(),
             expr: self.expr.with_meta(assignments),
@@ -659,7 +677,10 @@ impl<F: Debug + Clone, M: Meta> Lookup<F, M> {
 }
 
 impl<F: Field + Hash, M: Meta> Lookup<F, M> {
-    pub fn with_meta<N: Meta>(&self, assignments: &VarAssignments<F, Queriable<F>>) -> Lookup<F, N> {
+    pub fn with_meta<N: Meta>(
+        &self,
+        assignments: &VarAssignments<F, Queriable<F>>,
+    ) -> Lookup<F, N> {
         Lookup {
             annotation: self.annotation.clone(),
             exprs: self

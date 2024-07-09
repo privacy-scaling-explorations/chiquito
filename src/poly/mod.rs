@@ -25,7 +25,7 @@ pub trait ToField<F> {
 pub trait Meta: Clone + Default + Debug + Hash {
     fn from_expr<F: Field + Hash, V: Debug + Clone + Eq + Hash>(
         expr: &Expr<F, V, ()>,
-        assignments: &VarAssignments<F, V>
+        assignments: &VarAssignments<F, V>,
     ) -> Self;
 }
 
@@ -44,7 +44,7 @@ pub enum Expr<F, V, M: Meta> {
 impl Meta for () {
     fn from_expr<F: Field + Hash, V: Debug + Clone + Eq + Hash>(
         _expr: &Expr<F, V, ()>,
-        _assignments: &VarAssignments<F, V>
+        _assignments: &VarAssignments<F, V>,
     ) -> Self {
         ()
     }
@@ -53,7 +53,7 @@ impl Meta for () {
 impl Meta for HashResult {
     fn from_expr<F: Field + Hash, V: Debug + Clone + Eq + Hash>(
         expr: &Expr<F, V, ()>,
-        assignments: &VarAssignments<F, V>
+        assignments: &VarAssignments<F, V>,
     ) -> Self {
         let hashed_expr = expr.hash(assignments);
         hashed_expr.meta().clone()
@@ -76,7 +76,8 @@ impl<F: Clone, V: Clone, M: Meta> Expr<F, V, M> {
             Expr::Pow(se, exp, _) => se.degree() * (*exp as usize),
             Expr::Query(_, _) => 1,
             Expr::Halo2Expr(_, _) => panic!("not implemented"),
-            Expr::MI(se, _) => se.degree(), // Treat MI as not changing the degree of the inner expression
+            Expr::MI(se, _) => se.degree(), /* Treat MI as not changing the degree of the inner
+                                             * expression */
         }
     }
 
@@ -92,8 +93,6 @@ impl<F: Clone, V: Clone, M: Meta> Expr<F, V, M> {
             Expr::MI(_, m) => m,
         }
     }
-
-    
 
     pub fn map_meta<N: Meta, Func: Fn(&M) -> N>(&self, f: Func) -> Expr<F, V, N> {
         match self {
@@ -115,8 +114,14 @@ impl<F: Field + Hash, V: Debug + Clone + Eq + Hash, M: Meta> Expr<F, V, M> {
         let new_meta = N::from_expr(&expr_without_meta, assignments);
         match self {
             Expr::Const(v, _) => Expr::Const(v.clone(), new_meta),
-            Expr::Sum(ses, _) => Expr::Sum(ses.iter().map(|e| e.with_meta(assignments)).collect(), new_meta),
-            Expr::Mul(ses, _) => Expr::Mul(ses.iter().map(|e| e.with_meta(assignments)).collect(), new_meta),
+            Expr::Sum(ses, _) => Expr::Sum(
+                ses.iter().map(|e| e.with_meta(assignments)).collect(),
+                new_meta,
+            ),
+            Expr::Mul(ses, _) => Expr::Mul(
+                ses.iter().map(|e| e.with_meta(assignments)).collect(),
+                new_meta,
+            ),
             Expr::Neg(se, _) => Expr::Neg(Box::new(se.with_meta(assignments)), new_meta),
             Expr::Pow(se, exp, _) => Expr::Pow(Box::new(se.with_meta(assignments)), *exp, new_meta),
             Expr::Query(v, _) => Expr::Query(v.clone(), new_meta),
@@ -413,7 +418,10 @@ pub struct ConstrDecomp<F, V, M: Meta> {
 }
 
 impl<F, V: Debug, M: Meta> ConstrDecomp<F, V, M> {
-    pub fn get_auto_signal<S: Into<String> + Copy>(&self, annotation: S) -> Option<(&V, &Expr<F, V, M>)> {
+    pub fn get_auto_signal<S: Into<String> + Copy>(
+        &self,
+        annotation: S,
+    ) -> Option<(&V, &Expr<F, V, M>)> {
         self.auto_signals.iter().find_map(|(s, e)| {
             if format!("{:#?}", s) == annotation.into() {
                 Some((s, e))
@@ -438,7 +446,10 @@ impl<F: Clone, V: Clone + Eq + PartialEq + Hash, M: Meta> ConstrDecomp<F, V, M> 
         self.constrs.push(Expr::Sum(
             vec![
                 expr.clone(),
-                Expr::Neg(Box::new(Expr::Query(signal.clone(), M::default())), M::default()),
+                Expr::Neg(
+                    Box::new(Expr::Query(signal.clone(), M::default())),
+                    M::default(),
+                ),
             ],
             M::default(),
         ));
@@ -451,7 +462,11 @@ impl<F: Field, V: Clone + Hash + Eq> ConstrDecomp<F, V, HashResult> {
     pub fn without_meta(&self) -> ConstrDecomp<F, V, ()> {
         ConstrDecomp {
             constrs: self.constrs.iter().map(|c| c.without_meta()).collect(),
-            auto_signals: self.auto_signals.iter().map(|(k, v)| (k.clone(), v.without_meta())).collect(),
+            auto_signals: self
+                .auto_signals
+                .iter()
+                .map(|(k, v)| (k.clone(), v.without_meta()))
+                .collect(),
         }
     }
 }
