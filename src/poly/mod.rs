@@ -47,7 +47,7 @@ pub struct HashResult {
     pub degree: usize,
 }
 
-impl<F: Field, V: Clone, M: Meta> Expr<F, V, M> {
+impl<F: Clone, V: Clone, M: Meta> Expr<F, V, M> {
     pub fn degree(&self) -> usize {
         match self {
             Expr::Const(_, _) => 0,
