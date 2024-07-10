@@ -7,7 +7,10 @@ use chiquito::{
         CircuitContext, StepTypeSetupContext, StepTypeWGHandler,
     },
     plonkish::{
-        backend::halo2::{chiquitoSuperCircuit2Halo2, ChiquitoHalo2SuperCircuit},
+        backend::halo2::{
+            chiquitoSuperCircuit2Halo2, halo2_verify, ChiquitoHalo2SuperCircuit, DummyRng,
+            Halo2Prover, PlonkishHalo2,
+        },
         compiler::{
             cell_manager::{MaxWidthCellManager, SingleRowCellManager},
             config,
@@ -18,10 +21,8 @@ use chiquito::{
     poly::ToExpr,
     sbpir::query::Queriable,
 };
-use halo2_proofs::{
-    dev::MockProver,
-    halo2curves::{bn256::Fr, group::ff::PrimeField},
-};
+use halo2_proofs::halo2curves::{bn256::Fr, group::ff::PrimeField};
+use rand_chacha::rand_core::block::BlockRng;
 use std::{fmt::Write, hash::Hash};
 
 pub const IV_LEN: usize = 8;
@@ -1480,17 +1481,25 @@ fn main() {
         f: true, // 8bits
     };
 
-    let circuit =
-        ChiquitoHalo2SuperCircuit::new(compiled, super_circuit.get_mapping().generate(values));
+    let witness = super_circuit.get_mapping().generate(values);
+    let mut circuit = ChiquitoHalo2SuperCircuit::new(compiled);
 
-    let prover = MockProver::run(9, &circuit, Vec::new()).unwrap();
-    let result = prover.verify();
+    let rng = BlockRng::new(DummyRng {});
+
+    let halo2_prover = circuit.create_halo2_prover(9, rng);
+
+    let (proof, instance) = halo2_prover.generate_proof(witness);
+
+    let result = halo2_verify(
+        proof,
+        &halo2_prover.setup.params,
+        &halo2_prover.setup.vk,
+        instance,
+    );
 
     println!("result = {:#?}", result);
 
-    if let Err(failures) = &result {
-        for failure in failures.iter() {
-            println!("{}", failure);
-        }
+    if let Err(failure) = &result {
+        println!("{}", failure);
     }
 }

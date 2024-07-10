@@ -18,7 +18,7 @@ machine fibo(signal n) (signal b: field) {
 
     state middle {
         c <== a + b;
-
+        
         if i + 1 == n {
             -> final {
                 i', b', n' <== i + 1, c, n;
