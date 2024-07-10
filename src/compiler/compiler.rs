@@ -558,18 +558,6 @@ impl<F: Field + Hash> Compiler<F> {
                 .symbol_uuid
                 .insert((scope_name, state_id), handler.uuid());
         }
-
-        // Padding step
-
-        let scope_name = format!("//{}", machine_id);
-        let name = format!("{}:{}", scope_name, "__padding");
-        let handler = ctx.step_type(&name);
-        self.mapping
-            .step_type_handler
-            .insert(handler.uuid(), handler);
-        self.mapping
-            .symbol_uuid
-            .insert((scope_name, "__padding".to_string()), handler.uuid());
     }
 
     fn add_forwards<TG: TraceGenerator<F>>(
