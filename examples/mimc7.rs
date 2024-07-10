@@ -5,10 +5,7 @@ use halo2_proofs::halo2curves::{bn256::Fr, group::ff::PrimeField};
 use chiquito::{
     frontend::dsl::{lb::LookupTable, super_circuit, trace::DSLTraceGenerator, CircuitContext},
     plonkish::{
-        backend::halo2::{
-            chiquitoSuperCircuit2Halo2, halo2_verify, ChiquitoHalo2SuperCircuit, DummyRng,
-            Halo2Prover, PlonkishHalo2,
-        },
+        backend::halo2::{halo2_verify, DummyRng, PlonkishHalo2},
         compiler::{
             cell_manager::SingleRowCellManager, config, step_selector::SimpleStepSelectorBuilder,
         },
@@ -202,23 +199,21 @@ fn main() {
     let x_in_value = Fr::from_str_vartime("1").expect("expected a number");
     let k_value = Fr::from_str_vartime("2").expect("expected a number");
 
-    let super_circuit = mimc7_super_circuit::<Fr>();
-    let compiled = chiquitoSuperCircuit2Halo2(&super_circuit);
-
-    let mut circuit = ChiquitoHalo2SuperCircuit::new(compiled);
+    let mut super_circuit = mimc7_super_circuit::<Fr>();
 
     let rng = BlockRng::new(DummyRng {});
 
     let witness = super_circuit.get_mapping().generate((x_in_value, k_value));
 
-    let halo2_prover = circuit.create_halo2_prover(10, rng);
+    let halo2_prover = super_circuit.create_halo2_prover(rng);
+    println!("k={}", halo2_prover.get_k());
 
     let (proof, instance) = halo2_prover.generate_proof(witness);
 
     let result = halo2_verify(
         proof,
-        &halo2_prover.setup.params,
-        &halo2_prover.setup.vk,
+        halo2_prover.get_params(),
+        halo2_prover.get_vk(),
         instance,
     );
 

@@ -26,6 +26,7 @@ pub struct Circuit<F> {
 
     pub id: UUID,
     pub ast_id: UUID,
+    pub num_rows: usize,
 }
 
 impl<F: Debug> Debug for Circuit<F> {

@@ -321,7 +321,7 @@ fn get_block_stmts(stmt: &Statement<BigInt, Identifier>) -> Vec<Statement<BigInt
 
 #[cfg(test)]
 mod test {
-    use crate::plonkish::backend::halo2::{Halo2Prover, PlonkishHalo2};
+    use crate::plonkish::backend::halo2::PlonkishHalo2;
     use halo2_proofs::halo2curves::bn256::Fr;
     use rand_chacha::rand_core::block::BlockRng;
     use std::collections::HashMap;
@@ -451,7 +451,8 @@ mod test {
 
         let rng = BlockRng::new(DummyRng {});
 
-        let halo2_prover = plonkish.create_halo2_prover(7, rng);
+        let halo2_prover = plonkish.create_halo2_prover(rng);
+        assert!(halo2_prover.get_k() == 5);
 
         let (proof, instance) = halo2_prover.generate_proof(
             plonkish
@@ -462,8 +463,8 @@ mod test {
 
         let result = halo2_verify(
             proof,
-            &halo2_prover.setup.params,
-            &halo2_prover.setup.vk,
+            halo2_prover.get_params(),
+            halo2_prover.get_vk(),
             instance,
         );
         assert!(result.is_ok());
@@ -531,7 +532,8 @@ mod test {
 
         let rng = BlockRng::new(DummyRng {});
 
-        let halo2_prover = plonkish.create_halo2_prover(7, rng);
+        let halo2_prover = plonkish.create_halo2_prover(rng);
+        println!("k={}", halo2_prover.get_k());
 
         let (proof, instance) = halo2_prover.generate_proof(
             plonkish
@@ -542,8 +544,8 @@ mod test {
 
         let result = halo2_verify(
             proof,
-            &halo2_prover.setup.params,
-            &halo2_prover.setup.vk,
+            halo2_prover.get_params(),
+            halo2_prover.get_vk(),
             instance,
         );
 

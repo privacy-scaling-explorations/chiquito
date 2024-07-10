@@ -1,10 +1,7 @@
 use chiquito::{
     frontend::dsl::{lb::LookupTable, super_circuit, trace::DSLTraceGenerator, CircuitContext},
     plonkish::{
-        backend::halo2::{
-            chiquitoSuperCircuit2Halo2, halo2_verify, ChiquitoHalo2SuperCircuit, DummyRng,
-            Halo2Prover, PlonkishHalo2,
-        },
+        backend::halo2::{halo2_verify, DummyRng, PlonkishHalo2},
         compiler::{
             cell_manager::{MaxWidthCellManager, SingleRowCellManager},
             config,
@@ -704,21 +701,20 @@ fn main() {
         n_outputs: 1,
     };
 
-    let super_circuit = poseidon_super_circuit(lens);
-    let compiled = chiquitoSuperCircuit2Halo2(&super_circuit);
+    let mut super_circuit = poseidon_super_circuit(lens);
     let witness = super_circuit.get_mapping().generate(values);
-    let mut circuit = ChiquitoHalo2SuperCircuit::new(compiled);
 
     let rng = BlockRng::new(DummyRng {});
 
-    let halo2_prover = circuit.create_halo2_prover(12, rng);
+    let halo2_prover = super_circuit.create_halo2_prover(rng);
+    println!("k={}", halo2_prover.get_k());
 
     let (proof, instance) = halo2_prover.generate_proof(witness);
 
     let result = halo2_verify(
         proof,
-        &halo2_prover.setup.params,
-        &halo2_prover.setup.vk,
+        halo2_prover.get_params(),
+        halo2_prover.get_vk(),
         instance,
     );
 
