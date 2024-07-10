@@ -451,7 +451,8 @@ mod test {
 
         let rng = BlockRng::new(DummyRng {});
 
-        let halo2_prover = plonkish.create_halo2_prover(7, rng);
+        let halo2_prover = plonkish.create_halo2_prover(rng);
+        assert!(halo2_prover.get_k() == 5);
 
         let (proof, instance) = halo2_prover.generate_proof(
             plonkish
@@ -531,7 +532,8 @@ mod test {
 
         let rng = BlockRng::new(DummyRng {});
 
-        let halo2_prover = plonkish.create_halo2_prover(7, rng);
+        let halo2_prover = plonkish.create_halo2_prover(rng);
+        println!("k={}", halo2_prover.get_k());
 
         let (proof, instance) = halo2_prover.generate_proof(
             plonkish

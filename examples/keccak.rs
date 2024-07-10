@@ -3,10 +3,7 @@ use chiquito::{
         lb::LookupTable, super_circuit, trace::DSLTraceGenerator, CircuitContext, StepTypeWGHandler,
     },
     plonkish::{
-        backend::halo2::{
-            chiquitoSuperCircuit2Halo2, halo2_verify, ChiquitoHalo2SuperCircuit, DummyRng,
-            PlonkishHalo2,
-        },
+        backend::halo2::{halo2_verify, DummyRng, PlonkishHalo2},
         compiler::{
             cell_manager::{MaxWidthCellManager, SingleRowCellManager},
             config,
@@ -2255,17 +2252,14 @@ fn main() {
         bytes: vec![0, 1, 2, 3, 4, 5, 6, 7],
     };
 
-    let super_circuit = keccak_super_circuit::<Fr>(circuit_param.bytes.len());
-
-    let compiled = chiquitoSuperCircuit2Halo2(&super_circuit);
-
-    let mut circuit = ChiquitoHalo2SuperCircuit::new(compiled);
+    let mut super_circuit = keccak_super_circuit::<Fr>(circuit_param.bytes.len());
 
     let rng = BlockRng::new(DummyRng {});
 
     let witness = super_circuit.get_mapping().generate(circuit_param);
 
-    let halo2_prover = circuit.create_halo2_prover(9, rng);
+    let halo2_prover = super_circuit.create_halo2_prover(rng);
+    println!("k={}", halo2_prover.get_k());
 
     let (proof, instance) = halo2_prover.generate_proof(witness);
 

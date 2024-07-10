@@ -273,6 +273,7 @@ impl<F> From<CompilationUnit<F>> for Circuit<F> {
             fixed_assignments: unit.fixed_assignments,
             id: unit.uuid,
             ast_id: unit.ast_id,
+            num_rows: unit.num_rows,
         }
     }
 }

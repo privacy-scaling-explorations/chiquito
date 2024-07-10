@@ -1,4 +1,4 @@
-use std::{collections::HashMap, hash::Hash, marker::PhantomData, vec};
+use std::{collections::HashMap, hash::Hash, iter, marker::PhantomData, vec};
 
 use halo2_backend::plonk::{
     keygen::{keygen_pk, keygen_vk},
@@ -75,26 +75,29 @@ impl<T: PrimeField + From<u64>> ChiquitoField for T {
 }
 
 trait Halo2Configurable<F: Field> {
-    fn compile_middleware(&mut self, k: u32) -> Result<CompiledCircuit<F>, Error> {
+    fn compile_middleware(
+        &mut self,
+        num_circuit_rows: usize,
+    ) -> Result<(CompiledCircuit<F>, u32), Error> {
         let mut cs = self.configure_cs();
+
+        let preprocessing = self.preprocessing(&mut cs);
+
+        let occupied_rows = num_circuit_rows + cs.minimum_rows();
+        let k = occupied_rows.next_power_of_two().trailing_zeros();
         let n = 2usize.pow(k);
 
-        if n < cs.minimum_rows() {
-            return Err(Error::Backend(ErrorBack::NotEnoughRowsAvailable {
-                current_k: k,
-            }));
-        }
-
-        let preprocessing = self.preprocessing(&mut cs, n);
-
-        Ok(CompiledCircuit {
-            cs: cs.clone().into(),
-            preprocessing,
-        })
+        Ok((
+            CompiledCircuit {
+                cs: cs.clone().into(),
+                preprocessing: preprocessing.extend(n),
+            },
+            k,
+        ))
     }
 
     fn configure_cs(&mut self) -> ConstraintSystem<F>;
-    fn preprocessing(&self, cs: &mut ConstraintSystem<F>, n: usize) -> Preprocessing<F>;
+    fn preprocessing(&self, cs: &mut ConstraintSystem<F>) -> PreprocessingCompact<F>;
 }
 
 pub trait Halo2WitnessGenerator<F, W> {
@@ -121,24 +124,22 @@ pub struct ChiquitoHalo2<F: PrimeField + From<u64>> {
 }
 
 impl<F: PrimeField + Hash> Halo2Configurable<F> for ChiquitoHalo2<F> {
-    fn preprocessing(&self, cs: &mut ConstraintSystem<F>, n: usize) -> Preprocessing<F> {
+    fn preprocessing(&self, cs: &mut ConstraintSystem<F>) -> PreprocessingCompact<F> {
         let fixed_count = self.plonkish_ir.fixed_assignments.0.len();
-        let mut fixed = vec![vec![F::default(); n]; fixed_count];
+        let mut fixed = vec![vec![]; fixed_count];
 
         for (column, values) in self.plonkish_ir.fixed_assignments.iter() {
             let column = self.convert_fixed_column(column);
 
-            for (offset, value) in values.iter().enumerate() {
-                fixed[column.index][offset] = *value;
-            }
+            fixed[column.index].extend(values.iter().cloned());
         }
 
         let mut copies = vec![];
         self.collect_permutations(cs, &mut copies);
 
-        Preprocessing {
+        PreprocessingCompact {
             permutation: AssemblyMid { copies },
-            fixed,
+            fixed_compact: fixed,
         }
     }
 
@@ -150,6 +151,28 @@ impl<F: PrimeField + Hash> Halo2Configurable<F> for ChiquitoHalo2<F> {
         self.configure_sub_circuit(&mut cs);
 
         cs
+    }
+}
+
+/// "Compact" preprocessing
+/// Created before the circuit size is known (here the height of the fixed assignments is defined
+/// only by the number of assigned values)
+struct PreprocessingCompact<F: Field> {
+    permutation: AssemblyMid,
+    fixed_compact: Vec<Vec<F>>,
+}
+
+impl<F: Field> PreprocessingCompact<F> {
+    /// Extend the preprocessing to the full circuit size
+    fn extend(mut self, n: usize) -> Preprocessing<F> {
+        self.fixed_compact
+            .iter_mut()
+            .for_each(|f| f.extend(iter::repeat(F::default()).take(n - f.len())));
+
+        Preprocessing {
+            permutation: self.permutation,
+            fixed: self.fixed_compact,
+        }
     }
 }
 
@@ -391,7 +414,7 @@ pub struct ChiquitoHalo2SuperCircuit<F: PrimeField + From<u64>> {
 }
 
 impl<F: PrimeField + From<u64> + Hash> ChiquitoHalo2SuperCircuit<F> {
-    pub fn new(sub_circuits: Vec<ChiquitoHalo2<F>>) -> Self {
+    fn new(sub_circuits: Vec<ChiquitoHalo2<F>>) -> Self {
         Self { sub_circuits }
     }
 }
@@ -464,7 +487,7 @@ impl<F: PrimeField + Hash> Halo2Configurable<F> for ChiquitoHalo2SuperCircuit<F>
         cs
     }
 
-    fn preprocessing(&self, cs: &mut ConstraintSystem<F>, n: usize) -> Preprocessing<F> {
+    fn preprocessing(&self, cs: &mut ConstraintSystem<F>) -> PreprocessingCompact<F> {
         let fixed_columns: HashMap<UUID, Column<Fixed>> =
             self.sub_circuits
                 .iter()
@@ -474,23 +497,21 @@ impl<F: PrimeField + Hash> Halo2Configurable<F> for ChiquitoHalo2SuperCircuit<F>
                 });
 
         let fixed_count = fixed_columns.len();
-        let mut fixed = vec![vec![F::default(); n]; fixed_count];
+        let mut fixed = vec![vec![]; fixed_count];
 
         let mut copies = vec![];
         for subcircuit in self.sub_circuits.iter() {
             for (column, values) in subcircuit.plonkish_ir.fixed_assignments.iter() {
                 let column = fixed_columns.get(&column.uuid()).unwrap();
 
-                for (offset, value) in values.iter().enumerate() {
-                    fixed[column.index][offset] = *value;
-                }
+                fixed[column.index].extend(values.iter().cloned());
             }
             subcircuit.collect_permutations(cs, &mut copies);
         }
 
-        Preprocessing {
+        PreprocessingCompact {
             permutation: AssemblyMid { copies },
-            fixed,
+            fixed_compact: fixed,
         }
     }
 }
@@ -528,6 +549,7 @@ pub fn halo2_verify(
 
 /// Halo2 setup
 pub struct Setup {
+    pub k: u32,
     pub cs: ConstraintSystemMid<Fr>,
     pub params: ParamsKZG<Bn256>,
     pub vk: VerifyingKey<G1Affine>,
@@ -593,6 +615,10 @@ impl<W, WG: Halo2WitnessGenerator<Fr, W>> Halo2Prover<Fr, W, WG> {
     pub fn get_pk(&self) -> &ProvingKey<G1Affine> {
         &self.setup.pk
     }
+
+    pub fn get_k(&self) -> u32 {
+        self.setup.k
+    }
 }
 
 #[allow(clippy::type_complexity)]
@@ -649,12 +675,11 @@ pub trait PlonkishHalo2<F: PrimeField, W, WG: Halo2WitnessGenerator<F, W>> {
     /// Create a Halo2 prover
     ///
     /// ### Arguments
-    /// * `k` - logaritmic size of the circuit
     /// * `rng` - random number generator
     ///
     /// ### Returns
     /// * a Halo2 prover
-    fn create_halo2_prover(&mut self, k: u32, rng: BlockRng<DummyRng>) -> Halo2Prover<F, W, WG>;
+    fn create_halo2_prover(&mut self, rng: BlockRng<DummyRng>) -> Halo2Prover<F, W, WG>;
 }
 
 impl<TG: TraceGenerator<Fr> + Default> PlonkishHalo2<Fr, Assignments<Fr>, ChiquitoHalo2<Fr>>
@@ -662,38 +687,74 @@ impl<TG: TraceGenerator<Fr> + Default> PlonkishHalo2<Fr, Assignments<Fr>, Chiqui
 {
     fn create_halo2_prover(
         &mut self,
-        k: u32,
         rng: BlockRng<DummyRng>,
     ) -> Halo2Prover<Fr, Assignments<Fr>, ChiquitoHalo2<Fr>> {
         let mut circuit = ChiquitoHalo2::new(self.circuit.clone());
-        let compiled = circuit.compile_middleware(k).unwrap();
-        let setup = create_setup(k, rng, compiled);
+        let (compiled, k) = circuit.compile_middleware(self.circuit.num_rows).unwrap();
+        let setup = create_setup(rng, compiled, k);
+
+        Halo2Prover::new(setup, circuit)
+    }
+}
+// impl PlonkishHalo2<Fr, SuperAssignments<Fr>, ChiquitoHalo2SuperCircuit<Fr>>
+// for ChiquitoHalo2SuperCircuit<Fr>
+// {
+// fn create_halo2_prover(
+// &mut self,
+// rng: BlockRng<DummyRng>,
+// ) -> Halo2Prover<Fr, SuperAssignments<Fr>, ChiquitoHalo2SuperCircuit<Fr>> {
+// let tallest_subcircuit_height = self
+// .sub_circuits
+// .iter()
+// .map(|c| c.plonkish_ir.num_rows)
+// .max()
+// .unwrap_or(0);
+//
+// let (compiled, k) = self.compile_middleware(tallest_subcircuit_height).unwrap();
+// let setup = create_setup(rng, compiled, k);
+//
+// Halo2Prover::new(setup, self.clone())
+// }
+// }
+
+impl<MappingArgs> PlonkishHalo2<Fr, SuperAssignments<Fr>, ChiquitoHalo2SuperCircuit<Fr>>
+    for SuperCircuit<Fr, MappingArgs>
+{
+    fn create_halo2_prover(
+        &mut self,
+        rng: BlockRng<DummyRng>,
+    ) -> Halo2Prover<Fr, SuperAssignments<Fr>, ChiquitoHalo2SuperCircuit<Fr>> {
+        let compiled = self
+            .get_sub_circuits()
+            .iter()
+            .map(|c| chiquito2Halo2((*c).clone()))
+            .collect();
+
+        let mut circuit = ChiquitoHalo2SuperCircuit::new(compiled);
+
+        let tallest_subcircuit_height = circuit
+            .sub_circuits
+            .iter()
+            .map(|c| c.plonkish_ir.num_rows)
+            .max()
+            .unwrap_or(0);
+
+        let (compiled, k) = circuit
+            .compile_middleware(tallest_subcircuit_height)
+            .unwrap();
+        let setup = create_setup(rng, compiled, k);
 
         Halo2Prover::new(setup, circuit)
     }
 }
 
-impl PlonkishHalo2<Fr, SuperAssignments<Fr>, ChiquitoHalo2SuperCircuit<Fr>>
-    for ChiquitoHalo2SuperCircuit<Fr>
-{
-    fn create_halo2_prover(
-        &mut self,
-        k: u32,
-        rng: BlockRng<DummyRng>,
-    ) -> Halo2Prover<Fr, SuperAssignments<Fr>, ChiquitoHalo2SuperCircuit<Fr>> {
-        let compiled = self.compile_middleware(k).unwrap();
-        let setup = create_setup(k, rng, compiled);
-
-        Halo2Prover::new(setup, self.clone())
-    }
-}
-
-fn create_setup(k: u32, rng: BlockRng<DummyRng>, circuit: CompiledCircuit<Fr>) -> Setup {
+fn create_setup(rng: BlockRng<DummyRng>, circuit: CompiledCircuit<Fr>, k: u32) -> Setup {
     let params = ParamsKZG::<Bn256>::setup::<BlockRng<DummyRng>>(k, rng.clone());
     let vk = keygen_vk(&params, &circuit).expect("keygen_vk should not fail");
     let pk = keygen_pk(&params, vk.clone(), &circuit).expect("keygen_pk should not fail");
 
     Setup {
+        k,
         cs: circuit.cs,
         params,
         vk,
@@ -737,16 +798,4 @@ pub(crate) fn chiquito2Halo2<F: PrimeField + From<u64> + Hash>(
     circuit: Circuit<F>,
 ) -> ChiquitoHalo2<F> {
     ChiquitoHalo2::new(circuit)
-}
-
-/// LEGACY
-#[allow(non_snake_case)]
-pub fn chiquitoSuperCircuit2Halo2<F: PrimeField + From<u64> + Hash, MappingArgs>(
-    super_circuit: &SuperCircuit<F, MappingArgs>,
-) -> Vec<ChiquitoHalo2<F>> {
-    super_circuit
-        .get_sub_circuits()
-        .iter()
-        .map(|c| chiquito2Halo2((*c).clone()))
-        .collect()
 }

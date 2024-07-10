@@ -136,7 +136,8 @@ fn main() {
 
     let rng = BlockRng::new(DummyRng {});
 
-    let halo2_prover = chiquito.create_halo2_prover(7, rng);
+    let halo2_prover = chiquito.create_halo2_prover(rng);
+    println!("k={}", halo2_prover.get_k());
 
     let (proof, instance) =
         halo2_prover.generate_proof(chiquito.assignment_generator.unwrap().generate(()));
