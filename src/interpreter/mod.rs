@@ -326,15 +326,16 @@ fn get_block_stmts(stmt: &Statement<BigInt, Identifier>) -> Vec<Statement<BigInt
 
 #[cfg(test)]
 mod test {
+    use crate::plonkish::backend::halo2::PlonkishHalo2;
+    use halo2_proofs::halo2curves::bn256::Fr;
+    use rand_chacha::rand_core::block::BlockRng;
     use std::collections::HashMap;
-
-    use halo2_proofs::{dev::MockProver, halo2curves::bn256::Fr};
 
     use crate::{
         compiler::{compile, Config},
         parser::ast::debug_sym_factory::DebugSymRefFactory,
         plonkish::{
-            backend::halo2::{chiquito2Halo2, ChiquitoHalo2Circuit},
+            backend::halo2::{halo2_verify, DummyRng},
             compiler::{
                 cell_manager::SingleRowCellManager, config,
                 step_selector::SimpleStepSelectorBuilder,
@@ -404,7 +405,7 @@ mod test {
     }
 
     #[test]
-    fn test_run_halo2_mock_prover() {
+    fn test_run_halo2_prover() {
         let code = "
         machine fibo(signal n) (signal b: field) {
             // n and be are created automatically as shared
@@ -456,25 +457,29 @@ mod test {
 
         // chiquito.circuit.num_steps = 12;
 
-        let plonkish = chiquito.plonkish(config(
+        let mut plonkish = chiquito.plonkish(config(
             SingleRowCellManager {},
             SimpleStepSelectorBuilder {},
         ));
 
-        let compiled = chiquito2Halo2(plonkish.0);
+        let rng = BlockRng::new(DummyRng {});
 
-        let circuit = ChiquitoHalo2Circuit::new(
-            compiled,
+        let halo2_prover = plonkish.create_halo2_prover(rng);
+        assert!(halo2_prover.get_k() == 5);
+
+        let (proof, instance) = halo2_prover.generate_proof(
             plonkish
-                .1
-                .map(|g| g.generate(HashMap::from([("n".to_string(), Fr::from(12))]))),
+                .assignment_generator
+                .unwrap()
+                .generate(HashMap::from([("n".to_string(), Fr::from(12))])),
         );
 
-        let prover = MockProver::<Fr>::run(7, &circuit, circuit.instance()).unwrap();
-
-        let result = prover.verify();
-
-        println!("{:?}", result);
+        let result = halo2_verify(
+            proof,
+            halo2_prover.get_params(),
+            halo2_prover.get_vk(),
+            instance,
+        );
 
         assert!(result.is_ok());
     }
@@ -489,7 +494,7 @@ mod test {
             signal a: field, i;
 
             // there is always a state called initial
-            // input signals get binded to the signal
+            // input signals get bound to the signal
             // in the initial state (first instance)
             state initial {
              signal c;
@@ -534,28 +539,34 @@ mod test {
         // .wit_gen
         // .evil_assign(&mut witness, 1, ("//fibo", "i"), Fr::zero());
 
-        let plonkish = chiquito.plonkish(config(
+        let mut plonkish = chiquito.plonkish(config(
             SingleRowCellManager {},
             SimpleStepSelectorBuilder {},
         ));
 
-        let compiled = chiquito2Halo2(plonkish.0);
+        let rng = BlockRng::new(DummyRng {});
 
-        let circuit = ChiquitoHalo2Circuit::new(
-            compiled,
+        let halo2_prover = plonkish.create_halo2_prover(rng);
+        println!("k={}", halo2_prover.get_k());
+
+        let (proof, instance) = halo2_prover.generate_proof(
             plonkish
-                .1
-                .map(|g| g.generate(HashMap::from([("n".to_string(), Fr::from(12))]))),
+                .assignment_generator
+                .unwrap()
+                .generate(HashMap::from([("n".to_string(), Fr::from(12))])),
         );
 
-        let prover = MockProver::<Fr>::run(7, &circuit, circuit.instance()).unwrap();
+        let result = halo2_verify(
+            proof,
+            halo2_prover.get_params(),
+            halo2_prover.get_vk(),
+            instance,
+        );
 
-        let result = prover.verify();
+        println!("result = {:#?}", result);
 
-        assert!(result.is_err());
-
-        if let Err(result) = result {
-            println!("{}", result.len());
+        if let Err(error) = &result {
+            println!("{}", error);
         }
     }
 }

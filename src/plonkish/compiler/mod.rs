@@ -43,12 +43,20 @@ pub fn compile<
 >(
     config: CompilerConfig<CM, SSB>,
     ast: &astCircuit<F, TG>,
-) -> (Circuit<F>, Option<AssignmentGenerator<F, TG>>) {
+) -> PlonkishCompilationResult<F, TG> {
     let (mut unit, assignment) = compile_phase1(config, ast);
 
     compile_phase2(&mut unit);
 
-    (unit.into(), assignment)
+    PlonkishCompilationResult {
+        circuit: unit.into(),
+        assignment_generator: assignment,
+    }
+}
+
+pub struct PlonkishCompilationResult<F, TG> {
+    pub circuit: Circuit<F>,
+    pub assignment_generator: Option<AssignmentGenerator<F, TG>>,
 }
 
 pub fn compile_phase1<
@@ -616,11 +624,13 @@ mod test {
 
         let mock_ast_circuit = astCircuit::<Fr, NullTraceGenerator>::default();
 
-        let (circuit, assignment_generator) =
-            compile::<Fr, SingleRowCellManager, SimpleStepSelectorBuilder, NullTraceGenerator>(
-                config,
-                &mock_ast_circuit,
-            );
+        let PlonkishCompilationResult {
+            circuit,
+            assignment_generator,
+        } = compile::<Fr, SingleRowCellManager, SimpleStepSelectorBuilder, NullTraceGenerator>(
+            config,
+            &mock_ast_circuit,
+        );
 
         assert_eq!(circuit.columns.len(), 1);
         assert_eq!(circuit.exposed.len(), 0);

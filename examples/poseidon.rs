@@ -1,7 +1,7 @@
 use chiquito::{
     frontend::dsl::{lb::LookupTable, super_circuit, trace::DSLTraceGenerator, CircuitContext},
     plonkish::{
-        backend::halo2::{chiquitoSuperCircuit2Halo2, ChiquitoHalo2SuperCircuit},
+        backend::halo2::{halo2_verify, DummyRng, PlonkishHalo2},
         compiler::{
             cell_manager::{MaxWidthCellManager, SingleRowCellManager},
             config,
@@ -11,13 +11,11 @@ use chiquito::{
     },
     sbpir::query::Queriable,
 };
+use rand_chacha::rand_core::block::BlockRng;
 
 use std::hash::Hash;
 
-use halo2_proofs::{
-    dev::MockProver,
-    halo2curves::{bn256::Fr, group::ff::PrimeField},
-};
+use halo2_proofs::halo2curves::{bn256::Fr, group::ff::PrimeField};
 
 #[derive(Clone)]
 struct RoundValues<F: PrimeField> {
@@ -703,21 +701,27 @@ fn main() {
         n_outputs: 1,
     };
 
-    let super_circuit = poseidon_super_circuit(lens);
-    let compiled = chiquitoSuperCircuit2Halo2(&super_circuit);
-    let circuit =
-        ChiquitoHalo2SuperCircuit::new(compiled, super_circuit.get_mapping().generate(values));
+    let mut super_circuit = poseidon_super_circuit(lens);
+    let witness = super_circuit.get_mapping().generate(values);
 
-    let prover = MockProver::<Fr>::run(12, &circuit, Vec::new()).unwrap();
+    let rng = BlockRng::new(DummyRng {});
 
-    let result = prover.verify();
+    let halo2_prover = super_circuit.create_halo2_prover(rng);
+    println!("k={}", halo2_prover.get_k());
+
+    let (proof, instance) = halo2_prover.generate_proof(witness);
+
+    let result = halo2_verify(
+        proof,
+        halo2_prover.get_params(),
+        halo2_prover.get_vk(),
+        instance,
+    );
 
     println!("result = {:#?}", result);
 
-    if let Err(failures) = &result {
-        for failure in failures.iter() {
-            println!("{}", failure);
-        }
+    if let Err(failure) = &result {
+        println!("{}", failure);
     }
 }
 

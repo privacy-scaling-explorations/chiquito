@@ -2,18 +2,16 @@ use pyo3::{
     prelude::*,
     types::{PyDict, PyList, PyLong, PyString},
 };
+use rand_chacha::rand_core::block::BlockRng;
 
 use crate::{
     frontend::dsl::{StepTypeHandler, SuperCircuitContext},
     pil::backend::powdr_pil::chiquito2Pil,
     plonkish::{
-        backend::halo2::{
-            chiquito2Halo2, chiquitoSuperCircuit2Halo2, ChiquitoHalo2, ChiquitoHalo2Circuit,
-            ChiquitoHalo2SuperCircuit,
-        },
+        backend::halo2::{chiquito2Halo2, halo2_verify, ChiquitoHalo2, DummyRng, PlonkishHalo2},
         compiler::{
             cell_manager::SingleRowCellManager, compile, config,
-            step_selector::SimpleStepSelectorBuilder,
+            step_selector::SimpleStepSelectorBuilder, PlonkishCompilationResult,
         },
         ir::{assignments::AssignmentGenerator, sc::MappingContext},
     },
@@ -27,7 +25,7 @@ use crate::{
 };
 
 use core::result::Result;
-use halo2_proofs::{dev::MockProver, halo2curves::bn256::Fr};
+use halo2_proofs::halo2curves::bn256::Fr;
 use serde::de::{self, Deserialize, Deserializer, IgnoredAny, MapAccess, Visitor};
 use std::{cell::RefCell, collections::HashMap, fmt};
 
@@ -62,14 +60,15 @@ pub fn chiquito_ast_to_halo2(ast_json: &str) -> UUID {
         serde_json::from_str(ast_json).expect("Json deserialization to Circuit failed.");
 
     let config = config(SingleRowCellManager {}, SimpleStepSelectorBuilder {});
-    let (chiquito, assignment_generator) = compile(config, &circuit);
-    let chiquito_halo2 = chiquito2Halo2(chiquito);
+    let plonkish = compile(config, &circuit);
+    let chiquito_halo2 = chiquito2Halo2(plonkish.circuit);
     let uuid = uuid();
 
     CIRCUIT_MAP.with(|circuit_map| {
-        circuit_map
-            .borrow_mut()
-            .insert(uuid, (circuit, chiquito_halo2, assignment_generator));
+        circuit_map.borrow_mut().insert(
+            uuid,
+            (circuit, chiquito_halo2, plonkish.assignment_generator),
+        );
     });
 
     uuid
@@ -119,7 +118,6 @@ fn add_assignment_generator_to_rust_id(
 pub fn chiquito_super_circuit_halo2_mock_prover(
     rust_ids: Vec<UUID>,
     super_witness: HashMap<UUID, &str>,
-    k: usize,
 ) {
     let mut super_circuit_ctx = SuperCircuitContext::<Fr, ()>::default();
 
@@ -132,8 +130,7 @@ pub fn chiquito_super_circuit_halo2_mock_prover(
         add_assignment_generator_to_rust_id(assignment, rust_id);
     }
 
-    let super_circuit = super_circuit_ctx.compile();
-    let compiled = chiquitoSuperCircuit2Halo2(&super_circuit);
+    let mut super_circuit = super_circuit_ctx.compile();
 
     let mut mapping_ctx = MappingContext::default();
     for rust_id in rust_ids {
@@ -149,18 +146,23 @@ pub fn chiquito_super_circuit_halo2_mock_prover(
 
     let super_assignments = mapping_ctx.get_super_assignments();
 
-    let circuit = ChiquitoHalo2SuperCircuit::new(compiled, super_assignments);
+    let rng = BlockRng::new(DummyRng {});
 
-    let prover = MockProver::<Fr>::run(k as u32, &circuit, circuit.instance()).unwrap();
+    let halo2_prover = super_circuit.create_halo2_prover(rng);
 
-    let result = prover.verify();
+    let (proof, instance) = halo2_prover.generate_proof(super_assignments);
+
+    let result = halo2_verify(
+        proof,
+        halo2_prover.get_params(),
+        halo2_prover.get_vk(),
+        instance,
+    );
 
     println!("result = {:#?}", result);
 
-    if let Err(failures) = &result {
-        for failure in failures.iter() {
-            println!("{}", failure);
-        }
+    if let Err(failure) = &result {
+        println!("{}", failure);
     }
 }
 
@@ -175,25 +177,38 @@ fn rust_id_to_halo2(uuid: UUID) -> CircuitMapStore {
 
 /// Runs `MockProver` for a single circuit given JSON of `TraceWitness` and `rust_id` of the
 /// circuit.
-pub fn chiquito_halo2_mock_prover(witness_json: &str, rust_id: UUID, k: usize) {
+pub fn chiquito_halo2_mock_prover(witness_json: &str, rust_id: UUID) {
     let trace_witness: TraceWitness<Fr> =
         serde_json::from_str(witness_json).expect("Json deserialization to TraceWitness failed.");
     let (_, compiled, assignment_generator) = rust_id_to_halo2(rust_id);
-    let circuit: ChiquitoHalo2Circuit<_> = ChiquitoHalo2Circuit::new(
-        compiled,
-        assignment_generator.map(|g| g.generate(trace_witness)),
+
+    let rng = BlockRng::new(DummyRng {});
+
+    let mut plonkish = PlonkishCompilationResult {
+        circuit: compiled.plonkish_ir,
+        assignment_generator,
+    };
+
+    let halo2_prover = plonkish.create_halo2_prover(rng);
+
+    let (proof, instance) = halo2_prover.generate_proof(
+        plonkish
+            .assignment_generator
+            .unwrap()
+            .generate(trace_witness),
     );
 
-    let prover = MockProver::<Fr>::run(k as u32, &circuit, circuit.instance()).unwrap();
+    let result = halo2_verify(
+        proof,
+        halo2_prover.get_params(),
+        halo2_prover.get_vk(),
+        instance,
+    );
 
-    let result = prover.verify();
+    println!("result = {:#?}", result);
 
-    println!("{:#?}", result);
-
-    if let Err(failures) = &result {
-        for failure in failures.iter() {
-            println!("{}", failure);
-        }
+    if let Err(error) = &result {
+        println!("{}", error);
     }
 }
 
@@ -1890,16 +1905,15 @@ fn ast_map_store(json: &PyString) -> u128 {
 }
 
 #[pyfunction]
-fn halo2_mock_prover(witness_json: &PyString, rust_id: &PyLong, k: &PyLong) {
+fn halo2_mock_prover(witness_json: &PyString, rust_id: &PyLong) {
     chiquito_halo2_mock_prover(
         witness_json.to_str().expect("PyString conversion failed."),
         rust_id.extract().expect("PyLong conversion failed."),
-        k.extract().expect("PyLong conversion failed."),
     );
 }
 
 #[pyfunction]
-fn super_circuit_halo2_mock_prover(rust_ids: &PyList, super_witness: &PyDict, k: &PyLong) {
+fn super_circuit_halo2_mock_prover(rust_ids: &PyList, super_witness: &PyDict) {
     let uuids = rust_ids
         .iter()
         .map(|rust_id| {
@@ -1928,11 +1942,7 @@ fn super_circuit_halo2_mock_prover(rust_ids: &PyList, super_witness: &PyDict, k:
         })
         .collect::<HashMap<u128, &str>>();
 
-    chiquito_super_circuit_halo2_mock_prover(
-        uuids,
-        super_witness,
-        k.extract().expect("PyLong conversion failed."),
-    )
+    chiquito_super_circuit_halo2_mock_prover(uuids, super_witness)
 }
 
 #[pymodule]

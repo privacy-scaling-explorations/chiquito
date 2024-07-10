@@ -3,7 +3,7 @@ use chiquito::{
         lb::LookupTable, super_circuit, trace::DSLTraceGenerator, CircuitContext, StepTypeWGHandler,
     },
     plonkish::{
-        backend::halo2::{chiquitoSuperCircuit2Halo2, ChiquitoHalo2SuperCircuit},
+        backend::halo2::{halo2_verify, DummyRng, PlonkishHalo2},
         compiler::{
             cell_manager::{MaxWidthCellManager, SingleRowCellManager},
             config,
@@ -14,17 +14,10 @@ use chiquito::{
     poly::ToExpr,
     sbpir::query::Queriable,
 };
+use rand_chacha::rand_core::block::BlockRng;
 use std::{hash::Hash, ops::Neg};
 
-use halo2_proofs::{
-    dev::MockProver,
-    halo2curves::{bn256::Fr, group::ff::PrimeField},
-};
-
-use std::{
-    fs::File,
-    io::{self, Write},
-};
+use halo2_proofs::halo2curves::{bn256::Fr, group::ff::PrimeField};
 
 const BIT_COUNT: u64 = 3;
 const PART_SIZE: u64 = 5;
@@ -2254,114 +2247,32 @@ fn keccak_super_circuit<F: PrimeField<Repr = [u8; 32]> + Eq + Hash>(
     })
 }
 
-use chiquito::plonkish::backend::plaf::chiquito2Plaf;
-use polyexen::plaf::{Plaf, PlafDisplayBaseTOML, PlafDisplayFixedCSV, Witness, WitnessDisplayCSV};
-
-fn write_files(name: &str, plaf: &Plaf, wit: &Witness) -> Result<(), io::Error> {
-    let mut base_file = File::create(format!("{}.toml", name))?;
-    let mut fixed_file = File::create(format!("{}_fixed.csv", name))?;
-    let mut witness_file = File::create(format!("{}_witness.csv", name))?;
-
-    write!(base_file, "{}", PlafDisplayBaseTOML(plaf))?;
-    write!(fixed_file, "{}", PlafDisplayFixedCSV(plaf))?;
-    write!(witness_file, "{}", WitnessDisplayCSV(wit))?;
-    println!("write file success...{}", name);
-    Ok(())
-}
-
-fn keccak_plaf(circuit_param: KeccakCircuit, k: u32) {
-    let super_circuit = keccak_super_circuit::<Fr>(circuit_param.bytes.len());
-    let witness = super_circuit.get_mapping().generate(circuit_param);
-
-    for wit_gen in witness.values() {
-        let wit_gen = wit_gen.clone();
-
-        let mut circuit = super_circuit.get_sub_circuits()[0].clone();
-        circuit
-            .columns
-            .append(&mut super_circuit.get_sub_circuits()[1].columns);
-        circuit
-            .columns
-            .append(&mut super_circuit.get_sub_circuits()[2].columns);
-        circuit
-            .columns
-            .append(&mut super_circuit.get_sub_circuits()[3].columns);
-        circuit
-            .columns
-            .append(&mut super_circuit.get_sub_circuits()[4].columns);
-        circuit
-            .columns
-            .append(&mut super_circuit.get_sub_circuits()[5].columns);
-        circuit
-            .columns
-            .append(&mut super_circuit.get_sub_circuits()[6].columns);
-
-        for (key, value) in super_circuit.get_sub_circuits()[0].fixed_assignments.iter() {
-            circuit.fixed_assignments.insert(key.clone(), value.clone());
-        }
-        for (key, value) in super_circuit.get_sub_circuits()[1].fixed_assignments.iter() {
-            circuit.fixed_assignments.insert(key.clone(), value.clone());
-        }
-        for (key, value) in super_circuit.get_sub_circuits()[2].fixed_assignments.iter() {
-            circuit.fixed_assignments.insert(key.clone(), value.clone());
-        }
-        for (key, value) in super_circuit.get_sub_circuits()[3].fixed_assignments.iter() {
-            circuit.fixed_assignments.insert(key.clone(), value.clone());
-        }
-        for (key, value) in super_circuit.get_sub_circuits()[4].fixed_assignments.iter() {
-            circuit.fixed_assignments.insert(key.clone(), value.clone());
-        }
-        for (key, value) in super_circuit.get_sub_circuits()[5].fixed_assignments.iter() {
-            circuit.fixed_assignments.insert(key.clone(), value.clone());
-        }
-
-        let (plaf, plaf_wit_gen) = chiquito2Plaf(circuit, k, false);
-
-        let mut plaf = plaf;
-        plaf.set_challenge_alias(0, "r_keccak".to_string());
-        let wit = plaf_wit_gen.generate(Some(wit_gen));
-        write_files("keccak_output", &plaf, &wit).unwrap();
-    }
-}
-
-fn keccak_run(circuit_param: KeccakCircuit, k: u32) -> bool {
-    let super_circuit = keccak_super_circuit::<Fr>(circuit_param.bytes.len());
-
-    let compiled = chiquitoSuperCircuit2Halo2(&super_circuit);
-
-    let circuit = ChiquitoHalo2SuperCircuit::new(
-        compiled,
-        super_circuit.get_mapping().generate(circuit_param),
-    );
-
-    let prover = MockProver::<Fr>::run(k, &circuit, Vec::new()).unwrap();
-    let result = prover.verify();
-
-    println!("result = {:#?}", result);
-
-    if let Err(failures) = &result {
-        for failure in failures.iter() {
-            println!("{}", failure);
-        }
-        false
-    } else {
-        true
-    }
-}
-
 fn main() {
     let circuit_param = KeccakCircuit {
         bytes: vec![0, 1, 2, 3, 4, 5, 6, 7],
     };
 
-    let res = keccak_run(circuit_param, 9);
+    let mut super_circuit = keccak_super_circuit::<Fr>(circuit_param.bytes.len());
 
-    if res {
-        keccak_plaf(
-            KeccakCircuit {
-                bytes: vec![0, 1, 2, 3, 4, 5, 6, 7],
-            },
-            11,
-        );
+    let rng = BlockRng::new(DummyRng {});
+
+    let witness = super_circuit.get_mapping().generate(circuit_param);
+
+    let halo2_prover = super_circuit.create_halo2_prover(rng);
+    println!("k={}", halo2_prover.get_k());
+
+    let (proof, instance) = halo2_prover.generate_proof(witness);
+
+    let result = halo2_verify(
+        proof,
+        halo2_prover.get_params(),
+        halo2_prover.get_vk(),
+        instance,
+    );
+
+    println!("result = {:#?}", result);
+
+    if let Err(failure) = &result {
+        println!("{}", failure);
     }
 }

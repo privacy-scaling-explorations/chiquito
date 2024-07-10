@@ -15,6 +15,8 @@ pub mod sc;
 #[derive(Clone, Default)]
 pub struct Circuit<F> {
     pub columns: Vec<Column>,
+    /// Exposed cells of the Column at the given rotation. Used to generate the instance
+    /// (equivalent to public inputs)
     pub exposed: Vec<(Column, i32)>,
 
     pub polys: Vec<Poly<F>>,
@@ -24,6 +26,7 @@ pub struct Circuit<F> {
 
     pub id: UUID,
     pub ast_id: UUID,
+    pub num_rows: usize,
 }
 
 impl<F: Debug> Debug for Circuit<F> {

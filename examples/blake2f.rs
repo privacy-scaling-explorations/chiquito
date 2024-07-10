@@ -7,7 +7,7 @@ use chiquito::{
         CircuitContext, StepTypeSetupContext, StepTypeWGHandler,
     },
     plonkish::{
-        backend::halo2::{chiquitoSuperCircuit2Halo2, ChiquitoHalo2SuperCircuit},
+        backend::halo2::{halo2_verify, DummyRng, PlonkishHalo2},
         compiler::{
             cell_manager::{MaxWidthCellManager, SingleRowCellManager},
             config,
@@ -18,10 +18,8 @@ use chiquito::{
     poly::ToExpr,
     sbpir::query::Queriable,
 };
-use halo2_proofs::{
-    dev::MockProver,
-    halo2curves::{bn256::Fr, group::ff::PrimeField},
-};
+use halo2_proofs::halo2curves::{bn256::Fr, group::ff::PrimeField};
+use rand_chacha::rand_core::block::BlockRng;
 use std::{fmt::Write, hash::Hash};
 
 pub const IV_LEN: usize = 8;
@@ -1397,8 +1395,7 @@ fn blake2f_super_circuit<F: PrimeField + Hash>() -> SuperCircuit<F, InputValues>
 }
 
 fn main() {
-    let super_circuit = blake2f_super_circuit::<Fr>();
-    let compiled = chiquitoSuperCircuit2Halo2(&super_circuit);
+    let mut super_circuit = blake2f_super_circuit::<Fr>();
 
     // h[0] = hex"48c9bdf267e6096a 3ba7ca8485ae67bb 2bf894fe72f36e3c f1361d5f3af54fa5";
     // h[1] = hex"d182e6ad7f520e51 1f6c3e2b8c68059b 6bbd41fbabd9831f 79217e1319cde05b";
@@ -1480,17 +1477,25 @@ fn main() {
         f: true, // 8bits
     };
 
-    let circuit =
-        ChiquitoHalo2SuperCircuit::new(compiled, super_circuit.get_mapping().generate(values));
+    let witness = super_circuit.get_mapping().generate(values);
 
-    let prover = MockProver::run(9, &circuit, Vec::new()).unwrap();
-    let result = prover.verify();
+    let rng = BlockRng::new(DummyRng {});
+
+    let halo2_prover = super_circuit.create_halo2_prover(rng);
+    println!("k={}", halo2_prover.get_k());
+
+    let (proof, instance) = halo2_prover.generate_proof(witness);
+
+    let result = halo2_verify(
+        proof,
+        halo2_prover.get_params(),
+        halo2_prover.get_vk(),
+        instance,
+    );
 
     println!("result = {:#?}", result);
 
-    if let Err(failures) = &result {
-        for failure in failures.iter() {
-            println!("{}", failure);
-        }
+    if let Err(failure) = &result {
+        println!("{}", failure);
     }
 }
