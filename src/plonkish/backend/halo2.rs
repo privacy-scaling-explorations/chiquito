@@ -548,12 +548,12 @@ pub fn halo2_verify(
 }
 
 /// Halo2 setup
-pub struct Setup {
-    pub k: u32,
-    pub cs: ConstraintSystemMid<Fr>,
-    pub params: ParamsKZG<Bn256>,
-    pub vk: VerifyingKey<G1Affine>,
-    pub pk: ProvingKey<G1Affine>,
+struct Setup {
+    k: u32,
+    cs: ConstraintSystemMid<Fr>,
+    params: ParamsKZG<Bn256>,
+    vk: VerifyingKey<G1Affine>,
+    pk: ProvingKey<G1Affine>,
     rng: BlockRng<DummyRng>,
 }
 
@@ -696,26 +696,6 @@ impl<TG: TraceGenerator<Fr> + Default> PlonkishHalo2<Fr, Assignments<Fr>, Chiqui
         Halo2Prover::new(setup, circuit)
     }
 }
-// impl PlonkishHalo2<Fr, SuperAssignments<Fr>, ChiquitoHalo2SuperCircuit<Fr>>
-// for ChiquitoHalo2SuperCircuit<Fr>
-// {
-// fn create_halo2_prover(
-// &mut self,
-// rng: BlockRng<DummyRng>,
-// ) -> Halo2Prover<Fr, SuperAssignments<Fr>, ChiquitoHalo2SuperCircuit<Fr>> {
-// let tallest_subcircuit_height = self
-// .sub_circuits
-// .iter()
-// .map(|c| c.plonkish_ir.num_rows)
-// .max()
-// .unwrap_or(0);
-//
-// let (compiled, k) = self.compile_middleware(tallest_subcircuit_height).unwrap();
-// let setup = create_setup(rng, compiled, k);
-//
-// Halo2Prover::new(setup, self.clone())
-// }
-// }
 
 impl<MappingArgs> PlonkishHalo2<Fr, SuperAssignments<Fr>, ChiquitoHalo2SuperCircuit<Fr>>
     for SuperCircuit<Fr, MappingArgs>
