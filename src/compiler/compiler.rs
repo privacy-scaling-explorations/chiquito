@@ -89,7 +89,6 @@ impl<F: Field + Hash> Compiler<F> {
             .parse(source, debug_sym_ref_factory)
             .map_err(|_| self.messages.clone())?;
         let ast = self.add_virtual(ast);
-        println!("{:?}", ast);
         let symbols = self.semantic(&ast).map_err(|_| self.messages.clone())?;
         let setup = Self::interpret(&ast, &symbols);
         let setup = Self::map_consts(setup);
@@ -260,8 +259,6 @@ impl<F: Field + Hash> Compiler<F> {
         setup
             .iter()
             .map(|(machine_id, machine)| {
-                // let new_machine: MachineSetup<F, Identifier> =
-
                 let poly_constraints: HashMap<String, Vec<Expr<F, Identifier, ()>>> = machine
                     .iter_states_poly_constraints()
                     .map(|(step_id, step)| {
