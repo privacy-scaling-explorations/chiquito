@@ -5,7 +5,7 @@ use halo2_proofs::halo2curves::{bn256::Fr, group::ff::PrimeField};
 use chiquito::{
     frontend::dsl::{lb::LookupTable, super_circuit, trace::DSLTraceGenerator, CircuitContext},
     plonkish::{
-        backend::halo2::{halo2_verify, DummyRng, PlonkishHalo2},
+        backend::halo2::{halo2_verify, PlonkishHalo2},
         compiler::{
             cell_manager::SingleRowCellManager, config, step_selector::SimpleStepSelectorBuilder,
         },
@@ -15,7 +15,6 @@ use chiquito::{
 };
 
 use mimc7_constants::ROUND_CONSTANTS;
-use rand_chacha::rand_core::block::BlockRng;
 
 // MiMC7 always has 91 rounds
 pub const ROUNDS: usize = 91;
@@ -201,11 +200,11 @@ fn main() {
 
     let mut super_circuit = mimc7_super_circuit::<Fr>();
 
-    let rng = BlockRng::new(DummyRng {});
+    let params_path = "examples/ptau/hermez-raw-11";
 
     let witness = super_circuit.get_mapping().generate((x_in_value, k_value));
 
-    let halo2_prover = super_circuit.create_halo2_prover(rng);
+    let halo2_prover = super_circuit.create_halo2_prover(params_path);
     println!("k={}", halo2_prover.get_k());
 
     let (proof, instance) = halo2_prover.generate_proof(witness);

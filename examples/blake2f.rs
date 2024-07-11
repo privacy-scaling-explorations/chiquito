@@ -7,7 +7,7 @@ use chiquito::{
         CircuitContext, StepTypeSetupContext, StepTypeWGHandler,
     },
     plonkish::{
-        backend::halo2::{halo2_verify, DummyRng, PlonkishHalo2},
+        backend::halo2::{halo2_verify, PlonkishHalo2},
         compiler::{
             cell_manager::{MaxWidthCellManager, SingleRowCellManager},
             config,
@@ -19,7 +19,6 @@ use chiquito::{
     sbpir::query::Queriable,
 };
 use halo2_proofs::halo2curves::{bn256::Fr, group::ff::PrimeField};
-use rand_chacha::rand_core::block::BlockRng;
 use std::{fmt::Write, hash::Hash};
 
 pub const IV_LEN: usize = 8;
@@ -1479,9 +1478,8 @@ fn main() {
 
     let witness = super_circuit.get_mapping().generate(values);
 
-    let rng = BlockRng::new(DummyRng {});
-
-    let halo2_prover = super_circuit.create_halo2_prover(rng);
+    let params_path = "examples/ptau/hermez-raw-11";
+    let halo2_prover = super_circuit.create_halo2_prover(params_path);
     println!("k={}", halo2_prover.get_k());
 
     let (proof, instance) = halo2_prover.generate_proof(witness);

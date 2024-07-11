@@ -1,4 +1,4 @@
-use std::{collections::HashMap, hash::Hash, iter, marker::PhantomData, vec};
+use std::{collections::HashMap, fs::File, hash::Hash, iter, marker::PhantomData, vec};
 
 use halo2_backend::plonk::{
     keygen::{keygen_pk, keygen_vk},
@@ -34,7 +34,10 @@ use halo2_proofs::{
         Blake2bRead, Blake2bWrite, Challenge255, TranscriptReadBuffer, TranscriptWriterBuffer,
     },
 };
-use rand_chacha::rand_core::block::{BlockRng, BlockRngCore};
+use rand_chacha::rand_core::{
+    block::{BlockRng, BlockRngCore},
+    OsRng,
+};
 
 use crate::{
     field::Field as ChiquitoField,
@@ -549,12 +552,10 @@ pub fn halo2_verify(
 
 /// Halo2 setup
 struct Setup {
-    k: u32,
     cs: ConstraintSystemMid<Fr>,
     params: ParamsKZG<Bn256>,
     vk: VerifyingKey<G1Affine>,
     pk: ProvingKey<G1Affine>,
-    rng: BlockRng<DummyRng>,
 }
 
 /// Halo2 prover
@@ -617,7 +618,7 @@ impl<W, WG: Halo2WitnessGenerator<Fr, W>> Halo2Prover<Fr, W, WG> {
     }
 
     pub fn get_k(&self) -> u32 {
-        self.setup.k
+        self.setup.params.k()
     }
 }
 
@@ -632,7 +633,7 @@ fn create_prover<'a>(
     KZGCommitmentScheme<Bn256>,
     ProverSHPLONK<'a, Bn256>,
     Challenge255<G1Affine>,
-    BlockRng<DummyRng>,
+    OsRng,
     Blake2bWrite<Vec<u8>, G1Affine, Challenge255<G1Affine>>,
     H2cEngine,
 > {
@@ -651,7 +652,7 @@ fn create_prover<'a>(
             &setup.params,
             &setup.pk,
             instance.to_vec(),
-            setup.rng.clone(),
+            OsRng, // this rng is used by the prover to generate blinding factors
             transcript,
         )
         .unwrap()
@@ -671,39 +672,73 @@ fn assign_witness<F: PrimeField + From<u64>>(
     }
 }
 
-pub trait PlonkishHalo2<F: PrimeField, W, WG: Halo2WitnessGenerator<F, W>> {
+#[allow(private_bounds)]
+pub trait PlonkishHalo2<W, WG: Halo2WitnessGenerator<Fr, W>>: Halo2Compilable<W, WG> {
     /// Create a Halo2 prover
     ///
     /// ### Arguments
-    /// * `rng` - random number generator
+    /// * `params_path` - path to trusted setup parameters
     ///
     /// ### Returns
     /// * a Halo2 prover
-    fn create_halo2_prover(&mut self, rng: BlockRng<DummyRng>) -> Halo2Prover<F, W, WG>;
-}
+    fn create_halo2_prover(&mut self, params_path: &str) -> Halo2Prover<Fr, W, WG> {
+        let (circuit, compiled, k) = self.compile_circuit();
+        let mut params_fs = File::open(params_path).expect("couldn't load params");
+        let mut params = ParamsKZG::<Bn256>::read(&mut params_fs).expect("Failed to read params");
+        if params.k() < k {
+            panic!(
+                "The provided trusted setup size {} ({params_path}) does not satisfy the circuit size {k}",
+                params.k(),
+            );
+        }
+        if params.k() > k {
+            params.downsize(k);
+        }
+        Halo2Prover::new(create_setup(compiled, params), circuit)
+    }
 
-impl<TG: TraceGenerator<Fr> + Default> PlonkishHalo2<Fr, Assignments<Fr>, ChiquitoHalo2<Fr>>
-    for PlonkishCompilationResult<Fr, TG>
-{
-    fn create_halo2_prover(
-        &mut self,
-        rng: BlockRng<DummyRng>,
-    ) -> Halo2Prover<Fr, Assignments<Fr>, ChiquitoHalo2<Fr>> {
-        let mut circuit = ChiquitoHalo2::new(self.circuit.clone());
-        let (compiled, k) = circuit.compile_middleware(self.circuit.num_rows).unwrap();
-        let setup = create_setup(rng, compiled, k);
+    /// Create a Halo2 test prover. ⚠️ Not for production use! ⚠️
+    /// This prover uses a dummy RNG that outputs fixed values.
+    ///
+    /// ### Returns
+    /// * a test Halo2 prover
+    fn create_test_prover(&mut self) -> Halo2Prover<Fr, W, WG> {
+        let (circuit, compiled, k) = self.compile_circuit();
 
-        Halo2Prover::new(setup, circuit)
+        let params = ParamsKZG::<Bn256>::setup::<BlockRng<DummyRng>>(k, BlockRng::new(DummyRng {}));
+
+        Halo2Prover::new(create_setup(compiled, params), circuit)
     }
 }
 
-impl<MappingArgs> PlonkishHalo2<Fr, SuperAssignments<Fr>, ChiquitoHalo2SuperCircuit<Fr>>
+impl<TG: TraceGenerator<Fr> + Default> PlonkishHalo2<Assignments<Fr>, ChiquitoHalo2<Fr>>
+    for PlonkishCompilationResult<Fr, TG>
+{
+}
+
+impl<MappingArgs> PlonkishHalo2<SuperAssignments<Fr>, ChiquitoHalo2SuperCircuit<Fr>>
     for SuperCircuit<Fr, MappingArgs>
 {
-    fn create_halo2_prover(
-        &mut self,
-        rng: BlockRng<DummyRng>,
-    ) -> Halo2Prover<Fr, SuperAssignments<Fr>, ChiquitoHalo2SuperCircuit<Fr>> {
+}
+
+trait Halo2Compilable<W, WG: Halo2WitnessGenerator<Fr, W>> {
+    /// Implementation-specific circuit compilation
+    fn compile_circuit(&mut self) -> (WG, CompiledCircuit<Fr>, u32);
+}
+
+impl<TG: TraceGenerator<Fr> + Default> Halo2Compilable<Assignments<Fr>, ChiquitoHalo2<Fr>>
+    for PlonkishCompilationResult<Fr, TG>
+{
+    fn compile_circuit(&mut self) -> (ChiquitoHalo2<Fr>, CompiledCircuit<Fr>, u32) {
+        let mut circuit = ChiquitoHalo2::new(self.circuit.clone());
+        let (compiled, k) = circuit.compile_middleware(self.circuit.num_rows).unwrap();
+        (circuit, compiled, k)
+    }
+}
+impl<MappingArgs> Halo2Compilable<SuperAssignments<Fr>, ChiquitoHalo2SuperCircuit<Fr>>
+    for SuperCircuit<Fr, MappingArgs>
+{
+    fn compile_circuit(&mut self) -> (ChiquitoHalo2SuperCircuit<Fr>, CompiledCircuit<Fr>, u32) {
         let compiled = self
             .get_sub_circuits()
             .iter()
@@ -722,24 +757,19 @@ impl<MappingArgs> PlonkishHalo2<Fr, SuperAssignments<Fr>, ChiquitoHalo2SuperCirc
         let (compiled, k) = circuit
             .compile_middleware(tallest_subcircuit_height)
             .unwrap();
-        let setup = create_setup(rng, compiled, k);
-
-        Halo2Prover::new(setup, circuit)
+        (circuit, compiled, k)
     }
 }
 
-fn create_setup(rng: BlockRng<DummyRng>, circuit: CompiledCircuit<Fr>, k: u32) -> Setup {
-    let params = ParamsKZG::<Bn256>::setup::<BlockRng<DummyRng>>(k, rng.clone());
+fn create_setup(circuit: CompiledCircuit<Fr>, params: ParamsKZG<Bn256>) -> Setup {
     let vk = keygen_vk(&params, &circuit).expect("keygen_vk should not fail");
     let pk = keygen_pk(&params, vk.clone(), &circuit).expect("keygen_pk should not fail");
 
     Setup {
-        k,
         cs: circuit.cs,
         params,
         vk,
         pk,
-        rng,
     }
 }
 

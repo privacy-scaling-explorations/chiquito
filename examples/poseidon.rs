@@ -1,7 +1,7 @@
 use chiquito::{
     frontend::dsl::{lb::LookupTable, super_circuit, trace::DSLTraceGenerator, CircuitContext},
     plonkish::{
-        backend::halo2::{halo2_verify, DummyRng, PlonkishHalo2},
+        backend::halo2::{halo2_verify, PlonkishHalo2},
         compiler::{
             cell_manager::{MaxWidthCellManager, SingleRowCellManager},
             config,
@@ -11,7 +11,6 @@ use chiquito::{
     },
     sbpir::query::Queriable,
 };
-use rand_chacha::rand_core::block::BlockRng;
 
 use std::hash::Hash;
 
@@ -704,9 +703,9 @@ fn main() {
     let mut super_circuit = poseidon_super_circuit(lens);
     let witness = super_circuit.get_mapping().generate(values);
 
-    let rng = BlockRng::new(DummyRng {});
+    let params_path = "examples/ptau/hermez-raw-11";
 
-    let halo2_prover = super_circuit.create_halo2_prover(rng);
+    let halo2_prover = super_circuit.create_halo2_prover(params_path);
     println!("k={}", halo2_prover.get_k());
 
     let (proof, instance) = halo2_prover.generate_proof(witness);
