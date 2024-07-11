@@ -153,7 +153,7 @@ impl<F: Field + Hash> Compiler<F> {
         output_params: &Vec<Statement<BigInt, Identifier>>,
         block: &mut Statement<BigInt, Identifier>,
     ) {
-        let dsym = DebugSymRef::virt(dsym);
+        let dsym = DebugSymRef::into_virtual(dsym);
         let output_params = Self::get_decls(output_params);
 
         if let Statement::Block(_, stmts) = block {

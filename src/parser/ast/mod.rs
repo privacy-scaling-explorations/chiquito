@@ -12,13 +12,13 @@ pub mod tl;
 #[derive(Clone)]
 pub struct DebugSymRef {
     /// Starting byte number in the file
-    pub start: usize,
+    start: usize,
     /// Ending byte number in the file
-    pub end: usize,
+    end: usize,
     /// Source file reference
     file: Arc<SimpleFile<String, String>>,
-    /// Created by the compiler
-    pub virt: bool,
+    /// Virtual: created by the compiler, not present in source code
+    virt: bool,
 }
 
 impl DebugSymRef {
@@ -31,11 +31,17 @@ impl DebugSymRef {
         }
     }
 
-    pub fn virt(other: &DebugSymRef) -> DebugSymRef {
+    /// Convert to virtual: created by the compiler, not present in source code.
+    pub fn into_virtual(other: &DebugSymRef) -> DebugSymRef {
         let mut other = other.clone();
         other.virt = true;
 
         other
+    }
+
+    /// Returns whether it is virtual: created by the compiler, not present in source code.
+    pub fn is_virtual(&self) -> bool {
+        self.virt
     }
 
     fn get_column_number(&self, line_index: usize, start: usize) -> usize {
@@ -93,7 +99,7 @@ impl DebugSymRef {
     /// `filename`. The proximity score is calculated as the size of the symbol.
     /// If the offset is not within the symbol, returns `None`.
     pub fn proximity_score(&self, filename: &String, offset: usize) -> Option<usize> {
-        if !self.virt
+        if !self.is_virtual()
             && self.get_filename() == *filename
             && self.start <= offset
             && offset <= self.end
