@@ -677,7 +677,7 @@ pub trait PlonkishHalo2<W, WG: Halo2WitnessGenerator<Fr, W>>: Halo2Compilable<W,
     /// Create a Halo2 prover
     ///
     /// ### Arguments
-    /// * `params_path` - path to trusted setup parameters
+    /// * `params_path` - path to trusted setup file
     ///
     /// ### Returns
     /// * a Halo2 prover
