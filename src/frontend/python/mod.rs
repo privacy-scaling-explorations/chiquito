@@ -7,7 +7,7 @@ use crate::{
     frontend::dsl::{StepTypeHandler, SuperCircuitContext},
     pil::backend::powdr_pil::chiquito2Pil,
     plonkish::{
-        backend::halo2::{chiquito2Halo2, halo2_verify, ChiquitoHalo2, PlonkishHalo2},
+        backend::halo2::{chiquito2Halo2, halo2_verify, ChiquitoHalo2, Halo2Provable},
         compiler::{
             cell_manager::SingleRowCellManager, compile, config,
             step_selector::SimpleStepSelectorBuilder, PlonkishCompilationResult,

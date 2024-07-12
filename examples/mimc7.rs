@@ -5,7 +5,7 @@ use halo2_proofs::halo2curves::{bn256::Fr, group::ff::PrimeField};
 use chiquito::{
     frontend::dsl::{lb::LookupTable, super_circuit, trace::DSLTraceGenerator, CircuitContext},
     plonkish::{
-        backend::halo2::{halo2_verify, PlonkishHalo2},
+        backend::halo2::{halo2_verify, Halo2Provable},
         compiler::{
             cell_manager::SingleRowCellManager, config, step_selector::SimpleStepSelectorBuilder,
         },

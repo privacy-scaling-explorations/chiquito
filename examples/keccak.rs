@@ -3,7 +3,7 @@ use chiquito::{
         lb::LookupTable, super_circuit, trace::DSLTraceGenerator, CircuitContext, StepTypeWGHandler,
     },
     plonkish::{
-        backend::halo2::{halo2_verify, PlonkishHalo2},
+        backend::halo2::{halo2_verify, Halo2Provable},
         compiler::{
             cell_manager::{MaxWidthCellManager, SingleRowCellManager},
             config,

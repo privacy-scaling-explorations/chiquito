@@ -6,7 +6,7 @@ use chiquito::{
                                                          * circuit */
     plonkish::{
         backend::{
-            halo2::{halo2_verify, PlonkishHalo2},
+            halo2::{halo2_verify, Halo2Provable},
             hyperplonk::ChiquitoHyperPlonkCircuit,
         },
         compiler::{

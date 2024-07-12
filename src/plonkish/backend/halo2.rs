@@ -673,7 +673,7 @@ fn assign_witness<F: PrimeField + From<u64>>(
 }
 
 #[allow(private_bounds)]
-pub trait PlonkishHalo2<W, WG: Halo2WitnessGenerator<Fr, W>>: Halo2Compilable<W, WG> {
+pub trait Halo2Provable<W, WG: Halo2WitnessGenerator<Fr, W>>: Halo2Compilable<W, WG> {
     /// Create a Halo2 prover
     ///
     /// ### Arguments
@@ -682,7 +682,7 @@ pub trait PlonkishHalo2<W, WG: Halo2WitnessGenerator<Fr, W>>: Halo2Compilable<W,
     /// ### Returns
     /// * a Halo2 prover
     fn create_halo2_prover(&mut self, params_path: &str) -> Halo2Prover<Fr, W, WG> {
-        let (circuit, compiled, k) = self.compile_circuit();
+        let (circuit, compiled, k) = self.halo2_compile();
         let mut params_fs = File::open(params_path).expect("couldn't load params");
         let mut params = ParamsKZG::<Bn256>::read(&mut params_fs).expect("Failed to read params");
         if params.k() < k {
@@ -703,7 +703,7 @@ pub trait PlonkishHalo2<W, WG: Halo2WitnessGenerator<Fr, W>>: Halo2Compilable<W,
     /// ### Returns
     /// * a test Halo2 prover
     fn create_test_prover(&mut self) -> Halo2Prover<Fr, W, WG> {
-        let (circuit, compiled, k) = self.compile_circuit();
+        let (circuit, compiled, k) = self.halo2_compile();
 
         let params = ParamsKZG::<Bn256>::setup::<BlockRng<DummyRng>>(k, BlockRng::new(DummyRng {}));
 
@@ -711,25 +711,17 @@ pub trait PlonkishHalo2<W, WG: Halo2WitnessGenerator<Fr, W>>: Halo2Compilable<W,
     }
 }
 
-impl<TG: TraceGenerator<Fr> + Default> PlonkishHalo2<Assignments<Fr>, ChiquitoHalo2<Fr>>
-    for PlonkishCompilationResult<Fr, TG>
-{
-}
-
-impl<MappingArgs> PlonkishHalo2<SuperAssignments<Fr>, ChiquitoHalo2SuperCircuit<Fr>>
-    for SuperCircuit<Fr, MappingArgs>
-{
-}
+impl<W, WG: Halo2WitnessGenerator<Fr, W>, T: Halo2Compilable<W, WG>> Halo2Provable<W, WG> for T {}
 
 trait Halo2Compilable<W, WG: Halo2WitnessGenerator<Fr, W>> {
     /// Implementation-specific circuit compilation
-    fn compile_circuit(&mut self) -> (WG, CompiledCircuit<Fr>, u32);
+    fn halo2_compile(&mut self) -> (WG, CompiledCircuit<Fr>, u32);
 }
 
 impl<TG: TraceGenerator<Fr> + Default> Halo2Compilable<Assignments<Fr>, ChiquitoHalo2<Fr>>
     for PlonkishCompilationResult<Fr, TG>
 {
-    fn compile_circuit(&mut self) -> (ChiquitoHalo2<Fr>, CompiledCircuit<Fr>, u32) {
+    fn halo2_compile(&mut self) -> (ChiquitoHalo2<Fr>, CompiledCircuit<Fr>, u32) {
         let mut circuit = ChiquitoHalo2::new(self.circuit.clone());
         let (compiled, k) = circuit.compile_middleware(self.circuit.num_rows).unwrap();
         (circuit, compiled, k)
@@ -738,7 +730,7 @@ impl<TG: TraceGenerator<Fr> + Default> Halo2Compilable<Assignments<Fr>, Chiquito
 impl<MappingArgs> Halo2Compilable<SuperAssignments<Fr>, ChiquitoHalo2SuperCircuit<Fr>>
     for SuperCircuit<Fr, MappingArgs>
 {
-    fn compile_circuit(&mut self) -> (ChiquitoHalo2SuperCircuit<Fr>, CompiledCircuit<Fr>, u32) {
+    fn halo2_compile(&mut self) -> (ChiquitoHalo2SuperCircuit<Fr>, CompiledCircuit<Fr>, u32) {
         let compiled = self
             .get_sub_circuits()
             .iter()
