@@ -455,8 +455,6 @@ mod test {
         )
         .unwrap();
 
-        // chiquito.circuit.num_steps = 12;
-
         let mut plonkish = chiquito.plonkish(config(
             SingleRowCellManager {},
             SimpleStepSelectorBuilder {},
@@ -531,8 +529,6 @@ mod test {
 
         let mut chiquito =
             compile::<Fr>(code, Config::default(), &DebugSymRefFactory::new("", code)).unwrap();
-
-        chiquito.circuit.num_steps = 12;
 
         // TODO: re-stablish evil witness
         // chiquito
