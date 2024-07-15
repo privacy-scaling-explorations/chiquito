@@ -19,11 +19,18 @@ mod setup_inter;
 #[derive(Default)]
 pub struct Config {
     pub(self) max_degree: Option<usize>,
+    pub(self) max_steps: usize,
 }
 
 impl Config {
     pub fn max_degree(mut self, degree: usize) -> Self {
         self.max_degree = Some(degree);
+
+        self
+    }
+
+    pub fn max_steps(mut self, steps: usize) -> Self {
+        self.max_steps = steps;
 
         self
     }
