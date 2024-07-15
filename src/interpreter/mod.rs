@@ -527,7 +527,7 @@ mod test {
            }
         ";
 
-        let mut chiquito =
+        let chiquito =
             compile::<Fr>(code, Config::default(), &DebugSymRefFactory::new("", code)).unwrap();
 
         // TODO: re-stablish evil witness
