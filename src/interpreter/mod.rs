@@ -326,16 +326,15 @@ fn get_block_stmts(stmt: &Statement<BigInt, Identifier>) -> Vec<Statement<BigInt
 
 #[cfg(test)]
 mod test {
-    use crate::plonkish::backend::halo2::PlonkishHalo2;
+    use crate::plonkish::backend::halo2::Halo2Provable;
     use halo2_proofs::halo2curves::bn256::Fr;
-    use rand_chacha::rand_core::block::BlockRng;
     use std::collections::HashMap;
 
     use crate::{
         compiler::{compile, Config},
         parser::ast::debug_sym_factory::DebugSymRefFactory,
         plonkish::{
-            backend::halo2::{halo2_verify, DummyRng},
+            backend::halo2::halo2_verify,
             compiler::{
                 cell_manager::SingleRowCellManager, config,
                 step_selector::SimpleStepSelectorBuilder,
@@ -460,11 +459,8 @@ mod test {
             SimpleStepSelectorBuilder {},
         ));
 
-        let rng = BlockRng::new(DummyRng {});
-
-        let halo2_prover = plonkish.create_halo2_prover(rng);
+        let halo2_prover = plonkish.create_test_prover();
         assert!(halo2_prover.get_k() == 5);
-
         let (proof, instance) = halo2_prover.generate_proof(
             plonkish
                 .assignment_generator
@@ -540,9 +536,7 @@ mod test {
             SimpleStepSelectorBuilder {},
         ));
 
-        let rng = BlockRng::new(DummyRng {});
-
-        let halo2_prover = plonkish.create_halo2_prover(rng);
+        let halo2_prover = plonkish.create_test_prover();
         println!("k={}", halo2_prover.get_k());
 
         let (proof, instance) = halo2_prover.generate_proof(
