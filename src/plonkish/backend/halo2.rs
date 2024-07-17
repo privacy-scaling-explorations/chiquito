@@ -672,8 +672,7 @@ fn assign_witness<F: PrimeField + From<u64>>(
     }
 }
 
-#[allow(private_bounds)]
-pub trait Halo2Provable<W, WG: Halo2WitnessGenerator<Fr, W>>: Halo2Compilable<W, WG> {
+pub trait Halo2Provable<W, WG: Halo2WitnessGenerator<Fr, W>> {
     /// Create a Halo2 prover
     ///
     /// ### Arguments
@@ -681,6 +680,17 @@ pub trait Halo2Provable<W, WG: Halo2WitnessGenerator<Fr, W>>: Halo2Compilable<W,
     ///
     /// ### Returns
     /// * a Halo2 prover
+    fn create_halo2_prover(&mut self, params_path: &str) -> Halo2Prover<Fr, W, WG>;
+
+    /// Create a Halo2 test prover. ⚠️ Not for production use! ⚠️
+    /// This prover uses a dummy RNG that outputs fixed values.
+    ///
+    /// ### Returns
+    /// * a test Halo2 prover
+    fn create_test_prover(&mut self) -> Halo2Prover<Fr, W, WG>;
+}
+
+impl<W, WG: Halo2WitnessGenerator<Fr, W>, T: Halo2Compilable<W, WG>> Halo2Provable<W, WG> for T {
     fn create_halo2_prover(&mut self, params_path: &str) -> Halo2Prover<Fr, W, WG> {
         let (circuit, compiled, k) = self.halo2_compile();
         let mut params_fs = File::open(params_path).expect("couldn't load params");
@@ -697,11 +707,6 @@ pub trait Halo2Provable<W, WG: Halo2WitnessGenerator<Fr, W>>: Halo2Compilable<W,
         Halo2Prover::new(create_setup(compiled, params), circuit)
     }
 
-    /// Create a Halo2 test prover. ⚠️ Not for production use! ⚠️
-    /// This prover uses a dummy RNG that outputs fixed values.
-    ///
-    /// ### Returns
-    /// * a test Halo2 prover
     fn create_test_prover(&mut self) -> Halo2Prover<Fr, W, WG> {
         let (circuit, compiled, k) = self.halo2_compile();
 
@@ -710,8 +715,6 @@ pub trait Halo2Provable<W, WG: Halo2WitnessGenerator<Fr, W>>: Halo2Compilable<W,
         Halo2Prover::new(create_setup(compiled, params), circuit)
     }
 }
-
-impl<W, WG: Halo2WitnessGenerator<Fr, W>, T: Halo2Compilable<W, WG>> Halo2Provable<W, WG> for T {}
 
 trait Halo2Compilable<W, WG: Halo2WitnessGenerator<Fr, W>> {
     /// Implementation-specific circuit compilation
