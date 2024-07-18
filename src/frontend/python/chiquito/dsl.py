@@ -223,7 +223,7 @@ class Circuit:
     def halo2_mock_prover(self: Circuit, witness: TraceWitness, params_path: str):
         if self.rust_id == 0:
             ast_json: str = self.get_ast_json()
-            self.rust_id: int = rust_chiquito.ast_to_halo2(ast_json)
+            self.rust_id: int = rust_chiquito.ast_to_plonkish(ast_json)
         witness_json: str = witness.get_witness_json()
         rust_chiquito.halo2_mock_prover(witness_json, self.rust_id, params_path)
 
@@ -232,7 +232,7 @@ class Circuit:
     ) -> str:
         if self.rust_id == 0:
             ast_json: str = self.get_ast_json()
-            self.rust_id: int = rust_chiquito.ast_to_halo2(ast_json)
+            self.rust_id: int = rust_chiquito.ast_to_plonkish(ast_json)
         witness_json: str = witness.get_witness_json()
         rust_chiquito.to_pil(witness_json, self.rust_id, circuit_name)
 

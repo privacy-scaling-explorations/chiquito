@@ -1868,7 +1868,7 @@ fn convert_and_print_trace_witness(json: &PyString) {
 }
 
 #[pyfunction]
-fn ast_to_halo2(json: &PyString) -> u128 {
+fn ast_to_plonkish(json: &PyString) -> u128 {
     let uuid = chiquito_ast_to_plonkish(json.to_str().expect("PyString conversion failed."));
 
     uuid
@@ -1939,7 +1939,7 @@ fn super_circuit_halo2_mock_prover(rust_ids: &PyList, super_witness: &PyDict) {
 fn rust_chiquito(_py: Python, m: &PyModule) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(convert_and_print_ast, m)?)?;
     m.add_function(wrap_pyfunction!(convert_and_print_trace_witness, m)?)?;
-    m.add_function(wrap_pyfunction!(ast_to_halo2, m)?)?;
+    m.add_function(wrap_pyfunction!(ast_to_plonkish, m)?)?;
     m.add_function(wrap_pyfunction!(to_pil, m)?)?;
     m.add_function(wrap_pyfunction!(ast_map_store, m)?)?;
     m.add_function(wrap_pyfunction!(halo2_mock_prover, m)?)?;
