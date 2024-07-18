@@ -30,7 +30,7 @@ use std::{cell::RefCell, collections::HashMap, fmt};
 
 type CircuitMapStore = (
     SBPIR<Fr, PythonTraceGenerator>,
-    PlonkishCompilationResult<Fr, PythonTraceGenerator>,
+    Option<PlonkishCompilationResult<Fr, PythonTraceGenerator>>,
     Option<AssignmentGenerator<Fr, PythonTraceGenerator>>,
 );
 type CircuitMap = RefCell<HashMap<UUID, CircuitMapStore>>;
@@ -65,7 +65,11 @@ pub fn chiquito_ast_to_plonkish(ast_json: &str) -> UUID {
     CIRCUIT_MAP.with(|circuit_map| {
         circuit_map.borrow_mut().insert(
             uuid,
-            (circuit, plonkish.clone(), plonkish.assignment_generator),
+            (
+                circuit,
+                Some(plonkish.clone()),
+                plonkish.assignment_generator,
+            ),
         );
     });
 
@@ -80,13 +84,9 @@ pub fn chiquito_ast_map_store(ast_json: &str) -> UUID {
         serde_json::from_str(ast_json).expect("Json deserialization to Circuit failed.");
 
     let uuid = uuid();
-    let config = config(SingleRowCellManager {}, SimpleStepSelectorBuilder {});
-    let plonkish = compile(config, &circuit);
 
     CIRCUIT_MAP.with(|circuit_map| {
-        circuit_map
-            .borrow_mut()
-            .insert(uuid, (circuit, plonkish, None));
+        circuit_map.borrow_mut().insert(uuid, (circuit, None, None));
     });
 
     uuid
@@ -179,9 +179,11 @@ fn rust_id_to_halo2(uuid: UUID) -> CircuitMapStore {
 pub fn chiquito_halo2_prover(witness_json: &str, rust_id: UUID, params_path: &str) {
     let trace_witness: TraceWitness<Fr> =
         serde_json::from_str(witness_json).expect("Json deserialization to TraceWitness failed.");
-    let (_, mut plonkish, assignment_generator) = rust_id_to_halo2(rust_id);
+    let (_, plonkish, assignment_generator) = rust_id_to_halo2(rust_id);
 
-    let halo2_prover = plonkish.create_halo2_prover(params_path);
+    let halo2_prover = plonkish
+        .expect("Plonkish compilation is missing")
+        .create_halo2_prover(params_path);
     let (proof, instance) =
         halo2_prover.generate_proof(assignment_generator.unwrap().generate(trace_witness));
 
