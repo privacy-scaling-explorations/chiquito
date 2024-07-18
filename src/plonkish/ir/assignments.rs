@@ -94,7 +94,7 @@ pub struct AssignmentGenerator<F, TG = DSLTraceGenerator<F>> {
     ir_id: UUID,
 }
 
-impl<F: Clone, TG: Default> Clone for AssignmentGenerator<F, TG>
+impl<F: Clone, TG> Clone for AssignmentGenerator<F, TG>
 where
     TG: TraceGenerator<F> + Clone,
 {

@@ -106,7 +106,7 @@ class Examples:
         )
         assert last_assignments[0] == 0  # i
         assert last_assignments[1] == 1  # x
-        factorial.halo2_mock_prover(factorial_witness)
+        factorial.halo2_mock_prover(factorial_witness, "examples/ptau/hermez-raw-11")
 
     def test_basic(self):
         factorial = Factorial()
@@ -116,7 +116,7 @@ class Examples:
         )
         assert last_assignments[0] == 7  # i
         assert last_assignments[1] == 5040  # x
-        factorial.halo2_mock_prover(factorial_witness)
+        factorial.halo2_mock_prover(factorial_witness, "examples/ptau/hermez-raw-11")
 
 
 if __name__ == "__main__":
