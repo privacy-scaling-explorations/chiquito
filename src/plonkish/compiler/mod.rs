@@ -54,18 +54,10 @@ pub fn compile<
     }
 }
 
-pub struct PlonkishCompilationResult<F: Clone, TG: TraceGenerator<F> + Clone> {
+#[derive(Clone)]
+pub struct PlonkishCompilationResult<F, TG: TraceGenerator<F>> {
     pub circuit: Circuit<F>,
     pub assignment_generator: Option<AssignmentGenerator<F, TG>>,
-}
-
-impl<F: Clone, TG: TraceGenerator<F> + Clone> Clone for PlonkishCompilationResult<F, TG> {
-    fn clone(&self) -> Self {
-        Self {
-            circuit: self.circuit.clone(),
-            assignment_generator: self.assignment_generator.clone(),
-        }
-    }
 }
 
 pub fn compile_phase1<
