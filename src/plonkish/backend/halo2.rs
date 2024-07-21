@@ -19,7 +19,8 @@ use halo2_proofs::{
     },
     plonk::{
         Advice, Any, Column, ConstraintSystem, ConstraintSystemMid, Error, Expression, FirstPhase,
-        Fixed, Instance, ProvingKey, SecondPhase, ThirdPhase, VerifyingKey, VirtualCells,
+        Fixed, Instance, ProvingKey, SecondPhase, TableColumn, ThirdPhase, VerifyingKey,
+        VirtualCells,
     },
     poly::{
         commitment::Params,
@@ -117,7 +118,7 @@ pub struct ChiquitoHalo2<F: PrimeField + From<u64>> {
     pub(crate) plonkish_ir: Circuit<F>,
 
     advice_columns: HashMap<UUID, Column<Advice>>,
-    fixed_columns: HashMap<UUID, Column<Fixed>>,
+    fixed_columns: HashMap<UUID, (Column<Fixed>, Option<TableColumn>)>,
     instance_column: Option<Column<Instance>>,
 
     ir_id: UUID,
@@ -146,7 +147,9 @@ impl<F: PrimeField + Hash> Halo2Configurable<F> for ChiquitoHalo2<F> {
     fn configure_cs(&mut self) -> ConstraintSystem<F> {
         let mut cs: ConstraintSystem<F> = ConstraintSystem::default();
 
-        self.configure_columns_sub_circuit(&mut cs);
+        self.configure_advice_columns(&mut cs);
+
+        self.fixed_columns = allocate_fixed_columns(&[self], &mut cs);
 
         self.configure_sub_circuit(&mut cs);
 
@@ -189,21 +192,19 @@ impl<F: PrimeField + From<u64> + Hash> ChiquitoHalo2<F> {
         }
     }
 
-    fn configure_columns_sub_circuit(&mut self, meta: &mut ConstraintSystem<F>) {
+    fn configure_advice_columns(&mut self, cs: &mut ConstraintSystem<F>) {
         let mut advice_columns = HashMap::<UUID, Column<Advice>>::new();
-        let mut fixed_columns = HashMap::<UUID, Column<Fixed>>::new();
 
         for column in self.plonkish_ir.columns.iter() {
             match column.ctype {
                 cAdvice => {
-                    let halo2_column = to_halo2_advice(meta, column);
+                    let halo2_column = to_halo2_advice(cs, column);
                     advice_columns.insert(column.uuid(), halo2_column);
-                    meta.annotate_lookup_any_column(halo2_column, || column.annotation.clone());
+                    cs.annotate_lookup_any_column(halo2_column, || column.annotation.clone());
                 }
-                cFixed => {
-                    let halo2_column = meta.fixed_column();
-                    fixed_columns.insert(column.uuid(), halo2_column);
-                    meta.annotate_lookup_any_column(halo2_column, || column.annotation.clone());
+                cFixed | Halo2Fixed => {
+                    // Fixed columns require special handling regarding the type of query that is
+                    // only possible to determine by analyzing all subscircuits
                 }
                 Halo2Advice => {
                     let halo2_column = column
@@ -213,23 +214,27 @@ impl<F: PrimeField + From<u64> + Hash> ChiquitoHalo2<F> {
                         })
                         .column;
                     advice_columns.insert(column.uuid(), halo2_column);
-                    meta.annotate_lookup_any_column(halo2_column, || column.annotation.clone());
-                }
-                Halo2Fixed => {
-                    let halo2_column = column
-                        .halo2_fixed
-                        .unwrap_or_else(|| {
-                            panic!("halo2 advice column not found {}", column.annotation)
-                        })
-                        .column;
-                    fixed_columns.insert(column.uuid(), halo2_column);
-                    meta.annotate_lookup_any_column(halo2_column, || column.annotation.clone());
+                    cs.annotate_lookup_any_column(halo2_column, || column.annotation.clone());
                 }
             }
         }
 
         self.advice_columns = advice_columns;
-        self.fixed_columns = fixed_columns;
+    }
+
+    // TODO this is not exhaustive, refactoring needed
+    fn has_single_fixed_query(&self, column: &cColumn) -> bool {
+        let mut is_single_fixed_query = false;
+        for lookup in &self.plonkish_ir.lookups {
+            for expr in &lookup.exprs {
+                if let PolyExpr::Query((lookup_col, _, _), _) = &expr.1 {
+                    if lookup_col.id == column.id {
+                        is_single_fixed_query = true;
+                    }
+                }
+            }
+        }
+        is_single_fixed_query
     }
 
     fn configure_sub_circuit(&mut self, meta: &mut ConstraintSystem<F>) {
@@ -255,14 +260,49 @@ impl<F: PrimeField + From<u64> + Hash> ChiquitoHalo2<F> {
 
         for lookup in self.plonkish_ir.lookups.iter() {
             let annotation: &'static str = Box::leak(lookup.annotation.clone().into_boxed_str());
-            meta.lookup_any(annotation, |meta| {
-                let mut exprs = Vec::new();
-                for (src, dest) in lookup.exprs.iter() {
-                    exprs.push((self.convert_poly(meta, src), self.convert_poly(meta, dest)))
-                }
 
-                exprs
-            });
+            let mut single_fixed_queries = vec![];
+            let mut other_queries = vec![];
+            for (idx, (_, dest)) in lookup.exprs.iter().enumerate() {
+                match dest {
+                    PolyExpr::Query((column, _, _), _) => {
+                        if column.ctype == cFixed || column.ctype == Halo2Fixed {
+                            single_fixed_queries.push((
+                                lookup.exprs[idx].clone().0,
+                                // Get the corresponding TableColumn
+                                self.fixed_columns[&column.uuid()].1.unwrap(),
+                            ))
+                        } else {
+                            other_queries.push(lookup.exprs[idx].clone());
+                        }
+                    }
+                    _ => other_queries.push(lookup.exprs[idx].clone()),
+                }
+            }
+
+            if !other_queries.is_empty() {
+                meta.lookup_any(annotation, |meta| {
+                    let mut exprs = Vec::new();
+                    for (src, dest) in other_queries.iter() {
+                        exprs.push((self.convert_poly(meta, src), self.convert_poly(meta, dest)))
+                    }
+
+                    exprs
+                });
+            }
+
+            // Single fixed queries are required to use the special `lookup` API instead of
+            // `lookup_any`
+            if !single_fixed_queries.is_empty() {
+                meta.lookup(annotation, |meta| {
+                    let mut exprs = Vec::new();
+                    for (src, dest) in single_fixed_queries.iter() {
+                        exprs.push((self.convert_poly(meta, src), *dest))
+                    }
+
+                    exprs
+                });
+            }
         }
     }
 
@@ -317,7 +357,7 @@ impl<F: PrimeField + From<u64> + Hash> ChiquitoHalo2<F> {
                     .get(&column.uuid())
                     .unwrap_or_else(|| panic!("column not found {}", column.annotation));
 
-                meta.query_fixed(*c, Rotation(rotation))
+                meta.query_fixed(c.0, Rotation(rotation))
             }
         }
     }
@@ -334,10 +374,13 @@ impl<F: PrimeField + From<u64> + Hash> ChiquitoHalo2<F> {
 
     fn convert_fixed_column(&self, column: &cColumn) -> Column<Fixed> {
         match column.ctype {
-            cFixed | Halo2Fixed => *self
-                .fixed_columns
-                .get(&column.uuid())
-                .unwrap_or_else(|| panic!("column not found {}", column.annotation)),
+            cFixed | Halo2Fixed => {
+                self.fixed_columns
+                    .get(&column.uuid())
+                    .unwrap_or_else(|| panic!("column not found {}", column.annotation))
+                    .0
+            }
+
             _ => panic!("wrong column type"),
         }
     }
@@ -461,20 +504,16 @@ impl<F: PrimeField + Hash> Halo2Configurable<F> for ChiquitoHalo2SuperCircuit<F>
 
         self.sub_circuits
             .iter_mut()
-            .for_each(|c| c.configure_columns_sub_circuit(&mut cs));
+            .for_each(|c| c.configure_advice_columns(&mut cs));
+
+        let sub_circuits_refs: Vec<&ChiquitoHalo2<F>> = self.sub_circuits.iter().collect();
+        let fixed_columns = allocate_fixed_columns(&sub_circuits_refs, &mut cs);
 
         let advice_columns: HashMap<UUID, Column<Advice>> =
             self.sub_circuits
                 .iter()
                 .fold(HashMap::default(), |mut acc, s| {
                     acc.extend(s.advice_columns.clone());
-                    acc
-                });
-        let fixed_columns: HashMap<UUID, Column<Fixed>> =
-            self.sub_circuits
-                .iter()
-                .fold(HashMap::default(), |mut acc, s| {
-                    acc.extend(s.fixed_columns.clone());
                     acc
                 });
 
@@ -488,13 +527,13 @@ impl<F: PrimeField + Hash> Halo2Configurable<F> for ChiquitoHalo2SuperCircuit<F>
     }
 
     fn preprocessing(&self, cs: &mut ConstraintSystem<F>) -> PreprocessingCompact<F> {
-        let fixed_columns: HashMap<UUID, Column<Fixed>> =
-            self.sub_circuits
-                .iter()
-                .fold(HashMap::default(), |mut acc, s| {
-                    acc.extend(s.fixed_columns.clone());
-                    acc
-                });
+        let fixed_columns: HashMap<UUID, (Column<Fixed>, Option<TableColumn>)> = self
+            .sub_circuits
+            .iter()
+            .fold(HashMap::default(), |mut acc, s| {
+                acc.extend(s.fixed_columns.clone());
+                acc
+            });
 
         let fixed_count = fixed_columns.len();
         let mut fixed = vec![vec![]; fixed_count];
@@ -502,7 +541,7 @@ impl<F: PrimeField + Hash> Halo2Configurable<F> for ChiquitoHalo2SuperCircuit<F>
         let mut copies = vec![];
         for subcircuit in self.sub_circuits.iter() {
             for (column, values) in subcircuit.plonkish_ir.fixed_assignments.iter() {
-                let column = fixed_columns.get(&column.uuid()).unwrap();
+                let column = fixed_columns.get(&column.uuid()).unwrap().0;
 
                 fixed[column.index].extend(values.iter().cloned());
             }
@@ -514,6 +553,44 @@ impl<F: PrimeField + Hash> Halo2Configurable<F> for ChiquitoHalo2SuperCircuit<F>
             fixed_compact: fixed,
         }
     }
+}
+
+// Allocates regular fixed columns or `TableColumn`s depending on the query to the fixed column.
+// Fixed columns that only have a single query are allocated as `TableColumn`s, otherwise as regular
+// fixed columns.
+fn allocate_fixed_columns<F: Field + PrimeField + Hash>(
+    circuits: &[&ChiquitoHalo2<F>],
+    cs: &mut ConstraintSystem<F>,
+) -> HashMap<u128, (Column<Fixed>, Option<TableColumn>)> {
+    let mut all_ir_fixed_columns = vec![];
+    circuits.iter().for_each(|c| {
+        for column in c.plonkish_ir.columns.iter() {
+            if column.ctype == cFixed || column.ctype == Halo2Fixed {
+                all_ir_fixed_columns.push(column.clone());
+            }
+        }
+    });
+
+    let mut fixed_columns = HashMap::new();
+    for column in all_ir_fixed_columns.iter() {
+        let mut has_single_fixed_query = false;
+
+        for circuit in circuits.iter() {
+            if circuit.has_single_fixed_query(column) {
+                has_single_fixed_query = true;
+            }
+        }
+        if has_single_fixed_query {
+            let halo2_column = cs.lookup_table_column();
+            fixed_columns.insert(column.uuid(), (halo2_column.inner(), Some(halo2_column)));
+            cs.annotate_lookup_column(halo2_column, || column.annotation.clone());
+        } else {
+            let halo2_column = cs.fixed_column();
+            fixed_columns.insert(column.uuid(), (halo2_column, None));
+            cs.annotate_lookup_any_column(halo2_column, || column.annotation.clone());
+        }
+    }
+    fixed_columns
 }
 
 /// Verify Halo2 proof
