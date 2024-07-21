@@ -232,6 +232,7 @@ impl<F: PrimeField + From<u64> + Hash> ChiquitoHalo2<F> {
             for expr in &lookup.exprs {
                 let dest = &expr.1;
                 if dest.involves(column) {
+                    // The lookup destination may involve this column, but not be a single query
                     has_only_single_queries = matches!(dest, PolyExpr::Query((_, _, _), _));
                 }
             }
@@ -269,7 +270,9 @@ impl<F: PrimeField + From<u64> + Hash> ChiquitoHalo2<F> {
             for (idx, (_, dest)) in lookup.exprs.iter().enumerate() {
                 match dest {
                     PolyExpr::Query((column, _, _), _) => {
-                        if column.ctype == cFixed || column.ctype == Halo2Fixed {
+                        if column.ctype == cFixed
+                            || column.ctype == Halo2Fixed && self.has_single_fixed_query(column)
+                        {
                             single_fixed_queries.push((
                                 lookup.exprs[idx].clone().0,
                                 // Get the corresponding TableColumn
