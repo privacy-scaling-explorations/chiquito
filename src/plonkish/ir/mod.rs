@@ -170,6 +170,43 @@ impl<F: Debug> Debug for Poly<F> {
 
 pub type PolyExpr<F> = Expr<F, Queriable, ()>;
 
+impl<F> ExpressionWithColumn for PolyExpr<F> {
+    /// Returns true if the expression involves the given column
+    fn involves(&self, column: &Column) -> bool {
+        let mut is_in_expr = false;
+        match self {
+            PolyExpr::Query((expr_col, _, _), _) => {
+                if expr_col.id == column.id {
+                    is_in_expr = true;
+                }
+            }
+            PolyExpr::Sum(es, _) | PolyExpr::Mul(es, _) => {
+                for e in es {
+                    is_in_expr = e.involves(column);
+                    if is_in_expr {
+                        break;
+                    }
+                }
+            }
+            PolyExpr::Neg(e, _) | PolyExpr::Pow(e, _, _) => {
+                is_in_expr = e.involves(column);
+            }
+            PolyExpr::Halo2Expr(e, _) => {
+                is_in_expr = e.involves(column);
+            }
+            PolyExpr::Const(_, _) => {}
+            PolyExpr::MI(e, _) => {
+                is_in_expr = e.involves(column);
+            }
+        }
+        is_in_expr
+    }
+}
+
+pub(super) trait ExpressionWithColumn {
+    fn involves(&self, column: &Column) -> bool;
+}
+
 impl<F: Clone> PolyExpr<F> {
     pub fn rotate(&self, rot: i32) -> PolyExpr<F> {
         match self {

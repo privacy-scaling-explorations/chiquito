@@ -46,7 +46,7 @@ use crate::{
             sc::{SuperAssignments, SuperCircuit},
             Circuit, Column as cColumn,
             ColumnType::{Advice as cAdvice, Fixed as cFixed, Halo2Advice, Halo2Fixed},
-            PolyExpr,
+            ExpressionWithColumn, PolyExpr,
         },
     },
     poly::ToField,
@@ -222,19 +222,19 @@ impl<F: PrimeField + From<u64> + Hash> ChiquitoHalo2<F> {
         self.advice_columns = advice_columns;
     }
 
-    // TODO this is not exhaustive, refactoring needed
     fn has_single_fixed_query(&self, column: &cColumn) -> bool {
-        let mut is_single_fixed_query = false;
+        let mut has_only_single_queries = false;
+
         for lookup in &self.plonkish_ir.lookups {
             for expr in &lookup.exprs {
-                if let PolyExpr::Query((lookup_col, _, _), _) = &expr.1 {
-                    if lookup_col.id == column.id {
-                        is_single_fixed_query = true;
-                    }
+                let dest = &expr.1;
+                if dest.involves(column) {
+                    has_only_single_queries = matches!(dest, PolyExpr::Query((_, _, _), _));
                 }
             }
         }
-        is_single_fixed_query
+
+        has_only_single_queries
     }
 
     fn configure_sub_circuit(&mut self, meta: &mut ConstraintSystem<F>) {
@@ -855,4 +855,39 @@ pub(crate) fn chiquito2Halo2<F: PrimeField + From<u64> + Hash>(
     circuit: Circuit<F>,
 ) -> ChiquitoHalo2<F> {
     ChiquitoHalo2::new(circuit)
+}
+
+impl<F> ExpressionWithColumn for Expression<F> {
+    fn involves(&self, column: &cColumn) -> bool {
+        let mut is_in_expr = false;
+        match self {
+            Expression::Constant(_) => todo!(),
+            Expression::Selector(_) => todo!(),
+            Expression::Fixed(q) => {
+                if column.halo2_fixed.is_some() {
+                    return column.halo2_fixed.as_ref().unwrap().column.index == q.column_index;
+                }
+            }
+            Expression::Advice(q) => {
+                if column.halo2_advice.is_some() {
+                    return column.halo2_advice.as_ref().unwrap().column.index == q.column_index;
+                }
+            }
+            Expression::Instance(_) => {}
+            Expression::Challenge(_) => {}
+            Expression::Negated(e) => {
+                is_in_expr = e.involves(column);
+            }
+            Expression::Sum(e1, e2) => {
+                is_in_expr = e1.involves(column) || e2.involves(column);
+            }
+            Expression::Product(e1, e2) => {
+                is_in_expr = e1.involves(column) || e2.involves(column);
+            }
+            Expression::Scaled(e, _) => {
+                is_in_expr = e.involves(column);
+            }
+        }
+        is_in_expr
+    }
 }
