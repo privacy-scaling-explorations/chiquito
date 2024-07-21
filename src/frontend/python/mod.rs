@@ -2,13 +2,12 @@ use pyo3::{
     prelude::*,
     types::{PyDict, PyList, PyLong, PyString},
 };
-use rand_chacha::rand_core::block::BlockRng;
 
 use crate::{
     frontend::dsl::{StepTypeHandler, SuperCircuitContext},
     pil::backend::powdr_pil::chiquito2Pil,
     plonkish::{
-        backend::halo2::{chiquito2Halo2, halo2_verify, ChiquitoHalo2, DummyRng, PlonkishHalo2},
+        backend::halo2::{chiquito2Halo2, halo2_verify, ChiquitoHalo2, Halo2Provable},
         compiler::{
             cell_manager::SingleRowCellManager, compile, config,
             step_selector::SimpleStepSelectorBuilder, PlonkishCompilationResult,
@@ -146,9 +145,8 @@ pub fn chiquito_super_circuit_halo2_mock_prover(
 
     let super_assignments = mapping_ctx.get_super_assignments();
 
-    let rng = BlockRng::new(DummyRng {});
-
-    let halo2_prover = super_circuit.create_halo2_prover(rng);
+    let params_path = "examples/ptau/hermez-raw-11";
+    let halo2_prover = super_circuit.create_halo2_prover(params_path);
 
     let (proof, instance) = halo2_prover.generate_proof(super_assignments);
 
@@ -182,14 +180,13 @@ pub fn chiquito_halo2_mock_prover(witness_json: &str, rust_id: UUID) {
         serde_json::from_str(witness_json).expect("Json deserialization to TraceWitness failed.");
     let (_, compiled, assignment_generator) = rust_id_to_halo2(rust_id);
 
-    let rng = BlockRng::new(DummyRng {});
-
     let mut plonkish = PlonkishCompilationResult {
         circuit: compiled.plonkish_ir,
         assignment_generator,
     };
 
-    let halo2_prover = plonkish.create_halo2_prover(rng);
+    let params_path = "examples/ptau/hermez-raw-11";
+    let halo2_prover = plonkish.create_halo2_prover(params_path);
 
     let (proof, instance) = halo2_prover.generate_proof(
         plonkish

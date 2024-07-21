@@ -127,7 +127,7 @@ impl<'a, F: Field + Hash> StackFrame<'a, F> {
         self.enter_state("initial");
     }
 
-    fn enter_state<S: Into<String>>(&mut self, next_state: S) {
+    pub(super) fn enter_state<S: Into<String>>(&mut self, next_state: S) {
         self.cur_state = next_state.into();
         self.lex_scope.push(self.cur_state.clone());
         self.scopes

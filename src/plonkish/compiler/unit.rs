@@ -38,6 +38,8 @@ pub struct CompilationUnit<F> {
     pub last_step: Option<(Option<StepTypeUUID>, Column)>,
 
     pub num_rows: usize,
+    /// Additional rows for the last padding step instance that doesn't have the q_enable = 1
+    pub additional_rows: usize,
 
     pub polys: Vec<Poly<F>>,
     pub lookups: Vec<PolyLookup<F>>,
@@ -74,6 +76,7 @@ impl<F> Default for CompilationUnit<F> {
             last_step: Default::default(),
 
             num_rows: Default::default(),
+            additional_rows: Default::default(),
 
             polys: Default::default(),
             lookups: Default::default(),

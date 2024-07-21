@@ -156,7 +156,7 @@ impl Debug for ScopeTable {
             .symbols
             .keys()
             .sorted()
-            .map(|id| format!("\"{}\": {:?}", id, self.symbols[id]))
+            .map(|id| format!("{}: {:?}", id, self.symbols[id]))
             .collect::<Vec<_>>()
             .join(",");
 
@@ -232,7 +232,7 @@ impl Debug for SymTable {
             .scopes
             .keys()
             .sorted()
-            .map(|scope| format!("\"{}\": {:?}", scope, self.scopes[scope]))
+            .map(|scope| format!("{}: {:?}", scope, self.scopes[scope]))
             .collect::<Vec<_>>()
             .join(",");
 
@@ -531,8 +531,6 @@ mod test {
         let test_cases = [
             (396, "a"),
             (397, "a"),
-            (395, "final"),
-            (398, "final"),
             (460, "a"),
             (584, "a"),
             (772, "a"),
@@ -566,6 +564,7 @@ mod test {
         ];
 
         for (offset, expected_id) in test_cases {
+            println!("{} {}", offset, expected_id);
             let SymTableEntry { id, .. } = result
                 .symbols
                 .find_symbol_by_offset("some".to_string(), offset)

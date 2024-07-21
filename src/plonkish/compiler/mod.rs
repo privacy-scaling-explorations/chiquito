@@ -84,6 +84,7 @@ pub fn compile_phase1<
         panic!("Cannot calculate the number of rows");
     }
     unit.num_rows = unit.num_steps * (unit.placement.first_step_height() as usize);
+    unit.additional_rows = unit.placement.first_step_height() as usize;
 
     compile_fixed(ast, &mut unit);
 
@@ -100,7 +101,7 @@ pub fn compile_phase1<
             unit.selector.clone(),
             (*v).clone(),
             AutoTraceGenerator::from(ast),
-            unit.num_rows,
+            unit.num_rows + unit.additional_rows,
             unit.uuid,
         )
     });

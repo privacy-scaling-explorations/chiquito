@@ -479,7 +479,7 @@ mod test {
 
         assert_eq!(
             format!("{:?}", result.messages),
-            r#"[SemErr { msg: "use of undeclared variable a", dsym: DebugSymRef { line: 23, cols: "20-21" } }]"#
+            r#"[SemErr { msg: "use of undeclared variable a", dsym: nofile:23:20 }]"#
         )
     }
 
@@ -536,7 +536,7 @@ mod test {
 
         assert_eq!(
             format!("{:?}", result.messages),
-            r#"[SemErr { msg: "There cannot be rotation in identifier declaration of fibo", dsym: DebugSymRef { start: "2:9", end: "40:13" } }]"#
+            r#"[SemErr { msg: "There cannot be rotation in identifier declaration of fibo", dsym: nofile:2:9 }]"#
         );
 
         let circuit = "
@@ -589,7 +589,7 @@ mod test {
 
         assert_eq!(
             format!("{:?}", result.messages),
-            r#"[SemErr { msg: "There cannot be rotation in identifier declaration of initial", dsym: DebugSymRef { start: "10:12", end: "18:14" } }]"#
+            r#"[SemErr { msg: "There cannot be rotation in identifier declaration of initial", dsym: nofile:10:12 }]"#
         );
 
         let circuit = "
@@ -642,7 +642,7 @@ mod test {
 
         assert_eq!(
             format!("{:?}", result.messages),
-            r#"[SemErr { msg: "There cannot be rotation in identifier declaration of c", dsym: DebugSymRef { line: 11, cols: "13-23" } }]"#
+            r#"[SemErr { msg: "There cannot be rotation in identifier declaration of c", dsym: nofile:11:13 }]"#
         )
     }
 
@@ -703,7 +703,7 @@ mod test {
 
         assert_eq!(
             format!("{:?}", result.messages),
-            r#"[SemErr { msg: "Cannot declare state nested here", dsym: DebugSymRef { start: "13:17", end: "15:18" } }]"#
+            r#"[SemErr { msg: "Cannot declare state nested here", dsym: nofile:13:17 }]"#
         );
 
         let circuit = "
@@ -760,7 +760,7 @@ mod test {
 
         assert_eq!(
             format!("{:?}", result.messages),
-            r#"[SemErr { msg: "Cannot declare state nested here", dsym: DebugSymRef { start: "18:1", end: "20:29" } }]"#
+            r#"[SemErr { msg: "Cannot declare state nested here", dsym: nofile:18:1 }]"#
         );
     }
 
@@ -818,7 +818,7 @@ mod test {
 
         assert_eq!(
             format!("{:?}", result.messages),
-            r#"[SemErr { msg: "Cannot assign with <-- or <== to variable wrong with category WGVar, you can only assign to signals. Use = instead.", dsym: DebugSymRef { line: 14, cols: "14-50" } }]"#
+            r#"[SemErr { msg: "Cannot assign with <-- or <== to variable wrong with category WGVar, you can only assign to signals. Use = instead.", dsym: nofile:14:14 }]"#
         );
     }
 
@@ -878,7 +878,7 @@ mod test {
 
         assert_eq!(
             format!("{:?}", result.messages),
-            r#"[SemErr { msg: "Cannot use wgvar wrong in statement assert wrong == 3;", dsym: DebugSymRef { line: 24, cols: "14-32" } }, SemErr { msg: "Cannot use wgvar wrong in statement [c] <== [(a + b) + wrong];", dsym: DebugSymRef { line: 26, cols: "14-34" } }]"#
+            r#"[SemErr { msg: "Cannot use wgvar wrong in statement assert wrong == 3;", dsym: nofile:24:14 }, SemErr { msg: "Cannot use wgvar wrong in statement [c] <== [(a + b) + wrong];", dsym: nofile:26:14 }]"#
         )
     }
 
@@ -943,7 +943,7 @@ mod test {
 
         assert_eq!(
             format!("{:?}", result.messages),
-            r#"[SemErr { msg: "Cannot declare [i, a, b, c] <== [1, 1, 1, 2]; in the machine, only states, wgvars and signals are allowed", dsym: DebugSymRef { start: "2:9", end: "48:13" } }, SemErr { msg: "Cannot declare if (i + 1) == n { [a] <-- [3]; } else { [b] <== [3]; } in the machine, only states, wgvars and signals are allowed", dsym: DebugSymRef { start: "2:9", end: "48:13" } }]"#
+            r#"[SemErr { msg: "Cannot declare [i, a, b, c] <== [1, 1, 1, 2]; in the machine, only states, wgvars and signals are allowed", dsym: nofile:2:9 }, SemErr { msg: "Cannot declare if (i + 1) == n { [a] <-- [3]; } else { [b] <== [3]; } in the machine, only states, wgvars and signals are allowed", dsym: nofile:2:9 }]"#
         );
     }
 
@@ -1009,7 +1009,7 @@ mod test {
 
         assert_eq!(
             format!("{:?}", result.messages),
-            r#"[SemErr { msg: "Cannot redeclare middle in the same scope [\"/\", \"fibo\"]", dsym: DebugSymRef { start: "28:13", end: "43:14" } }, SemErr { msg: "Cannot redeclare n in the same scope [\"/\", \"fibo\"]", dsym: DebugSymRef { line: 20, cols: "13-22" } }, SemErr { msg: "Cannot redeclare c in the same scope [\"/\", \"fibo\", \"middle\"]", dsym: DebugSymRef { line: 30, cols: "14-23" } }]"#
+            r#"[SemErr { msg: "Cannot redeclare middle in the same scope [\"/\", \"fibo\"]", dsym: nofile:28:13 }, SemErr { msg: "Cannot redeclare n in the same scope [\"/\", \"fibo\"]", dsym: nofile:20:13 }, SemErr { msg: "Cannot redeclare c in the same scope [\"/\", \"fibo\", \"middle\"]", dsym: nofile:30:14 }]"#
         );
     }
 
@@ -1066,7 +1066,7 @@ mod test {
 
         assert_eq!(
             format!("{:?}", result.messages),
-            r#"[SemErr { msg: "Cannot declare n with type uint, only field and bool are allowed.", dsym: DebugSymRef { line: 2, cols: "22-36" } }, SemErr { msg: "Cannot declare c with type int, only field and bool are allowed.", dsym: DebugSymRef { line: 21, cols: "14-28" } }]"#
+            r#"[SemErr { msg: "Cannot declare n with type uint, only field and bool are allowed.", dsym: nofile:2:22 }, SemErr { msg: "Cannot declare c with type int, only field and bool are allowed.", dsym: nofile:21:14 }]"#
         );
     }
 
@@ -1132,7 +1132,7 @@ mod test {
 
         assert_eq!(
             format!("{:?}", result.messages),
-            r#"[SemErr { msg: "Cannot use true in expression 2 + true", dsym: DebugSymRef { line: 15, cols: "42-46" } }, SemErr { msg: "Cannot use true in expression 1 * true", dsym: DebugSymRef { line: 32, cols: "24-28" } }, SemErr { msg: "Cannot use false in expression false - 123", dsym: DebugSymRef { line: 32, cols: "31-36" } }, SemErr { msg: "Cannot use false in expression false * false", dsym: DebugSymRef { line: 32, cols: "50-55" } }, SemErr { msg: "Cannot use false in expression false * false", dsym: DebugSymRef { line: 32, cols: "58-63" } }]"#
+            r#"[SemErr { msg: "Cannot use true in expression 2 + true", dsym: nofile:15:42 }, SemErr { msg: "Cannot use true in expression 1 * true", dsym: nofile:32:24 }, SemErr { msg: "Cannot use false in expression false - 123", dsym: nofile:32:31 }, SemErr { msg: "Cannot use false in expression false * false", dsym: nofile:32:50 }, SemErr { msg: "Cannot use false in expression false * false", dsym: nofile:32:58 }]"#
         );
     }
 
@@ -1209,7 +1209,7 @@ mod test {
 
         assert_eq!(
             format!("{:?}", result.messages),
-            r#"[SemErr { msg: "Condition i + 1 in if statement must be a logic expression", dsym: DebugSymRef { start: "36:14", end: "53:15" } }, SemErr { msg: "Signal c in if statement condition must be bool", dsym: DebugSymRef { start: "37:17", end: "39:18" } }, SemErr { msg: "Condition 4 in if statement must be a logic expression", dsym: DebugSymRef { start: "43:17", end: "45:18" } }]"#
+            r#"[SemErr { msg: "Condition i + 1 in if statement must be a logic expression", dsym: nofile:36:14 }, SemErr { msg: "Signal c in if statement condition must be bool", dsym: nofile:37:17 }, SemErr { msg: "Condition 4 in if statement must be a logic expression", dsym: nofile:43:17 }]"#
         );
     }
 
@@ -1270,7 +1270,7 @@ mod test {
 
         assert_eq!(
             format!("{:?}", result.messages),
-            r#"[SemErr { msg: "Cannot assign with = to Signal i, you can only assign to WGVars. Use <-- or <== instead.", dsym: DebugSymRef { line: 15, cols: "14-20" } }]"#
+            r#"[SemErr { msg: "Cannot assign with = to Signal i, you can only assign to WGVars. Use <-- or <== instead.", dsym: nofile:15:14 }]"#
         );
     }
 }
