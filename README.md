@@ -121,11 +121,11 @@ This is explained in more detail in the tutorial, but you can see already how co
 
 ### Read the tutorial
 
-All located in the [tutorial](https://github.com/privacy-scaling-explorations/chiquito/tree/main/tutorials) folder.
+[https://docs.pecadorplonkish.xyz/](https://docs.pecadorplonkish.xyz/)
 
 ### Run the tutorial locally
 
-Follow [Part 2: Quick Start](https://github.com/privacy-scaling-explorations/chiquito/blob/main/tutorials/tutorial_pt2.ipynb) of the `tutorial` folder.
+Follow [book folder files](https://github.com/privacy-scaling-explorations/chiquito/tree/main/book).
 
 ### Writing a chiquito circuit in your project
 
