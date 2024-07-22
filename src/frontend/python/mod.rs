@@ -356,6 +356,7 @@ impl<'de> Visitor<'de> for CircuitVisitor {
             fixed_signals,
             halo2_advice: Default::default(),
             halo2_fixed: Default::default(),
+            halo2_table: Default::default(),
             exposed,
             num_steps,
             annotations,

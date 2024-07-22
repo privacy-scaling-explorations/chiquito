@@ -13,7 +13,7 @@ use crate::{
     wit_gen::{FixedAssignment, FixedGenContext, NullTraceGenerator, TraceGenerator},
 };
 
-use halo2_proofs::plonk::{Advice, Column as Halo2Column, ColumnType, Fixed};
+use halo2_proofs::plonk::{Advice, Column as Halo2Column, ColumnType, Fixed, TableColumn};
 
 use self::query::Queriable;
 
@@ -27,6 +27,7 @@ pub struct SBPIR<F, TG: TraceGenerator<F> = DSLTraceGenerator<F>> {
     pub fixed_signals: Vec<FixedSignal>,
     pub halo2_advice: Vec<ImportedHalo2Advice>,
     pub halo2_fixed: Vec<ImportedHalo2Fixed>,
+    pub halo2_table: Vec<ImportedHalo2Fixed>,
     pub exposed: Vec<(Queriable<F>, ExposeOffset)>,
 
     pub annotations: HashMap<UUID, String>,
@@ -51,6 +52,7 @@ impl<F: Debug, TG: TraceGenerator<F>> Debug for SBPIR<F, TG> {
             .field("fixed_signals", &self.fixed_signals)
             .field("halo2_advice", &self.halo2_advice)
             .field("halo2_fixed", &self.halo2_fixed)
+            .field("halo2_table", &self.halo2_table)
             .field("exposed", &self.exposed)
             .field("annotations", &self.annotations)
             .field("fixed_assignments", &self.fixed_assignments)
@@ -71,6 +73,7 @@ impl<F, TG: TraceGenerator<F>> Default for SBPIR<F, TG> {
             fixed_signals: Default::default(),
             halo2_advice: Default::default(),
             halo2_fixed: Default::default(),
+            halo2_table: Default::default(),
             exposed: Default::default(),
 
             num_steps: Default::default(),
@@ -160,12 +163,21 @@ impl<F, TG: TraceGenerator<F>> SBPIR<F, TG> {
         name: &str,
         column: Halo2Column<Fixed>,
     ) -> ImportedHalo2Fixed {
-        let advice = ImportedHalo2Fixed::new(column, name.to_string());
+        let fixed = ImportedHalo2Fixed::new(column, name.to_string());
 
-        self.halo2_fixed.push(advice);
-        self.annotations.insert(advice.uuid(), name.to_string());
+        self.halo2_fixed.push(fixed);
+        self.annotations.insert(fixed.uuid(), name.to_string());
 
-        advice
+        fixed
+    }
+
+    pub fn add_halo2_table(&mut self, name: &str, column: TableColumn) -> ImportedHalo2Fixed {
+        let fixed = ImportedHalo2Fixed::new(column.inner(), name.to_string());
+
+        self.halo2_table.push(fixed);
+        self.annotations.insert(fixed.uuid(), name.to_string());
+
+        fixed
     }
 
     pub fn add_step_type<N: Into<String>>(&mut self, handler: StepTypeHandler, name: N) {
@@ -196,6 +208,7 @@ impl<F, TG: TraceGenerator<F>> SBPIR<F, TG> {
             fixed_signals: self.fixed_signals,
             halo2_advice: self.halo2_advice,
             halo2_fixed: self.halo2_fixed,
+            halo2_table: self.halo2_table,
             exposed: self.exposed,
             annotations: self.annotations,
             trace_generator: None, // Remove the trace.
@@ -217,6 +230,7 @@ impl<F, TG: TraceGenerator<F>> SBPIR<F, TG> {
             fixed_signals: self.fixed_signals,
             halo2_advice: self.halo2_advice,
             halo2_fixed: self.halo2_fixed,
+            halo2_table: self.halo2_table,
             exposed: self.exposed,
             annotations: self.annotations,
             fixed_assignments: self.fixed_assignments,
@@ -254,6 +268,7 @@ impl<F: Clone + Field, TG: TraceGenerator<F>> SBPIR<F, TG> {
             fixed_signals: self.fixed_signals.clone(),
             halo2_advice: self.halo2_advice.clone(),
             halo2_fixed: self.halo2_fixed.clone(),
+            halo2_table: self.halo2_table.clone(),
             exposed: self.exposed.clone(),
             annotations: self.annotations.clone(),
             trace_generator: None, // Remove the trace.

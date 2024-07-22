@@ -226,6 +226,7 @@ impl<F: Clone, TG: TraceGenerator<F>> From<&astCircuit<F, TG>> for CompilationUn
                     ctype: ColumnType::Fixed,
                     halo2_advice: None,
                     halo2_fixed: None,
+                    halo2_table: None,
                     phase: 0,
                     id: uuid(),
                 })
@@ -240,6 +241,7 @@ impl<F: Clone, TG: TraceGenerator<F>> From<&astCircuit<F, TG>> for CompilationUn
                         ctype: ColumnType::Fixed,
                         halo2_advice: None,
                         halo2_fixed: None,
+                        halo2_table: None,
                         phase: 0,
                         id: uuid(),
                     },
@@ -253,6 +255,7 @@ impl<F: Clone, TG: TraceGenerator<F>> From<&astCircuit<F, TG>> for CompilationUn
                         ctype: ColumnType::Fixed,
                         halo2_advice: None,
                         halo2_fixed: None,
+                        halo2_table: None,
                         phase: 0,
                         id: uuid(),
                     },

@@ -67,6 +67,7 @@ pub enum ColumnType {
     Fixed,
     Halo2Advice,
     Halo2Fixed,
+    Halo2Table,
 }
 
 #[derive(Clone, Debug)]
@@ -76,6 +77,7 @@ pub struct Column {
     pub ctype: ColumnType,
     pub halo2_advice: Option<ImportedHalo2Advice>,
     pub halo2_fixed: Option<ImportedHalo2Fixed>,
+    pub halo2_table: Option<ImportedHalo2Fixed>,
 
     pub phase: usize,
 
@@ -91,6 +93,7 @@ impl Column {
             phase,
             halo2_advice: None,
             halo2_fixed: None,
+            halo2_table: None,
         }
     }
 
@@ -102,6 +105,7 @@ impl Column {
             phase: 0,
             halo2_advice: None,
             halo2_fixed: None,
+            halo2_table: None,
         }
     }
 
@@ -116,6 +120,7 @@ impl Column {
             ctype: ColumnType::Halo2Advice,
             halo2_advice: Some(halo2_advice),
             halo2_fixed: None,
+            halo2_table: None,
         }
     }
 
@@ -130,6 +135,22 @@ impl Column {
             ctype: ColumnType::Halo2Fixed,
             halo2_advice: None,
             halo2_fixed: Some(halo2_fixed),
+            halo2_table: None,
+        }
+    }
+
+    pub fn new_halo2_table<A: Into<String>>(
+        annotation: A,
+        halo2_table: ImportedHalo2Fixed,
+    ) -> Column {
+        Column {
+            annotation: annotation.into(),
+            id: uuid(),
+            phase: 0,
+            ctype: ColumnType::Halo2Table,
+            halo2_advice: None,
+            halo2_fixed: None,
+            halo2_table: Some(halo2_table),
         }
     }
 
@@ -191,8 +212,9 @@ impl<F> ExpressionWithColumn for PolyExpr<F> {
             PolyExpr::Neg(e, _) | PolyExpr::Pow(e, _, _) => {
                 is_in_expr = e.involves(column);
             }
-            PolyExpr::Halo2Expr(e, _) => {
-                is_in_expr = e.involves(column);
+            PolyExpr::Halo2Expr(_, _) => {
+                // No need for this check because we can distinguish by the imported Halo2 column
+                // type (simple fixed vs table)
             }
             PolyExpr::Const(_, _) => {}
             PolyExpr::MI(e, _) => {

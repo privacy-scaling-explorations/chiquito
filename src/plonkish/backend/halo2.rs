@@ -48,7 +48,7 @@ use crate::{
             assignments::Assignments,
             sc::{SuperAssignments, SuperCircuit},
             Circuit, Column as cColumn,
-            ColumnType::{Advice as cAdvice, Fixed as cFixed, Halo2Advice, Halo2Fixed},
+            ColumnType::{Advice as cAdvice, Fixed as cFixed, Halo2Advice, Halo2Fixed, Halo2Table},
             ExpressionWithColumn, PolyExpr,
         },
     },
@@ -205,7 +205,7 @@ impl<F: PrimeField + From<u64> + Hash> ChiquitoHalo2<F> {
                     advice_columns.insert(column.uuid(), halo2_column);
                     cs.annotate_lookup_any_column(halo2_column, || column.annotation.clone());
                 }
-                cFixed | Halo2Fixed => {
+                cFixed | Halo2Fixed | Halo2Table => {
                     // Fixed columns require special handling regarding the type of query that is
                     // only possible to determine by analyzing all subscircuits
                 }
@@ -270,8 +270,8 @@ impl<F: PrimeField + From<u64> + Hash> ChiquitoHalo2<F> {
             for (idx, (_, dest)) in lookup.exprs.iter().enumerate() {
                 match dest {
                     PolyExpr::Query((column, _, _), _) => {
-                        if column.ctype == cFixed
-                            || column.ctype == Halo2Fixed && self.has_single_fixed_query(column)
+                        if column.ctype == cFixed && self.has_single_fixed_query(column)
+                            || column.ctype == Halo2Table
                         {
                             single_fixed_queries.push((
                                 lookup.exprs[idx].clone().0,
@@ -357,7 +357,7 @@ impl<F: PrimeField + From<u64> + Hash> ChiquitoHalo2<F> {
 
                 meta.query_advice(*c, Rotation(rotation))
             }
-            cFixed | Halo2Fixed => {
+            cFixed | Halo2Fixed | Halo2Table => {
                 let c = self
                     .fixed_columns
                     .get(&column.uuid())
@@ -403,7 +403,7 @@ impl<F: PrimeField + From<u64> + Hash> ChiquitoHalo2<F> {
             .for_each(|(row, (column, offset))| {
                 let col_type: Columns = match column.ctype {
                     cAdvice | Halo2Advice => Columns::Advice,
-                    cFixed | Halo2Fixed => Columns::Fixed,
+                    cFixed | Halo2Fixed | Halo2Table => Columns::Fixed,
                 };
 
                 let index = if col_type == Columns::Advice {
@@ -883,39 +883,4 @@ pub(crate) fn chiquito2Halo2<F: PrimeField + From<u64> + Hash>(
     circuit: Circuit<F>,
 ) -> ChiquitoHalo2<F> {
     ChiquitoHalo2::new(circuit)
-}
-
-impl<F> ExpressionWithColumn for Expression<F> {
-    fn involves(&self, column: &cColumn) -> bool {
-        let mut is_in_expr = false;
-        match self {
-            Expression::Constant(_) => todo!(),
-            Expression::Selector(_) => todo!(),
-            Expression::Fixed(q) => {
-                if column.halo2_fixed.is_some() {
-                    return column.halo2_fixed.as_ref().unwrap().column.index == q.column_index;
-                }
-            }
-            Expression::Advice(q) => {
-                if column.halo2_advice.is_some() {
-                    return column.halo2_advice.as_ref().unwrap().column.index == q.column_index;
-                }
-            }
-            Expression::Instance(_) => {}
-            Expression::Challenge(_) => {}
-            Expression::Negated(e) => {
-                is_in_expr = e.involves(column);
-            }
-            Expression::Sum(e1, e2) => {
-                is_in_expr = e1.involves(column) || e2.involves(column);
-            }
-            Expression::Product(e1, e2) => {
-                is_in_expr = e1.involves(column) || e2.involves(column);
-            }
-            Expression::Scaled(e, _) => {
-                is_in_expr = e.involves(column);
-            }
-        }
-        is_in_expr
-    }
 }

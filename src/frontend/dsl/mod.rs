@@ -5,7 +5,7 @@ use crate::{
     wit_gen::{FixedGenContext, StepInstance, TraceGenerator},
 };
 
-use halo2_proofs::plonk::{Advice, Column as Halo2Column, Fixed};
+use halo2_proofs::plonk::{Advice, Column as Halo2Column, Fixed, TableColumn};
 use trace::{DSLTraceGenerator, TraceContext};
 
 use core::{fmt::Debug, hash::Hash};
@@ -80,6 +80,12 @@ impl<F, TG: TraceGenerator<F>> CircuitContext<F, TG> {
     /// `Queriable` instance representing the imported column.
     pub fn import_halo2_fixed(&mut self, name: &str, column: Halo2Column<Fixed>) -> Queriable<F> {
         Queriable::Halo2FixedQuery(self.circuit.add_halo2_fixed(name, column), 0)
+    }
+
+    /// Imports a halo2 table column with a name string into the circuit and returns a
+    /// `Queriable` instance representing the imported column.
+    pub fn import_halo2_table(&mut self, name: &str, column: TableColumn) -> Queriable<F> {
+        Queriable::Halo2FixedQuery(self.circuit.add_halo2_table(name, column), 0)
     }
 
     /// Adds a new step type with the specified name to the circuit and returns a

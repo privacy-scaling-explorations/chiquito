@@ -587,8 +587,21 @@ fn add_halo2_columns<F, TG: TraceGenerator<F>>(
         })
         .collect();
 
+    let halo2_table_columns: Vec<Column> = ast
+        .halo2_table
+        .iter()
+        .map(|signal| {
+            if let Some(annotation) = unit.annotations.get(&signal.uuid()) {
+                Column::new_halo2_table(format!("halo2 table {}", annotation), *signal)
+            } else {
+                Column::new_halo2_table("halo2 table", *signal)
+            }
+        })
+        .collect();
+
     unit.columns.extend(halo2_advice_columns);
     unit.columns.extend(halo2_fixed_columns);
+    unit.columns.extend(halo2_table_columns);
 }
 
 #[cfg(test)]
