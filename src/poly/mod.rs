@@ -23,7 +23,7 @@ pub trait ToField<F> {
 }
 
 pub trait Meta: Clone + Default + Debug + Hash {
-    fn from_expr<F: Field + Hash, V: Clone + Eq + Hash>(
+    fn apply_meta<F: Field + Hash, V: Clone + Eq + Hash>(
         expr: &Expr<F, V, ()>,
         assignments: &VarAssignments<F, V>,
     ) -> Self;
@@ -42,7 +42,7 @@ pub enum Expr<F, V, M: Meta> {
 }
 
 impl Meta for () {
-    fn from_expr<F: Field + Hash, V: Clone + Eq + Hash>(
+    fn apply_meta<F: Field + Hash, V: Clone + Eq + Hash>(
         _expr: &Expr<F, V, ()>,
         _assignments: &VarAssignments<F, V>,
     ) -> Self {
@@ -50,7 +50,7 @@ impl Meta for () {
 }
 
 impl Meta for HashResult {
-    fn from_expr<F: Field + Hash, V: Clone + Eq + Hash>(
+    fn apply_meta<F: Field + Hash, V: Clone + Eq + Hash>(
         expr: &Expr<F, V, ()>,
         assignments: &VarAssignments<F, V>,
     ) -> Self {
@@ -129,7 +129,7 @@ impl<F: Clone, V: Clone, M: Meta> Expr<F, V, M> {
 impl<F: Field + Hash, V: Debug + Clone + Eq + Hash, M: Meta> Expr<F, V, M> {
     pub fn with_meta<N: Meta>(&self, assignments: &VarAssignments<F, V>) -> Expr<F, V, N> {
         let expr_without_meta = self.without_meta();
-        let new_meta = N::from_expr(&expr_without_meta, assignments);
+        let new_meta = N::apply_meta(&expr_without_meta, assignments);
         match self {
             Expr::Const(v, _) => Expr::Const(*v, new_meta),
             Expr::Sum(ses, _) => Expr::Sum(
