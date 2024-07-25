@@ -8,15 +8,15 @@ authors = ["Leo Lara <leo@leolara.me>"]
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [patch.crates-io]
-halo2_proofs = { git = "https://github.com/privacy-scaling-explorations/halo2.git", default-features = false, rev = "da4983e" }
+halo2_proofs = { git = "https://github.com/privacy-scaling-explorations/halo2.git", rev = "da4983e" }
 
 [patch."https://github.com/scroll-tech/halo2.git"]
-halo2_proofs = { git = "https://github.com/privacy-scaling-explorations/halo2.git", default-features = false, rev = "da4983e" }
+halo2_proofs = { git = "https://github.com/privacy-scaling-explorations/halo2.git", rev = "da4983e" }
 
 [dependencies]
 pyo3 = { version = "0.19.1", features = ["extension-module"] }
 
-halo2_proofs = { git = "https://github.com/privacy-scaling-explorations/halo2.git", default-features = false, features = [ "circuit-params", "derive_serde"], rev = "da4983e"}
+halo2_proofs = { git = "https://github.com/privacy-scaling-explorations/halo2.git", features = [ "circuit-params", "derive_serde"], rev = "da4983e"}
 
 halo2_middleware = { git = "https://github.com/privacy-scaling-explorations/halo2.git", rev = "da4983e" }
 halo2_backend = { git = "https://github.com/privacy-scaling-explorations/halo2.git", features = ["derive_serde"], rev = "da4983e" }
@@ -36,3 +36,6 @@ rand_chacha = "0.3"
 
 [build-dependencies]
 lalrpop = "0.20.0"
+
+[features]
+debug_pil = []

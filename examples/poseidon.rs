@@ -703,7 +703,7 @@ fn main() {
     let mut super_circuit = poseidon_super_circuit(lens);
     let witness = super_circuit.get_mapping().generate(values);
 
-    let params_path = "examples/ptau/hermez-raw-11";
+    let params_path = "examples/ptau/hermez-raw-12";
 
     let halo2_prover = super_circuit.create_halo2_prover(params_path);
     println!("k={}", halo2_prover.get_k());
