@@ -403,7 +403,7 @@ impl<F: PrimeField> ConstraintSystemBuilder<F> {
             column_type: column.column_type,
             index: column.index,
         }) {
-            self.permutation = permutation::ArgumentMid {
+            self.permutation = PermutationArgument {
                 columns: self
                     .permutation
                     .columns
@@ -419,22 +419,7 @@ impl<F: PrimeField> ConstraintSystemBuilder<F> {
     }
 
     fn new() -> Self {
-        Self {
-            num_fixed_columns: 0,
-            num_advice_columns: 0,
-            has_instance_column: false,
-            gates: Vec::new(),
-            lookups: Vec::new(),
-            advice_idx_map: HashMap::new(),
-            fixed_idx_map: HashMap::new(),
-            permutation: permutation::ArgumentMid {
-                columns: Vec::new(),
-            },
-            advice_queries: HashMap::new(),
-            fixed_queries: HashMap::new(),
-            instance_queries: HashMap::new(),
-            annotations: HashMap::new(),
-        }
+        Self::default()
     }
 
     fn advice_column(&mut self, column: &cColumn) -> ColumnMid {
@@ -461,7 +446,7 @@ impl<F: PrimeField> ConstraintSystemBuilder<F> {
             index,
         };
         self.fixed_idx_map.insert(column.uuid(), index);
-        self.annotate(index, &column, Any::Fixed);
+        self.annotate(index, column, Any::Fixed);
         self.num_fixed_columns += 1;
         column_mid
     }
@@ -472,7 +457,7 @@ impl<F: PrimeField> ConstraintSystemBuilder<F> {
             index,
         };
         self.advice_idx_map.insert(column.uuid(), index);
-        self.annotate(index, &column, Any::Advice);
+        self.annotate(index, column, Any::Advice);
         self.num_advice_columns += 1;
         column_mid
     }
@@ -619,6 +604,13 @@ impl<F: PrimeField + Hash> Halo2Configurable<F> for ChiquitoHalo2SuperCircuit<F>
     }
 }
 
+#[derive(Debug, Clone, Default)]
+pub struct PermutationArgument {
+    /// A sequence of columns involved in the argument.
+    pub columns: Vec<ColumnMid>,
+}
+
+#[derive(Default)]
 struct ConstraintSystemBuilder<F: PrimeField> {
     num_fixed_columns: usize,
     num_advice_columns: usize,
@@ -629,7 +621,7 @@ struct ConstraintSystemBuilder<F: PrimeField> {
     advice_idx_map: HashMap<UUID, usize>,
     /// Map from fixed column UUID to index
     fixed_idx_map: HashMap<UUID, usize>,
-    permutation: permutation::ArgumentMid,
+    permutation: PermutationArgument,
     advice_queries: HashMap<usize, usize>,
     fixed_queries: HashMap<usize, usize>,
     instance_queries: HashMap<usize, usize>,
@@ -647,7 +639,9 @@ impl<F: PrimeField> From<ConstraintSystemBuilder<F>> for ConstraintSystemMid<F> 
             advice_column_phase: (0..val.num_advice_columns).map(|_| 0).collect(),
             challenge_phase: Vec::new(),
             gates: val.gates,
-            permutation: val.permutation,
+            permutation: permutation::ArgumentMid {
+                columns: val.permutation.columns,
+            },
             lookups: val.lookups,
             shuffles: Vec::new(),
             general_column_annotations: val.annotations,
