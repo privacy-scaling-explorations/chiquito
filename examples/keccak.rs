@@ -14,9 +14,8 @@ use chiquito::{
     poly::ToExpr,
     sbpir::query::Queriable,
 };
+use halo2_middleware::{ff::PrimeField, halo2curves::bn256::Fr};
 use std::{hash::Hash, ops::Neg};
-
-use halo2_proofs::halo2curves::{bn256::Fr, group::ff::PrimeField};
 
 const BIT_COUNT: u64 = 3;
 const PART_SIZE: u64 = 5;

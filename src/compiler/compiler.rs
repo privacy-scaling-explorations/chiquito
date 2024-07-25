@@ -624,7 +624,7 @@ impl<F> poly::SignalFactory<Queriable<F>> for SignalFactory<F> {
 
 #[cfg(test)]
 mod test {
-    use halo2_proofs::halo2curves::bn256::Fr;
+    use halo2_middleware::halo2curves::bn256::Fr;
 
     use crate::{
         compiler::{compile, compile_file},

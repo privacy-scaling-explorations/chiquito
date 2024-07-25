@@ -66,7 +66,7 @@ mod test {
     use super::*;
     use std::collections::HashSet;
 
-    use halo2_proofs::halo2curves::bn256::Fr;
+    use halo2_middleware::halo2curves::bn256::Fr;
 
     use crate::{
         poly::{Expr::*, ToExpr},

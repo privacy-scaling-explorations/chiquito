@@ -171,7 +171,7 @@ impl<F: Field + Hash, MappingArgs> MappingGenerator<F, MappingArgs> {
 
 #[cfg(test)]
 mod test {
-    use halo2_proofs::halo2curves::bn256::Fr;
+    use halo2_middleware::halo2curves::bn256::Fr;
 
     use crate::{
         frontend::dsl::trace::DSLTraceGenerator,

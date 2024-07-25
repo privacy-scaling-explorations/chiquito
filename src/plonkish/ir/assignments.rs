@@ -5,13 +5,13 @@ use std::{
     ops::{Deref, DerefMut},
 };
 
+use halo2_middleware::circuit::ColumnMid;
+
 use crate::{
     field::Field,
     frontend::dsl::trace::DSLTraceGenerator,
     wit_gen::{AutoTraceGenerator, TraceGenerator},
 };
-
-use halo2_proofs::plonk::{Advice, Column as Halo2Column};
 
 use crate::{
     plonkish::compiler::{cell_manager::Placement, step_selector::StepSelector},
@@ -298,7 +298,7 @@ where
         (placement.column, super_rotation)
     }
 
-    fn find_halo2_advice_native(&self, halo2_advice: Halo2Column<Advice>) -> Option<Column> {
+    fn find_halo2_advice_native(&self, halo2_advice: ColumnMid) -> Option<Column> {
         for column in self.columns.iter() {
             if let Some(advice) = column.halo2_advice {
                 if advice.column == halo2_advice {

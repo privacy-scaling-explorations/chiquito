@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use halo2_proofs::plonk::{Advice, Column as Halo2Column};
+use halo2_middleware::circuit::ColumnMid;
 
 use crate::{
     field::Field,
@@ -107,7 +107,7 @@ impl StepSelectorBuilder for SimpleStepSelectorBuilder {
 
 #[derive(Debug, Default, Clone)]
 pub struct TwoStepsSelectorBuilder {
-    pub halo2_column: Option<Halo2Column<Advice>>,
+    pub halo2_column: Option<ColumnMid>,
     pub hint_one: Option<String>,
 }
 
@@ -263,7 +263,7 @@ fn other_step_type<F: Clone>(unit: &CompilationUnit<F>, uuid: UUID) -> Option<St
 
 #[cfg(test)]
 mod tests {
-    use halo2_proofs::halo2curves::bn256::Fr;
+    use halo2_middleware::halo2curves::bn256::Fr;
     use uuid::Uuid;
 
     use super::*;

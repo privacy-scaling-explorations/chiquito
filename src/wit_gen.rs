@@ -300,7 +300,7 @@ mod tests {
         sbpir::{query::Queriable, FixedSignal, ForwardSignal},
         util::uuid,
     };
-    use halo2_proofs::halo2curves::bn256::Fr;
+    use halo2_middleware::halo2curves::bn256::Fr;
 
     #[test]
     fn test_trace_witness_display() {

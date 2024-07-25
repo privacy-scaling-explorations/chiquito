@@ -593,7 +593,8 @@ fn add_halo2_columns<F, TG: TraceGenerator<F>>(
 
 #[cfg(test)]
 mod test {
-    use halo2_proofs::{halo2curves::bn256::Fr, plonk::Any};
+
+    use halo2_middleware::{circuit::Any, halo2curves::bn256::Fr};
 
     use crate::{frontend::dsl::trace::DSLTraceGenerator, wit_gen::NullTraceGenerator};
 

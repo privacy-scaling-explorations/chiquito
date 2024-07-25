@@ -5,7 +5,7 @@ use std::{
     ops::{Add, Mul, Neg, Sub},
 };
 
-use halo2_proofs::plonk::Expression;
+use halo2_middleware::{circuit::VarMid, expression::Expression};
 
 use crate::field::Field;
 
@@ -30,7 +30,7 @@ pub enum Expr<F, V, M> {
     Neg(Box<Expr<F, V, M>>, M),
     Pow(Box<Expr<F, V, M>>, u32, M),
     Query(V, M),
-    Halo2Expr(Expression<F>, M),
+    Halo2Expr(Expression<F, VarMid>, M),
 
     MI(Box<Expr<F, V, M>>, M), //  Multiplicative inverse, but MI(0) = 0
 }
@@ -319,9 +319,9 @@ impl<F: Field + From<u64>> ToField<F> for i32 {
     }
 }
 
-impl<F, V> From<Expression<F>> for Expr<F, V, ()> {
+impl<F, V> From<Expression<F, VarMid>> for Expr<F, V, ()> {
     #[inline]
-    fn from(value: Expression<F>) -> Self {
+    fn from(value: Expression<F, VarMid>) -> Self {
         Expr::Halo2Expr(value, ())
     }
 }
@@ -365,7 +365,7 @@ impl<F: Clone, V: Clone + Eq + PartialEq + Hash> ConstrDecomp<F, V> {
 
 #[cfg(test)]
 mod test {
-    use halo2_proofs::{arithmetic::Field, halo2curves::bn256::Fr};
+    use halo2_middleware::halo2curves::{bn256::Fr, ff::Field};
     use rand_chacha::{rand_core::SeedableRng, ChaCha20Rng};
 
     use crate::{

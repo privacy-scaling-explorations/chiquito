@@ -407,7 +407,7 @@ pub fn table<F: Default>() -> LookupTableStore<F> {
 
 #[cfg(test)]
 mod tests {
-    use halo2_proofs::halo2curves::bn256::Fr;
+    use halo2_middleware::halo2curves::bn256::Fr;
 
     use super::*;
     use crate::poly::{ToExpr, ToField};

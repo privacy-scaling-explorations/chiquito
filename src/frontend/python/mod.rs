@@ -24,7 +24,7 @@ use crate::{
 };
 
 use core::result::Result;
-use halo2_proofs::halo2curves::bn256::Fr;
+use halo2_middleware::halo2curves::bn256::Fr;
 use serde::de::{self, Deserialize, Deserializer, IgnoredAny, MapAccess, Visitor};
 use std::{cell::RefCell, collections::HashMap, fmt};
 

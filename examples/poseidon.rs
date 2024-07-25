@@ -14,7 +14,7 @@ use chiquito::{
 
 use std::hash::Hash;
 
-use halo2_proofs::halo2curves::{bn256::Fr, group::ff::PrimeField};
+use halo2_middleware::halo2curves::{bn256::Fr, group::ff::PrimeField};
 
 #[derive(Clone)]
 struct RoundValues<F: PrimeField> {

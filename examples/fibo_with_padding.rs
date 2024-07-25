@@ -22,7 +22,7 @@ use chiquito::{
         * circuit */
     poly::ToField,
 };
-use halo2_proofs::halo2curves::bn256::Fr;
+use halo2_middleware::halo2curves::bn256::Fr;
 
 // This example file extends the rust example file 'fibonacci.rs',
 // describing usage of multiple steptypes, padding, and exposing signals.

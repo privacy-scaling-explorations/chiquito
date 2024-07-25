@@ -2,7 +2,7 @@ use crate::{
     plonkish::ir::{assignments::Assignments, Circuit, Column, ColumnType, PolyExpr},
     util::UUID,
 };
-use halo2_proofs::arithmetic::Field;
+use halo2_middleware::halo2curves::ff::Field;
 use plonkish_backend::{
     backend::{PlonkishCircuit, PlonkishCircuitInfo},
     util::expression::{rotate::Rotation, Expression, Query},

@@ -22,7 +22,7 @@ use chiquito::{
         * circuit */
     poly::ToField,
 };
-use halo2_proofs::halo2curves::bn256::Fr;
+use halo2_middleware::halo2curves::bn256::Fr;
 
 const MAX_FACTORIAL: usize = 10;
 

@@ -1,27 +1,12 @@
 use std::{collections::HashMap, fs::File, hash::Hash, iter, marker::PhantomData, vec};
 
-use halo2_backend::plonk::{
-    keygen::{keygen_pk, keygen_vk},
-    prover::ProverSingle,
-    verifier::verify_proof_single,
-    Error as ErrorBack,
-};
-use halo2_middleware::{
-    circuit::{
-        Any as Columns, Cell as CellMid, ColumnMid, CompiledCircuit, ExpressionMid, GateMid,
-        Preprocessing, QueryMid, VarMid,
+use halo2_backend::{
+    plonk::{
+        keygen::{keygen_pk, keygen_vk},
+        prover::ProverSingle,
+        verifier::verify_proof_single,
+        Error as ErrorBack, ProvingKey, VerifyingKey,
     },
-    lookup,
-    permutation::{self, AssemblyMid},
-    zal::impls::{H2cEngine, PlonkEngineConfig},
-};
-use halo2_proofs::{
-    arithmetic::Field,
-    halo2curves::{
-        bn256::{Bn256, Fr, G1Affine},
-        ff::PrimeField,
-    },
-    plonk::{Any, Column, ConstraintSystemMid, Error, ProvingKey, VerifyingKey},
     poly::{
         commitment::Params,
         kzg::{
@@ -29,12 +14,24 @@ use halo2_proofs::{
             multiopen::{ProverSHPLONK, VerifierSHPLONK},
             strategy::SingleStrategy,
         },
-        Rotation,
     },
     transcript::{
         Blake2bRead, Blake2bWrite, Challenge255, TranscriptReadBuffer, TranscriptWriterBuffer,
     },
 };
+use halo2_middleware::{
+    circuit::{
+        Any as Columns, Cell as CellMid, ColumnMid, CompiledCircuit, ConstraintSystemMid,
+        ExpressionMid, GateMid, Preprocessing, QueryMid, VarMid,
+    },
+    halo2curves::bn256::{Bn256, Fr, G1Affine},
+    lookup,
+    permutation::{self, AssemblyMid},
+    poly::Rotation,
+    zal::impls::{H2cEngine, PlonkEngineConfig},
+};
+
+use halo2_middleware::halo2curves::ff::{Field, PrimeField};
 use rand_chacha::rand_core::{
     block::{BlockRng, BlockRngCore},
     OsRng,
@@ -81,7 +78,7 @@ trait Halo2Configurable<F: PrimeField> {
     fn compile_middleware(
         &mut self,
         num_circuit_rows: usize,
-    ) -> Result<(CompiledCircuit<F>, u32), Error> {
+    ) -> Result<(CompiledCircuit<F>, u32), ErrorBack> {
         let mut cs_builder = self.configure_cs();
 
         let preprocessing = self.preprocessing(&mut cs_builder);
@@ -278,12 +275,12 @@ impl<F: PrimeField> ConstraintSystemBuilder<F> {
         match column.ctype {
             cAdvice => ExpressionMid::Var(VarMid::Query(QueryMid {
                 column_index: self.advice_idx_map[&column.uuid()],
-                column_type: Any::Advice,
+                column_type: Columns::Advice,
                 rotation: Rotation(rotation),
             })),
             cFixed => ExpressionMid::Var(VarMid::Query(QueryMid {
                 column_index: self.fixed_idx_map[&column.uuid()],
-                column_type: Any::Fixed,
+                column_type: Columns::Fixed,
                 rotation: Rotation(rotation),
             })),
             Halo2Advice | Halo2Fixed => {
@@ -318,22 +315,22 @@ impl<F: PrimeField> ConstraintSystemBuilder<F> {
         }
     }
 
-    fn annotate(&mut self, index: usize, column: &cColumn, column_type: Any) {
+    fn annotate(&mut self, index: usize, column: &cColumn, column_type: Columns) {
         self.annotations
             .insert(ColumnMid { index, column_type }, column.annotation.clone());
     }
 
-    fn count_query(&mut self, column: Column<Any>) {
+    fn count_query(&mut self, column: ColumnMid) {
         match column.column_type {
-            Any::Advice => {
+            Columns::Advice => {
                 let advice_queries = &mut self.advice_queries;
                 *advice_queries.entry(column.index).or_insert(0) += 1;
             }
-            Any::Fixed => {
+            Columns::Fixed => {
                 let fixed_queries = &mut self.fixed_queries;
                 *fixed_queries.entry(column.index).or_insert(0) += 1;
             }
-            Any::Instance => {
+            Columns::Instance => {
                 let instance_queries = &mut self.instance_queries;
                 *instance_queries.entry(column.index).or_insert(0) += 1;
             }
@@ -396,8 +393,8 @@ impl<F: PrimeField> ConstraintSystemBuilder<F> {
             });
     }
 
-    fn collect_permutation<C: Into<Column<Any>>>(&mut self, column: C) {
-        let column: Column<Any> = column.into();
+    fn collect_permutation<C: Into<ColumnMid>>(&mut self, column: C) {
+        let column: ColumnMid = column.into();
         self.count_query(column);
         if !self.permutation.columns.contains(&ColumnMid {
             column_type: column.column_type,
@@ -457,22 +454,22 @@ impl<F: PrimeField> ConstraintSystemBuilder<F> {
 
     fn allocate_fixed(&mut self, index: usize, column: &cColumn) -> ColumnMid {
         let column_mid = ColumnMid {
-            column_type: Any::Fixed,
+            column_type: Columns::Fixed,
             index,
         };
         self.fixed_idx_map.insert(column.uuid(), index);
-        self.annotate(index, &column, Any::Fixed);
+        self.annotate(index, column, Columns::Fixed);
         self.num_fixed_columns += 1;
         column_mid
     }
 
     fn allocate_advice(&mut self, index: usize, column: &cColumn) -> ColumnMid {
         let column_mid = ColumnMid {
-            column_type: Any::Advice,
+            column_type: Columns::Advice,
             index,
         };
         self.advice_idx_map.insert(column.uuid(), index);
-        self.annotate(index, &column, Any::Advice);
+        self.annotate(index, column, Columns::Advice);
         self.num_advice_columns += 1;
         column_mid
     }
@@ -802,9 +799,8 @@ fn assign_witness<F: PrimeField + From<u64>>(
 ) {
     for (column, values) in witness.iter() {
         let circuit_column = circuit.advice_columns.get(&column.uuid()).unwrap();
-        let halo2_column = Column::<Any>::from(*circuit_column);
         for (offset, value) in values.iter().enumerate() {
-            assigned_witness[halo2_column.index].as_mut().unwrap()[offset] = *value;
+            assigned_witness[circuit_column.index].as_mut().unwrap()[offset] = *value;
         }
     }
 }

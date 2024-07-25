@@ -2,6 +2,8 @@ pub mod query;
 
 use std::{collections::HashMap, fmt::Debug, hash::Hash, rc::Rc};
 
+use halo2_middleware::circuit::ColumnMid;
+
 use crate::{
     field::Field,
     frontend::dsl::{
@@ -13,8 +15,6 @@ use crate::{
     wit_gen::{FixedAssignment, FixedGenContext, NullTraceGenerator, TraceGenerator},
 };
 
-use halo2_proofs::plonk::{Advice, Column as Halo2Column, ColumnType, Fixed};
-
 use self::query::Queriable;
 
 /// Circuit (Step-Based Polynomial Identity Representation)
@@ -25,8 +25,8 @@ pub struct SBPIR<F, TG: TraceGenerator<F> = DSLTraceGenerator<F>> {
     pub forward_signals: Vec<ForwardSignal>,
     pub shared_signals: Vec<SharedSignal>,
     pub fixed_signals: Vec<FixedSignal>,
-    pub halo2_advice: Vec<ImportedHalo2Advice>,
-    pub halo2_fixed: Vec<ImportedHalo2Fixed>,
+    pub halo2_advice: Vec<ImportedHalo2Column>,
+    pub halo2_fixed: Vec<ImportedHalo2Column>,
     pub exposed: Vec<(Queriable<F>, ExposeOffset)>,
 
     pub annotations: HashMap<UUID, String>,
@@ -142,12 +142,8 @@ impl<F, TG: TraceGenerator<F>> SBPIR<F, TG> {
         }
     }
 
-    pub fn add_halo2_advice(
-        &mut self,
-        name: &str,
-        column: Halo2Column<Advice>,
-    ) -> ImportedHalo2Advice {
-        let advice = ImportedHalo2Advice::new(column, name.to_string());
+    pub fn add_halo2_advice(&mut self, name: &str, column: ColumnMid) -> ImportedHalo2Column {
+        let advice = ImportedHalo2Column::new(column, name.to_string());
 
         self.halo2_advice.push(advice);
         self.annotations.insert(advice.uuid(), name.to_string());
@@ -155,12 +151,8 @@ impl<F, TG: TraceGenerator<F>> SBPIR<F, TG> {
         advice
     }
 
-    pub fn add_halo2_fixed(
-        &mut self,
-        name: &str,
-        column: Halo2Column<Fixed>,
-    ) -> ImportedHalo2Fixed {
-        let advice = ImportedHalo2Fixed::new(column, name.to_string());
+    pub fn add_halo2_fixed(&mut self, name: &str, column: ColumnMid) -> ImportedHalo2Column {
+        let advice = ImportedHalo2Column::new(column, name.to_string());
 
         self.halo2_fixed.push(advice);
         self.annotations.insert(advice.uuid(), name.to_string());
@@ -665,14 +657,14 @@ impl InternalSignal {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
-pub struct ImportedHalo2Column<CT: ColumnType> {
+pub struct ImportedHalo2Column {
     id: UUID,
-    pub column: Halo2Column<CT>,
+    pub column: ColumnMid,
     annotation: &'static str,
 }
 
-impl<CT: ColumnType> ImportedHalo2Column<CT> {
-    pub fn new(column: Halo2Column<CT>, annotation: String) -> ImportedHalo2Column<CT> {
+impl ImportedHalo2Column {
+    pub fn new(column: ColumnMid, annotation: String) -> ImportedHalo2Column {
         ImportedHalo2Column {
             id: uuid(),
             column,
@@ -684,9 +676,6 @@ impl<CT: ColumnType> ImportedHalo2Column<CT> {
         self.id
     }
 }
-
-pub type ImportedHalo2Advice = ImportedHalo2Column<Advice>;
-pub type ImportedHalo2Fixed = ImportedHalo2Column<Fixed>;
 
 #[cfg(test)]
 mod tests {

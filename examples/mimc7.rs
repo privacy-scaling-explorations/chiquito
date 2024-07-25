@@ -1,7 +1,5 @@
 use std::hash::Hash;
 
-use halo2_proofs::halo2curves::{bn256::Fr, group::ff::PrimeField};
-
 use chiquito::{
     frontend::dsl::{lb::LookupTable, super_circuit, trace::DSLTraceGenerator, CircuitContext},
     plonkish::{
@@ -14,6 +12,7 @@ use chiquito::{
     sbpir::query::Queriable,
 };
 
+use halo2_middleware::{ff::PrimeField, halo2curves::bn256::Fr};
 use mimc7_constants::ROUND_CONSTANTS;
 
 // MiMC7 always has 91 rounds

@@ -6,16 +6,13 @@ use std::{
 
 use crate::{
     frontend::dsl::StepTypeHandler,
-    sbpir::{
-        FixedSignal, ForwardSignal, ImportedHalo2Advice, ImportedHalo2Fixed, InternalSignal,
-        SharedSignal,
-    },
+    sbpir::{FixedSignal, ForwardSignal, InternalSignal, SharedSignal},
     util::UUID,
 };
 
 use crate::poly::{Expr, ToExpr};
 
-use super::PIR;
+use super::{ImportedHalo2Column, PIR};
 
 // Queriable
 #[derive(Clone, Copy, PartialEq, Eq, Hash)]
@@ -25,8 +22,8 @@ pub enum Queriable<F> {
     Shared(SharedSignal, i32),
     Fixed(FixedSignal, i32),
     StepTypeNext(StepTypeHandler),
-    Halo2AdviceQuery(ImportedHalo2Advice, i32),
-    Halo2FixedQuery(ImportedHalo2Fixed, i32),
+    Halo2AdviceQuery(ImportedHalo2Column, i32),
+    Halo2FixedQuery(ImportedHalo2Column, i32),
     #[allow(non_camel_case_types)]
     _unaccessible(PhantomData<F>),
 }
@@ -189,7 +186,7 @@ impl<F> From<Queriable<F>> for PIR<F> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use halo2_proofs::halo2curves::bn256::Fr;
+    use halo2_middleware::halo2curves::bn256::Fr;
 
     #[test]
     fn test_expr_fmt() {

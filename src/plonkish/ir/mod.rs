@@ -2,7 +2,7 @@ use std::{fmt::Debug, hash::Hash};
 
 use crate::{
     poly::Expr,
-    sbpir::{ImportedHalo2Advice, ImportedHalo2Fixed},
+    sbpir::ImportedHalo2Column,
     util::{uuid, UUID},
 };
 
@@ -74,8 +74,8 @@ pub struct Column {
     pub annotation: String,
 
     pub ctype: ColumnType,
-    pub halo2_advice: Option<ImportedHalo2Advice>,
-    pub halo2_fixed: Option<ImportedHalo2Fixed>,
+    pub halo2_advice: Option<ImportedHalo2Column>,
+    pub halo2_fixed: Option<ImportedHalo2Column>,
 
     pub phase: usize,
 
@@ -107,7 +107,7 @@ impl Column {
 
     pub fn new_halo2_advice<A: Into<String>>(
         annotation: A,
-        halo2_advice: ImportedHalo2Advice,
+        halo2_advice: ImportedHalo2Column,
     ) -> Column {
         Column {
             annotation: annotation.into(),
@@ -121,7 +121,7 @@ impl Column {
 
     pub fn new_halo2_fixed<A: Into<String>>(
         annotation: A,
-        halo2_fixed: ImportedHalo2Fixed,
+        halo2_fixed: ImportedHalo2Column,
     ) -> Column {
         Column {
             annotation: annotation.into(),
@@ -203,7 +203,7 @@ pub struct PolyLookup<F> {
 #[cfg(test)]
 mod tests {
     use super::PolyExpr;
-    use halo2_proofs::halo2curves::bn256::Fr;
+    use halo2_middleware::halo2curves::bn256::Fr;
 
     #[test]
     fn test_poly_expr_fmt() {

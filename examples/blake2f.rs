@@ -18,7 +18,7 @@ use chiquito::{
     poly::ToExpr,
     sbpir::query::Queriable,
 };
-use halo2_proofs::halo2curves::{bn256::Fr, group::ff::PrimeField};
+use halo2_middleware::{ff::PrimeField, halo2curves::bn256::Fr};
 use std::{fmt::Write, hash::Hash};
 
 pub const IV_LEN: usize = 8;

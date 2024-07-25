@@ -1,13 +1,13 @@
 use core::fmt::Debug;
 use std::{collections::HashMap, rc::Rc};
 
-use halo2_proofs::plonk::{Advice, Column as Halo2Column};
+use halo2_middleware::circuit::ColumnMid;
 
 use crate::{
     plonkish::ir::{assignments::Assignments, Circuit, Column, ColumnType, Poly, PolyLookup},
     sbpir::{
-        FixedSignal, ForwardSignal, ImportedHalo2Advice, ImportedHalo2Fixed, SharedSignal,
-        StepType, StepTypeUUID, SBPIR as astCircuit,
+        FixedSignal, ForwardSignal, ImportedHalo2Column, SharedSignal, StepType, StepTypeUUID,
+        SBPIR as astCircuit,
     },
     util::{uuid, UUID},
     wit_gen::TraceGenerator,
@@ -95,7 +95,7 @@ impl<F> Default for CompilationUnit<F> {
 }
 
 impl<F> CompilationUnit<F> {
-    pub(super) fn find_halo2_advice(&self, to_find: ImportedHalo2Advice) -> Option<Column> {
+    pub(super) fn find_halo2_advice(&self, to_find: ImportedHalo2Column) -> Option<Column> {
         for column in self.columns.iter() {
             if let Some(advice) = column.halo2_advice {
                 if advice == to_find {
@@ -114,7 +114,7 @@ impl<F> CompilationUnit<F> {
         None
     }
 
-    pub(super) fn find_halo2_advice_native(&self, to_find: Halo2Column<Advice>) -> Option<Column> {
+    pub(super) fn find_halo2_advice_native(&self, to_find: ColumnMid) -> Option<Column> {
         for column in self.columns.iter() {
             if let Some(advice) = column.halo2_advice {
                 if advice.column == to_find {
@@ -133,7 +133,7 @@ impl<F> CompilationUnit<F> {
         None
     }
 
-    pub(super) fn find_halo2_fixed(&self, to_find: ImportedHalo2Fixed) -> Option<Column> {
+    pub(super) fn find_halo2_fixed(&self, to_find: ImportedHalo2Column) -> Option<Column> {
         for column in self.columns.iter() {
             if let Some(fixed) = column.halo2_fixed {
                 if fixed == to_find {

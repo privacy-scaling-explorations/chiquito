@@ -5,7 +5,7 @@ use crate::{
     wit_gen::{FixedGenContext, StepInstance, TraceGenerator},
 };
 
-use halo2_proofs::plonk::{Advice, Column as Halo2Column, Fixed};
+use halo2_middleware::circuit::ColumnMid;
 use trace::{DSLTraceGenerator, TraceContext};
 
 use core::{fmt::Debug, hash::Hash};
@@ -72,13 +72,13 @@ impl<F, TG: TraceGenerator<F>> CircuitContext<F, TG> {
 
     /// Imports a halo2 advice column with a name string into the circuit and returns a
     /// `Queriable` instance representing the imported column.
-    pub fn import_halo2_advice(&mut self, name: &str, column: Halo2Column<Advice>) -> Queriable<F> {
+    pub fn import_halo2_advice(&mut self, name: &str, column: ColumnMid) -> Queriable<F> {
         Queriable::Halo2AdviceQuery(self.circuit.add_halo2_advice(name, column), 0)
     }
 
     /// Imports a halo2 fixed column with a name string into the circuit and returns a
     /// `Queriable` instance representing the imported column.
-    pub fn import_halo2_fixed(&mut self, name: &str, column: Halo2Column<Fixed>) -> Queriable<F> {
+    pub fn import_halo2_fixed(&mut self, name: &str, column: ColumnMid) -> Queriable<F> {
         Queriable::Halo2FixedQuery(self.circuit.add_halo2_fixed(name, column), 0)
     }
 
@@ -441,7 +441,7 @@ where
 
 #[cfg(test)]
 mod tests {
-    use halo2_proofs::halo2curves::bn256::Fr;
+    use halo2_middleware::halo2curves::bn256::Fr;
 
     use crate::{sbpir::ForwardSignal, wit_gen::NullTraceGenerator};
 

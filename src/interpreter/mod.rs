@@ -327,7 +327,7 @@ fn get_block_stmts(stmt: &Statement<BigInt, Identifier>) -> Vec<Statement<BigInt
 #[cfg(test)]
 mod test {
     use crate::plonkish::backend::halo2::Halo2Provable;
-    use halo2_proofs::halo2curves::bn256::Fr;
+    use halo2_middleware::halo2curves::bn256::Fr;
     use std::collections::HashMap;
 
     use crate::{
