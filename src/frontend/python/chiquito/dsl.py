@@ -1,5 +1,5 @@
 from __future__ import annotations
-from typing import List, Dict
+from typing import List, Dict, Union
 from enum import Enum
 from typing import Callable, Any
 
@@ -295,4 +295,4 @@ class StepType:
         self.step_type.lookups.append(lookup)
 
 
-LookupBuilder = LookupTableBuilder | InPlaceLookupBuilder
+LookupBuilder = Union[LookupTableBuilder, InPlaceLookupBuilder]
