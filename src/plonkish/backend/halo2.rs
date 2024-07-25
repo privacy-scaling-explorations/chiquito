@@ -126,18 +126,21 @@ pub struct ChiquitoHalo2<F: PrimeField + From<u64>> {
 }
 
 impl<F: PrimeField + Hash> Halo2Configurable<F> for ChiquitoHalo2<F> {
-    fn preprocessing(&self, cs: &mut ConstraintSystemBuilder<F>) -> PreprocessingCompact<F> {
+    fn preprocessing(
+        &self,
+        cs_builder: &mut ConstraintSystemBuilder<F>,
+    ) -> PreprocessingCompact<F> {
         let fixed_count = self.plonkish_ir.fixed_assignments.0.len();
         let mut fixed = vec![vec![]; fixed_count];
 
         for (column, values) in self.plonkish_ir.fixed_assignments.iter() {
-            let column = cs.convert_fixed_column(column);
+            let column = cs_builder.convert_fixed_column(column);
 
             fixed[column.index].extend(values.iter().cloned());
         }
 
         let mut copies = vec![];
-        cs.collect_permutations(&mut copies, &self.plonkish_ir.exposed);
+        cs_builder.collect_permutations(&mut copies, &self.plonkish_ir.exposed);
 
         PreprocessingCompact {
             permutation: AssemblyMid { copies },
@@ -204,8 +207,6 @@ impl<F: PrimeField + From<u64> + Hash> ChiquitoHalo2<F> {
                     let halo2_column = meta.fixed_column(column);
                     fixed_columns.insert(column.uuid(), halo2_column);
                 }
-                // No need to map the index as it already exists for
-                // Halo2 columns
                 Halo2Advice => {
                     let halo2_column = meta.advice_from_halo2(column);
                     advice_columns.insert(column.uuid(), halo2_column);
