@@ -54,7 +54,8 @@ pub fn compile<
     }
 }
 
-pub struct PlonkishCompilationResult<F, TG> {
+#[derive(Clone)]
+pub struct PlonkishCompilationResult<F, TG: TraceGenerator<F>> {
     pub circuit: Circuit<F>,
     pub assignment_generator: Option<AssignmentGenerator<F, TG>>,
 }
