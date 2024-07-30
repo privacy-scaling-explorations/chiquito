@@ -21,21 +21,30 @@ fn replace_subexpr<F: Field + Hash, V: Clone + Eq + Hash + Debug, SF: SignalFact
     decomp: &mut ConstrDecomp<F, V, HashResult>,
 ) -> Expr<F, V, HashResult> {
     let common_expr_hash = common_se.meta().hash;
-    // if the expression is the same as the common subexpression, create a new signal and return it
+    println!("Common expr hash: {:#?}", common_expr_hash);
+    
+    // If the expression is the same as the common subexpression, create a new signal and return it
     if expr.meta().hash == common_expr_hash {
-        // find the signal or create a new signal for the expression
+        // Find the signal or create a new signal for the expression
         let signal = decomp.find_auto_signal_by_hash(common_expr_hash);
+        println!("signal: {:#?}", signal);
+        println!("decomp auto signals: {:#?}", decomp.auto_signals);
 
         if let Some((s, _)) = signal {
-            return Expr::Query(s.clone(), common_se.meta().clone());
+            Expr::Query(s.clone(), common_se.meta().clone())
         } else {
-            let new_var = signal_factory.create(format!("cse_{}", expr.meta().hash));
-            decomp.auto_signals.insert(new_var.clone(), expr.clone());
-            return Expr::Query(new_var, common_se.meta().clone());
-        }   
+            let signal = signal_factory.create("cse");
+            decomp.auto_eq(signal.clone(), common_se.clone());
+            Expr::Query(signal, common_se.meta().clone())
+        }
+    } else if expr.meta().degree < common_se.meta().degree {
+        // If the current expression's degree is less than the common subexpression's degree,
+        // it can't contain the common subexpression, so we return it as is
+        expr.clone()
+    } else {
+        // Only recurse if we haven't found a match and the expression could potentially contain the common subexpression
+        expr.apply_subexpressions(|se| replace_subexpr(se, common_se, signal_factory, decomp))
     }
-
-    expr.apply_subexpressions(|se| replace_subexpr(se, common_se, signal_factory, decomp))
 }
 
 #[cfg(test)]

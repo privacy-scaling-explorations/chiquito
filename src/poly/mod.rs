@@ -41,7 +41,7 @@ pub struct HashResult {
 }
 
 impl HashResult {
-    pub fn new<F: Field + Hash, V: Clone + Eq + Hash>(
+    pub fn new<F: Field + Hash, V: Clone + Eq + Hash + Debug>(
         expr: &Expr<F, V, ()>,
         assignments: &VarAssignments<F, V>,
     ) -> Self {
@@ -50,6 +50,9 @@ impl HashResult {
         // Custom hashing logic
         if let Some(result) = expr.eval(assignments) {
             result.hash(&mut hasher);
+        } else {
+            // TODO: what to do if the expression can't be evaluated?
+            panic!("Expression can't be evaluated: {:#?}", expr);
         }
 
         HashResult {
@@ -92,17 +95,17 @@ impl<F: Clone, V: Clone, M> Expr<F, V, M> {
             Expr::Const(v, m) => Expr::Const(v.clone(), f(m)),
             Expr::Sum(ses, m) => Expr::Sum(ses.iter().map(|e| e.map_meta(&f)).collect(), f(m)),
             Expr::Mul(ses, m) => Expr::Mul(ses.iter().map(|e| e.map_meta(&f)).collect(), f(m)),
-            Expr::Neg(se, m) => Expr::Neg(Box::new(se.map_meta(&f)), f(m)),
-            Expr::Pow(se, exp, m) => Expr::Pow(Box::new(se.map_meta(&f)), *exp, f(m)),
+            Expr::Neg(se, m) => Expr::Neg(Box::new(se.as_ref().map_meta(&f)), f(m)),
+            Expr::Pow(se, exp, m) => Expr::Pow(Box::new(se.as_ref().map_meta(&f)), *exp, f(m)),
             Expr::Query(v, m) => Expr::Query(v.clone(), f(m)),
             Expr::Halo2Expr(e, m) => Expr::Halo2Expr(e.clone(), f(m)),
-            Expr::MI(se, m) => Expr::MI(Box::new(se.map_meta(&f)), f(m)),
+            Expr::MI(se, m) => Expr::MI(Box::new(se.as_ref().map_meta(&f)), f(m)),
         }
     }
 }
 
 impl<F: Field + Hash, V: Debug + Clone + Eq + Hash, M: Clone> Expr<F, V, M> {
-    pub fn with_meta<N, ApplyMetaFn>(&self, apply_meta: ApplyMetaFn) -> Expr<F, V, N>
+    pub fn with_meta<N: Clone, ApplyMetaFn>(&self, apply_meta: ApplyMetaFn) -> Expr<F, V, N>
     where
         ApplyMetaFn: Fn(&Expr<F, V, ()>) -> N + Clone,
     {
@@ -111,26 +114,25 @@ impl<F: Field + Hash, V: Debug + Clone + Eq + Hash, M: Clone> Expr<F, V, M> {
         match self {
             Expr::Const(v, _) => Expr::Const(*v, new_meta),
             Expr::Sum(ses, _) => Expr::Sum(
-                ses.iter().map(|e| e.with_meta(apply_meta.clone())).collect(),
+                ses.iter()
+                    .map(|e| e.with_meta(apply_meta.clone()))
+                    .collect(),
                 new_meta,
             ),
             Expr::Mul(ses, _) => Expr::Mul(
-                ses.iter().map(|e| e.with_meta(apply_meta.clone())).collect(),
+                ses.iter()
+                    .map(|e| e.with_meta(apply_meta.clone()))
+                    .collect(),
                 new_meta,
             ),
             Expr::Neg(se, _) => Expr::Neg(Box::new(se.with_meta(apply_meta.clone())), new_meta),
-            Expr::Pow(se, exp, _) => Expr::Pow(Box::new(se.with_meta(apply_meta.clone())), *exp, new_meta),
+            Expr::Pow(se, exp, _) => {
+                Expr::Pow(Box::new(se.with_meta(apply_meta.clone())), *exp, new_meta)
+            }
             Expr::Query(v, _) => Expr::Query(v.clone(), new_meta),
             Expr::Halo2Expr(e, _) => Expr::Halo2Expr(e.clone(), new_meta),
             Expr::MI(se, _) => Expr::MI(Box::new(se.with_meta(apply_meta.clone())), new_meta),
         }
-    }
-
-    pub fn with_hash_result(&self, assignments: &VarAssignments<F, V>) -> Expr<F, V, HashResult> {
-        self.with_meta(|expr| {
-            let hashed_expr = expr.hash(assignments);
-            hashed_expr.meta().clone()
-        })
     }
 
     pub fn apply_subexpressions<T>(&self, mut f: T) -> Self
@@ -163,7 +165,7 @@ impl<F: Field, V: Clone, M> Expr<F, V, M> {
     }
 }
 
-impl<F: Field + Hash, V: Clone + Eq + Hash> Expr<F, V, ()> {
+impl<F: Field + Hash, V: Clone + Eq + Hash + Debug> Expr<F, V, ()> {
     pub fn hash(&self, assignments: &VarAssignments<F, V>) -> Expr<F, V, HashResult> {
         let hash_result = HashResult::new(self, assignments);
 
@@ -228,7 +230,7 @@ impl<F: Debug, V: Debug, M> Debug for Expr<F, V, M> {
 
 pub type VarAssignments<F, V> = HashMap<V, F>;
 
-impl<F: Field + Hash, V: Eq + PartialEq + Hash, M> Expr<F, V, M> {
+impl<F: Field + Hash, V: Eq + PartialEq + Hash + Debug, M: Hash> Expr<F, V, M> {
     pub fn eval(&self, assignments: &VarAssignments<F, V>) -> Option<F> {
         match self {
             Expr::Const(v, _) => Some(*v),

@@ -230,7 +230,7 @@ impl<F, TG: TraceGenerator<F>, M> SBPIR<F, TG, M> {
 }
 
 impl<F: Field + Hash, TG: TraceGenerator<F> + Clone, M: Clone> SBPIR<F, TG, M> {
-    pub fn with_meta<N, ApplyMetaFn>(&self, apply_meta: ApplyMetaFn) -> SBPIR<F, TG, N>
+    pub fn with_meta<N: Clone, ApplyMetaFn>(&self, apply_meta: ApplyMetaFn) -> SBPIR<F, TG, N>
     where
         ApplyMetaFn: Fn(&Expr<F, Queriable<F>, ()>) -> N + Clone,
     {
@@ -386,7 +386,7 @@ impl<F, M> StepType<F, M> {
         signal
     }
 
-    fn add_internal(&mut self, signal: InternalSignal) {
+    pub fn add_internal(&mut self, signal: InternalSignal) {
         self.annotations
             .insert(signal.uuid(), signal.annotation.to_string());
         self.signals.push(signal);
@@ -406,7 +406,7 @@ impl<F, M> StepType<F, M> {
 }
 
 impl<F: Field + Hash, M: Clone> StepType<F, M> {
-    pub fn with_meta<N, ApplyMetaFn>(&self, apply_meta: ApplyMetaFn) -> StepType<F, N>
+    pub fn with_meta<N: Clone, ApplyMetaFn>(&self, apply_meta: ApplyMetaFn) -> StepType<F, N>
     where
         ApplyMetaFn: Fn(&Expr<F, Queriable<F>, ()>) -> N + Clone,
     {
@@ -546,7 +546,7 @@ pub struct Constraint<F, M> {
 }
 
 impl<F: Field + Hash, M: Clone> Constraint<F, M> {
-    pub fn with_meta<N, ApplyMetaFn>(&self, apply_meta: ApplyMetaFn) -> Constraint<F, N>
+    pub fn with_meta<N: Clone, ApplyMetaFn>(&self, apply_meta: ApplyMetaFn) -> Constraint<F, N>
     where
         ApplyMetaFn: Fn(&Expr<F, Queriable<F>, ()>) -> N + Clone,
     {
@@ -574,7 +574,7 @@ pub struct TransitionConstraint<F, M> {
 }
 
 impl<F: Field + Hash, M: Clone> TransitionConstraint<F, M> {
-    pub fn with_meta<N, ApplyMetaFn>(&self, apply_meta: ApplyMetaFn) -> TransitionConstraint<F, N>
+    pub fn with_meta<N: Clone, ApplyMetaFn>(&self, apply_meta: ApplyMetaFn) -> TransitionConstraint<F, N>
     where
         ApplyMetaFn: Fn(&Expr<F, Queriable<F>, ()>) -> N + Clone,
     {
@@ -677,7 +677,7 @@ impl<F: Debug + Clone, M: Clone + Default> Lookup<F, M> {
 }
 
 impl<F: Field + Hash, M: Clone> Lookup<F, M> {
-    pub fn with_meta<N, ApplyMetaFn>(&self, apply_meta: ApplyMetaFn) -> Lookup<F, N>
+    pub fn with_meta<N: Clone, ApplyMetaFn>(&self, apply_meta: ApplyMetaFn) -> Lookup<F, N>
     where
         ApplyMetaFn: Fn(&Expr<F, Queriable<F>, ()>) -> N + Clone,
     {
