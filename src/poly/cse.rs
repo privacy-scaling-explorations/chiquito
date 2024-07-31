@@ -3,6 +3,7 @@ use crate::field::Field;
 use super::{ConstrDecomp, Expr, HashResult, SignalFactory};
 use std::{fmt::Debug, hash::Hash};
 
+/// This function replaces a common subexpression in an expression with a new signal.
 pub fn replace_expr<F: Field + Hash, V: Clone + Eq + Hash + Debug, SF: SignalFactory<V>>(
     expr: &Expr<F, V, HashResult>,
     common_se: &Expr<F, V, HashResult>,
@@ -15,6 +16,7 @@ pub fn replace_expr<F: Field + Hash, V: Clone + Eq + Hash + Debug, SF: SignalFac
     (new_expr, ConstrDecomp::default())
 }
 
+/// This function creates a new signal for a common subexpression.
 pub fn create_common_ses_signal<
     F: Field,
     V: Clone + PartialEq + Eq + Hash + Debug,
@@ -30,6 +32,7 @@ pub fn create_common_ses_signal<
     (Expr::Query(signal, common_se.meta().clone()), decomp)
 }
 
+/// This function replaces a common subexpression in an expression with a new signal.
 fn replace_subexpr<F: Field + Hash, V: Clone + Eq + Hash + Debug, SF: SignalFactory<V>>(
     expr: &Expr<F, V, HashResult>,
     common_se: &Expr<F, V, HashResult>,
@@ -44,13 +47,11 @@ fn replace_subexpr<F: Field + Hash, V: Clone + Eq + Hash + Debug, SF: SignalFact
         return expr.clone();
     }
 
-    // If the expression is the same as the common subexpression, create a new signal and return it
+    // If the expression is the same as the common subexpression return the signal
     if expr.meta().hash == common_expr_hash {
-        // Find the signal or create a new signal for the expression
         return common_se.clone();
     } else {
-        // Only recurse if we haven't found a match and the expression could potentially contain the
-        // common subexpression
+        // Recursively apply the function to the subexpressions
         expr.apply_subexpressions(|se| replace_subexpr(se, common_se, signal_factory, decomp))
     }
 }

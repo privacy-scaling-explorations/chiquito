@@ -20,6 +20,14 @@ use crate::{
     wit_gen::NullTraceGenerator,
 };
 
+
+/// Common Subexpression Elimination (CSE) optimization.
+/// This optimization replaces common subexpressions with new internal signals for the step type.
+/// This is done by each time finding the optimal subexpression to replace and creating a new signal
+/// for it and replacing it in all constraints.
+/// The process is repeated until no more common subexpressions are found.
+/// Equivalent expressions are found by hashing the expressions with random assignments to the queriables. Using
+/// the Schwartz-Zippel lemma, we can determine if two expressions are equivalent with high probability.
 pub(super) fn cse<F: Field + Hash>(
     mut circuit: SBPIR<F, NullTraceGenerator>,
 ) -> SBPIR<F, NullTraceGenerator> {
@@ -67,6 +75,7 @@ pub(super) fn cse<F: Field + Hash>(
                 let (common_se, decomp) =
                     create_common_ses_signal(&common_expr, &mut signal_factory);
 
+                // Add the new signal to the step type and a constraint for it
                 decomp.auto_signals.iter().for_each(|(q, expr)| {
                     if let Queriable::Internal(signal) = q {
                         step_type_with_hash.add_internal(signal.clone());
@@ -195,16 +204,6 @@ impl<F> poly::SignalFactory<Queriable<F>> for SignalFactory<F> {
         )))
     }
 }
-
-// cse
-// 0. collects a set of expressions Expr<F, V, ()>
-// 1. turns all Expr<F, V, ()> into Expr<F, V, HashResult>
-// 2. traverse all the expressions and find common subexpressions counting the number of times they
-//    appear
-// 3. Sort the common subexpressions by the degree and number of times they appear
-// 4. Replace the best common subexpression with a signal
-// 5. Repeat until no common subexpressions are found
-//
 
 #[cfg(test)]
 mod test {
