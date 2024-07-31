@@ -3,11 +3,11 @@
 
 use rand_chacha::{rand_core::SeedableRng, ChaCha20Rng};
 
-use std::{collections::HashMap, hash::Hash, marker::PhantomData};
+use std::{collections::{HashMap, HashSet}, hash::Hash, marker::PhantomData};
 
 use crate::{
     field::Field,
-    poly::{self, cse::replace_expr, Expr, HashResult, VarAssignments},
+    poly::{self, cse::{create_common_ses_signal, replace_expr}, Expr, HashResult, VarAssignments},
     sbpir::{query::Queriable, InternalSignal, SBPIR},
     wit_gen::NullTraceGenerator,
 };
@@ -17,17 +17,16 @@ pub(super) fn cse<F: Field + Hash>(
 ) -> SBPIR<F, NullTraceGenerator> {
     for (_, step_type) in circuit.step_types.iter_mut() {
         let mut signal_factory = SignalFactory::default();
+        let mut replaced_hashes = HashSet::new();
 
         loop {
             let mut queriables = Vec::<Queriable<F>>::new();
 
             circuit.forward_signals.iter().for_each(|signal| {
-                println!("Forward signal: {:?}", signal);
                 queriables.push(Queriable::Forward(signal.clone(), false));
                 queriables.push(Queriable::Forward(signal.clone(), true));
             });
             step_type.signals.iter().for_each(|signal| {
-                println!("Signal: {:?}", signal);
                 queriables.push(Queriable::Internal(signal.clone()));
             });
 
@@ -53,11 +52,25 @@ pub(super) fn cse<F: Field + Hash>(
             }
 
             // Find the optimal subexpression to replace
-            if let Some(common_expr) = find_optimal_subexpression(&exprs) {
+            println!("Step type before CSE: {:#?}", step_type_with_hash);
+            if let Some(common_expr) = find_optimal_subexpression(&exprs, &replaced_hashes) {
                 println!("Common expression found: {:?}", common_expr);
+                 // Add the hash of the replaced expression to the set
+                 replaced_hashes.insert(common_expr.meta().hash);
+                // Create a new signal for the common subexpression
+                let (common_se, decomp) = create_common_ses_signal(&common_expr, &mut signal_factory);
+
+                decomp.auto_signals.iter().for_each(|(q, expr)| {
+                    if let Queriable::Internal(signal) = q {
+                        step_type_with_hash.add_internal(signal.clone());
+                    }
+                    step_type_with_hash.auto_signals.insert(q.clone(), expr.clone());
+                    step_type_with_hash.add_constr(format!("{:?}", q), expr.clone());
+                });
+
                 // Replace the common subexpression in all constraints
                 step_type_with_hash.decomp_constraints(|expr| {
-                    replace_expr(expr, &common_expr, &mut signal_factory)
+                    replace_expr(expr, &common_se, &mut signal_factory, decomp.clone())
                 });
             } else {
                 // No more common subexpressions found, exit the loop
@@ -88,29 +101,35 @@ impl SubexprInfo {
 
 fn find_optimal_subexpression<F: Field + Hash>(
     exprs: &Vec<Expr<F, Queriable<F>, HashResult>>,
+    replaced_hashes: &HashSet<u64>,
 ) -> Option<Expr<F, Queriable<F>, HashResult>> {
-    // Extract all the subexpressions that appear more than once and sort them by degree
-    // and number of times they appear
     let mut count_map = HashMap::<u64, SubexprInfo>::new();
+    let mut hash_to_expr = HashMap::<u64, Expr<F, Queriable<F>, HashResult>>::new();
+
+    // Extract all subexpressions and count them
     for expr in exprs.iter() {
-        count_subexpressions(expr, &mut count_map);
+        count_subexpressions(expr, &mut count_map, &mut hash_to_expr, replaced_hashes);
     }
 
-    // Find the best common subexpression to replace - the one with the highest degree and
-    // the highest number of appearances
+    // Find the best common subexpression to replace
     let common_ses = count_map
         .into_iter()
-        .filter(|&(_, info)| info.count > 1 && info.degree > 1)
+        .filter(|&(hash, info)| info.count > 1 && info.degree > 1 && !replaced_hashes.contains(&hash))
         .collect::<HashMap<_, _>>();
+
+    println!("Common subexpressions: {:#?}", common_ses);
 
     let best_subexpr = common_ses
         .iter()
         .max_by_key(|&(_, info)| (info.degree, info.count))
         .map(|(&hash, info)| (hash, info.count, info.degree));
 
+    println!("Best subexpression: {:#?}", best_subexpr);
+
     if let Some((hash, _count, _degree)) = best_subexpr {
-        let best_subexpr = exprs.iter().find(|expr| expr.meta().hash == hash);
-        best_subexpr.cloned()
+        let best_subexpr = hash_to_expr.get(&hash).cloned();
+        println!("Best subexpression found: {:#?}", best_subexpr);
+        best_subexpr
     } else {
         None
     }
@@ -119,30 +138,39 @@ fn find_optimal_subexpression<F: Field + Hash>(
 fn count_subexpressions<F: Field + Hash>(
     expr: &Expr<F, Queriable<F>, HashResult>,
     count_map: &mut HashMap<u64, SubexprInfo>,
+    hash_to_expr: &mut HashMap<u64, Expr<F, Queriable<F>, HashResult>>,
+    replaced_hashes: &HashSet<u64>,
 ) {
     let degree = expr.degree();
+    let hash_result = expr.meta().hash;
 
+    // Only count and store if not already replaced
+    if !replaced_hashes.contains(&hash_result) {
+        // Store the expression with its hash
+        hash_to_expr.insert(hash_result, expr.clone());
+
+        count_map
+            .entry(hash_result)
+            .and_modify(|info| info.update(degree))
+            .or_insert(SubexprInfo::new(1, degree));
+    }
+
+    // Recurse into subexpressions
     match expr {
         Expr::Const(_, _) | Expr::Query(_, _) => {}
         Expr::Sum(exprs, _) | Expr::Mul(exprs, _) => {
             for subexpr in exprs {
-                count_subexpressions(subexpr, count_map);
+                count_subexpressions(subexpr, count_map, hash_to_expr, replaced_hashes);
             }
         }
         Expr::Neg(subexpr, _) | Expr::MI(subexpr, _) => {
-            count_subexpressions(subexpr, count_map);
+            count_subexpressions(subexpr, count_map, hash_to_expr, replaced_hashes);
         }
         Expr::Pow(subexpr, _, _) => {
-            count_subexpressions(subexpr, count_map);
+            count_subexpressions(subexpr, count_map, hash_to_expr, replaced_hashes);
         }
         _ => {}
     }
-
-    let hash_result = expr.meta().hash;
-    count_map
-        .entry(hash_result)
-        .and_modify(|info| info.update(degree))
-        .or_insert(SubexprInfo::new(1, degree));
 }
 
 // Basic signal factory.
@@ -175,6 +203,8 @@ impl<F> poly::SignalFactory<Queriable<F>> for SignalFactory<F> {
 
 #[cfg(test)]
 mod test {
+    use std::collections::HashSet;
+
     use halo2_proofs::halo2curves::bn256::Fr;
     use rand_chacha::{rand_core::SeedableRng, ChaCha20Rng};
 
@@ -225,7 +255,7 @@ mod test {
             hashed_exprs.push(hashed_expr);
         }
 
-        find_optimal_subexpression(&hashed_exprs);
+        find_optimal_subexpression(&hashed_exprs, &HashSet::new());
     }
 
     #[test]
@@ -265,8 +295,6 @@ mod test {
         step.add_constr("expr3".into(), expr3);
         step.add_constr("expr4".into(), expr4);
         step.add_constr("expr5".into(), expr5);
-
-        println!("Step before CSE: {:#?}", step);
 
         let mut circuit: SBPIR<Fr, NullTraceGenerator> = SBPIR::default();
         circuit.add_step_type_def(step);
