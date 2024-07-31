@@ -7,7 +7,7 @@ pub fn replace_expr<F: Field + Hash, V: Clone + Eq + Hash + Debug, SF: SignalFac
     expr: &Expr<F, V, HashResult>,
     common_se: &Expr<F, V, HashResult>,
     signal_factory: &mut SF,
-    decomp: ConstrDecomp<F, V, HashResult>
+    decomp: ConstrDecomp<F, V, HashResult>,
 ) -> (Expr<F, V, HashResult>, ConstrDecomp<F, V, HashResult>) {
     let mut decomp = decomp;
     let new_expr = replace_subexpr(expr, common_se, signal_factory, &mut decomp);
@@ -15,7 +15,11 @@ pub fn replace_expr<F: Field + Hash, V: Clone + Eq + Hash + Debug, SF: SignalFac
     (new_expr, ConstrDecomp::default())
 }
 
-pub fn create_common_ses_signal<F: Field, V: Clone + PartialEq + Eq + Hash + Debug, SF: SignalFactory<V>>(
+pub fn create_common_ses_signal<
+    F: Field,
+    V: Clone + PartialEq + Eq + Hash + Debug,
+    SF: SignalFactory<V>,
+>(
     common_se: &Expr<F, V, HashResult>,
     signal_factory: &mut SF,
 ) -> (Expr<F, V, HashResult>, ConstrDecomp<F, V, HashResult>) {
@@ -58,7 +62,10 @@ mod tests {
     use halo2_proofs::halo2curves::bn256::Fr;
 
     use crate::{
-        poly::{cse::{create_common_ses_signal, replace_expr}, SignalFactory, ToExpr, VarAssignments},
+        poly::{
+            cse::{create_common_ses_signal, replace_expr},
+            SignalFactory, ToExpr, VarAssignments,
+        },
         sbpir::{query::Queriable, InternalSignal},
     };
 
@@ -91,7 +98,8 @@ mod tests {
         let assignments: VarAssignments<Fr, Queriable<Fr>> =
             vars.iter().cloned().map(|q| (q, Fr::from(2))).collect();
 
-        let (common_se, decomp) = create_common_ses_signal(&common_expr.hash(&assignments), &mut signal_factory);
+        let (common_se, decomp) =
+            create_common_ses_signal(&common_expr.hash(&assignments), &mut signal_factory);
 
         let (new_expr, decomp) = replace_expr(
             &expr.hash(&assignments),

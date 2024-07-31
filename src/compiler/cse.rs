@@ -3,11 +3,19 @@
 
 use rand_chacha::{rand_core::SeedableRng, ChaCha20Rng};
 
-use std::{collections::{HashMap, HashSet}, hash::Hash, marker::PhantomData};
+use std::{
+    collections::{HashMap, HashSet},
+    hash::Hash,
+    marker::PhantomData,
+};
 
 use crate::{
     field::Field,
-    poly::{self, cse::{create_common_ses_signal, replace_expr}, Expr, HashResult, VarAssignments},
+    poly::{
+        self,
+        cse::{create_common_ses_signal, replace_expr},
+        Expr, HashResult, VarAssignments,
+    },
     sbpir::{query::Queriable, InternalSignal, SBPIR},
     wit_gen::NullTraceGenerator,
 };
@@ -52,19 +60,20 @@ pub(super) fn cse<F: Field + Hash>(
             }
 
             // Find the optimal subexpression to replace
-            println!("Step type before CSE: {:#?}", step_type_with_hash);
             if let Some(common_expr) = find_optimal_subexpression(&exprs, &replaced_hashes) {
-                println!("Common expression found: {:?}", common_expr);
-                 // Add the hash of the replaced expression to the set
-                 replaced_hashes.insert(common_expr.meta().hash);
+                // Add the hash of the replaced expression to the set
+                replaced_hashes.insert(common_expr.meta().hash);
                 // Create a new signal for the common subexpression
-                let (common_se, decomp) = create_common_ses_signal(&common_expr, &mut signal_factory);
+                let (common_se, decomp) =
+                    create_common_ses_signal(&common_expr, &mut signal_factory);
 
                 decomp.auto_signals.iter().for_each(|(q, expr)| {
                     if let Queriable::Internal(signal) = q {
                         step_type_with_hash.add_internal(signal.clone());
                     }
-                    step_type_with_hash.auto_signals.insert(q.clone(), expr.clone());
+                    step_type_with_hash
+                        .auto_signals
+                        .insert(q.clone(), expr.clone());
                     step_type_with_hash.add_constr(format!("{:?}", q), expr.clone());
                 });
 
@@ -114,22 +123,18 @@ fn find_optimal_subexpression<F: Field + Hash>(
     // Find the best common subexpression to replace
     let common_ses = count_map
         .into_iter()
-        .filter(|&(hash, info)| info.count > 1 && info.degree > 1 && !replaced_hashes.contains(&hash))
+        .filter(|&(hash, info)| {
+            info.count > 1 && info.degree > 1 && !replaced_hashes.contains(&hash)
+        })
         .collect::<HashMap<_, _>>();
-
-    println!("Common subexpressions: {:#?}", common_ses);
 
     let best_subexpr = common_ses
         .iter()
         .max_by_key(|&(_, info)| (info.degree, info.count))
         .map(|(&hash, info)| (hash, info.count, info.degree));
 
-    println!("Best subexpression: {:#?}", best_subexpr);
-
     if let Some((hash, _count, _degree)) = best_subexpr {
-        let best_subexpr = hash_to_expr.get(&hash).cloned();
-        println!("Best subexpression found: {:#?}", best_subexpr);
-        best_subexpr
+        hash_to_expr.get(&hash).cloned()
     } else {
         None
     }

@@ -574,7 +574,10 @@ pub struct TransitionConstraint<F, M> {
 }
 
 impl<F: Field + Hash, M: Clone> TransitionConstraint<F, M> {
-    pub fn with_meta<N: Clone, ApplyMetaFn>(&self, apply_meta: ApplyMetaFn) -> TransitionConstraint<F, N>
+    pub fn with_meta<N: Clone, ApplyMetaFn>(
+        &self,
+        apply_meta: ApplyMetaFn,
+    ) -> TransitionConstraint<F, N>
     where
         ApplyMetaFn: Fn(&Expr<F, Queriable<F>, ()>) -> N + Clone,
     {
