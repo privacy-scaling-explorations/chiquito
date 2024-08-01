@@ -25,6 +25,7 @@ use crate::{
 /// Equivalent expressions are found by hashing the expressions with random assignments to the
 /// queriables. Using the Schwartz-Zippel lemma, we can determine if two expressions are equivalent
 /// with high probability.
+#[allow(dead_code)]
 pub(super) fn cse<F: Field + Hash>(
     mut circuit: SBPIR<F, NullTraceGenerator>,
 ) -> SBPIR<F, NullTraceGenerator> {
@@ -36,11 +37,11 @@ pub(super) fn cse<F: Field + Hash>(
             let mut queriables = Vec::<Queriable<F>>::new();
 
             circuit.forward_signals.iter().for_each(|signal| {
-                queriables.push(Queriable::Forward(signal.clone(), false));
-                queriables.push(Queriable::Forward(signal.clone(), true));
+                queriables.push(Queriable::Forward(*signal, false));
+                queriables.push(Queriable::Forward(*signal, true));
             });
             step_type.signals.iter().for_each(|signal| {
-                queriables.push(Queriable::Internal(signal.clone()));
+                queriables.push(Queriable::Internal(*signal));
             });
 
             // Generate random assignments for the queriables
@@ -75,18 +76,14 @@ pub(super) fn cse<F: Field + Hash>(
                 // Add the new signal to the step type and a constraint for it
                 decomp.auto_signals.iter().for_each(|(q, expr)| {
                     if let Queriable::Internal(signal) = q {
-                        step_type_with_hash.add_internal(signal.clone());
+                        step_type_with_hash.add_internal(*signal);
                     }
-                    step_type_with_hash
-                        .auto_signals
-                        .insert(q.clone(), expr.clone());
+                    step_type_with_hash.auto_signals.insert(*q, expr.clone());
                     step_type_with_hash.add_constr(format!("{:?}", q), expr.clone());
                 });
 
                 // Replace the common subexpression in all constraints
-                step_type_with_hash.decomp_constraints(|expr| {
-                    replace_expr(expr, &common_se, &mut signal_factory, decomp.clone())
-                });
+                step_type_with_hash.decomp_constraints(|expr| replace_expr(expr, &common_se));
             } else {
                 // No more common subexpressions found, exit the loop
                 break;
@@ -117,7 +114,7 @@ impl SubexprInfo {
 
 /// Find the optimal subexpression to replace in a list of expressions.
 fn find_optimal_subexpression<F: Field + Hash>(
-    exprs: &Vec<Expr<F, Queriable<F>, HashResult>>,
+    exprs: &[Expr<F, Queriable<F>, HashResult>],
     replaced_hashes: &HashSet<u64>,
 ) -> Option<Expr<F, Queriable<F>, HashResult>> {
     let mut count_map = HashMap::<u64, SubexprInfo>::new();
@@ -314,8 +311,14 @@ mod test {
             .auto_signals
             .values();
 
-        assert!(common_ses_found_and_replaced.clone().find(|expr| format!("{:?}", expr) == "(a * b)").is_some());
-        assert!(common_ses_found_and_replaced.clone().find(|expr| format!("{:?}", expr) == "(e * f * d)").is_some());
+        assert!(common_ses_found_and_replaced
+            .clone()
+            .find(|expr| format!("{:?}", expr) == "(a * b)")
+            .is_some());
+        assert!(common_ses_found_and_replaced
+            .clone()
+            .find(|expr| format!("{:?}", expr) == "(e * f * d)")
+            .is_some());
     }
 
     #[derive(Clone)]

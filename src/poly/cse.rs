@@ -4,14 +4,11 @@ use super::{ConstrDecomp, Expr, HashResult, SignalFactory};
 use std::{fmt::Debug, hash::Hash};
 
 /// This function replaces a common subexpression in an expression with a new signal.
-pub fn replace_expr<F: Field + Hash, V: Clone + Eq + Hash + Debug, SF: SignalFactory<V>>(
+pub fn replace_expr<F: Field + Hash, V: Clone + Eq + Hash + Debug>(
     expr: &Expr<F, V, HashResult>,
     common_se: &Expr<F, V, HashResult>,
-    signal_factory: &mut SF,
-    decomp: ConstrDecomp<F, V, HashResult>,
 ) -> (Expr<F, V, HashResult>, ConstrDecomp<F, V, HashResult>) {
-    let mut decomp = decomp;
-    let new_expr = replace_subexpr(expr, common_se, signal_factory, &mut decomp);
+    let new_expr = replace_subexpr(expr, common_se);
 
     (new_expr, ConstrDecomp::default())
 }
@@ -33,26 +30,23 @@ pub fn create_common_ses_signal<
 }
 
 /// This function replaces a common subexpression in an expression with a new signal.
-fn replace_subexpr<F: Field + Hash, V: Clone + Eq + Hash + Debug, SF: SignalFactory<V>>(
+fn replace_subexpr<F: Field + Hash, V: Clone + Eq + Hash + Debug>(
     expr: &Expr<F, V, HashResult>,
     common_se: &Expr<F, V, HashResult>,
-    signal_factory: &mut SF,
-    decomp: &mut ConstrDecomp<F, V, HashResult>,
 ) -> Expr<F, V, HashResult> {
     let common_expr_hash = common_se.meta().hash;
 
     if expr.meta().degree < common_se.meta().degree {
         // If the current expression's degree is less than the common subexpression's degree,
         // it can't contain the common subexpression, so we return it as is
-        return expr.clone();
+        expr.clone()
     }
-
     // If the expression is the same as the common subexpression return the signal
-    if expr.meta().hash == common_expr_hash {
-        return common_se.clone();
+    else if expr.meta().hash == common_expr_hash {
+        common_se.clone()
     } else {
         // Recursively apply the function to the subexpressions
-        expr.apply_subexpressions(|se| replace_subexpr(se, common_se, signal_factory, decomp))
+        expr.apply_subexpressions(|se| replace_subexpr(se, common_se))
     }
 }
 
@@ -102,12 +96,7 @@ mod tests {
         let (common_se, decomp) =
             create_common_ses_signal(&common_expr.hash(&assignments), &mut signal_factory);
 
-        let (new_expr, _) = replace_expr(
-            &expr.hash(&assignments),
-            &common_se,
-            &mut signal_factory,
-            decomp.clone(),
-        );
+        let (new_expr, _) = replace_expr(&expr.hash(&assignments), &common_se);
 
         assert!(decomp.auto_signals.len() == 1);
         assert_eq!(format!("{:#?}", new_expr), "((-0x1) + cse-1 + (-c))");
