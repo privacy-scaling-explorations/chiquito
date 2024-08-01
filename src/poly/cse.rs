@@ -102,11 +102,11 @@ mod tests {
         let (common_se, decomp) =
             create_common_ses_signal(&common_expr.hash(&assignments), &mut signal_factory);
 
-        let (new_expr, decomp) = replace_expr(
+        let (new_expr, _) = replace_expr(
             &expr.hash(&assignments),
             &common_se,
             &mut signal_factory,
-            decomp,
+            decomp.clone(),
         );
 
         assert!(decomp.auto_signals.len() == 1);
