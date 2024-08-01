@@ -7,10 +7,7 @@ use chiquito::{
         CircuitContext, StepTypeSetupContext, StepTypeWGHandler,
     },
     plonkish::{
-        backend::halo2::{
-            chiquitoSuperCircuit2Halo2, halo2_verify, ChiquitoHalo2SuperCircuit, DummyRng,
-            Halo2Prover, PlonkishHalo2,
-        },
+        backend::halo2::{halo2_verify, Halo2Provable},
         compiler::{
             cell_manager::{MaxWidthCellManager, SingleRowCellManager},
             config,
@@ -22,7 +19,6 @@ use chiquito::{
     sbpir::query::Queriable,
 };
 use halo2_proofs::halo2curves::{bn256::Fr, group::ff::PrimeField};
-use rand_chacha::rand_core::block::BlockRng;
 use std::{fmt::Write, hash::Hash};
 
 pub const IV_LEN: usize = 8;
@@ -1398,8 +1394,7 @@ fn blake2f_super_circuit<F: PrimeField + Hash>() -> SuperCircuit<F, InputValues>
 }
 
 fn main() {
-    let super_circuit = blake2f_super_circuit::<Fr>();
-    let compiled = chiquitoSuperCircuit2Halo2(&super_circuit);
+    let mut super_circuit = blake2f_super_circuit::<Fr>();
 
     // h[0] = hex"48c9bdf267e6096a 3ba7ca8485ae67bb 2bf894fe72f36e3c f1361d5f3af54fa5";
     // h[1] = hex"d182e6ad7f520e51 1f6c3e2b8c68059b 6bbd41fbabd9831f 79217e1319cde05b";
@@ -1482,18 +1477,17 @@ fn main() {
     };
 
     let witness = super_circuit.get_mapping().generate(values);
-    let mut circuit = ChiquitoHalo2SuperCircuit::new(compiled);
 
-    let rng = BlockRng::new(DummyRng {});
-
-    let halo2_prover = circuit.create_halo2_prover(9, rng);
+    let params_path = "examples/ptau/hermez-raw-11";
+    let halo2_prover = super_circuit.create_halo2_prover(params_path);
+    println!("k={}", halo2_prover.get_k());
 
     let (proof, instance) = halo2_prover.generate_proof(witness);
 
     let result = halo2_verify(
         proof,
-        &halo2_prover.setup.params,
-        &halo2_prover.setup.vk,
+        halo2_prover.get_params(),
+        halo2_prover.get_vk(),
         instance,
     );
 

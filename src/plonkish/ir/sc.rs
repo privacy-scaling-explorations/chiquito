@@ -218,6 +218,7 @@ mod test {
                 fixed_assignments,
                 id: uuid(),
                 ast_id: uuid(),
+                num_rows: 0,
             }
         }
 
@@ -263,6 +264,7 @@ mod test {
                 fixed_assignments,
                 id: uuid(),
                 ast_id: uuid(),
+                num_rows: 0,
             }
         }
 

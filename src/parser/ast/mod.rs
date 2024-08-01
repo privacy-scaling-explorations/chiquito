@@ -12,16 +12,36 @@ pub mod tl;
 #[derive(Clone)]
 pub struct DebugSymRef {
     /// Starting byte number in the file
-    pub start: usize,
+    start: usize,
     /// Ending byte number in the file
-    pub end: usize,
+    end: usize,
     /// Source file reference
     file: Arc<SimpleFile<String, String>>,
+    /// Virtual: created by the compiler, not present in source code
+    virt: bool,
 }
 
 impl DebugSymRef {
     pub fn new(start: usize, end: usize, file: Arc<SimpleFile<String, String>>) -> DebugSymRef {
-        DebugSymRef { start, end, file }
+        DebugSymRef {
+            start,
+            end,
+            file,
+            virt: false,
+        }
+    }
+
+    /// Convert to virtual: created by the compiler, not present in source code.
+    pub fn into_virtual(other: &DebugSymRef) -> DebugSymRef {
+        let mut other = other.clone();
+        other.virt = true;
+
+        other
+    }
+
+    /// Returns whether it is virtual: created by the compiler, not present in source code.
+    pub fn is_virtual(&self) -> bool {
+        self.virt
     }
 
     fn get_column_number(&self, line_index: usize, start: usize) -> usize {
@@ -61,12 +81,12 @@ impl DebugSymRef {
         self.get_column_number(line_idx, self.start)
     }
 
-    fn get_line_end(&self) -> usize {
+    pub fn get_line_end(&self) -> usize {
         let line_idx = self.get_line_index(self.end);
         self.get_line_number(line_idx)
     }
 
-    fn get_col_end(&self) -> usize {
+    pub fn get_col_end(&self) -> usize {
         let line_idx = self.get_line_index(self.end);
         self.get_column_number(line_idx, self.end)
     }
@@ -79,7 +99,11 @@ impl DebugSymRef {
     /// `filename`. The proximity score is calculated as the size of the symbol.
     /// If the offset is not within the symbol, returns `None`.
     pub fn proximity_score(&self, filename: &String, offset: usize) -> Option<usize> {
-        if self.get_filename() == *filename && self.start <= offset && offset <= self.end {
+        if !self.is_virtual()
+            && self.get_filename() == *filename
+            && self.start <= offset
+            && offset <= self.end
+        {
             Some(self.end - self.start)
         } else {
             None
@@ -91,35 +115,21 @@ impl Debug for DebugSymRef {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         if !self.file.name().is_empty() {
             // Produces clickable output in the terminal
-            return write!(
+            write!(
                 f,
                 "{}:{}:{}",
                 self.file.name(),
                 self.get_line_start(),
                 self.get_col_start()
-            );
-        }
-
-        let mut debug_print = f.debug_struct("DebugSymRef");
-
-        if self.get_line_start() == self.get_line_end() {
-            debug_print.field("line", &self.get_line_start()).field(
-                "cols",
-                &format!("{}-{}", self.get_col_start(), self.get_col_end()),
-            );
+            )
         } else {
-            debug_print
-                .field(
-                    "start",
-                    &format!("{}:{}", self.get_line_start(), self.get_col_start()),
-                )
-                .field(
-                    "end",
-                    &format!("{}:{}", self.get_line_end(), self.get_col_end()),
-                );
+            write!(
+                f,
+                "nofile:{}:{}",
+                self.get_line_start(),
+                self.get_col_start()
+            )
         }
-
-        debug_print.finish()
     }
 }
 
@@ -141,6 +151,10 @@ impl Identifier {
 
     pub(crate) fn debug_sym_ref(&self) -> DebugSymRef {
         self.2.clone()
+    }
+
+    pub(crate) fn next(&self) -> Self {
+        Self(self.0.clone(), self.1 + 1, self.2.clone())
     }
 }
 
@@ -213,6 +227,7 @@ mod test {
             start: 0,
             end: 1,
             file: Arc::new(SimpleFile::new("file_path".to_string(), "".to_string())),
+            virt: false,
         };
         let result = Identifier::new("abc", debug_sym_ref.clone());
 
@@ -238,6 +253,7 @@ mod test {
             start: 10,
             end: 12,
             file: Arc::new(SimpleFile::new(file_path.clone(), "".to_string())),
+            virt: false,
         };
 
         assert_eq!(debug_sym_ref.proximity_score(&file_path, 9), None);

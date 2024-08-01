@@ -22,15 +22,17 @@ mod value;
 struct Interpreter<'a, F: Field + Hash> {
     mapping: &'a SymbolSignalMapping,
     cur_frame: StackFrame<'a, F>,
+    num_steps: usize,
 
     witness: Vec<StepInstance<F>>,
 }
 
 impl<'a, F: Field + Hash> Interpreter<'a, F> {
-    fn new(symbols: &'a SymTable, mapping: &'a SymbolSignalMapping) -> Self {
+    fn new(symbols: &'a SymTable, mapping: &'a SymbolSignalMapping, num_steps: usize) -> Self {
         Self {
             mapping,
             cur_frame: StackFrame::new(symbols),
+            num_steps,
             witness: Vec::default(),
         }
     }
@@ -88,17 +90,20 @@ impl<'a, F: Field + Hash> Interpreter<'a, F> {
             );
         }
 
-        while next_state.is_some() {
-            next_state = self.exec_step(dsym, &machine_block)?;
+        while next_state.is_some() && self.witness.len() < self.num_steps {
+            next_state = self.exec_step(&machine_block)?;
 
             self.transition(&next_state);
 
-            if next_state.is_none() && self.cur_frame.get_state().as_str() != "final" {
-                panic!(
-                    "last state is not final state but {}",
-                    self.cur_frame.get_state()
-                );
-            }
+            println!("{}", self.witness.len())
+        }
+
+        self.cur_frame.enter_state("__padding");
+
+        while self.witness.len() <= self.num_steps {
+            self.exec_step(&machine_block)?;
+            self.transition(&Some("__padding".to_string()));
+            println!("{}", self.witness.len())
         }
 
         Ok(())
@@ -106,10 +111,9 @@ impl<'a, F: Field + Hash> Interpreter<'a, F> {
 
     fn exec_step(
         &mut self,
-        machine_dsym: &DebugSymRef,
         machine_block: &[Statement<BigInt, Identifier>],
     ) -> Result<Option<String>, Message> {
-        let state_decl = self.find_state_decl(machine_dsym, machine_block).unwrap();
+        let state_decl = self.find_state_decl(machine_block).unwrap();
 
         if let Statement::StateDecl(_, _, block) = state_decl {
             if let Statement::Block(_, stmts) = *block {
@@ -220,7 +224,6 @@ impl<'a, F: Field + Hash> Interpreter<'a, F> {
 
     fn find_state_decl(
         &mut self,
-        machine_dsym: &DebugSymRef,
         machine_block: &[Statement<BigInt, Identifier>],
     ) -> Option<Statement<BigInt, Identifier>> {
         for stmt in machine_block {
@@ -231,16 +234,7 @@ impl<'a, F: Field + Hash> Interpreter<'a, F> {
             }
         }
 
-        // final state can be omited
-        if self.cur_frame.get_state() == "final" {
-            Some(Statement::StateDecl(
-                machine_dsym.clone(),
-                Identifier::new(self.cur_frame.get_state(), machine_dsym.clone()),
-                Box::new(Statement::Block(machine_dsym.clone(), vec![])),
-            ))
-        } else {
-            None
-        }
+        None
     }
 }
 
@@ -252,9 +246,10 @@ pub fn run<F: Field + Hash>(
     program: &[TLDecl<BigInt, Identifier>],
     symbols: &SymTable,
     mapping: &SymbolSignalMapping,
+    num_steps: usize,
     input: HashMap<String, F>,
 ) -> Result<TraceWitness<F>, Message> {
-    let mut inter = Interpreter::<F>::new(symbols, mapping);
+    let mut inter = Interpreter::<F>::new(symbols, mapping, num_steps);
 
     inter.run(program, input)
 }
@@ -265,6 +260,7 @@ pub struct InterpreterTraceGenerator {
     program: Vec<TLDecl<BigInt, Identifier>>,
     symbols: SymTable,
     mapping: SymbolSignalMapping,
+    num_steps: usize,
 }
 
 impl InterpreterTraceGenerator {
@@ -272,11 +268,13 @@ impl InterpreterTraceGenerator {
         program: Vec<TLDecl<BigInt, Identifier>>,
         symbols: SymTable,
         mapping: SymbolSignalMapping,
+        num_steps: usize,
     ) -> Self {
         Self {
             program,
             symbols,
             mapping,
+            num_steps,
         }
     }
 
@@ -299,7 +297,14 @@ impl<F: Field + Hash> TraceGenerator<F> for InterpreterTraceGenerator {
     type TraceArgs = HashMap<String, F>;
 
     fn generate(&self, args: Self::TraceArgs) -> TraceWitness<F> {
-        run(&self.program, &self.symbols, &self.mapping, args).unwrap_or_else(|msgs| {
+        run(
+            &self.program,
+            &self.symbols,
+            &self.mapping,
+            self.num_steps,
+            args,
+        )
+        .unwrap_or_else(|msgs| {
             panic!("errors when running wg interpreter: {:?}", msgs);
         })
     }
@@ -321,16 +326,15 @@ fn get_block_stmts(stmt: &Statement<BigInt, Identifier>) -> Vec<Statement<BigInt
 
 #[cfg(test)]
 mod test {
-    use crate::plonkish::backend::halo2::{Halo2Prover, PlonkishHalo2};
+    use crate::plonkish::backend::halo2::Halo2Provable;
     use halo2_proofs::halo2curves::bn256::Fr;
-    use rand_chacha::rand_core::block::BlockRng;
     use std::collections::HashMap;
 
     use crate::{
         compiler::{compile, Config},
         parser::ast::debug_sym_factory::DebugSymRefFactory,
         plonkish::{
-            backend::halo2::{halo2_verify, DummyRng},
+            backend::halo2::halo2_verify,
             compiler::{
                 cell_manager::SingleRowCellManager, config,
                 step_selector::SimpleStepSelectorBuilder,
@@ -383,8 +387,12 @@ mod test {
            }
         ";
 
-        let compiled =
-            compile::<Fr>(code, Config::default(), &DebugSymRefFactory::new("", code)).unwrap();
+        let compiled = compile::<Fr>(
+            code,
+            Config::default().max_steps(20),
+            &DebugSymRefFactory::new("", code),
+        )
+        .unwrap();
 
         let result = compiled
             .circuit
@@ -439,20 +447,20 @@ mod test {
            }
         ";
 
-        let mut chiquito =
-            compile::<Fr>(code, Config::default(), &DebugSymRefFactory::new("", code)).unwrap();
-
-        chiquito.circuit.num_steps = 12;
+        let chiquito = compile::<Fr>(
+            code,
+            Config::default().max_steps(20),
+            &DebugSymRefFactory::new("", code),
+        )
+        .unwrap();
 
         let mut plonkish = chiquito.plonkish(config(
             SingleRowCellManager {},
             SimpleStepSelectorBuilder {},
         ));
 
-        let rng = BlockRng::new(DummyRng {});
-
-        let halo2_prover = plonkish.create_halo2_prover(7, rng);
-
+        let halo2_prover = plonkish.create_test_prover();
+        assert!(halo2_prover.get_k() == 5);
         let (proof, instance) = halo2_prover.generate_proof(
             plonkish
                 .assignment_generator
@@ -462,10 +470,11 @@ mod test {
 
         let result = halo2_verify(
             proof,
-            &halo2_prover.setup.params,
-            &halo2_prover.setup.vk,
+            halo2_prover.get_params(),
+            halo2_prover.get_vk(),
             instance,
         );
+
         assert!(result.is_ok());
     }
 
@@ -514,10 +523,8 @@ mod test {
            }
         ";
 
-        let mut chiquito =
+        let chiquito =
             compile::<Fr>(code, Config::default(), &DebugSymRefFactory::new("", code)).unwrap();
-
-        chiquito.circuit.num_steps = 12;
 
         // TODO: re-stablish evil witness
         // chiquito
@@ -529,9 +536,8 @@ mod test {
             SimpleStepSelectorBuilder {},
         ));
 
-        let rng = BlockRng::new(DummyRng {});
-
-        let halo2_prover = plonkish.create_halo2_prover(7, rng);
+        let halo2_prover = plonkish.create_test_prover();
+        println!("k={}", halo2_prover.get_k());
 
         let (proof, instance) = halo2_prover.generate_proof(
             plonkish
@@ -542,8 +548,8 @@ mod test {
 
         let result = halo2_verify(
             proof,
-            &halo2_prover.setup.params,
-            &halo2_prover.setup.vk,
+            halo2_prover.get_params(),
+            halo2_prover.get_vk(),
             instance,
         );
 

@@ -5,7 +5,7 @@ use chiquito::{
     frontend::dsl::{circuit, trace::DSLTraceGenerator}, /* main function for constructing an AST
                                                          * circuit */
     plonkish::{
-        backend::halo2::{halo2_verify, DummyRng, Halo2Prover, PlonkishHalo2},
+        backend::halo2::{halo2_verify, Halo2Provable},
         compiler::{
             cell_manager::SingleRowCellManager, // input for constructing the compiler
             compile,                            // input for constructing the compiler
@@ -23,7 +23,6 @@ use chiquito::{
     poly::ToField,
 };
 use halo2_proofs::halo2curves::bn256::Fr;
-use rand_chacha::rand_core::block::BlockRng;
 
 // This example file extends the rust example file 'fibonacci.rs',
 // describing usage of multiple steptypes, padding, and exposing signals.
@@ -206,17 +205,18 @@ fn fibo_circuit<F: Field + From<u64> + Hash>(
 // standard main function for a Halo2 circuit
 fn main() {
     let mut plonkish = fibo_circuit::<Fr>();
-    let rng = BlockRng::new(DummyRng {});
+    let params_path = "examples/ptau/hermez-raw-11";
 
-    let halo2_prover = plonkish.create_halo2_prover(7, rng);
+    let halo2_prover = plonkish.create_halo2_prover(params_path);
+    println!("k={}", halo2_prover.get_k());
 
     let (proof, instance) =
         halo2_prover.generate_proof(plonkish.assignment_generator.unwrap().generate(7));
 
     let result = halo2_verify(
         proof,
-        &halo2_prover.setup.params,
-        &halo2_prover.setup.vk,
+        halo2_prover.get_params(),
+        halo2_prover.get_vk(),
         instance,
     );
 

@@ -3,10 +3,7 @@ use chiquito::{
         lb::LookupTable, super_circuit, trace::DSLTraceGenerator, CircuitContext, StepTypeWGHandler,
     },
     plonkish::{
-        backend::halo2::{
-            chiquitoSuperCircuit2Halo2, halo2_verify, ChiquitoHalo2SuperCircuit, DummyRng,
-            Halo2Prover, PlonkishHalo2,
-        },
+        backend::halo2::{halo2_verify, Halo2Provable},
         compiler::{
             cell_manager::{MaxWidthCellManager, SingleRowCellManager},
             config,
@@ -17,7 +14,6 @@ use chiquito::{
     poly::ToExpr,
     sbpir::query::Queriable,
 };
-use rand_chacha::rand_core::block::BlockRng;
 use std::{hash::Hash, ops::Neg};
 
 use halo2_proofs::halo2curves::{bn256::Fr, group::ff::PrimeField};
@@ -2255,24 +2251,21 @@ fn main() {
         bytes: vec![0, 1, 2, 3, 4, 5, 6, 7],
     };
 
-    let super_circuit = keccak_super_circuit::<Fr>(circuit_param.bytes.len());
+    let mut super_circuit = keccak_super_circuit::<Fr>(circuit_param.bytes.len());
 
-    let compiled = chiquitoSuperCircuit2Halo2(&super_circuit);
-
-    let mut circuit = ChiquitoHalo2SuperCircuit::new(compiled);
-
-    let rng = BlockRng::new(DummyRng {});
+    let params_path = "examples/ptau/hermez-raw-11";
 
     let witness = super_circuit.get_mapping().generate(circuit_param);
 
-    let halo2_prover = circuit.create_halo2_prover(9, rng);
+    let halo2_prover = super_circuit.create_halo2_prover(params_path);
+    println!("k={}", halo2_prover.get_k());
 
     let (proof, instance) = halo2_prover.generate_proof(witness);
 
     let result = halo2_verify(
         proof,
-        &halo2_prover.setup.params,
-        &halo2_prover.setup.vk,
+        halo2_prover.get_params(),
+        halo2_prover.get_vk(),
         instance,
     );
 

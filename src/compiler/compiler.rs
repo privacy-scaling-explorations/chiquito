@@ -10,7 +10,13 @@ use crate::{
     },
     interpreter::InterpreterTraceGenerator,
     parser::{
-        ast::{debug_sym_factory::DebugSymRefFactory, tl::TLDecl, Identifiable, Identifier},
+        ast::{
+            debug_sym_factory::DebugSymRefFactory,
+            expression::Expression,
+            statement::{Statement, TypedIdDecl},
+            tl::TLDecl,
+            DebugSymRef, Identifiable, Identifier,
+        },
         lang::TLDeclsParser,
     },
     plonkish::{self, compiler::PlonkishCompilationResult},
@@ -21,7 +27,7 @@ use crate::{
 
 use super::{
     semantic::{SymTable, SymbolCategory},
-    setup_inter::{interpret, Setup},
+    setup_inter::{interpret, MachineSetup, Setup},
     Config, Message, Messages,
 };
 
@@ -60,7 +66,10 @@ pub(super) struct Compiler<F> {
 
 impl<F: Field + Hash> Compiler<F> {
     /// Creates a configured compiler.
-    pub fn new(config: Config) -> Self {
+    pub fn new(mut config: Config) -> Self {
+        if config.max_steps == 0 {
+            config.max_steps = 1000; // TODO: organise this better
+        }
         Compiler {
             config,
             ..Compiler::default()
@@ -76,6 +85,7 @@ impl<F: Field + Hash> Compiler<F> {
         let ast = self
             .parse(source, debug_sym_ref_factory)
             .map_err(|_| self.messages.clone())?;
+        let ast = self.add_virtual(ast);
         let symbols = self.semantic(&ast).map_err(|_| self.messages.clone())?;
         let setup = Self::interpret(&ast, &symbols);
         let setup = Self::map_consts(setup);
@@ -87,8 +97,12 @@ impl<F: Field + Hash> Compiler<F> {
             circuit
         };
 
-        let circuit =
-            circuit.with_trace(InterpreterTraceGenerator::new(ast, symbols, self.mapping));
+        let circuit = circuit.with_trace(InterpreterTraceGenerator::new(
+            ast,
+            symbols,
+            self.mapping,
+            self.config.max_steps,
+        ));
 
         Ok(CompilerResult {
             messages: self.messages,
@@ -114,6 +128,113 @@ impl<F: Field + Hash> Compiler<F> {
         }
     }
 
+    fn add_virtual(
+        &mut self,
+        mut ast: Vec<TLDecl<BigInt, Identifier>>,
+    ) -> Vec<TLDecl<BigInt, Identifier>> {
+        for tldc in ast.iter_mut() {
+            match tldc {
+                TLDecl::MachineDecl {
+                    dsym,
+                    id: _,
+                    input_params: _,
+                    output_params,
+                    block,
+                } => self.add_virtual_to_machine(dsym, output_params, block),
+            }
+        }
+
+        ast
+    }
+
+    fn add_virtual_to_machine(
+        &mut self,
+        dsym: &DebugSymRef,
+        output_params: &Vec<Statement<BigInt, Identifier>>,
+        block: &mut Statement<BigInt, Identifier>,
+    ) {
+        let dsym = DebugSymRef::into_virtual(dsym);
+        let output_params = Self::get_decls(output_params);
+
+        if let Statement::Block(_, stmts) = block {
+            let mut has_final = false;
+
+            for stmt in stmts.iter() {
+                if let Statement::StateDecl(_, id, _) = stmt
+                    && id.name() == "final"
+                {
+                    has_final = true
+                }
+            }
+            if !has_final {
+                stmts.push(Statement::StateDecl(
+                    dsym.clone(),
+                    Identifier::new("final", dsym.clone()),
+                    Box::new(Statement::Block(dsym.clone(), vec![])),
+                ));
+            }
+
+            let final_state = Self::find_state_mut("final", stmts).unwrap();
+
+            let mut padding_transitions = output_params
+                .iter()
+                .map(|output_signal| {
+                    Statement::SignalAssignmentAssert(
+                        dsym.clone(),
+                        vec![output_signal.id.next()],
+                        vec![Expression::Query::<BigInt, Identifier>(
+                            dsym.clone(),
+                            output_signal.id.clone(),
+                        )],
+                    )
+                })
+                .collect::<Vec<_>>();
+
+            padding_transitions.push(Statement::Transition(
+                dsym.clone(),
+                Identifier::new("__padding", dsym.clone()),
+                Box::new(Statement::Block(dsym.clone(), vec![])),
+            ));
+
+            Self::add_virtual_to_state(final_state, padding_transitions.clone());
+
+            stmts.push(Statement::StateDecl(
+                dsym.clone(),
+                Identifier::new("__padding", dsym.clone()),
+                Box::new(Statement::Block(dsym.clone(), padding_transitions)),
+            ));
+        } // Semantic analyser must show an error in the else case
+    }
+
+    fn find_state_mut<S: Into<String>>(
+        state_id: S,
+        stmts: &mut [Statement<BigInt, Identifier>],
+    ) -> Option<&mut Statement<BigInt, Identifier>> {
+        let state_id = state_id.into();
+        let mut final_state: Option<&mut Statement<BigInt, Identifier>> = None;
+
+        for stmt in stmts.iter_mut() {
+            if let Statement::StateDecl(_, id, _) = stmt
+                && id.name() == state_id
+            {
+                final_state = Some(stmt)
+            }
+        }
+
+        final_state
+    }
+
+    fn add_virtual_to_state(
+        state: &mut Statement<BigInt, Identifier>,
+        add_statements: Vec<Statement<BigInt, Identifier>>,
+    ) {
+        if let Statement::StateDecl(_, _, final_state_stmts) = state {
+            if let Statement::Block(_, stmts) = final_state_stmts.as_mut() {
+                stmts.extend(add_statements)
+            }
+        }
+    }
+
     fn semantic(&mut self, ast: &[TLDecl<BigInt, Identifier>]) -> Result<SymTable, ()> {
         let result = super::semantic::analyser::analyse(ast);
         let has_errors = result.messages.has_errors();
@@ -127,26 +248,26 @@ impl<F: Field + Hash> Compiler<F> {
         }
     }
 
-    fn interpret(
-        ast: &[TLDecl<BigInt, Identifier>],
-        symbols: &SymTable,
-    ) -> Setup<BigInt, Identifier> {
+    fn interpret(ast: &[TLDecl<BigInt, Identifier>], symbols: &SymTable) -> Setup<BigInt> {
         interpret(ast, symbols)
     }
 
-    fn map_consts(setup: Setup<BigInt, Identifier>) -> Setup<F, Identifier> {
+    fn map_consts(setup: Setup<BigInt>) -> Setup<F> {
         setup
             .iter()
             .map(|(machine_id, machine)| {
-                let new_machine: HashMap<String, Vec<Expr<F, Identifier, ()>>> = machine
-                    .iter()
+                let poly_constraints: HashMap<String, Vec<Expr<F, Identifier, ()>>> = machine
+                    .iter_states_poly_constraints()
                     .map(|(step_id, step)| {
-                        let new_step = step.iter().map(|pi| Self::map_pi_consts(pi)).collect();
+                        let new_step: Vec<Expr<F, Identifier, ()>> =
+                            step.iter().map(|pi| Self::map_pi_consts(pi)).collect();
 
                         (step_id.clone(), new_step)
                     })
                     .collect();
 
+                let new_machine: MachineSetup<F> =
+                    machine.replace_poly_constraints(poly_constraints);
                 (machine_id.clone(), new_machine)
             })
             .collect()
@@ -166,17 +287,17 @@ impl<F: Field + Hash> Compiler<F> {
         }
     }
 
-    fn build(
-        &mut self,
-        setup: &Setup<F, Identifier>,
-        symbols: &SymTable,
-    ) -> SBPIR<F, NullTraceGenerator> {
+    fn build(&mut self, setup: &Setup<F>, symbols: &SymTable) -> SBPIR<F, NullTraceGenerator> {
         circuit::<F, (), _>("circuit", |ctx| {
             for (machine_id, machine) in setup {
                 self.add_forwards(ctx, symbols, machine_id);
                 self.add_step_type_handlers(ctx, symbols, machine_id);
 
-                for state_id in machine.keys() {
+                ctx.pragma_num_steps(self.config.max_steps);
+                ctx.pragma_first_step(self.mapping.get_step_type_handler(machine_id, "initial"));
+                ctx.pragma_last_step(self.mapping.get_step_type_handler(machine_id, "__padding"));
+
+                for state_id in machine.states() {
                     ctx.step_type_def(
                         self.mapping.get_step_type_handler(machine_id, state_id),
                         |ctx| {
@@ -234,11 +355,15 @@ impl<F: Field + Hash> Compiler<F> {
     fn translate_queries(
         &mut self,
         symbols: &SymTable,
-        setup: &Setup<F, Identifier>,
+        setup: &Setup<F>,
         machine_id: &str,
         state_id: &str,
     ) -> Vec<Expr<F, Queriable<F>, ()>> {
-        let exprs = setup.get(machine_id).unwrap().get(state_id).unwrap();
+        let exprs = setup
+            .get(machine_id)
+            .unwrap()
+            .get_poly_constraints(state_id)
+            .unwrap();
 
         exprs
             .iter()
@@ -459,6 +584,18 @@ impl<F: Field + Hash> Compiler<F> {
                 unreachable!("ctx.internal returns not internal signal");
             }
         }
+    }
+
+    fn get_decls(stmts: &Vec<Statement<BigInt, Identifier>>) -> Vec<TypedIdDecl<Identifier>> {
+        let mut result: Vec<TypedIdDecl<Identifier>> = vec![];
+
+        for stmt in stmts {
+            if let Statement::SignalDecl(_, ids) = stmt {
+                result.extend(ids.clone())
+            }
+        }
+
+        result
     }
 }
 

@@ -2,16 +2,12 @@ use pyo3::{
     prelude::*,
     types::{PyDict, PyList, PyLong, PyString},
 };
-use rand_chacha::rand_core::block::BlockRng;
 
 use crate::{
     frontend::dsl::{StepTypeHandler, SuperCircuitContext},
     pil::backend::powdr_pil::chiquito2Pil,
     plonkish::{
-        backend::halo2::{
-            chiquito2Halo2, chiquitoSuperCircuit2Halo2, halo2_verify, ChiquitoHalo2,
-            ChiquitoHalo2SuperCircuit, DummyRng, Halo2Prover, PlonkishHalo2,
-        },
+        backend::halo2::{halo2_verify, Halo2Provable},
         compiler::{
             cell_manager::SingleRowCellManager, compile, config,
             step_selector::SimpleStepSelectorBuilder, PlonkishCompilationResult,
@@ -34,7 +30,7 @@ use std::{cell::RefCell, collections::HashMap, fmt};
 
 type CircuitMapStore = (
     SBPIR<Fr, PythonTraceGenerator>,
-    ChiquitoHalo2<Fr>,
+    Option<PlonkishCompilationResult<Fr, PythonTraceGenerator>>,
     Option<AssignmentGenerator<Fr, PythonTraceGenerator>>,
 );
 type CircuitMap = RefCell<HashMap<UUID, CircuitMapStore>>;
@@ -55,22 +51,25 @@ impl<F: Clone> TraceGenerator<F> for PythonTraceGenerator {
 }
 
 /// Parses JSON into `ast::Circuit` and compile. Generates a Rust UUID. Inserts tuple of
-/// (`ast::Circuit`, `ChiquitoHalo2`, `AssignmentGenerator`, _) to `CIRCUIT_MAP` with the Rust UUID
-/// as the key. Return the Rust UUID to Python. The last field of the tuple, `TraceWitness`, is left
-/// as None, for `chiquito_add_witness_to_rust_id` to insert.
-pub fn chiquito_ast_to_halo2(ast_json: &str) -> UUID {
+/// (`ast::Circuit`, `PlonkishCompilationResult`, `AssignmentGenerator`, _) to `CIRCUIT_MAP` with
+/// the Rust UUID as the key. Return the Rust UUID to Python. The last field of the tuple,
+/// `TraceWitness`, is left as None, for `chiquito_add_witness_to_rust_id` to insert.
+pub fn chiquito_ast_to_plonkish(ast_json: &str) -> UUID {
     let circuit: SBPIR<Fr, PythonTraceGenerator> =
         serde_json::from_str(ast_json).expect("Json deserialization to Circuit failed.");
 
     let config = config(SingleRowCellManager {}, SimpleStepSelectorBuilder {});
     let plonkish = compile(config, &circuit);
-    let chiquito_halo2 = chiquito2Halo2(plonkish.circuit);
     let uuid = uuid();
 
     CIRCUIT_MAP.with(|circuit_map| {
         circuit_map.borrow_mut().insert(
             uuid,
-            (circuit, chiquito_halo2, plonkish.assignment_generator),
+            (
+                circuit,
+                Some(plonkish.clone()),
+                plonkish.assignment_generator,
+            ),
         );
     });
 
@@ -87,9 +86,7 @@ pub fn chiquito_ast_map_store(ast_json: &str) -> UUID {
     let uuid = uuid();
 
     CIRCUIT_MAP.with(|circuit_map| {
-        circuit_map
-            .borrow_mut()
-            .insert(uuid, (circuit, ChiquitoHalo2::default(), None));
+        circuit_map.borrow_mut().insert(uuid, (circuit, None, None));
     });
 
     uuid
@@ -121,7 +118,6 @@ fn add_assignment_generator_to_rust_id(
 pub fn chiquito_super_circuit_halo2_mock_prover(
     rust_ids: Vec<UUID>,
     super_witness: HashMap<UUID, &str>,
-    k: usize,
 ) {
     let mut super_circuit_ctx = SuperCircuitContext::<Fr, ()>::default();
 
@@ -134,8 +130,7 @@ pub fn chiquito_super_circuit_halo2_mock_prover(
         add_assignment_generator_to_rust_id(assignment, rust_id);
     }
 
-    let super_circuit = super_circuit_ctx.compile();
-    let compiled = chiquitoSuperCircuit2Halo2(&super_circuit);
+    let mut super_circuit = super_circuit_ctx.compile();
 
     let mut mapping_ctx = MappingContext::default();
     for rust_id in rust_ids {
@@ -151,18 +146,15 @@ pub fn chiquito_super_circuit_halo2_mock_prover(
 
     let super_assignments = mapping_ctx.get_super_assignments();
 
-    let mut circuit = ChiquitoHalo2SuperCircuit::new(compiled);
-
-    let rng = BlockRng::new(DummyRng {});
-
-    let halo2_prover = circuit.create_halo2_prover(k as u32, rng);
+    let params_path = "examples/ptau/hermez-raw-11";
+    let halo2_prover = super_circuit.create_halo2_prover(params_path);
 
     let (proof, instance) = halo2_prover.generate_proof(super_assignments);
 
     let result = halo2_verify(
         proof,
-        &halo2_prover.setup.params,
-        &halo2_prover.setup.vk,
+        halo2_prover.get_params(),
+        halo2_prover.get_vk(),
         instance,
     );
 
@@ -182,33 +174,23 @@ fn rust_id_to_halo2(uuid: UUID) -> CircuitMapStore {
     })
 }
 
-/// Runs `MockProver` for a single circuit given JSON of `TraceWitness` and `rust_id` of the
+/// Runs the Halo2 prover for a single circuit given JSON of `TraceWitness` and `rust_id` of the
 /// circuit.
-pub fn chiquito_halo2_mock_prover(witness_json: &str, rust_id: UUID, k: usize) {
+pub fn chiquito_halo2_prover(witness_json: &str, rust_id: UUID, params_path: &str) {
     let trace_witness: TraceWitness<Fr> =
         serde_json::from_str(witness_json).expect("Json deserialization to TraceWitness failed.");
-    let (_, compiled, assignment_generator) = rust_id_to_halo2(rust_id);
+    let (_, plonkish, assignment_generator) = rust_id_to_halo2(rust_id);
 
-    let rng = BlockRng::new(DummyRng {});
-
-    let mut plonkish = PlonkishCompilationResult {
-        circuit: compiled.circuit,
-        assignment_generator,
-    };
-
-    let halo2_prover = plonkish.create_halo2_prover(k as u32, rng);
-
-    let (proof, instance) = halo2_prover.generate_proof(
-        plonkish
-            .assignment_generator
-            .unwrap()
-            .generate(trace_witness),
-    );
+    let halo2_prover = plonkish
+        .expect("Plonkish compilation is missing")
+        .create_halo2_prover(params_path);
+    let (proof, instance) =
+        halo2_prover.generate_proof(assignment_generator.unwrap().generate(trace_witness));
 
     let result = halo2_verify(
         proof,
-        &halo2_prover.setup.params,
-        &halo2_prover.setup.vk,
+        halo2_prover.get_params(),
+        halo2_prover.get_vk(),
         instance,
     );
 
@@ -1887,8 +1869,8 @@ fn convert_and_print_trace_witness(json: &PyString) {
 }
 
 #[pyfunction]
-fn ast_to_halo2(json: &PyString) -> u128 {
-    let uuid = chiquito_ast_to_halo2(json.to_str().expect("PyString conversion failed."));
+fn ast_to_plonkish(json: &PyString) -> u128 {
+    let uuid = chiquito_ast_to_plonkish(json.to_str().expect("PyString conversion failed."));
 
     uuid
 }
@@ -1896,9 +1878,9 @@ fn ast_to_halo2(json: &PyString) -> u128 {
 #[pyfunction]
 fn to_pil(witness_json: &PyString, rust_id: &PyLong, circuit_name: &PyString) -> String {
     let pil = chiquito_ast_to_pil(
-        witness_json.to_str().expect("PyString convertion failed."),
-        rust_id.extract().expect("PyLong convertion failed."),
-        circuit_name.to_str().expect("PyString convertion failed."),
+        witness_json.to_str().expect("PyString conversion failed."),
+        rust_id.extract().expect("PyLong conversion failed."),
+        circuit_name.to_str().expect("PyString conversion failed."),
     );
 
     println!("{}", pil);
@@ -1913,16 +1895,16 @@ fn ast_map_store(json: &PyString) -> u128 {
 }
 
 #[pyfunction]
-fn halo2_mock_prover(witness_json: &PyString, rust_id: &PyLong, k: &PyLong) {
-    chiquito_halo2_mock_prover(
+fn halo2_mock_prover(witness_json: &PyString, rust_id: &PyLong, params_path: &str) {
+    chiquito_halo2_prover(
         witness_json.to_str().expect("PyString conversion failed."),
         rust_id.extract().expect("PyLong conversion failed."),
-        k.extract().expect("PyLong conversion failed."),
+        params_path,
     );
 }
 
 #[pyfunction]
-fn super_circuit_halo2_mock_prover(rust_ids: &PyList, super_witness: &PyDict, k: &PyLong) {
+fn super_circuit_halo2_mock_prover(rust_ids: &PyList, super_witness: &PyDict) {
     let uuids = rust_ids
         .iter()
         .map(|rust_id| {
@@ -1951,18 +1933,14 @@ fn super_circuit_halo2_mock_prover(rust_ids: &PyList, super_witness: &PyDict, k:
         })
         .collect::<HashMap<u128, &str>>();
 
-    chiquito_super_circuit_halo2_mock_prover(
-        uuids,
-        super_witness,
-        k.extract().expect("PyLong conversion failed."),
-    )
+    chiquito_super_circuit_halo2_mock_prover(uuids, super_witness)
 }
 
 #[pymodule]
 fn rust_chiquito(_py: Python, m: &PyModule) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(convert_and_print_ast, m)?)?;
     m.add_function(wrap_pyfunction!(convert_and_print_trace_witness, m)?)?;
-    m.add_function(wrap_pyfunction!(ast_to_halo2, m)?)?;
+    m.add_function(wrap_pyfunction!(ast_to_plonkish, m)?)?;
     m.add_function(wrap_pyfunction!(to_pil, m)?)?;
     m.add_function(wrap_pyfunction!(ast_map_store, m)?)?;
     m.add_function(wrap_pyfunction!(halo2_mock_prover, m)?)?;

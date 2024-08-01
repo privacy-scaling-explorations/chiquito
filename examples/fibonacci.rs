@@ -6,7 +6,7 @@ use chiquito::{
                                                          * circuit */
     plonkish::{
         backend::{
-            halo2::{halo2_verify, DummyRng, Halo2Prover, PlonkishHalo2},
+            halo2::{halo2_verify, Halo2Provable},
             hyperplonk::ChiquitoHyperPlonkCircuit,
         },
         compiler::{
@@ -27,7 +27,6 @@ use chiquito::{
     sbpir::SBPIR,
 };
 use halo2_proofs::halo2curves::bn256::Fr;
-use rand_chacha::rand_core::block::BlockRng;
 
 // the main circuit function: returns the compiled IR of a Chiquito circuit
 // Generic types F, (), (u64, 64) stand for:
@@ -134,17 +133,18 @@ fn fibo_circuit<F: Field + From<u64> + Hash>() -> FiboReturn<F> {
 fn main() {
     let (mut chiquito, _) = fibo_circuit::<Fr>();
 
-    let rng = BlockRng::new(DummyRng {});
+    let params_path = "examples/ptau/hermez-raw-11";
 
-    let halo2_prover = chiquito.create_halo2_prover(7, rng);
+    let halo2_prover = chiquito.create_halo2_prover(params_path);
+    println!("k={}", halo2_prover.get_k());
 
     let (proof, instance) =
         halo2_prover.generate_proof(chiquito.assignment_generator.unwrap().generate(()));
 
     let result = halo2_verify(
         proof,
-        &halo2_prover.setup.params,
-        &halo2_prover.setup.vk,
+        halo2_prover.get_params(),
+        halo2_prover.get_vk(),
         instance,
     );
 

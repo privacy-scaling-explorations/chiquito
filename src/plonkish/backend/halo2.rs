@@ -1,4 +1,4 @@
-use std::{collections::HashMap, hash::Hash, vec};
+use std::{collections::HashMap, fs::File, hash::Hash, iter, marker::PhantomData, vec};
 
 use halo2_backend::plonk::{
     keygen::{keygen_pk, keygen_vk},
@@ -34,7 +34,10 @@ use halo2_proofs::{
         Blake2bRead, Blake2bWrite, Challenge255, TranscriptReadBuffer, TranscriptWriterBuffer,
     },
 };
-use rand_chacha::rand_core::block::{BlockRng, BlockRngCore};
+use rand_chacha::rand_core::{
+    block::{BlockRng, BlockRngCore},
+    OsRng,
+};
 
 use crate::{
     field::Field as ChiquitoField,
@@ -74,39 +77,47 @@ impl<T: PrimeField + From<u64>> ChiquitoField for T {
     }
 }
 
-#[allow(non_snake_case)]
-pub fn chiquito2Halo2<F: PrimeField + From<u64> + Hash>(circuit: Circuit<F>) -> ChiquitoHalo2<F> {
-    ChiquitoHalo2::new(circuit)
+trait Halo2Configurable<F: Field> {
+    fn compile_middleware(
+        &mut self,
+        num_circuit_rows: usize,
+    ) -> Result<(CompiledCircuit<F>, u32), Error> {
+        let mut cs = self.configure_cs();
+
+        let preprocessing = self.preprocessing(&mut cs);
+
+        let occupied_rows = num_circuit_rows + cs.minimum_rows();
+        let k = occupied_rows.next_power_of_two().trailing_zeros();
+        let n = 2usize.pow(k);
+
+        Ok((
+            CompiledCircuit {
+                cs: cs.clone().into(),
+                preprocessing: preprocessing.extend(n),
+            },
+            k,
+        ))
+    }
+
+    fn configure_cs(&mut self) -> ConstraintSystem<F>;
+    fn preprocessing(&self, cs: &mut ConstraintSystem<F>) -> PreprocessingCompact<F>;
 }
 
-fn compile_middleware<F: PrimeField + From<u64> + Hash, C: Halo2Configurable<F>>(
-    k: u32,
-    circuit: &mut C,
-) -> Result<CompiledCircuit<F>, Error> {
-    let (cs, preprocessing) = circuit.configure(k)?;
-
-    Ok(CompiledCircuit {
-        cs: cs.clone().into(),
-        preprocessing,
-    })
+pub trait Halo2WitnessGenerator<F, W> {
+    fn instance(&self, witness: &W) -> Vec<Vec<F>>;
+    fn assigned_witness(
+        &self,
+        witness: &W,
+        params_n: usize,
+        num_advice_columns: usize,
+    ) -> Vec<Option<Vec<F>>>;
 }
 
-#[allow(non_snake_case)]
-pub fn chiquitoSuperCircuit2Halo2<F: PrimeField + From<u64> + Hash, MappingArgs>(
-    super_circuit: &SuperCircuit<F, MappingArgs>,
-) -> Vec<ChiquitoHalo2<F>> {
-    super_circuit
-        .get_sub_circuits()
-        .iter()
-        .map(|c| chiquito2Halo2((*c).clone()))
-        .collect()
-}
-
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug)]
 pub struct ChiquitoHalo2<F: PrimeField + From<u64>> {
     pub debug: bool,
 
-    pub circuit: Circuit<F>,
+    pub(crate) plonkish_ir: Circuit<F>,
 
     advice_columns: HashMap<UUID, Column<Advice>>,
     fixed_columns: HashMap<UUID, Column<Fixed>>,
@@ -115,45 +126,23 @@ pub struct ChiquitoHalo2<F: PrimeField + From<u64>> {
     ir_id: UUID,
 }
 
-trait Halo2Configurable<F: Field> {
-    fn configure(&mut self, k: u32) -> Result<(ConstraintSystem<F>, Preprocessing<F>), Error> {
-        let mut cs = self.configure_cs();
-        let n = 2usize.pow(k);
-
-        if n < cs.minimum_rows() {
-            return Err(Error::Backend(ErrorBack::NotEnoughRowsAvailable {
-                current_k: k,
-            }));
-        }
-
-        let preprocessing = self.preprocessing(&mut cs, n);
-
-        Ok((cs.clone(), preprocessing))
-    }
-
-    fn configure_cs(&mut self) -> ConstraintSystem<F>;
-    fn preprocessing(&self, cs: &mut ConstraintSystem<F>, n: usize) -> Preprocessing<F>;
-}
-
 impl<F: PrimeField + Hash> Halo2Configurable<F> for ChiquitoHalo2<F> {
-    fn preprocessing(&self, cs: &mut ConstraintSystem<F>, n: usize) -> Preprocessing<F> {
-        let fixed_count = self.circuit.fixed_assignments.0.len();
-        let mut fixed = vec![vec![F::default(); n]; fixed_count];
+    fn preprocessing(&self, cs: &mut ConstraintSystem<F>) -> PreprocessingCompact<F> {
+        let fixed_count = self.plonkish_ir.fixed_assignments.0.len();
+        let mut fixed = vec![vec![]; fixed_count];
 
-        for (column, values) in self.circuit.fixed_assignments.iter() {
+        for (column, values) in self.plonkish_ir.fixed_assignments.iter() {
             let column = self.convert_fixed_column(column);
 
-            for (offset, value) in values.iter().enumerate() {
-                fixed[column.index][offset] = *value;
-            }
+            fixed[column.index].extend(values.iter().cloned());
         }
 
         let mut copies = vec![];
         self.collect_permutations(cs, &mut copies);
 
-        Preprocessing {
+        PreprocessingCompact {
             permutation: AssemblyMid { copies },
-            fixed,
+            fixed_compact: fixed,
         }
     }
 
@@ -168,12 +157,34 @@ impl<F: PrimeField + Hash> Halo2Configurable<F> for ChiquitoHalo2<F> {
     }
 }
 
+/// "Compact" preprocessing
+/// Created before the circuit size is known (here the height of the fixed assignments is defined
+/// only by the number of assigned values)
+struct PreprocessingCompact<F: Field> {
+    permutation: AssemblyMid,
+    fixed_compact: Vec<Vec<F>>,
+}
+
+impl<F: Field> PreprocessingCompact<F> {
+    /// Extend the preprocessing to the full circuit size
+    fn extend(mut self, n: usize) -> Preprocessing<F> {
+        self.fixed_compact
+            .iter_mut()
+            .for_each(|f| f.extend(iter::repeat(F::default()).take(n - f.len())));
+
+        Preprocessing {
+            permutation: self.permutation,
+            fixed: self.fixed_compact,
+        }
+    }
+}
+
 impl<F: PrimeField + From<u64> + Hash> ChiquitoHalo2<F> {
     pub fn new(circuit: Circuit<F>) -> ChiquitoHalo2<F> {
         let ir_id = circuit.id;
         ChiquitoHalo2 {
             debug: true,
-            circuit,
+            plonkish_ir: circuit,
             advice_columns: Default::default(),
             fixed_columns: Default::default(),
             instance_column: Default::default(),
@@ -185,7 +196,7 @@ impl<F: PrimeField + From<u64> + Hash> ChiquitoHalo2<F> {
         let mut advice_columns = HashMap::<UUID, Column<Advice>>::new();
         let mut fixed_columns = HashMap::<UUID, Column<Fixed>>::new();
 
-        for column in self.circuit.columns.iter() {
+        for column in self.plonkish_ir.columns.iter() {
             match column.ctype {
                 cAdvice => {
                     let halo2_column = to_halo2_advice(meta, column);
@@ -225,15 +236,15 @@ impl<F: PrimeField + From<u64> + Hash> ChiquitoHalo2<F> {
     }
 
     fn configure_sub_circuit(&mut self, meta: &mut ConstraintSystem<F>) {
-        if !self.circuit.exposed.is_empty() {
+        if !self.plonkish_ir.exposed.is_empty() {
             self.instance_column = Some(meta.instance_column());
         }
 
-        if !self.circuit.polys.is_empty() {
+        if !self.plonkish_ir.polys.is_empty() {
             meta.create_gate("main", |meta| {
                 let mut constraints: Vec<(&'static str, Expression<F>)> = Vec::new();
 
-                for poly in self.circuit.polys.iter() {
+                for poly in self.plonkish_ir.polys.iter() {
                     let converted = self.convert_poly(meta, &poly.expr);
                     let annotation = Box::leak(
                         format!("{} => {:?}", poly.annotation, converted).into_boxed_str(),
@@ -245,7 +256,7 @@ impl<F: PrimeField + From<u64> + Hash> ChiquitoHalo2<F> {
             });
         }
 
-        for lookup in self.circuit.lookups.iter() {
+        for lookup in self.plonkish_ir.lookups.iter() {
             let annotation: &'static str = Box::leak(lookup.annotation.clone().into_boxed_str());
             meta.lookup_any(annotation, |meta| {
                 let mut exprs = Vec::new();
@@ -339,7 +350,7 @@ impl<F: PrimeField + From<u64> + Hash> ChiquitoHalo2<F> {
         cs: &mut ConstraintSystem<F>,
         copies: &mut Vec<(CellMid, CellMid)>,
     ) {
-        self.circuit
+        self.plonkish_ir
             .exposed
             .iter()
             .enumerate()
@@ -377,15 +388,26 @@ impl<F: PrimeField + From<u64> + Hash> ChiquitoHalo2<F> {
     }
 }
 
-fn to_halo2_advice<F: PrimeField>(
-    meta: &mut ConstraintSystem<F>,
-    column: &cColumn,
-) -> Column<Advice> {
-    match column.phase {
-        0 => meta.advice_column_in(FirstPhase),
-        1 => meta.advice_column_in(SecondPhase),
-        2 => meta.advice_column_in(ThirdPhase),
-        _ => panic!("jarll wrong phase"),
+impl<F: PrimeField> Halo2WitnessGenerator<F, Assignments<F>> for ChiquitoHalo2<F> {
+    fn instance(&self, witness: &Assignments<F>) -> Vec<Vec<F>> {
+        if !self.plonkish_ir.exposed.is_empty() {
+            vec![self.plonkish_ir.instance(witness)]
+        } else {
+            vec![]
+        }
+    }
+
+    fn assigned_witness(
+        &self,
+        witness: &Assignments<F>,
+        params_n: usize,
+        num_advice_columns: usize,
+    ) -> Vec<Option<Vec<F>>> {
+        let mut assigned_witness = vec![Some(vec![F::default(); params_n]); num_advice_columns];
+
+        assign_witness(self, witness, &mut assigned_witness);
+
+        assigned_witness
     }
 }
 
@@ -395,8 +417,44 @@ pub struct ChiquitoHalo2SuperCircuit<F: PrimeField + From<u64>> {
 }
 
 impl<F: PrimeField + From<u64> + Hash> ChiquitoHalo2SuperCircuit<F> {
-    pub fn new(sub_circuits: Vec<ChiquitoHalo2<F>>) -> Self {
+    fn new(sub_circuits: Vec<ChiquitoHalo2<F>>) -> Self {
         Self { sub_circuits }
+    }
+}
+
+impl<F: PrimeField> Halo2WitnessGenerator<F, SuperAssignments<F>> for ChiquitoHalo2SuperCircuit<F> {
+    fn instance(&self, witness: &SuperAssignments<F>) -> Vec<Vec<F>> {
+        let mut instance = Vec::new();
+
+        for circuit in self.sub_circuits.iter() {
+            if !circuit.plonkish_ir.exposed.is_empty() {
+                let instance_values = circuit.plonkish_ir.instance(
+                    witness
+                        .get(&circuit.ir_id)
+                        .expect("No matching witness found for given UUID."),
+                );
+                instance.push(instance_values);
+            }
+        }
+
+        instance
+    }
+
+    fn assigned_witness(
+        &self,
+        witness: &SuperAssignments<F>,
+        params_n: usize,
+        num_advice_columns: usize,
+    ) -> Vec<Option<Vec<F>>> {
+        let mut assigned_witness = vec![Some(vec![F::default(); params_n]); num_advice_columns];
+
+        for circuit in self.sub_circuits.iter() {
+            if let Some(assignments) = witness.get(&circuit.ir_id) {
+                assign_witness(circuit, assignments, &mut assigned_witness);
+            }
+        }
+
+        assigned_witness
     }
 }
 
@@ -432,7 +490,7 @@ impl<F: PrimeField + Hash> Halo2Configurable<F> for ChiquitoHalo2SuperCircuit<F>
         cs
     }
 
-    fn preprocessing(&self, cs: &mut ConstraintSystem<F>, n: usize) -> Preprocessing<F> {
+    fn preprocessing(&self, cs: &mut ConstraintSystem<F>) -> PreprocessingCompact<F> {
         let fixed_columns: HashMap<UUID, Column<Fixed>> =
             self.sub_circuits
                 .iter()
@@ -442,23 +500,21 @@ impl<F: PrimeField + Hash> Halo2Configurable<F> for ChiquitoHalo2SuperCircuit<F>
                 });
 
         let fixed_count = fixed_columns.len();
-        let mut fixed = vec![vec![F::default(); n]; fixed_count];
+        let mut fixed = vec![vec![]; fixed_count];
 
         let mut copies = vec![];
         for subcircuit in self.sub_circuits.iter() {
-            for (column, values) in subcircuit.circuit.fixed_assignments.iter() {
+            for (column, values) in subcircuit.plonkish_ir.fixed_assignments.iter() {
                 let column = fixed_columns.get(&column.uuid()).unwrap();
 
-                for (offset, value) in values.iter().enumerate() {
-                    fixed[column.index][offset] = *value;
-                }
+                fixed[column.index].extend(values.iter().cloned());
             }
             subcircuit.collect_permutations(cs, &mut copies);
         }
 
-        Preprocessing {
+        PreprocessingCompact {
             permutation: AssemblyMid { copies },
-            fixed,
+            fixed_compact: fixed,
         }
     }
 }
@@ -495,18 +551,75 @@ pub fn halo2_verify(
 }
 
 /// Halo2 setup
-pub struct Setup {
-    pub cs: ConstraintSystemMid<Fr>,
-    pub params: ParamsKZG<Bn256>,
-    pub vk: VerifyingKey<G1Affine>,
-    pub pk: ProvingKey<G1Affine>,
-    rng: BlockRng<DummyRng>,
+struct Setup {
+    cs: ConstraintSystemMid<Fr>,
+    params: ParamsKZG<Bn256>,
+    vk: VerifyingKey<G1Affine>,
+    pk: ProvingKey<G1Affine>,
 }
 
-/// Halo2 prover for a single circuit
-pub struct SingleCircuitProver<F: PrimeField> {
-    pub setup: Setup,
-    circuit: ChiquitoHalo2<F>,
+/// Halo2 prover
+pub struct Halo2Prover<F, W, WG>
+where
+    WG: Halo2WitnessGenerator<F, W>,
+{
+    setup: Setup,
+    wit_gen: WG,
+
+    _p: PhantomData<(F, W)>,
+}
+
+impl<W, WG: Halo2WitnessGenerator<Fr, W>> Halo2Prover<Fr, W, WG> {
+    fn new(setup: Setup, wit_gen: WG) -> Halo2Prover<Fr, W, WG> {
+        Halo2Prover {
+            setup,
+            wit_gen,
+            _p: PhantomData,
+        }
+    }
+
+    /// Generate halo2 proof.
+    pub fn generate_proof(&self, witness: W) -> (Vec<u8>, Vec<Vec<Fr>>) {
+        let instance = self.wit_gen.instance(&witness);
+
+        // Proving
+        let mut transcript = Blake2bWrite::<_, G1Affine, Challenge255<_>>::init(vec![]);
+        let mut prover = create_prover(&self.setup, &instance, &mut transcript);
+
+        for phase in 0..self.setup.cs.phases() {
+            let assigned_witness = self.wit_gen.assigned_witness(
+                &witness,
+                self.setup.params.n() as usize,
+                self.setup.cs.num_advice_columns,
+            );
+
+            // TODO ignoring the challenges produced by the phase, but can they be useful later?
+            let _ = prover.commit_phase(phase as u8, assigned_witness).unwrap();
+        }
+        prover.create_proof().unwrap();
+        let proof = transcript.finalize();
+
+        (proof, instance)
+    }
+
+    /// Get halo2 setup params
+    pub fn get_params(&self) -> &ParamsKZG<Bn256> {
+        &self.setup.params
+    }
+
+    /// Get halo2 verifying key
+    pub fn get_vk(&self) -> &VerifyingKey<G1Affine> {
+        &self.setup.vk
+    }
+
+    /// Get halo2 proving key
+    pub fn get_pk(&self) -> &ProvingKey<G1Affine> {
+        &self.setup.pk
+    }
+
+    pub fn get_k(&self) -> u32 {
+        self.setup.params.k()
+    }
 }
 
 #[allow(clippy::type_complexity)]
@@ -520,7 +633,7 @@ fn create_prover<'a>(
     KZGCommitmentScheme<Bn256>,
     ProverSHPLONK<'a, Bn256>,
     Challenge255<G1Affine>,
-    BlockRng<DummyRng>,
+    OsRng,
     Blake2bWrite<Vec<u8>, G1Affine, Challenge255<G1Affine>>,
     H2cEngine,
 > {
@@ -539,16 +652,16 @@ fn create_prover<'a>(
             &setup.params,
             &setup.pk,
             instance.to_vec(),
-            setup.rng.clone(),
+            OsRng, // this rng is used by the prover to generate blinding factors
             transcript,
         )
         .unwrap()
 }
 
-fn assign_witness(
-    circuit: &ChiquitoHalo2<Fr>,
-    witness: &Assignments<Fr>,
-    assigned_witness: &mut [Option<Vec<Fr>>],
+fn assign_witness<F: PrimeField + From<u64>>(
+    circuit: &ChiquitoHalo2<F>,
+    witness: &Assignments<F>,
+    assigned_witness: &mut [Option<Vec<F>>],
 ) {
     for (column, values) in witness.iter() {
         let circuit_column = circuit.advice_columns.get(&column.uuid()).unwrap();
@@ -559,138 +672,91 @@ fn assign_witness(
     }
 }
 
-/// Halo2 prover for a super circuit
-pub struct SuperCircuitProver<F: PrimeField> {
-    pub setup: Setup,
-    circuit: ChiquitoHalo2SuperCircuit<F>,
-}
-
-pub trait Halo2Prover {
-    /// Witness type
-    type W;
-    /// Generate Halo2 proof
-    /// #### Arguments
-    /// * `witness` - circuit witness
-    /// #### Returns
-    /// * a tuple of proof and instance values
-    fn generate_proof(&self, witness: Self::W) -> (Vec<u8>, Vec<Vec<Fr>>);
-}
-
-impl Halo2Prover for SuperCircuitProver<Fr> {
-    type W = SuperAssignments<Fr>;
-
-    fn generate_proof(&self, witnesses: Self::W) -> (Vec<u8>, Vec<Vec<Fr>>) {
-        let mut instance = Vec::new();
-
-        for circuit in self.circuit.sub_circuits.iter() {
-            if !circuit.circuit.exposed.is_empty() {
-                let instance_values = circuit.circuit.instance(
-                    witnesses
-                        .get(&circuit.ir_id)
-                        .expect("No matching witness found for given UUID."),
-                );
-                instance.push(instance_values);
-            }
-        }
-
-        // Proving
-        let mut transcript = Blake2bWrite::<_, G1Affine, Challenge255<_>>::init(vec![]);
-        let mut prover = create_prover(&self.setup, &instance, &mut transcript);
-
-        for phase in 0..self.setup.cs.phases() {
-            let mut assigned_witness =
-                vec![
-                    Some(vec![Fr::default(); self.setup.params.n() as usize]);
-                    self.setup.cs.num_advice_columns
-                ];
-
-            for circuit in self.circuit.sub_circuits.iter() {
-                if let Some(assignments) = witnesses.get(&circuit.ir_id) {
-                    assign_witness(circuit, assignments, &mut assigned_witness);
-                }
-            }
-
-            // TODO ignoring the challenges produced by the phase, but can they be useful later?
-            let _ = prover.commit_phase(phase as u8, assigned_witness).unwrap();
-        }
-        prover.create_proof().unwrap();
-        let proof = transcript.finalize();
-
-        (proof, instance)
-    }
-}
-
-impl Halo2Prover for SingleCircuitProver<Fr> {
-    type W = Assignments<Fr>;
-
-    fn generate_proof(&self, witness: Self::W) -> (Vec<u8>, Vec<Vec<Fr>>) {
-        let mut instance = Vec::new();
-
-        if !self.circuit.circuit.exposed.is_empty() {
-            let instance_values = self.circuit.circuit.instance(&witness);
-            instance.push(instance_values);
-        }
-
-        // Proving
-        let mut transcript = Blake2bWrite::<_, G1Affine, Challenge255<_>>::init(vec![]);
-
-        let mut prover = create_prover(&self.setup, &instance, &mut transcript);
-
-        for phase in 0..self.setup.cs.phases() {
-            let mut assigned_witness =
-                vec![
-                    Some(vec![Fr::default(); self.setup.params.n() as usize]);
-                    self.setup.cs.num_advice_columns
-                ];
-
-            assign_witness(&self.circuit, &witness, &mut assigned_witness);
-
-            // TODO ignoring the challenges produced by the phase, but can they be useful later?
-            let _ = prover.commit_phase(phase as u8, assigned_witness).unwrap();
-        }
-        prover.create_proof().unwrap();
-        let proof = transcript.finalize();
-
-        (proof, instance)
-    }
-}
-
-pub trait PlonkishHalo2<F: PrimeField, P: Halo2Prover> {
+pub trait Halo2Provable<W, WG: Halo2WitnessGenerator<Fr, W>> {
     /// Create a Halo2 prover
     ///
     /// ### Arguments
-    /// * `k` - logaritmic size of the circuit
-    /// * `rng` - random number generator
+    /// * `params_path` - path to trusted setup file
     ///
     /// ### Returns
     /// * a Halo2 prover
-    fn create_halo2_prover(&mut self, k: u32, rng: BlockRng<DummyRng>) -> P;
+    fn create_halo2_prover(&mut self, params_path: &str) -> Halo2Prover<Fr, W, WG>;
+
+    /// Create a Halo2 test prover. ⚠️ Not for production use! ⚠️
+    /// This prover uses a dummy RNG that outputs fixed values.
+    ///
+    /// ### Returns
+    /// * a test Halo2 prover
+    fn create_test_prover(&mut self) -> Halo2Prover<Fr, W, WG>;
 }
 
-impl<TG: TraceGenerator<Fr> + Default> PlonkishHalo2<Fr, SingleCircuitProver<Fr>>
+impl<W, WG: Halo2WitnessGenerator<Fr, W>, T: Halo2Compilable<W, WG>> Halo2Provable<W, WG> for T {
+    fn create_halo2_prover(&mut self, params_path: &str) -> Halo2Prover<Fr, W, WG> {
+        let (circuit, compiled, k) = self.halo2_compile();
+        let mut params_fs = File::open(params_path).expect("couldn't load params");
+        let mut params = ParamsKZG::<Bn256>::read(&mut params_fs).expect("Failed to read params");
+        if params.k() < k {
+            panic!(
+                "The provided trusted setup size {} ({params_path}) does not satisfy the circuit size {k}",
+                params.k(),
+            );
+        }
+        if params.k() > k {
+            params.downsize(k);
+        }
+        Halo2Prover::new(create_setup(compiled, params), circuit)
+    }
+
+    fn create_test_prover(&mut self) -> Halo2Prover<Fr, W, WG> {
+        let (circuit, compiled, k) = self.halo2_compile();
+
+        let params = ParamsKZG::<Bn256>::setup::<BlockRng<DummyRng>>(k, BlockRng::new(DummyRng {}));
+
+        Halo2Prover::new(create_setup(compiled, params), circuit)
+    }
+}
+
+trait Halo2Compilable<W, WG: Halo2WitnessGenerator<Fr, W>> {
+    /// Implementation-specific circuit compilation
+    fn halo2_compile(&mut self) -> (WG, CompiledCircuit<Fr>, u32);
+}
+
+impl<TG: TraceGenerator<Fr> + Clone + Default> Halo2Compilable<Assignments<Fr>, ChiquitoHalo2<Fr>>
     for PlonkishCompilationResult<Fr, TG>
 {
-    fn create_halo2_prover(&mut self, k: u32, rng: BlockRng<DummyRng>) -> SingleCircuitProver<Fr> {
+    fn halo2_compile(&mut self) -> (ChiquitoHalo2<Fr>, CompiledCircuit<Fr>, u32) {
         let mut circuit = ChiquitoHalo2::new(self.circuit.clone());
-        let compiled = compile_middleware(k, &mut circuit).unwrap();
-        let setup = create_setup(k, rng, compiled);
-        SingleCircuitProver { setup, circuit }
+        let (compiled, k) = circuit.compile_middleware(self.circuit.num_rows).unwrap();
+        (circuit, compiled, k)
+    }
+}
+impl<MappingArgs> Halo2Compilable<SuperAssignments<Fr>, ChiquitoHalo2SuperCircuit<Fr>>
+    for SuperCircuit<Fr, MappingArgs>
+{
+    fn halo2_compile(&mut self) -> (ChiquitoHalo2SuperCircuit<Fr>, CompiledCircuit<Fr>, u32) {
+        let compiled = self
+            .get_sub_circuits()
+            .iter()
+            .map(|c| ChiquitoHalo2::new(c.clone()))
+            .collect();
+
+        let mut circuit = ChiquitoHalo2SuperCircuit::new(compiled);
+
+        let tallest_subcircuit_height = circuit
+            .sub_circuits
+            .iter()
+            .map(|c| c.plonkish_ir.num_rows)
+            .max()
+            .unwrap_or(0);
+
+        let (compiled, k) = circuit
+            .compile_middleware(tallest_subcircuit_height)
+            .unwrap();
+        (circuit, compiled, k)
     }
 }
 
-impl PlonkishHalo2<Fr, SuperCircuitProver<Fr>> for ChiquitoHalo2SuperCircuit<Fr> {
-    fn create_halo2_prover(&mut self, k: u32, rng: BlockRng<DummyRng>) -> SuperCircuitProver<Fr> {
-        let compiled = compile_middleware(k, self).unwrap();
-        let setup = create_setup(k, rng, compiled);
-        SuperCircuitProver {
-            circuit: self.clone(),
-            setup,
-        }
-    }
-}
-
-fn create_setup(k: u32, rng: BlockRng<DummyRng>, circuit: CompiledCircuit<Fr>) -> Setup {
-    let params = ParamsKZG::<Bn256>::setup::<BlockRng<DummyRng>>(k, rng.clone());
+fn create_setup(circuit: CompiledCircuit<Fr>, params: ParamsKZG<Bn256>) -> Setup {
     let vk = keygen_vk(&params, &circuit).expect("keygen_vk should not fail");
     let pk = keygen_pk(&params, vk.clone(), &circuit).expect("keygen_pk should not fail");
 
@@ -699,7 +765,6 @@ fn create_setup(k: u32, rng: BlockRng<DummyRng>, circuit: CompiledCircuit<Fr>) -
         params,
         vk,
         pk,
-        rng,
     }
 }
 
@@ -717,5 +782,17 @@ impl BlockRngCore for DummyRng {
         for elem in results.iter_mut() {
             *elem = 1;
         }
+    }
+}
+
+fn to_halo2_advice<F: PrimeField>(
+    meta: &mut ConstraintSystem<F>,
+    column: &cColumn,
+) -> Column<Advice> {
+    match column.phase {
+        0 => meta.advice_column_in(FirstPhase),
+        1 => meta.advice_column_in(SecondPhase),
+        2 => meta.advice_column_in(ThirdPhase),
+        _ => panic!("jarll wrong phase"),
     }
 }

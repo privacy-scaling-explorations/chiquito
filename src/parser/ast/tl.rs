@@ -2,6 +2,20 @@ use std::fmt::Debug;
 
 use super::{statement::Statement, DebugSymRef, Identifiable, Identifier};
 
+pub struct AST<F, V>(Vec<TLDecl<F, V>>);
+
+impl<F, V: PartialEq> AST<F, V> {
+    pub fn machines_iter_mut(&mut self) -> std::slice::IterMut<TLDecl<F, V>> {
+        self.0.iter_mut()
+    }
+
+    pub fn find_machine(&self, id_machine: V) -> Option<&TLDecl<F, V>> {
+        self.0.iter().find(|tldecl| match tldecl {
+            TLDecl::MachineDecl { id, .. } => *id == id_machine,
+        })
+    }
+}
+
 #[derive(Clone)]
 pub enum TLDecl<F, V> {
     MachineDecl {
