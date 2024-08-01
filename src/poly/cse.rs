@@ -52,8 +52,6 @@ fn replace_subexpr<F: Field + Hash, V: Clone + Eq + Hash + Debug>(
 
 #[cfg(test)]
 mod tests {
-    use std::vec;
-
     use halo2_proofs::halo2curves::bn256::Fr;
 
     use crate::{
@@ -83,9 +81,9 @@ mod tests {
         let b = Queriable::Internal(InternalSignal::new("b"));
         let c = Queriable::Internal(InternalSignal::new("c"));
 
-        let vars = vec![a.clone(), b.clone(), c.clone()];
+        let vars = [a, b, c];
 
-        let expr = -1.expr() + a * b - c;
+        let expr = -(1.expr()) + a * b - c;
         let common_expr = a * b;
 
         let mut signal_factory = TestSignalFactory::default();

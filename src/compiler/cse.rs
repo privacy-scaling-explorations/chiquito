@@ -228,14 +228,7 @@ mod test {
         let d = Queriable::Internal(InternalSignal::new("d"));
         let e = Queriable::Internal(InternalSignal::new("e"));
         let f = Queriable::Internal(InternalSignal::new("f"));
-        let vars = vec![
-            a.clone(),
-            b.clone(),
-            c.clone(),
-            d.clone(),
-            e.clone(),
-            f.clone(),
-        ];
+        let vars = vec![a, b, c, d, e, f];
 
         let expr1 = a * b + c;
         let expr2 = c + b + a;
@@ -247,7 +240,7 @@ mod test {
         let mut rng = ChaCha20Rng::seed_from_u64(0);
         let mut rand_assignments = VarAssignments::new();
         for var in vars.iter() {
-            rand_assignments.insert(var.clone(), Fr::random(&mut rng));
+            rand_assignments.insert(*var, Fr::random(&mut rng));
         }
 
         let mut hashed_exprs = Vec::new();
@@ -313,12 +306,10 @@ mod test {
 
         assert!(common_ses_found_and_replaced
             .clone()
-            .find(|expr| format!("{:?}", expr) == "(a * b)")
-            .is_some());
+            .any(|expr| format!("{:?}", &expr) == "(a * b)"));
         assert!(common_ses_found_and_replaced
             .clone()
-            .find(|expr| format!("{:?}", expr) == "(e * f * d)")
-            .is_some());
+            .any(|expr| format!("{:?}", &expr) == "(e * f * d)"));
     }
 
     #[derive(Clone)]
