@@ -24,7 +24,7 @@ use chiquito::{
         * Halo2
         * circuit */
     poly::ToField,
-    sbpir::SBPIR,
+    sbpir::SBPIRLegacy,
 };
 use halo2_proofs::halo2curves::bn256::Fr;
 
@@ -36,7 +36,7 @@ use halo2_proofs::halo2curves::bn256::Fr;
 
 type FiboReturn<F> = (
     PlonkishCompilationResult<F, DSLTraceGenerator<F>>,
-    SBPIR<F, DSLTraceGenerator<F>>,
+    SBPIRLegacy<F, DSLTraceGenerator<F>>,
 );
 
 fn fibo_circuit<F: Field + From<u64> + Hash>() -> FiboReturn<F> {
