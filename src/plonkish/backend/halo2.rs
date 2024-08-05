@@ -207,14 +207,9 @@ impl<F: PrimeField + From<u64> + Hash> ChiquitoHalo2<F> {
                     let halo2_column = meta.fixed_column(column);
                     fixed_columns.insert(column.uuid(), halo2_column);
                 }
-                Halo2Advice => {
-                    let halo2_column = meta.advice_from_halo2(column);
-                    advice_columns.insert(column.uuid(), halo2_column);
-                }
-                Halo2Fixed => {
-                    let halo2_column = meta.fixed_from_halo2(column);
-                    fixed_columns.insert(column.uuid(), halo2_column);
-                }
+                Halo2Advice | Halo2Fixed => panic!(
+                    "Use src/plonkish/backend/halo2_legacy.rs to compile a circuit with imported Halo2 columns"
+                ),
             });
 
         if !self.plonkish_ir.exposed.is_empty() {
@@ -287,34 +282,40 @@ impl<F: PrimeField> ConstraintSystemBuilder<F> {
                 column_type: Any::Fixed,
                 rotation: Rotation(rotation),
             })),
-            Halo2Advice | Halo2Fixed => {
-                unreachable!("Halo2 columns should be converted within Halo2Expr")
-            }
+            Halo2Advice | Halo2Fixed => panic!(
+                    "Use src/plonkish/backend/halo2_legacy.rs to compile a circuit with imported Halo2 columns"
+                ),
         }
     }
 
     fn convert_advice_column(&self, column: &cColumn) -> ColumnMid {
         match column.ctype {
-            cAdvice | Halo2Advice => ColumnMid {
+            cAdvice => ColumnMid {
                 column_type: Columns::Advice,
                 index: *self
                     .advice_idx_map
                     .get(&column.uuid())
                     .unwrap_or_else(|| panic!("column not found {}", column.annotation)),
             },
+            Halo2Advice => panic!(
+                    "Use src/plonkish/backend/halo2_legacy.rs to compile a circuit with imported Halo2 columns"
+                ),
             _ => panic!("wrong column type"),
         }
     }
 
     fn convert_fixed_column(&self, column: &cColumn) -> ColumnMid {
         match column.ctype {
-            cFixed | Halo2Fixed => ColumnMid {
+            cFixed  => ColumnMid {
                 column_type: Columns::Fixed,
                 index: *self
                     .fixed_idx_map
                     .get(&column.uuid())
                     .unwrap_or_else(|| panic!("column not found {}", column.annotation)),
             },
+             Halo2Fixed => panic!(
+                    "Use src/plonkish/backend/halo2_legacy.rs to compile a circuit with imported Halo2 columns"
+                ),
             _ => panic!("wrong column type"),
         }
     }
@@ -366,8 +367,11 @@ impl<F: PrimeField> ConstraintSystemBuilder<F> {
             .enumerate()
             .for_each(|(row, (column, offset))| {
                 let col_type: Columns = match column.ctype {
-                    cAdvice | Halo2Advice => Columns::Advice,
-                    cFixed | Halo2Fixed => Columns::Fixed,
+                    cAdvice  => Columns::Advice,
+                    cFixed  => Columns::Fixed,
+                    Halo2Advice | Halo2Fixed => panic!(
+                    "Use src/plonkish/backend/halo2_legacy.rs to compile a circuit with imported Halo2 columns"
+                ),
                 };
 
                 let index = if col_type == Columns::Advice {
@@ -428,14 +432,6 @@ impl<F: PrimeField> ConstraintSystemBuilder<F> {
         self.allocate_advice(index, column)
     }
 
-    fn advice_from_halo2(&mut self, column: &cColumn) -> ColumnMid {
-        let halo2_column = column
-            .halo2_advice
-            .unwrap_or_else(|| panic!("halo2 advice column not found {}", column.annotation))
-            .column;
-        self.allocate_advice(halo2_column.index, column)
-    }
-
     fn fixed_column(&mut self, column: &cColumn) -> ColumnMid {
         let index = self.num_fixed_columns;
         self.allocate_fixed(index, column)
@@ -461,14 +457,6 @@ impl<F: PrimeField> ConstraintSystemBuilder<F> {
         self.annotate(index, column, Any::Advice);
         self.num_advice_columns += 1;
         column_mid
-    }
-
-    fn fixed_from_halo2(&mut self, column: &cColumn) -> ColumnMid {
-        let halo2_column = column
-            .halo2_fixed
-            .unwrap_or_else(|| panic!("halo2 advice column not found {}", column.annotation))
-            .column;
-        self.allocate_fixed(halo2_column.index, column)
     }
 }
 
