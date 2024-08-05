@@ -113,7 +113,7 @@ pub trait Halo2WitnessGenerator<F, W> {
     ) -> Vec<Option<Vec<F>>>;
 }
 
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug)]
 pub struct ChiquitoHalo2<F: PrimeField + From<u64>> {
     pub debug: bool,
 
@@ -853,7 +853,7 @@ trait Halo2Compilable<W, WG: Halo2WitnessGenerator<Fr, W>> {
     fn halo2_compile(&mut self) -> (WG, CompiledCircuit<Fr>, u32);
 }
 
-impl<TG: TraceGenerator<Fr> + Default> Halo2Compilable<Assignments<Fr>, ChiquitoHalo2<Fr>>
+impl<TG: TraceGenerator<Fr> + Clone + Default> Halo2Compilable<Assignments<Fr>, ChiquitoHalo2<Fr>>
     for PlonkishCompilationResult<Fr, TG>
 {
     fn halo2_compile(&mut self) -> (ChiquitoHalo2<Fr>, CompiledCircuit<Fr>, u32) {
@@ -869,7 +869,7 @@ impl<MappingArgs> Halo2Compilable<SuperAssignments<Fr>, ChiquitoHalo2SuperCircui
         let compiled = self
             .get_sub_circuits()
             .iter()
-            .map(|c| chiquito2Halo2((*c).clone()))
+            .map(|c| ChiquitoHalo2::new(c.clone()))
             .collect();
 
         let mut circuit = ChiquitoHalo2SuperCircuit::new(compiled);
@@ -915,12 +915,4 @@ impl BlockRngCore for DummyRng {
             *elem = 1;
         }
     }
-}
-
-/// LEGACY
-#[allow(non_snake_case)]
-pub(crate) fn chiquito2Halo2<F: PrimeField + From<u64> + Hash>(
-    circuit: Circuit<F>,
-) -> ChiquitoHalo2<F> {
-    ChiquitoHalo2::new(circuit)
 }

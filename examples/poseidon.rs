@@ -1,7 +1,7 @@
 use chiquito::{
     frontend::dsl::{lb::LookupTable, super_circuit, trace::DSLTraceGenerator, CircuitContext},
     plonkish::{
-        backend::halo2::{halo2_verify, Halo2Provable},
+        backend::halo2_legacy::{chiquitoSuperCircuit2Halo2, ChiquitoHalo2SuperCircuit},
         compiler::{
             cell_manager::{MaxWidthCellManager, SingleRowCellManager},
             config,
@@ -14,7 +14,10 @@ use chiquito::{
 
 use std::hash::Hash;
 
-use halo2_proofs::halo2curves::{bn256::Fr, group::ff::PrimeField};
+use halo2_proofs::{
+    dev::MockProver,
+    halo2curves::{bn256::Fr, group::ff::PrimeField},
+};
 
 #[derive(Clone)]
 struct RoundValues<F: PrimeField> {
@@ -700,27 +703,21 @@ fn main() {
         n_outputs: 1,
     };
 
-    let mut super_circuit = poseidon_super_circuit(lens);
-    let witness = super_circuit.get_mapping().generate(values);
+    let super_circuit = poseidon_super_circuit(lens);
+    let compiled = chiquitoSuperCircuit2Halo2(&super_circuit);
+    let circuit =
+        ChiquitoHalo2SuperCircuit::new(compiled, super_circuit.get_mapping().generate(values));
 
-    let params_path = "examples/ptau/hermez-raw-12";
+    let prover = MockProver::<Fr>::run(12, &circuit, Vec::new()).unwrap();
 
-    let halo2_prover = super_circuit.create_halo2_prover(params_path);
-    println!("k={}", halo2_prover.get_k());
-
-    let (proof, instance) = halo2_prover.generate_proof(witness);
-
-    let result = halo2_verify(
-        proof,
-        halo2_prover.get_params(),
-        halo2_prover.get_vk(),
-        instance,
-    );
+    let result = prover.verify();
 
     println!("result = {:#?}", result);
 
-    if let Err(failure) = &result {
-        println!("{}", failure);
+    if let Err(failures) = &result {
+        for failure in failures.iter() {
+            println!("{}", failure);
+        }
     }
 }
 
