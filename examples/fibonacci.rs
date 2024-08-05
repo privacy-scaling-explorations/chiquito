@@ -6,7 +6,7 @@ use chiquito::{
                                                          * circuit */
     plonkish::{
         backend::{
-            halo2::{halo2_verify, Halo2Provable},
+            halo2_legacy::{chiquito2Halo2, ChiquitoHalo2Circuit},
             hyperplonk::ChiquitoHyperPlonkCircuit,
         },
         compiler::{
@@ -14,8 +14,8 @@ use chiquito::{
             compile,                            // input for constructing the compiler
             config,
             step_selector::SimpleStepSelectorBuilder,
-            PlonkishCompilationResult,
         },
+        ir::{assignments::AssignmentGenerator, Circuit},
     }, /* compiles to
         * Chiquito Halo2
         * backend,
@@ -26,7 +26,7 @@ use chiquito::{
     poly::ToField,
     sbpir::SBPIR,
 };
-use halo2_proofs::halo2curves::bn256::Fr;
+use halo2_proofs::dev::MockProver;
 
 // the main circuit function: returns the compiled IR of a Chiquito circuit
 // Generic types F, (), (u64, 64) stand for:
@@ -35,7 +35,8 @@ use halo2_proofs::halo2curves::bn256::Fr;
 // 3. two witness generation arguments both of u64 type, i.e. (u64, u64)
 
 type FiboReturn<F> = (
-    PlonkishCompilationResult<F, DSLTraceGenerator<F>>,
+    Circuit<F>,
+    Option<AssignmentGenerator<F>>,
     SBPIR<F, DSLTraceGenerator<F>>,
 );
 
@@ -97,12 +98,12 @@ fn fibo_circuit<F: Field + From<u64> + Hash>() -> FiboReturn<F> {
 
         ctx.pragma_num_steps(16);
 
-        // Trace function is responsible for adding step instantiations defined in `step_type_def`
-        // function above. Trace function is Turing-complete and allows arbitrary user-defined
-        // logic for assigning witness values
+        // trace function is responsible for adding step instantiations defined in step_type_def
+        // function above trace function is Turing complete and allows arbitrary user
+        // defined logics for assigning witness values
         ctx.trace(move |ctx: _, _| {
-            // Add function adds a step instantiation to the main circuit and calls witness
-            // generation function defined in step_type_def. Input values for witness
+            // add function adds a step instantiation to the main circuit and calls witness
+            // generation function defined in step_type_def input values for witness
             // generation function are (1, 1) in this step instance
             ctx.add(&fibo_step, (1, 1));
             let mut a = 1;
@@ -123,7 +124,7 @@ fn fibo_circuit<F: Field + From<u64> + Hash>() -> FiboReturn<F> {
         &fibo,
     );
 
-    (compiled, fibo)
+    (compiled.circuit, compiled.assignment_generator, fibo)
 }
 
 // After compiling Chiquito AST to an IR, it is further parsed by a Chiquito Halo2 backend and
@@ -131,64 +132,48 @@ fn fibo_circuit<F: Field + From<u64> + Hash>() -> FiboReturn<F> {
 
 // standard main function for a Halo2 circuit
 fn main() {
-    let (mut chiquito, _) = fibo_circuit::<Fr>();
+    let (chiquito, wit_gen, _) = fibo_circuit::<Fr>();
+    let compiled = chiquito2Halo2(chiquito);
+    let circuit = ChiquitoHalo2Circuit::new(compiled, wit_gen.map(|g| g.generate(())));
 
-    let params_path = "examples/ptau/hermez-raw-11";
+    let prover = MockProver::<Fr>::run(7, &circuit, circuit.instance()).unwrap();
 
-    let halo2_prover = chiquito.create_halo2_prover(params_path);
-    println!("k={}", halo2_prover.get_k());
+    let result = prover.verify();
 
-    let (proof, instance) =
-        halo2_prover.generate_proof(chiquito.assignment_generator.unwrap().generate(()));
+    println!("{:#?}", result);
 
-    let result = halo2_verify(
-        proof,
-        halo2_prover.get_params(),
-        halo2_prover.get_vk(),
-        instance,
-    );
-
-    println!("result = {:#?}", result);
-
-    if let Err(error) = &result {
-        println!("{}", error);
+    if let Err(failures) = &result {
+        for failure in failures.iter() {
+            println!("{}", failure);
+        }
     }
 
     // hyperplonk boilerplate
     use hyperplonk_benchmark::proof_system::{bench_plonkish_backend, System};
     use plonkish_backend::{
         backend,
-        halo2_curves::bn256::{Bn256, Fr as hpFr},
+        halo2_curves::bn256::{Bn256, Fr},
         pcs::{multilinear, univariate},
     };
     // get Chiquito ir
-    let (plonkish_compilation_result, _) = fibo_circuit::<hpFr>();
+    let (circuit, assignment_generator, _) = fibo_circuit::<Fr>();
     // get assignments
-    let assignments = plonkish_compilation_result
-        .assignment_generator
-        .unwrap()
-        .generate(());
+    let assignments = assignment_generator.unwrap().generate(());
     // get hyperplonk circuit
-    let mut hyperplonk_circuit =
-        ChiquitoHyperPlonkCircuit::new(4, plonkish_compilation_result.circuit);
+    let mut hyperplonk_circuit = ChiquitoHyperPlonkCircuit::new(4, circuit);
     hyperplonk_circuit.set_assignment(assignments);
 
     type GeminiKzg = multilinear::Gemini<univariate::UnivariateKzg<Bn256>>;
     type HyperPlonk = backend::hyperplonk::HyperPlonk<GeminiKzg>;
-    bench_plonkish_backend::<HyperPlonk, hpFr>(System::HyperPlonk, 4, &hyperplonk_circuit);
+    bench_plonkish_backend::<HyperPlonk, Fr>(System::HyperPlonk, 4, &hyperplonk_circuit);
 
     // pil boilerplate
     use chiquito::pil::backend::powdr_pil::chiquito2Pil;
 
-    let (plonkish_compilation_result, circuit) = fibo_circuit::<hpFr>();
+    let (_, wit_gen, circuit) = fibo_circuit::<Fr>();
     let pil = chiquito2Pil(
         circuit,
-        Some(
-            plonkish_compilation_result
-                .assignment_generator
-                .unwrap()
-                .generate_trace_witness(()),
-        ),
+        Some(wit_gen.unwrap().generate_trace_witness(())),
         String::from("FiboCircuit"),
     );
     print!("{}", pil);

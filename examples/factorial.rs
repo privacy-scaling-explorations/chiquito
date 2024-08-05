@@ -5,7 +5,7 @@ use chiquito::{
     frontend::dsl::{circuit, trace::DSLTraceGenerator}, /* main function for constructing an AST
                                                          * circuit */
     plonkish::{
-        backend::halo2::{halo2_verify, Halo2Provable},
+        backend::halo2_legacy::{chiquito2Halo2, ChiquitoHalo2Circuit},
         compiler::{
             cell_manager::SingleRowCellManager, // input for constructing the compiler
             compile,                            // input for constructing the compiler
@@ -22,7 +22,7 @@ use chiquito::{
         * circuit */
     poly::ToField,
 };
-use halo2_proofs::halo2curves::bn256::Fr;
+use halo2_proofs::{dev::MockProver, halo2curves::bn256::Fr};
 
 const MAX_FACTORIAL: usize = 10;
 
@@ -134,47 +134,24 @@ fn generate<F: Field + From<u64> + Hash>() -> PlonkishCompilationResult<F, DSLTr
 
 // standard main function for a Halo2 circuit
 fn main() {
-    let mut plonkish = generate::<Fr>();
-    let params_path = "examples/ptau/hermez-raw-11";
-
-    let halo2_prover = plonkish.create_halo2_prover(params_path);
-    println!("k={}", halo2_prover.get_k());
-
-    let (proof, instance) =
-        halo2_prover.generate_proof(plonkish.assignment_generator.unwrap().generate(0));
-
-    let result = halo2_verify(
-        proof,
-        halo2_prover.get_params(),
-        halo2_prover.get_vk(),
-        instance,
+    let compilation_result = generate::<Fr>();
+    let compiled = chiquito2Halo2(compilation_result.circuit);
+    let circuit = ChiquitoHalo2Circuit::new(
+        compiled,
+        compilation_result
+            .assignment_generator
+            .map(|g| g.generate(0)),
     );
+
+    let prover = MockProver::<Fr>::run(10, &circuit, circuit.instance()).unwrap();
+
+    let result = prover.verify();
 
     println!("result = {:#?}", result);
 
-    if let Err(error) = &result {
-        println!("{}", error);
-    }
-
-    let mut plonkish = generate::<Fr>();
-    let params_path = "examples/ptau/hermez-raw-11";
-
-    let halo2_prover = plonkish.create_halo2_prover(params_path);
-    println!("k={}", halo2_prover.get_k());
-
-    let (proof, instance) =
-        halo2_prover.generate_proof(plonkish.assignment_generator.unwrap().generate(7));
-
-    let result = halo2_verify(
-        proof,
-        halo2_prover.get_params(),
-        halo2_prover.get_vk(),
-        instance,
-    );
-
-    println!("result = {:#?}", result);
-
-    if let Err(error) = &result {
-        println!("{}", error);
+    if let Err(failures) = &result {
+        for failure in failures.iter() {
+            println!("{}", failure);
+        }
     }
 }
