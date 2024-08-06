@@ -36,3 +36,6 @@ rand_chacha = "0.3"
 
 [build-dependencies]
 lalrpop = "0.20.0"
+
+[features]
+debug_pil = []
