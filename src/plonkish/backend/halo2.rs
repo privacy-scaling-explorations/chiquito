@@ -191,7 +191,7 @@ impl<F: PrimeField + From<u64> + Hash> ChiquitoHalo2<F> {
         }
     }
 
-    fn configure_halo2_columns(&mut self, meta: &mut ConstraintSystemBuilder<F>) {
+    fn configure_halo2_columns(&mut self, cs_builder: &mut ConstraintSystemBuilder<F>) {
         let mut advice_columns: HashMap<UUID, ColumnMid> = HashMap::new();
         let mut fixed_columns: HashMap<UUID, ColumnMid> = HashMap::new();
 
@@ -200,11 +200,11 @@ impl<F: PrimeField + From<u64> + Hash> ChiquitoHalo2<F> {
             .iter()
             .for_each(|column| match column.ctype {
                 cAdvice => {
-                    let halo2_column = meta.advice_column(column);
+                    let halo2_column = cs_builder.advice_column(column);
                     advice_columns.insert(column.uuid(), halo2_column);
                 }
                 cFixed => {
-                    let halo2_column = meta.fixed_column(column);
+                    let halo2_column = cs_builder.fixed_column(column);
                     fixed_columns.insert(column.uuid(), halo2_column);
                 }
                 Halo2Advice | Halo2Fixed => panic!(
@@ -213,13 +213,13 @@ impl<F: PrimeField + From<u64> + Hash> ChiquitoHalo2<F> {
             });
 
         if !self.plonkish_ir.exposed.is_empty() {
-            meta.has_instance_column = true;
+            cs_builder.has_instance_column = true;
         }
 
         self.plonkish_ir.polys.iter().for_each(|poly| {
-            meta.gates.push(GateMid {
+            cs_builder.gates.push(GateMid {
                 name: "main".to_string(),
-                poly: meta.convert_poly(&poly.expr),
+                poly: cs_builder.convert_poly(&poly.expr),
             })
         });
 
@@ -227,9 +227,9 @@ impl<F: PrimeField + From<u64> + Hash> ChiquitoHalo2<F> {
             let annotation: &'static str = Box::leak(lookup.annotation.clone().into_boxed_str());
             let mut exprs = Vec::new();
             for (src, dest) in lookup.exprs.iter() {
-                exprs.push((meta.convert_poly(src), meta.convert_poly(dest)))
+                exprs.push((cs_builder.convert_poly(src), cs_builder.convert_poly(dest)))
             }
-            meta.lookups.push(lookup::ArgumentMid {
+            cs_builder.lookups.push(lookup::ArgumentMid {
                 name: annotation.to_string(),
                 input_expressions: exprs.iter().map(|(src, _)| src.clone()).collect(),
                 table_expressions: exprs.iter().map(|(_, dest)| dest.clone()).collect(),
@@ -239,6 +239,24 @@ impl<F: PrimeField + From<u64> + Hash> ChiquitoHalo2<F> {
         self.advice_columns = advice_columns;
         self.fixed_columns = fixed_columns;
     }
+}
+
+#[derive(Default)]
+struct ConstraintSystemBuilder<F: PrimeField> {
+    num_fixed_columns: usize,
+    num_advice_columns: usize,
+    has_instance_column: bool,
+    gates: Vec<GateMid<F>>,
+    lookups: Vec<lookup::ArgumentMid<F>>,
+    /// Map from advice column UUID to index
+    advice_idx_map: HashMap<UUID, usize>,
+    /// Map from fixed column UUID to index
+    fixed_idx_map: HashMap<UUID, usize>,
+    permutation: PermutationArgument,
+    advice_queries: HashMap<usize, usize>,
+    fixed_queries: HashMap<usize, usize>,
+    instance_queries: HashMap<usize, usize>,
+    annotations: HashMap<ColumnMid, String>,
 }
 
 impl<F: PrimeField> ConstraintSystemBuilder<F> {
@@ -597,24 +615,6 @@ impl<F: PrimeField + Hash> Halo2Configurable<F> for ChiquitoHalo2SuperCircuit<F>
 pub struct PermutationArgument {
     /// A sequence of columns involved in the argument.
     pub columns: Vec<ColumnMid>,
-}
-
-#[derive(Default)]
-struct ConstraintSystemBuilder<F: PrimeField> {
-    num_fixed_columns: usize,
-    num_advice_columns: usize,
-    has_instance_column: bool,
-    gates: Vec<GateMid<F>>,
-    lookups: Vec<lookup::ArgumentMid<F>>,
-    /// Map from advice column UUID to index
-    advice_idx_map: HashMap<UUID, usize>,
-    /// Map from fixed column UUID to index
-    fixed_idx_map: HashMap<UUID, usize>,
-    permutation: PermutationArgument,
-    advice_queries: HashMap<usize, usize>,
-    fixed_queries: HashMap<usize, usize>,
-    instance_queries: HashMap<usize, usize>,
-    annotations: HashMap<ColumnMid, String>,
 }
 
 impl<F: PrimeField> From<ConstraintSystemBuilder<F>> for ConstraintSystemMid<F> {
