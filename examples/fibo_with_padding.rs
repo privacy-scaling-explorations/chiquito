@@ -5,7 +5,7 @@ use chiquito::{
     frontend::dsl::{circuit, trace::DSLTraceGenerator}, /* main function for constructing an AST
                                                          * circuit */
     plonkish::{
-        backend::halo2::{halo2_verify, Halo2Provable},
+        backend::halo2_legacy::{chiquito2Halo2, ChiquitoHalo2Circuit},
         compiler::{
             cell_manager::SingleRowCellManager, // input for constructing the compiler
             compile,                            // input for constructing the compiler
@@ -22,7 +22,7 @@ use chiquito::{
         * circuit */
     poly::ToField,
 };
-use halo2_proofs::halo2curves::bn256::Fr;
+use halo2_proofs::{dev::MockProver, halo2curves::bn256::Fr};
 
 // This example file extends the rust example file 'fibonacci.rs',
 // describing usage of multiple steptypes, padding, and exposing signals.
@@ -204,25 +204,24 @@ fn fibo_circuit<F: Field + From<u64> + Hash>(
 
 // standard main function for a Halo2 circuit
 fn main() {
-    let mut plonkish = fibo_circuit::<Fr>();
-    let params_path = "examples/ptau/hermez-raw-11";
-
-    let halo2_prover = plonkish.create_halo2_prover(params_path);
-    println!("k={}", halo2_prover.get_k());
-
-    let (proof, instance) =
-        halo2_prover.generate_proof(plonkish.assignment_generator.unwrap().generate(7));
-
-    let result = halo2_verify(
-        proof,
-        halo2_prover.get_params(),
-        halo2_prover.get_vk(),
-        instance,
+    let compilation_result = fibo_circuit::<Fr>();
+    let compiled = chiquito2Halo2(compilation_result.circuit);
+    let circuit = ChiquitoHalo2Circuit::new(
+        compiled,
+        compilation_result
+            .assignment_generator
+            .map(|g| g.generate(7)),
     );
+
+    let prover = MockProver::<Fr>::run(7, &circuit, circuit.instance()).unwrap();
+
+    let result = prover.verify();
 
     println!("{:#?}", result);
 
-    if let Err(failure) = &result {
-        println!("{}", failure);
+    if let Err(failures) = &result {
+        for failure in failures.iter() {
+            println!("{}", failure);
+        }
     }
 }

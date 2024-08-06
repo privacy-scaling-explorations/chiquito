@@ -161,6 +161,7 @@ fn generate_pil_fixed_columns<F: Debug>(pil: &mut String, pil_ir: &PILCircuit<F>
             "// === Fixed Columns for Signals and Step Type Selectors ==="
         )
         .unwrap();
+        #[cfg(feature = "debug_pil")]
         for (col, assignments) in pil_ir.col_fixed.iter() {
             let fixed_name = match col {
                 PILColumn::Fixed(_, annotation) => annotation.clone(),
