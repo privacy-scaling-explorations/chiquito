@@ -6,8 +6,8 @@ use halo2_proofs::plonk::{Advice, Column as Halo2Column};
 use crate::{
     plonkish::ir::{assignments::Assignments, Circuit, Column, ColumnType, Poly, PolyLookup},
     sbpir::{
-        FixedSignal, ForwardSignal, ImportedHalo2Advice, ImportedHalo2Fixed, SharedSignal,
-        StepType, StepTypeUUID, SBPIRLegacy as astCircuit,
+        FixedSignal, ForwardSignal, ImportedHalo2Advice, ImportedHalo2Fixed,
+        SBPIRLegacy as astCircuit, SharedSignal, StepType, StepTypeUUID,
     },
     util::{uuid, UUID},
     wit_gen::TraceGenerator,

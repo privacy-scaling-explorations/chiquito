@@ -4,7 +4,7 @@ use crate::{
     field::Field,
     frontend::dsl::StepTypeHandler,
     poly::Expr,
-    sbpir::{query::Queriable, ForwardSignal, InternalSignal, StepTypeUUID, PIR, SBPIRLegacy},
+    sbpir::{query::Queriable, ForwardSignal, InternalSignal, SBPIRLegacy, StepTypeUUID, PIR},
     util::UUID,
 };
 

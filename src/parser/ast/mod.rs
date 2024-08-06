@@ -142,7 +142,14 @@ impl PartialEq for DebugSymRef {
 }
 
 #[derive(Clone, PartialEq, Eq)]
-pub struct Identifier(pub String, pub i32, pub DebugSymRef);
+pub struct Identifier(
+    /// Name
+    pub String,
+    /// Rotation
+    pub i32,
+    /// Debug symbol reference
+    pub DebugSymRef,
+);
 impl Identifier {
     pub(crate) fn new<S: AsRef<str>>(value: S, dsym: DebugSymRef) -> Self {
         let value_str = value.as_ref();
@@ -153,6 +160,7 @@ impl Identifier {
         self.2.clone()
     }
 
+    /// Increase the rotation by one
     pub(crate) fn next(&self) -> Self {
         Self(self.0.clone(), self.1 + 1, self.2.clone())
     }

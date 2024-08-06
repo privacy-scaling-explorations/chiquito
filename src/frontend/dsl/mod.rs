@@ -1,6 +1,6 @@
 use crate::{
     field::Field,
-    sbpir::{query::Queriable, ExposeOffset, StepType, StepTypeUUID, PIR, SBPIRLegacy},
+    sbpir::{query::Queriable, ExposeOffset, SBPIRLegacy, StepType, StepTypeUUID, PIR},
     util::{uuid, UUID},
     wit_gen::{FixedGenContext, StepInstance, TraceGenerator},
 };
