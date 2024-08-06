@@ -1,4 +1,5 @@
 pub mod query;
+pub mod sbpir_machine;
 
 use std::{collections::HashMap, fmt::Debug, hash::Hash, rc::Rc};
 
@@ -14,12 +15,13 @@ use crate::{
 };
 
 use halo2_proofs::plonk::{Advice, Column as Halo2Column, ColumnType, Fixed};
+use sbpir_machine::SBPIRMachine;
 
 use self::query::Queriable;
 
 /// Circuit (Step-Based Polynomial Identity Representation)
 #[derive(Clone)]
-pub struct SBPIR<F, TG: TraceGenerator<F> = DSLTraceGenerator<F>> {
+pub struct SBPIRLegacy<F, TG: TraceGenerator<F> = DSLTraceGenerator<F>> {
     pub step_types: HashMap<UUID, StepType<F>>,
 
     pub forward_signals: Vec<ForwardSignal>,
@@ -42,7 +44,7 @@ pub struct SBPIR<F, TG: TraceGenerator<F> = DSLTraceGenerator<F>> {
     pub id: UUID,
 }
 
-impl<F: Debug, TG: TraceGenerator<F>> Debug for SBPIR<F, TG> {
+impl<F: Debug, TG: TraceGenerator<F>> Debug for SBPIRLegacy<F, TG> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("Circuit")
             .field("step_types", &self.step_types)
@@ -62,7 +64,7 @@ impl<F: Debug, TG: TraceGenerator<F>> Debug for SBPIR<F, TG> {
     }
 }
 
-impl<F, TG: TraceGenerator<F>> Default for SBPIR<F, TG> {
+impl<F, TG: TraceGenerator<F>> Default for SBPIRLegacy<F, TG> {
     fn default() -> Self {
         Self {
             step_types: Default::default(),
@@ -89,7 +91,7 @@ impl<F, TG: TraceGenerator<F>> Default for SBPIR<F, TG> {
     }
 }
 
-impl<F, TG: TraceGenerator<F>> SBPIR<F, TG> {
+impl<F, TG: TraceGenerator<F>> SBPIRLegacy<F, TG> {
     pub fn add_forward<N: Into<String>>(&mut self, name: N, phase: usize) -> ForwardSignal {
         let name = name.into();
         let signal = ForwardSignal::new_with_phase(phase, name.clone());
@@ -188,8 +190,8 @@ impl<F, TG: TraceGenerator<F>> SBPIR<F, TG> {
         }
     }
 
-    pub fn without_trace(self) -> SBPIR<F, NullTraceGenerator> {
-        SBPIR {
+    pub fn without_trace(self) -> SBPIRLegacy<F, NullTraceGenerator> {
+        SBPIRLegacy {
             step_types: self.step_types,
             forward_signals: self.forward_signals,
             shared_signals: self.shared_signals,
@@ -208,8 +210,8 @@ impl<F, TG: TraceGenerator<F>> SBPIR<F, TG> {
         }
     }
 
-    pub(crate) fn with_trace<TG2: TraceGenerator<F>>(self, trace: TG2) -> SBPIR<F, TG2> {
-        SBPIR {
+    pub(crate) fn with_trace<TG2: TraceGenerator<F>>(self, trace: TG2) -> SBPIRLegacy<F, TG2> {
+        SBPIRLegacy {
             trace_generator: Some(trace), // Change trace
             step_types: self.step_types,
             forward_signals: self.forward_signals,
@@ -229,7 +231,7 @@ impl<F, TG: TraceGenerator<F>> SBPIR<F, TG> {
     }
 }
 
-impl<F: Field, TraceArgs: Clone> SBPIR<F, DSLTraceGenerator<F, TraceArgs>> {
+impl<F: Field, TraceArgs: Clone> SBPIRLegacy<F, DSLTraceGenerator<F, TraceArgs>> {
     pub fn set_trace<D>(&mut self, def: D)
     where
         D: Fn(&mut TraceContext<F>, TraceArgs) + 'static,
@@ -245,9 +247,9 @@ impl<F: Field, TraceArgs: Clone> SBPIR<F, DSLTraceGenerator<F, TraceArgs>> {
     }
 }
 
-impl<F: Clone + Field, TG: TraceGenerator<F>> SBPIR<F, TG> {
-    pub fn clone_without_trace(&self) -> SBPIR<F, NullTraceGenerator> {
-        SBPIR {
+impl<F: Clone + Field, TG: TraceGenerator<F>> SBPIRLegacy<F, TG> {
+    pub fn clone_without_trace(&self) -> SBPIRLegacy<F, NullTraceGenerator> {
+        SBPIRLegacy {
             step_types: self.step_types.clone(),
             forward_signals: self.forward_signals.clone(),
             shared_signals: self.shared_signals.clone(),
@@ -263,6 +265,25 @@ impl<F: Clone + Field, TG: TraceGenerator<F>> SBPIR<F, TG> {
             num_steps: self.num_steps,
             q_enable: self.q_enable,
             id: self.id,
+        }
+    }
+}
+
+pub struct SBPIR<F, TG: TraceGenerator<F> = DSLTraceGenerator<F>> {
+    pub machines: HashMap<UUID, SBPIRMachine<F, TG>>,
+    pub identifiers: HashMap<String, UUID>,
+}
+
+impl<F, TG: TraceGenerator<F>> SBPIR<F, TG> {
+    pub(crate) fn from_legacy(circuit: SBPIRLegacy<F, TG>, machine_id: &str) -> SBPIR<F, TG> {
+        let mut machines = HashMap::new();
+        let circuit_id = circuit.id;
+        machines.insert(circuit_id, SBPIRMachine::from_legacy(circuit));
+        let mut identifiers = HashMap::new();
+        identifiers.insert(machine_id.to_string(), circuit_id);
+        SBPIR {
+            machines,
+            identifiers,
         }
     }
 }
@@ -696,14 +717,14 @@ mod tests {
 
     #[test]
     fn test_q_enable() {
-        let circuit: SBPIR<i32, NullTraceGenerator> = SBPIR::default();
+        let circuit: SBPIRLegacy<i32, NullTraceGenerator> = SBPIRLegacy::default();
         assert!(circuit.q_enable);
     }
 
     #[test]
     #[should_panic]
     fn test_expose_non_existing_signal() {
-        let mut circuit: SBPIR<i32, NullTraceGenerator> = SBPIR::default();
+        let mut circuit: SBPIRLegacy<i32, NullTraceGenerator> = SBPIRLegacy::default();
         let signal = Queriable::Forward(
             ForwardSignal::new_with_phase(0, "signal".to_string()),
             false,
@@ -715,7 +736,7 @@ mod tests {
 
     #[test]
     fn test_expose_forward_signal() {
-        let mut circuit: SBPIR<i32, NullTraceGenerator> = SBPIR::default();
+        let mut circuit: SBPIRLegacy<i32, NullTraceGenerator> = SBPIRLegacy::default();
         let signal = circuit.add_forward("signal", 0);
         let offset = ExposeOffset::Last;
         assert_eq!(circuit.exposed.len(), 0);
@@ -725,7 +746,7 @@ mod tests {
 
     #[test]
     fn test_expose_shared_signal() {
-        let mut circuit: SBPIR<i32, NullTraceGenerator> = SBPIR::default();
+        let mut circuit: SBPIRLegacy<i32, NullTraceGenerator> = SBPIRLegacy::default();
         let signal = circuit.add_shared("signal", 0);
         let offset = ExposeOffset::Last;
         assert_eq!(circuit.exposed.len(), 0);

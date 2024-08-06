@@ -27,6 +27,7 @@ pub(super) fn interpret(ast: &[TLDecl<BigInt, Identifier>], _symbols: &SymTable)
     interpreter.setup
 }
 
+/// Machine setup by machine name
 pub(super) type Setup<F> = HashMap<String, MachineSetup<F>>;
 
 pub(super) struct MachineSetup<F> {
@@ -119,6 +120,7 @@ impl<F: Clone> MachineSetup<F> {
 struct SetupInterpreter {
     abepi: CompilationUnit<BigInt, Identifier>,
 
+    /// Machine setup by machine name
     setup: Setup<BigInt>,
 
     current_machine: String,

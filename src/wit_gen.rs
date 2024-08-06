@@ -4,7 +4,7 @@ use crate::{
     field::Field,
     frontend::dsl::StepTypeHandler,
     poly::Expr,
-    sbpir::{query::Queriable, ForwardSignal, InternalSignal, StepTypeUUID, PIR, SBPIR},
+    sbpir::{query::Queriable, ForwardSignal, InternalSignal, StepTypeUUID, PIR, SBPIRLegacy},
     util::UUID,
 };
 
@@ -118,8 +118,8 @@ impl<F> Default for AutoTraceGenerator<F> {
     }
 }
 
-impl<F: Clone, TG: TraceGenerator<F>> From<&SBPIR<F, TG>> for AutoTraceGenerator<F> {
-    fn from(circuit: &SBPIR<F, TG>) -> Self {
+impl<F: Clone, TG: TraceGenerator<F>> From<&SBPIRLegacy<F, TG>> for AutoTraceGenerator<F> {
+    fn from(circuit: &SBPIRLegacy<F, TG>) -> Self {
         let auto_signals = circuit
             .step_types
             .iter()

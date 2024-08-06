@@ -1,6 +1,6 @@
 use crate::{
     field::Field,
-    sbpir::{query::Queriable, ExposeOffset, StepType, StepTypeUUID, PIR, SBPIR},
+    sbpir::{query::Queriable, ExposeOffset, StepType, StepTypeUUID, PIR, SBPIRLegacy},
     util::{uuid, UUID},
     wit_gen::{FixedGenContext, StepInstance, TraceGenerator},
 };
@@ -32,7 +32,7 @@ pub mod trace;
 /// `F` is the field of the circuit.
 /// `TG` is the trace generator.
 pub struct CircuitContext<F, TG: TraceGenerator<F> = DSLTraceGenerator<F>> {
-    circuit: SBPIR<F, TG>,
+    circuit: SBPIRLegacy<F, TG>,
     tables: LookupTableRegistry<F>,
 }
 
@@ -424,13 +424,13 @@ impl<F, Args, D: Fn(&mut StepInstance<F>, Args) + 'static> StepTypeWGHandler<F, 
 pub fn circuit<F: Field, TraceArgs: Clone, D>(
     _name: &str,
     mut def: D,
-) -> SBPIR<F, DSLTraceGenerator<F, TraceArgs>>
+) -> SBPIRLegacy<F, DSLTraceGenerator<F, TraceArgs>>
 where
     D: FnMut(&mut CircuitContext<F, DSLTraceGenerator<F, TraceArgs>>),
 {
     // TODO annotate circuit
     let mut context = CircuitContext {
-        circuit: SBPIR::default(),
+        circuit: SBPIRLegacy::default(),
         tables: LookupTableRegistry::default(),
     };
 
@@ -453,14 +453,14 @@ mod tests {
         TG: TraceGenerator<F>,
     {
         CircuitContext {
-            circuit: SBPIR::default(),
+            circuit: SBPIRLegacy::default(),
             tables: Default::default(),
         }
     }
 
     #[test]
     fn test_circuit_default_initialization() {
-        let circuit: SBPIR<i32, NullTraceGenerator> = SBPIR::default();
+        let circuit: SBPIRLegacy<i32, NullTraceGenerator> = SBPIRLegacy::default();
 
         // Assert default values
         assert!(circuit.step_types.is_empty());

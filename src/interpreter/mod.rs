@@ -331,7 +331,7 @@ mod test {
     use std::collections::HashMap;
 
     use crate::{
-        compiler::{compile, Config},
+        compiler::{compile_legacy, Config},
         parser::ast::debug_sym_factory::DebugSymRefFactory,
         plonkish::{
             backend::halo2::halo2_verify,
@@ -387,7 +387,7 @@ mod test {
            }
         ";
 
-        let compiled = compile::<Fr>(
+        let compiled = compile_legacy::<Fr>(
             code,
             Config::default().max_steps(20),
             &DebugSymRefFactory::new("", code),
@@ -447,7 +447,7 @@ mod test {
            }
         ";
 
-        let chiquito = compile::<Fr>(
+        let chiquito = compile_legacy::<Fr>(
             code,
             Config::default().max_steps(20),
             &DebugSymRefFactory::new("", code),
@@ -524,7 +524,8 @@ mod test {
         ";
 
         let chiquito =
-            compile::<Fr>(code, Config::default(), &DebugSymRefFactory::new("", code)).unwrap();
+            compile_legacy::<Fr>(code, Config::default(), &DebugSymRefFactory::new("", code))
+                .unwrap();
 
         // TODO: re-stablish evil witness
         // chiquito

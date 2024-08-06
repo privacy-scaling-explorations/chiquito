@@ -7,7 +7,7 @@ use crate::{
     plonkish::ir::{assignments::Assignments, Circuit, Column, ColumnType, Poly, PolyLookup},
     sbpir::{
         FixedSignal, ForwardSignal, ImportedHalo2Advice, ImportedHalo2Fixed, SharedSignal,
-        StepType, StepTypeUUID, SBPIR as astCircuit,
+        StepType, StepTypeUUID, SBPIRLegacy as astCircuit,
     },
     util::{uuid, UUID},
     wit_gen::TraceGenerator,
