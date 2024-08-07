@@ -212,7 +212,7 @@ mod test {
     use crate::{
         compiler::cse::cse,
         field::Field,
-        poly::{Expr, ToExpr, VarAssignments},
+        poly::{Expr, VarAssignments},
         sbpir::{query::Queriable, InternalSignal, StepType, SBPIR},
         util::uuid,
         wit_gen::NullTraceGenerator,
@@ -232,9 +232,9 @@ mod test {
 
         let expr1 = a * b + c;
         let expr2 = c + b + a;
-        let expr3 = 4.expr() + a * b + c;
-        let expr4 = e * f * d;
-        let expr5 = expr1.clone() + expr4.clone();
+        let expr3 = e * f * d * a * b + c;
+        let expr4 = e * f * d + c;
+        let expr5 = expr1.clone() + e * f * d;
         let exprs = vec![expr1, expr2, expr3, expr4.clone(), expr5];
 
         let mut rng = ChaCha20Rng::seed_from_u64(0);
@@ -251,7 +251,7 @@ mod test {
 
         let best_expr = find_optimal_subexpression(&hashed_exprs, &HashSet::new());
 
-        assert_eq!(format!("{:?}", best_expr.unwrap()), format!("{:?}", expr4));
+        assert_eq!(format!("{:?}", best_expr.unwrap()), "(e * f * d)");
     }
 
     #[test]

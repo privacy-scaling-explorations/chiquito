@@ -89,19 +89,6 @@ impl<F: Clone, V: Clone, M> Expr<F, V, M> {
             Expr::MI(_, m) => m,
         }
     }
-
-    pub fn map_meta<N, Func: Fn(&M) -> N>(&self, f: Func) -> Expr<F, V, N> {
-        match self {
-            Expr::Const(v, m) => Expr::Const(v.clone(), f(m)),
-            Expr::Sum(ses, m) => Expr::Sum(ses.iter().map(|e| e.map_meta(&f)).collect(), f(m)),
-            Expr::Mul(ses, m) => Expr::Mul(ses.iter().map(|e| e.map_meta(&f)).collect(), f(m)),
-            Expr::Neg(se, m) => Expr::Neg(Box::new(se.as_ref().map_meta(&f)), f(m)),
-            Expr::Pow(se, exp, m) => Expr::Pow(Box::new(se.as_ref().map_meta(&f)), *exp, f(m)),
-            Expr::Query(v, m) => Expr::Query(v.clone(), f(m)),
-            Expr::Halo2Expr(e, m) => Expr::Halo2Expr(e.clone(), f(m)),
-            Expr::MI(se, m) => Expr::MI(Box::new(se.as_ref().map_meta(&f)), f(m)),
-        }
-    }
 }
 
 impl<F: Field + Hash, V: Debug + Clone + Eq + Hash, M: Clone> Expr<F, V, M> {
