@@ -13,7 +13,7 @@ use crate::{
         cse::{create_common_ses_signal, replace_expr},
         Expr, HashResult, VarAssignments,
     },
-    sbpir::{query::Queriable, InternalSignal, SBPIR},
+    sbpir::{query::Queriable, ForwardSignal, InternalSignal, StepType, SBPIR},
     wit_gen::NullTraceGenerator,
 };
 
@@ -30,13 +30,19 @@ pub(super) fn cse<F: Field + Hash>(
     mut circuit: SBPIR<F, NullTraceGenerator>,
 ) -> SBPIR<F, NullTraceGenerator> {
     for (_, step_type) in circuit.step_types.iter_mut() {
-        let mut signal_factory = SignalFactory::default();
+        cse_for_step(step_type, &circuit.forward_signals)
+    }
+    circuit
+}
+
+fn cse_for_step<F: Field + Hash>(step_type: &mut StepType<F, ()>, forward_signals: &[ForwardSignal]) {
+    let mut signal_factory = SignalFactory::default();
         let mut replaced_hashes = HashSet::new();
 
         loop {
             let mut queriables = Vec::<Queriable<F>>::new();
 
-            circuit.forward_signals.iter().for_each(|signal| {
+            forward_signals.iter().for_each(|signal| {
                 queriables.push(Queriable::Forward(*signal, false));
                 queriables.push(Queriable::Forward(*signal, true));
             });
@@ -90,8 +96,6 @@ pub(super) fn cse<F: Field + Hash>(
             }
             *step_type = step_type_with_hash.transform_meta(|_| ());
         }
-    }
-    circuit
 }
 
 #[derive(Debug, Clone, Copy)]
