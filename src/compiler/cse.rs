@@ -89,7 +89,10 @@ fn cse_for_step<F: Field + Hash>(step_type: &mut StepType<F, ()>, forward_signal
                 });
 
                 // Replace the common subexpression in all constraints
-                step_type_with_hash.decomp_constraints(|expr| replace_expr(expr, &common_se));
+                step_type_with_hash.constraints.iter_mut().for_each(|constraint| {
+                    constraint.expr = replace_expr(&constraint.expr, &common_se);
+                });
+                
             } else {
                 // No more common subexpressions found, exit the loop
                 break;
