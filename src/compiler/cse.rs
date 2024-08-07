@@ -53,7 +53,7 @@ pub(super) fn cse<F: Field + Hash>(
                 .collect();
 
             // Turn all Expr<F, V, ()> into Expr<F, V, HashResult>
-            let mut step_type_with_hash = step_type.with_meta(|expr| {
+            let mut step_type_with_hash = step_type.transform_meta(|expr| {
                 let hashed_expr = expr.hash(&random_assignments);
                 hashed_expr.meta().clone()
             });
@@ -88,7 +88,7 @@ pub(super) fn cse<F: Field + Hash>(
                 // No more common subexpressions found, exit the loop
                 break;
             }
-            *step_type = step_type_with_hash.without_meta();
+            *step_type = step_type_with_hash.transform_meta(|_| ());
         }
     }
     circuit
@@ -320,7 +320,7 @@ mod test {
     }
 
     #[test]
-    fn test_step_type_with_meta() {
+    fn test_step_type_transform_meta() {
         let a = InternalSignal::new("a");
         let b = InternalSignal::new("b");
         let c = InternalSignal::new("c");
@@ -357,11 +357,11 @@ mod test {
         step.add_constr("expr4".into(), expr4);
         step.add_constr("expr5".into(), expr5);
 
-        let step_with_meta = step.with_meta(|expr| TestStruct {
+        let step_transform_meta = step.transform_meta(|expr| TestStruct {
             value: format!("Expr: {:?}", expr),
         });
 
-        for constraint in &step_with_meta.constraints {
+        for constraint in &step_transform_meta.constraints {
             assert_eq!(
                 constraint.expr.meta().value,
                 format!("Expr: {:?}", constraint.expr)

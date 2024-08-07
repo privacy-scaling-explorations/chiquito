@@ -92,7 +92,7 @@ impl<F: Clone, V: Clone, M> Expr<F, V, M> {
 }
 
 impl<F: Field + Hash, V: Debug + Clone + Eq + Hash, M: Clone> Expr<F, V, M> {
-    pub fn with_meta<N: Clone, ApplyMetaFn>(&self, apply_meta: ApplyMetaFn) -> Expr<F, V, N>
+    pub fn transform_meta<N: Clone, ApplyMetaFn>(&self, apply_meta: ApplyMetaFn) -> Expr<F, V, N>
     where
         ApplyMetaFn: Fn(&Expr<F, V, M>) -> N + Clone,
     {
@@ -101,23 +101,23 @@ impl<F: Field + Hash, V: Debug + Clone + Eq + Hash, M: Clone> Expr<F, V, M> {
             Expr::Const(v, _) => Expr::Const(*v, new_meta),
             Expr::Sum(ses, _) => Expr::Sum(
                 ses.iter()
-                    .map(|e| e.with_meta(apply_meta.clone()))
+                    .map(|e| e.transform_meta(apply_meta.clone()))
                     .collect(),
                 new_meta,
             ),
             Expr::Mul(ses, _) => Expr::Mul(
                 ses.iter()
-                    .map(|e| e.with_meta(apply_meta.clone()))
+                    .map(|e| e.transform_meta(apply_meta.clone()))
                     .collect(),
                 new_meta,
             ),
-            Expr::Neg(se, _) => Expr::Neg(Box::new(se.with_meta(apply_meta.clone())), new_meta),
+            Expr::Neg(se, _) => Expr::Neg(Box::new(se.transform_meta(apply_meta.clone())), new_meta),
             Expr::Pow(se, exp, _) => {
-                Expr::Pow(Box::new(se.with_meta(apply_meta.clone())), *exp, new_meta)
+                Expr::Pow(Box::new(se.transform_meta(apply_meta.clone())), *exp, new_meta)
             }
             Expr::Query(v, _) => Expr::Query(v.clone(), new_meta),
             Expr::Halo2Expr(e, _) => Expr::Halo2Expr(e.clone(), new_meta),
-            Expr::MI(se, _) => Expr::MI(Box::new(se.with_meta(apply_meta.clone())), new_meta),
+            Expr::MI(se, _) => Expr::MI(Box::new(se.transform_meta(apply_meta.clone())), new_meta),
         }
     }
     
@@ -133,21 +133,6 @@ impl<F: Field + Hash, V: Debug + Clone + Eq + Hash, M: Clone> Expr<F, V, M> {
             Expr::Pow(se, exp, m) => Expr::Pow(Box::new(f(se)), *exp, m.clone()),
             Expr::MI(se, m) => Expr::MI(Box::new(f(se)), m.clone()),
             _ => self.clone(),
-        }
-    }
-}
-
-impl<F: Field, V: Clone, M> Expr<F, V, M> {
-    pub fn without_meta(&self) -> Expr<F, V, ()> {
-        match self {
-            Expr::Const(v, _) => Expr::Const(*v, ()),
-            Expr::Query(v, _) => Expr::Query(v.clone(), ()),
-            Expr::Sum(ses, _) => Expr::Sum(ses.iter().map(|e| e.without_meta()).collect(), ()),
-            Expr::Mul(ses, _) => Expr::Mul(ses.iter().map(|e| e.without_meta()).collect(), ()),
-            Expr::Neg(se, _) => Expr::Neg(Box::new(se.without_meta()), ()),
-            Expr::Pow(se, exp, _) => Expr::Pow(Box::new(se.without_meta()), *exp, ()),
-            Expr::Halo2Expr(e, _) => Expr::Halo2Expr(e.clone(), ()),
-            Expr::MI(se, _) => Expr::MI(Box::new(se.without_meta()), ()),
         }
     }
 }
@@ -463,19 +448,6 @@ impl<F: Clone, V: Clone + Eq + PartialEq + Hash, M: Clone + Default> ConstrDecom
         ));
 
         self.auto_signals.insert(signal, expr);
-    }
-}
-
-impl<F: Field, V: Clone + Hash + Eq> ConstrDecomp<F, V, HashResult> {
-    pub fn without_meta(&self) -> ConstrDecomp<F, V, ()> {
-        ConstrDecomp {
-            constrs: self.constrs.iter().map(|c| c.without_meta()).collect(),
-            auto_signals: self
-                .auto_signals
-                .iter()
-                .map(|(k, v)| (k.clone(), v.without_meta()))
-                .collect(),
-        }
     }
 }
 
