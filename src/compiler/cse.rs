@@ -35,70 +35,77 @@ pub(super) fn cse<F: Field + Hash>(
     circuit
 }
 
-fn cse_for_step<F: Field + Hash>(step_type: &mut StepType<F, ()>, forward_signals: &[ForwardSignal]) {
+fn cse_for_step<F: Field + Hash>(
+    step_type: &mut StepType<F, ()>,
+    forward_signals: &[ForwardSignal],
+) {
     let mut signal_factory = SignalFactory::default();
-        let mut replaced_hashes = HashSet::new();
+    let mut replaced_hashes = HashSet::new();
 
-        loop {
-            let mut queriables = Vec::<Queriable<F>>::new();
+    loop {
+        let mut queriables = Vec::<Queriable<F>>::new();
 
-            forward_signals.iter().for_each(|signal| {
-                queriables.push(Queriable::Forward(*signal, false));
-                queriables.push(Queriable::Forward(*signal, true));
+        forward_signals.iter().for_each(|signal| {
+            queriables.push(Queriable::Forward(*signal, false));
+            queriables.push(Queriable::Forward(*signal, true));
+        });
+        step_type.signals.iter().for_each(|signal| {
+            queriables.push(Queriable::Internal(*signal));
+        });
+
+        // Generate random assignments for the queriables
+        let mut rng = ChaCha20Rng::seed_from_u64(0);
+        let random_assignments: VarAssignments<F, Queriable<F>> = queriables
+            .iter()
+            .cloned()
+            .map(|q| (q, F::random(&mut rng)))
+            .collect();
+
+        // Turn all Expr<F, V, ()> into Expr<F, V, HashResult>
+        let mut step_type_with_hash = step_type.transform_meta(|expr| {
+            let hashed_expr = expr.hash(&random_assignments);
+            hashed_expr.meta().clone()
+        });
+
+        // Extract all the expressions from the step type
+        let mut exprs = Vec::<Expr<F, Queriable<F>, HashResult>>::new();
+
+        for constraint in &step_type_with_hash.constraints {
+            exprs.push(constraint.expr.clone());
+        }
+
+        // Find the optimal subexpression to replace
+        if let Some(common_expr) = find_optimal_subexpression(&exprs, &replaced_hashes) {
+            // Add the hash of the replaced expression to the set
+            replaced_hashes.insert(common_expr.meta().hash);
+            // Create a new signal for the common subexpression
+            let (common_se, decomp) = create_common_ses_signal(&common_expr, &mut signal_factory);
+
+            // Add the new signal to the step type and a constraint for it
+            decomp.auto_signals.iter().for_each(|(q, expr)| {
+                if let Queriable::Internal(signal) = q {
+                    step_type_with_hash.add_internal(*signal);
+                }
+                step_type_with_hash.auto_signals.insert(*q, expr.clone());
+                step_type_with_hash.add_constr(format!("{:?}", q), expr.clone());
             });
-            step_type.signals.iter().for_each(|signal| {
-                queriables.push(Queriable::Internal(*signal));
+            decomp.constrs.iter().for_each(|expr| {
+                step_type_with_hash.add_constr(format!("{:?}", expr), expr.clone());
             });
 
-            // Generate random assignments for the queriables
-            let mut rng = ChaCha20Rng::seed_from_u64(0);
-            let random_assignments: VarAssignments<F, Queriable<F>> = queriables
-                .iter()
-                .cloned()
-                .map(|q| (q, F::random(&mut rng)))
-                .collect();
-
-            // Turn all Expr<F, V, ()> into Expr<F, V, HashResult>
-            let mut step_type_with_hash = step_type.transform_meta(|expr| {
-                let hashed_expr = expr.hash(&random_assignments);
-                hashed_expr.meta().clone()
-            });
-
-            // Extract all the expressions from the step type
-            let mut exprs = Vec::<Expr<F, Queriable<F>, HashResult>>::new();
-
-            for constraint in &step_type_with_hash.constraints {
-                exprs.push(constraint.expr.clone());
-            }
-
-            // Find the optimal subexpression to replace
-            if let Some(common_expr) = find_optimal_subexpression(&exprs, &replaced_hashes) {
-                // Add the hash of the replaced expression to the set
-                replaced_hashes.insert(common_expr.meta().hash);
-                // Create a new signal for the common subexpression
-                let (common_se, decomp) =
-                    create_common_ses_signal(&common_expr, &mut signal_factory);
-
-                // Add the new signal to the step type and a constraint for it
-                decomp.auto_signals.iter().for_each(|(q, expr)| {
-                    if let Queriable::Internal(signal) = q {
-                        step_type_with_hash.add_internal(*signal);
-                    }
-                    step_type_with_hash.auto_signals.insert(*q, expr.clone());
-                    step_type_with_hash.add_constr(format!("{:?}", q), expr.clone());
-                });
-
-                // Replace the common subexpression in all constraints
-                step_type_with_hash.constraints.iter_mut().for_each(|constraint| {
+            // Replace the common subexpression in all constraints
+            step_type_with_hash
+                .constraints
+                .iter_mut()
+                .for_each(|constraint| {
                     constraint.expr = replace_expr(&constraint.expr, &common_se);
                 });
-                
-            } else {
-                // No more common subexpressions found, exit the loop
-                break;
-            }
-            *step_type = step_type_with_hash.transform_meta(|_| ());
+        } else {
+            // No more common subexpressions found, exit the loop
+            break;
         }
+        *step_type = step_type_with_hash.transform_meta(|_| ());
+    }
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -304,14 +311,28 @@ mod test {
 
         let circuit = cse(circuit);
 
-        println!("{:#?}", circuit);
-
         let common_ses_found_and_replaced = circuit
             .step_types
             .get(&step_uuid)
             .unwrap()
             .auto_signals
             .values();
+
+        assert!(circuit
+            .step_types
+            .get(&step_uuid)
+            .unwrap()
+            .constraints
+            .iter()
+            .any(|expr| format!("{:?}", expr.expr) == "((e * f * d) + (-cse-1))"));
+
+        assert!(circuit
+            .step_types
+            .get(&step_uuid)
+            .unwrap()
+            .constraints
+            .iter()
+            .any(|expr| format!("{:?}", expr.expr) == "((a * b) + (-cse-2))"));
 
         assert!(common_ses_found_and_replaced
             .clone()
