@@ -297,6 +297,8 @@ mod test {
 
         let circuit = cse(circuit);
 
+        println!("{:#?}", circuit);
+
         let common_ses_found_and_replaced = circuit
             .step_types
             .get(&step_uuid)

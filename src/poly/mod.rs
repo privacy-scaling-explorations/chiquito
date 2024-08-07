@@ -94,10 +94,9 @@ impl<F: Clone, V: Clone, M> Expr<F, V, M> {
 impl<F: Field + Hash, V: Debug + Clone + Eq + Hash, M: Clone> Expr<F, V, M> {
     pub fn with_meta<N: Clone, ApplyMetaFn>(&self, apply_meta: ApplyMetaFn) -> Expr<F, V, N>
     where
-        ApplyMetaFn: Fn(&Expr<F, V, ()>) -> N + Clone,
+        ApplyMetaFn: Fn(&Expr<F, V, M>) -> N + Clone,
     {
-        let expr_without_meta = self.without_meta();
-        let new_meta = apply_meta(&expr_without_meta);
+        let new_meta = apply_meta(self);
         match self {
             Expr::Const(v, _) => Expr::Const(*v, new_meta),
             Expr::Sum(ses, _) => Expr::Sum(
@@ -121,6 +120,7 @@ impl<F: Field + Hash, V: Debug + Clone + Eq + Hash, M: Clone> Expr<F, V, M> {
             Expr::MI(se, _) => Expr::MI(Box::new(se.with_meta(apply_meta.clone())), new_meta),
         }
     }
+    
 
     pub fn apply_subexpressions<T>(&self, mut f: T) -> Self
     where
