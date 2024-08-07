@@ -152,8 +152,11 @@ impl<F: Field + From<u64> + Hash> ChiquitoHyperPlonk<F> {
 }
 
 impl<F: Field + From<u64> + Hash> ChiquitoHyperPlonkCircuit<F> {
-    pub fn new(k: usize, circuit: Circuit<F>) -> Self {
-        let chiquito_hyper_plonk = ChiquitoHyperPlonk::new(k, circuit);
+    pub fn new(circuit: Circuit<F>) -> Self {
+        let chiquito_hyper_plonk = ChiquitoHyperPlonk::new(
+            circuit.num_rows.next_power_of_two().ilog2() as usize,
+            circuit,
+        );
         Self {
             circuit: chiquito_hyper_plonk,
             assignments: None,
@@ -164,6 +167,10 @@ impl<F: Field + From<u64> + Hash> ChiquitoHyperPlonkCircuit<F> {
         let instances = vec![self.circuit.chiquito_ir.instance(&assignments)];
         self.circuit.set_instance(instances);
         self.assignments = Some(assignments);
+    }
+
+    pub fn get_k(&self) -> usize {
+        self.circuit.k
     }
 }
 
@@ -189,7 +196,6 @@ impl<F: Field + Clone + From<u64> + Hash> PlonkishCircuit<F> for ChiquitoHyperPl
         // number of preprocess is equal to number of fixed columns
         let preprocess_polys =
             vec![vec![F::ZERO; 1 << self.circuit.k]; self.circuit.fixed_uuids.len()];
-
         let advice_idx = self.circuit.advice_idx();
         let constraints: Vec<Expression<F>> = self
             .circuit
@@ -262,7 +268,8 @@ impl<F: Field + Clone + From<u64> + Hash> PlonkishCircuit<F> for ChiquitoHyperPl
             .fixed_uuids
             .iter()
             .map(|uuid| {
-                self.circuit
+                let mut column_fixed_assignments = self
+                    .circuit
                     .chiquito_ir
                     .fixed_assignments
                     .get(
@@ -270,7 +277,15 @@ impl<F: Field + Clone + From<u64> + Hash> PlonkishCircuit<F> for ChiquitoHyperPl
                             [column_idx(*uuid, &self.circuit.all_uuids)],
                     )
                     .unwrap()
-                    .clone()
+                    .clone();
+                // Make sure that all the column assignments fill the full height of the
+                // circuit because the Hyperplonk backend expects all columns
+                // to have the 2^k height
+                column_fixed_assignments.extend(
+                    std::iter::repeat(F::ZERO)
+                        .take(2_usize.pow(self.circuit.k as u32) - column_fixed_assignments.len()),
+                );
+                column_fixed_assignments
             })
             .collect::<Vec<Vec<F>>>();
 
@@ -297,13 +312,21 @@ impl<F: Field + Clone + From<u64> + Hash> PlonkishCircuit<F> for ChiquitoHyperPl
             .expect("synthesize: phase not found")
             .iter()
             .map(|uuid| {
-                assignments
+                let mut column_assignments = assignments
                     .get(
                         &self.circuit.chiquito_ir.columns
                             [column_idx(*uuid, &self.circuit.all_uuids)],
                     )
                     .unwrap()
-                    .clone()
+                    .clone();
+                // Make sure that all the column assignments fill the full height of the
+                // circuit because the Hyperplonk backend expects all columns
+                // to have the 2^k height
+                column_assignments.extend(
+                    std::iter::repeat(F::ZERO)
+                        .take(2_usize.pow(self.circuit.k as u32) - (column_assignments.len())),
+                );
+                column_assignments
             })
             .collect::<Vec<Vec<F>>>();
         Ok(advice_assignments)
