@@ -21,7 +21,7 @@ use crate::{
     },
     plonkish::{self, compiler::PlonkishCompilationResult},
     poly::{self, mielim::mi_elimination, reduce::reduce_degree, Expr},
-    sbpir::{query::Queriable, InternalSignal, SBPIR},
+    sbpir::{query::Queriable, InternalSignal, SBPIRLegacy, SBPIR},
     wit_gen::{NullTraceGenerator, SymbolSignalMapping, TraceGenerator},
 };
 
@@ -31,15 +31,19 @@ use super::{
     Config, Message, Messages,
 };
 
-/// Contains the result of a compilation.
-#[derive(Debug)]
 pub struct CompilerResult<F: Field + Hash> {
     pub messages: Vec<Message>,
-    // pub wit_gen: WitnessGenerator,
     pub circuit: SBPIR<F, InterpreterTraceGenerator>,
 }
 
-impl<F: Field + Hash> CompilerResult<F> {
+/// Contains the result of a single machine compilation (legacy).
+#[derive(Debug)]
+pub struct CompilerResultLegacy<F: Field + Hash> {
+    pub messages: Vec<Message>,
+    pub circuit: SBPIRLegacy<F, InterpreterTraceGenerator>,
+}
+
+impl<F: Field + Hash> CompilerResultLegacy<F> {
     /// Compiles to the Plonkish IR, that then can be compiled to plonkish backends.
     pub fn plonkish<
         CM: plonkish::compiler::cell_manager::CellManager,
@@ -76,15 +80,16 @@ impl<F: Field + Hash> Compiler<F> {
         }
     }
 
-    /// Compile the source code.
-    pub(super) fn compile(
+    /// Compile the source code containing a single machine (legacy).
+    pub(super) fn compile_legacy(
         mut self,
         source: &str,
         debug_sym_ref_factory: &DebugSymRefFactory,
-    ) -> Result<CompilerResult<F>, Vec<Message>> {
+    ) -> Result<CompilerResultLegacy<F>, Vec<Message>> {
         let ast = self
             .parse(source, debug_sym_ref_factory)
             .map_err(|_| self.messages.clone())?;
+        assert!(ast.len() == 1, "Use `compile` to compile multiple machines");
         let ast = self.add_virtual(ast);
         let symbols = self.semantic(&ast).map_err(|_| self.messages.clone())?;
         let setup = Self::interpret(&ast, &symbols);
@@ -104,9 +109,49 @@ impl<F: Field + Hash> Compiler<F> {
             self.config.max_steps,
         ));
 
-        Ok(CompilerResult {
+        Ok(CompilerResultLegacy {
             messages: self.messages,
             circuit,
+        })
+    }
+
+    /// Compile the source code.
+    pub(super) fn compile(
+        mut self,
+        source: &str,
+        debug_sym_ref_factory: &DebugSymRefFactory,
+    ) -> Result<CompilerResult<F>, Vec<Message>> {
+        let ast = self
+            .parse(source, debug_sym_ref_factory)
+            .map_err(|_| self.messages.clone())?;
+        let ast = self.add_virtual(ast);
+        let symbols = self.semantic(&ast).map_err(|_| self.messages.clone())?;
+        let setup = Self::interpret(&ast, &symbols);
+        let setup = Self::map_consts(setup);
+
+        let machine_id = setup.iter().next().unwrap().0;
+
+        let circuit = self.build(&setup, &symbols);
+        let circuit = Self::mi_elim(circuit);
+        let circuit = if let Some(degree) = self.config.max_degree {
+            Self::reduce(circuit, degree)
+        } else {
+            circuit
+        };
+
+        let circuit = circuit.with_trace(InterpreterTraceGenerator::new(
+            ast,
+            symbols,
+            self.mapping,
+            self.config.max_steps,
+        ));
+
+        // TODO perform real compilation for multiple machines
+        let sbpir = SBPIR::from_legacy(circuit, machine_id.as_str());
+
+        Ok(CompilerResult {
+            messages: self.messages,
+            circuit: sbpir,
         })
     }
 
@@ -287,7 +332,11 @@ impl<F: Field + Hash> Compiler<F> {
         }
     }
 
-    fn build(&mut self, setup: &Setup<F>, symbols: &SymTable) -> SBPIR<F, NullTraceGenerator> {
+    fn build(
+        &mut self,
+        setup: &Setup<F>,
+        symbols: &SymTable,
+    ) -> SBPIRLegacy<F, NullTraceGenerator> {
         circuit::<F, (), _>("circuit", |ctx| {
             for (machine_id, machine) in setup {
                 self.add_forwards(ctx, symbols, machine_id);
@@ -327,7 +376,9 @@ impl<F: Field + Hash> Compiler<F> {
         .without_trace()
     }
 
-    fn mi_elim(mut circuit: SBPIR<F, NullTraceGenerator>) -> SBPIR<F, NullTraceGenerator> {
+    fn mi_elim(
+        mut circuit: SBPIRLegacy<F, NullTraceGenerator>,
+    ) -> SBPIRLegacy<F, NullTraceGenerator> {
         for (_, step_type) in circuit.step_types.iter_mut() {
             let mut signal_factory = SignalFactory::default();
 
@@ -338,9 +389,9 @@ impl<F: Field + Hash> Compiler<F> {
     }
 
     fn reduce(
-        mut circuit: SBPIR<F, NullTraceGenerator>,
+        mut circuit: SBPIRLegacy<F, NullTraceGenerator>,
         degree: usize,
-    ) -> SBPIR<F, NullTraceGenerator> {
+    ) -> SBPIRLegacy<F, NullTraceGenerator> {
         for (_, step_type) in circuit.step_types.iter_mut() {
             let mut signal_factory = SignalFactory::default();
 
@@ -622,7 +673,7 @@ mod test {
     use halo2_proofs::halo2curves::bn256::Fr;
 
     use crate::{
-        compiler::{compile, compile_file},
+        compiler::{compile_file_legacy, compile_legacy},
         parser::ast::debug_sym_factory::DebugSymRefFactory,
     };
 
@@ -673,7 +724,7 @@ mod test {
         ";
 
         let debug_sym_ref_factory = DebugSymRefFactory::new("", circuit);
-        let result = compile::<Fr>(
+        let result = compile_legacy::<Fr>(
             circuit,
             Config::default().max_degree(2),
             &debug_sym_ref_factory,
@@ -688,14 +739,14 @@ mod test {
     #[test]
     fn test_compiler_fibo_file() {
         let path = "test/circuit.chiquito";
-        let result = compile_file::<Fr>(path, Config::default().max_degree(2));
+        let result = compile_file_legacy::<Fr>(path, Config::default().max_degree(2));
         assert!(result.is_ok());
     }
 
     #[test]
     fn test_compiler_fibo_file_err() {
         let path = "test/circuit_error.chiquito";
-        let result = compile_file::<Fr>(path, Config::default().max_degree(2));
+        let result = compile_file_legacy::<Fr>(path, Config::default().max_degree(2));
 
         assert!(result.is_err());
 

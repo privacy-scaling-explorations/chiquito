@@ -326,12 +326,15 @@ fn get_block_stmts(stmt: &Statement<BigInt, Identifier>) -> Vec<Statement<BigInt
 
 #[cfg(test)]
 mod test {
-    use crate::plonkish::backend::halo2::Halo2Provable;
-    use halo2_proofs::halo2curves::bn256::Fr;
+    use crate::plonkish::backend::{
+        halo2::Halo2Provable,
+        halo2_legacy::{chiquito2Halo2, ChiquitoHalo2Circuit},
+    };
+    use halo2_proofs::{dev::MockProver, halo2curves::bn256::Fr};
     use std::collections::HashMap;
 
     use crate::{
-        compiler::{compile, Config},
+        compiler::{compile_legacy, Config},
         parser::ast::debug_sym_factory::DebugSymRefFactory,
         plonkish::{
             backend::halo2::halo2_verify,
@@ -387,7 +390,7 @@ mod test {
            }
         ";
 
-        let compiled = compile::<Fr>(
+        let compiled = compile_legacy::<Fr>(
             code,
             Config::default().max_steps(20),
             &DebugSymRefFactory::new("", code),
@@ -404,7 +407,76 @@ mod test {
     }
 
     #[test]
-    fn test_run_halo2_prover() {
+    fn test_run_halo2_mock_prover() {
+        let code = "
+        machine fibo(signal n) (signal b: field) {
+            // n and be are created automatically as shared
+            // signals
+            signal a: field, i;
+
+            // there is always a state called initial
+            // input signals get bound to the signal
+            // in the initial state (first instance)
+            state initial {
+             signal c;
+
+             i, a, b, c <== 1, 1, 1, 2;
+
+             -> middle {
+              i', a', b', n' <== i + 1, b, c, n;
+             }
+            }
+
+            state middle {
+             signal c;
+
+             c <== a + b;
+
+             if i + 1 == n {
+              -> final {
+               i', b', n' <== i + 1, c, n;
+              }
+             } else {
+              -> middle {
+               i', a', b', n' <== i + 1, b, c, n;
+              }
+             }
+            }
+
+            // There is always a state called final.
+            // Output signals get automatically bound to the signals
+            // with the same name in the final step (last instance).
+            // This state can be implicit if there are no constraints in it.
+           }
+        ";
+
+        let chiquito =
+            compile_legacy::<Fr>(code, Config::default(), &DebugSymRefFactory::new("", code))
+                .unwrap();
+
+        let plonkish = chiquito.plonkish(config(
+            SingleRowCellManager {},
+            SimpleStepSelectorBuilder {},
+        ));
+
+        let compiled = chiquito2Halo2(plonkish.circuit);
+
+        let circuit = ChiquitoHalo2Circuit::new(
+            compiled,
+            plonkish
+                .assignment_generator
+                .map(|g| g.generate(HashMap::from([("n".to_string(), Fr::from(12))]))),
+        );
+
+        let prover = MockProver::<Fr>::run(10, &circuit, circuit.instance()).unwrap();
+
+        let result = prover.verify();
+
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_run_halo2_middleware_prover() {
         let code = "
         machine fibo(signal n) (signal b: field) {
             // n and be are created automatically as shared
@@ -447,7 +519,7 @@ mod test {
            }
         ";
 
-        let chiquito = compile::<Fr>(
+        let chiquito = compile_legacy::<Fr>(
             code,
             Config::default().max_steps(20),
             &DebugSymRefFactory::new("", code),
@@ -524,7 +596,8 @@ mod test {
         ";
 
         let chiquito =
-            compile::<Fr>(code, Config::default(), &DebugSymRefFactory::new("", code)).unwrap();
+            compile_legacy::<Fr>(code, Config::default(), &DebugSymRefFactory::new("", code))
+                .unwrap();
 
         // TODO: re-stablish evil witness
         // chiquito

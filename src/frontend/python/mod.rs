@@ -17,7 +17,7 @@ use crate::{
     poly::Expr,
     sbpir::{
         query::Queriable, Constraint, ExposeOffset, FixedSignal, ForwardSignal, InternalSignal,
-        Lookup, SharedSignal, StepType, StepTypeUUID, TransitionConstraint, SBPIR,
+        Lookup, SBPIRLegacy, SharedSignal, StepType, StepTypeUUID, TransitionConstraint,
     },
     util::{uuid, UUID},
     wit_gen::{StepInstance, TraceGenerator, TraceWitness},
@@ -29,7 +29,7 @@ use serde::de::{self, Deserialize, Deserializer, IgnoredAny, MapAccess, Visitor}
 use std::{cell::RefCell, collections::HashMap, fmt};
 
 type CircuitMapStore = (
-    SBPIR<Fr, PythonTraceGenerator>,
+    SBPIRLegacy<Fr, PythonTraceGenerator>,
     Option<PlonkishCompilationResult<Fr, PythonTraceGenerator>>,
     Option<AssignmentGenerator<Fr, PythonTraceGenerator>>,
 );
@@ -55,7 +55,7 @@ impl<F: Clone> TraceGenerator<F> for PythonTraceGenerator {
 /// the Rust UUID as the key. Return the Rust UUID to Python. The last field of the tuple,
 /// `TraceWitness`, is left as None, for `chiquito_add_witness_to_rust_id` to insert.
 pub fn chiquito_ast_to_plonkish(ast_json: &str) -> UUID {
-    let circuit: SBPIR<Fr, PythonTraceGenerator> =
+    let circuit: SBPIRLegacy<Fr, PythonTraceGenerator> =
         serde_json::from_str(ast_json).expect("Json deserialization to Circuit failed.");
 
     let config = config(SingleRowCellManager {}, SimpleStepSelectorBuilder {});
@@ -80,7 +80,7 @@ pub fn chiquito_ast_to_plonkish(ast_json: &str) -> UUID {
 // the super circuit only. Parses AST JSON and stores AST in `CIRCUIT_MAP` without compiling it.
 // Compilation is done by `chiquito_super_circuit_halo2_mock_prover`.
 pub fn chiquito_ast_map_store(ast_json: &str) -> UUID {
-    let circuit: SBPIR<Fr, PythonTraceGenerator> =
+    let circuit: SBPIRLegacy<Fr, PythonTraceGenerator> =
         serde_json::from_str(ast_json).expect("Json deserialization to Circuit failed.");
 
     let uuid = uuid();
@@ -204,13 +204,13 @@ pub fn chiquito_halo2_prover(witness_json: &str, rust_id: UUID, params_path: &st
 struct CircuitVisitor;
 
 impl<'de> Visitor<'de> for CircuitVisitor {
-    type Value = SBPIR<Fr, PythonTraceGenerator>;
+    type Value = SBPIRLegacy<Fr, PythonTraceGenerator>;
 
     fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
         formatter.write_str("struct Cricuit")
     }
 
-    fn visit_map<A>(self, mut map: A) -> Result<SBPIR<Fr, PythonTraceGenerator>, A::Error>
+    fn visit_map<A>(self, mut map: A) -> Result<SBPIRLegacy<Fr, PythonTraceGenerator>, A::Error>
     where
         A: MapAccess<'de>,
     {
@@ -341,7 +341,7 @@ impl<'de> Visitor<'de> for CircuitVisitor {
         let q_enable = q_enable.ok_or_else(|| de::Error::missing_field("q_enable"))?;
         let id = id.ok_or_else(|| de::Error::missing_field("id"))?;
 
-        Ok(SBPIR {
+        Ok(SBPIRLegacy {
             step_types,
             forward_signals,
             shared_signals,
@@ -921,8 +921,8 @@ impl_deserialize!(TraceWitnessVisitor, TraceWitness<Fr>);
 impl_deserialize!(StepInstanceVisitor, StepInstance<Fr>);
 impl_deserialize!(LookupVisitor, Lookup<Fr, ()>);
 
-impl<'de> Deserialize<'de> for SBPIR<Fr, PythonTraceGenerator> {
-    fn deserialize<D>(deserializer: D) -> Result<SBPIR<Fr, PythonTraceGenerator>, D::Error>
+impl<'de> Deserialize<'de> for SBPIRLegacy<Fr, PythonTraceGenerator> {
+    fn deserialize<D>(deserializer: D) -> Result<SBPIRLegacy<Fr, PythonTraceGenerator>, D::Error>
     where
         D: Deserializer<'de>,
     {
@@ -1547,7 +1547,7 @@ mod tests {
             "id": 258867373405797678961444396351437277706
         }
         "#;
-        let circuit: SBPIR<Fr, PythonTraceGenerator> = serde_json::from_str(json).unwrap();
+        let circuit: SBPIRLegacy<Fr, PythonTraceGenerator> = serde_json::from_str(json).unwrap();
         println!("{:?}", circuit);
     }
 
@@ -1854,7 +1854,7 @@ mod tests {
 
 #[pyfunction]
 fn convert_and_print_ast(json: &PyString) {
-    let circuit: SBPIR<Fr, PythonTraceGenerator> =
+    let circuit: SBPIRLegacy<Fr, PythonTraceGenerator> =
         serde_json::from_str(json.to_str().expect("PyString conversion failed."))
             .expect("Json deserialization to Circuit failed.");
     println!("{:?}", circuit);

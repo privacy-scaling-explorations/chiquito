@@ -3,7 +3,7 @@ use chiquito::{
         lb::LookupTable, super_circuit, trace::DSLTraceGenerator, CircuitContext, StepTypeWGHandler,
     },
     plonkish::{
-        backend::halo2::{halo2_verify, Halo2Provable},
+        backend::halo2_legacy::{chiquitoSuperCircuit2Halo2, ChiquitoHalo2SuperCircuit},
         compiler::{
             cell_manager::{MaxWidthCellManager, SingleRowCellManager},
             config,
@@ -16,7 +16,10 @@ use chiquito::{
 };
 use std::{hash::Hash, ops::Neg};
 
-use halo2_proofs::halo2curves::{bn256::Fr, group::ff::PrimeField};
+use halo2_proofs::{
+    dev::MockProver,
+    halo2curves::{bn256::Fr, group::ff::PrimeField},
+};
 
 const BIT_COUNT: u64 = 3;
 const PART_SIZE: u64 = 5;
@@ -2246,32 +2249,36 @@ fn keccak_super_circuit<F: PrimeField<Repr = [u8; 32]> + Eq + Hash>(
     })
 }
 
+fn keccak_run(circuit_param: KeccakCircuit, k: u32) -> bool {
+    let super_circuit = keccak_super_circuit::<Fr>(circuit_param.bytes.len());
+
+    let compiled = chiquitoSuperCircuit2Halo2(&super_circuit);
+
+    let circuit = ChiquitoHalo2SuperCircuit::new(
+        compiled,
+        super_circuit.get_mapping().generate(circuit_param),
+    );
+
+    let prover = MockProver::<Fr>::run(k, &circuit, Vec::new()).unwrap();
+    let result = prover.verify();
+
+    println!("result = {:#?}", result);
+
+    if let Err(failures) = &result {
+        for failure in failures.iter() {
+            println!("{}", failure);
+        }
+        false
+    } else {
+        true
+    }
+}
+
 fn main() {
     let circuit_param = KeccakCircuit {
         bytes: vec![0, 1, 2, 3, 4, 5, 6, 7],
     };
 
-    let mut super_circuit = keccak_super_circuit::<Fr>(circuit_param.bytes.len());
-
-    let params_path = "examples/ptau/hermez-raw-11";
-
-    let witness = super_circuit.get_mapping().generate(circuit_param);
-
-    let halo2_prover = super_circuit.create_halo2_prover(params_path);
-    println!("k={}", halo2_prover.get_k());
-
-    let (proof, instance) = halo2_prover.generate_proof(witness);
-
-    let result = halo2_verify(
-        proof,
-        halo2_prover.get_params(),
-        halo2_prover.get_vk(),
-        instance,
-    );
-
-    println!("result = {:#?}", result);
-
-    if let Err(failure) = &result {
-        println!("{}", failure);
-    }
+    let res = keccak_run(circuit_param, 9);
+    assert!(res);
 }

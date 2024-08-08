@@ -2,7 +2,7 @@ use crate::{
     field::Field,
     pil::ir::powdr_pil::{PILCircuit, PILLookup},
     poly::Expr,
-    sbpir::{query::Queriable, SBPIR},
+    sbpir::{query::Queriable, SBPIRLegacy},
     util::{uuid, UUID},
     wit_gen::{TraceGenerator, TraceWitness},
 };
@@ -10,7 +10,7 @@ use std::{collections::HashMap, fmt::Debug, hash::Hash};
 extern crate regex;
 
 pub fn compile<F: Clone + Debug + Field, TG: TraceGenerator<F>>(
-    ast: &SBPIR<F, TG>,
+    ast: &SBPIRLegacy<F, TG>,
     witness: Option<TraceWitness<F>>,
     circuit_name: String,
     super_circuit_annotations_map: &Option<&HashMap<UUID, String>>,
@@ -162,7 +162,7 @@ pub fn compile<F: Clone + Debug + Field, TG: TraceGenerator<F>>(
 }
 
 pub fn compile_super_circuits<F: Clone + Debug + Field, TG: TraceGenerator<F>>(
-    super_asts: Vec<SBPIR<F, TG>>,
+    super_asts: Vec<SBPIRLegacy<F, TG>>,
     super_trace_witnesses: HashMap<UUID, TraceWitness<F>>,
     ast_id_to_ir_id_mapping: HashMap<UUID, UUID>,
     circuit_names: Vec<String>,
@@ -221,7 +221,7 @@ pub fn compile_super_circuits<F: Clone + Debug + Field, TG: TraceGenerator<F>>(
     pil_irs
 }
 
-fn collect_witness_columns<F, TG: TraceGenerator<F>>(ast: &SBPIR<F, TG>) -> Vec<PILColumn> {
+fn collect_witness_columns<F, TG: TraceGenerator<F>>(ast: &SBPIRLegacy<F, TG>) -> Vec<PILColumn> {
     let mut col_witness = Vec::new();
 
     // Collect internal signals to witness columns.
@@ -270,7 +270,7 @@ fn collect_witness_columns<F, TG: TraceGenerator<F>>(ast: &SBPIR<F, TG>) -> Vec<
 }
 
 fn compile_steps<F: Clone + Field, TG: TraceGenerator<F>>(
-    ast: &SBPIR<F, TG>,
+    ast: &SBPIRLegacy<F, TG>,
     last_step_instance: UUID,
     is_last_uuid: UUID,
     super_circuit_annotations_map: &Option<&HashMap<UUID, String>>,

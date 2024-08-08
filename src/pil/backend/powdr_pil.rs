@@ -4,7 +4,7 @@ use crate::{
         compiler::{compile, compile_super_circuits, PILColumn, PILExpr, PILQuery},
         ir::powdr_pil::PILCircuit,
     },
-    sbpir::SBPIR,
+    sbpir::SBPIRLegacy,
     util::UUID,
     wit_gen::{TraceGenerator, TraceWitness},
 };
@@ -18,7 +18,7 @@ extern crate regex;
 /// User generate PIL code using this function. User needs to supply AST, TraceWitness, and a name
 /// string for the circuit.
 pub fn chiquito2Pil<F: Clone + Debug + Field, TG: TraceGenerator<F>>(
-    ast: SBPIR<F, TG>,
+    ast: SBPIRLegacy<F, TG>,
     witness: Option<TraceWitness<F>>,
     circuit_name: String,
 ) -> String {
@@ -108,7 +108,7 @@ pub fn pil_ir_to_powdr_pil<F: Clone + Debug + Field>(pil_ir: PILCircuit<F>) -> S
 /// User needs to supply a Vec<String> for `circuit_names`, the order of which should be the same as
 /// the order of calling `sub_circuit()` function.
 pub fn chiquitoSuperCircuit2Pil<F: Debug + Field, MappingArgs, TG: TraceGenerator<F>>(
-    super_asts: Vec<SBPIR<F, TG>>,
+    super_asts: Vec<SBPIRLegacy<F, TG>>,
     super_trace_witnesses: HashMap<UUID, TraceWitness<F>>,
     ast_id_to_ir_id_mapping: HashMap<UUID, UUID>,
     circuit_names: Vec<String>,
@@ -161,6 +161,7 @@ fn generate_pil_fixed_columns<F: Debug>(pil: &mut String, pil_ir: &PILCircuit<F>
             "// === Fixed Columns for Signals and Step Type Selectors ==="
         )
         .unwrap();
+        #[cfg(feature = "debug_pil")]
         for (col, assignments) in pil_ir.col_fixed.iter() {
             let fixed_name = match col {
                 PILColumn::Fixed(_, annotation) => annotation.clone(),

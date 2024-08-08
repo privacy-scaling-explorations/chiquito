@@ -4,7 +4,9 @@ use std::{
     io::{self, Read},
 };
 
-use self::compiler::{Compiler, CompilerResult};
+use compiler::CompilerResult;
+
+use self::compiler::{Compiler, CompilerResultLegacy};
 use crate::{
     field::Field,
     parser::ast::{debug_sym_factory::DebugSymRefFactory, DebugSymRef},
@@ -63,6 +65,38 @@ impl Messages for Vec<Message> {
     fn has_errors(&self) -> bool {
         // currently all messages are errors
         !self.is_empty()
+    }
+}
+
+/// Compiles chiquito source code string into a SBPIR for a single machine, also returns messages
+/// (legacy).
+pub fn compile_legacy<F: Field + Hash>(
+    source: &str,
+    config: Config,
+    debug_sym_ref_factory: &DebugSymRefFactory,
+) -> Result<CompilerResultLegacy<F>, Vec<Message>> {
+    Compiler::new(config).compile_legacy(source, debug_sym_ref_factory)
+}
+
+/// Compiles chiquito source code file into a SBPIR for a single machine, also returns messages
+/// (legacy).
+pub fn compile_file_legacy<F: Field + Hash>(
+    file_path: &str,
+    config: Config,
+) -> Result<CompilerResultLegacy<F>, Vec<Message>> {
+    let contents = read_file(file_path);
+    match contents {
+        Ok(source) => {
+            let debug_sym_ref_factory = DebugSymRefFactory::new(file_path, source.as_str());
+            compile_legacy(source.as_str(), config, &debug_sym_ref_factory)
+        }
+        Err(e) => {
+            let msg = format!("Error reading file: {}", e);
+            let message = Message::ParseErr { msg };
+            let messages = vec![message];
+
+            Err(messages)
+        }
     }
 }
 

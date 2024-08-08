@@ -13,7 +13,7 @@ use crate::{
             sc::{MappingContext, SuperCircuit},
         },
     },
-    sbpir::SBPIR,
+    sbpir::SBPIRLegacy,
     wit_gen::{NullTraceGenerator, TraceGenerator},
 };
 
@@ -36,7 +36,7 @@ impl<F, MappingArgs> Default for SuperCircuitContext<F, MappingArgs> {
 }
 
 impl<F: Clone, MappingArgs> SuperCircuitContext<F, MappingArgs> {
-    fn add_sub_circuit_ast(&mut self, ast: SBPIR<F, NullTraceGenerator>) {
+    fn add_sub_circuit_ast(&mut self, ast: SBPIRLegacy<F, NullTraceGenerator>) {
         self.super_circuit.add_sub_circuit_ast(ast);
     }
 }
@@ -64,7 +64,7 @@ impl<F: Field + Hash, MappingArgs> SuperCircuitContext<F, MappingArgs> {
         D: Fn(&mut CircuitContext<F, DSLTraceGenerator<F, TraceArgs>>, Imports) -> Exports,
     {
         let mut sub_circuit_context = CircuitContext {
-            circuit: SBPIR::default(),
+            circuit: SBPIRLegacy::default(),
             tables: self.tables.clone(),
         };
         let exports = sub_circuit_def(&mut sub_circuit_context, imports);
@@ -92,7 +92,7 @@ impl<F: Field + Hash, MappingArgs> SuperCircuitContext<F, MappingArgs> {
     >(
         &mut self,
         config: CompilerConfig<CM, SSB>,
-        sub_circuit: SBPIR<F, TG>, // directly input ast
+        sub_circuit: SBPIRLegacy<F, TG>, // directly input ast
     ) -> AssignmentGenerator<F, TG> {
         let (unit, assignment) = compile_phase1(config, &sub_circuit);
         let assignment = assignment.unwrap_or_else(|| AssignmentGenerator::empty(unit.uuid));

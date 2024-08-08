@@ -2,7 +2,7 @@ use std::{collections::HashMap, fmt::Debug, hash::Hash, rc::Rc};
 
 use crate::{
     field::Field,
-    sbpir::SBPIR,
+    sbpir::SBPIRLegacy,
     util::UUID,
     wit_gen::{NullTraceGenerator, TraceGenerator, TraceWitness},
 };
@@ -16,7 +16,7 @@ use super::{
 pub struct SuperCircuit<F, MappingArgs> {
     sub_circuits: Vec<Circuit<F>>,
     mapping: MappingGenerator<F, MappingArgs>,
-    sub_circuit_asts: Vec<SBPIR<F, NullTraceGenerator>>,
+    sub_circuit_asts: Vec<SBPIRLegacy<F, NullTraceGenerator>>,
 }
 
 impl<F, MappingArgs> Default for SuperCircuit<F, MappingArgs> {
@@ -39,7 +39,7 @@ impl<F, MappingArgs> SuperCircuit<F, MappingArgs> {
     }
 
     // Needed for the PIL backend.
-    pub fn add_sub_circuit_ast(&mut self, sub_circuit_ast: SBPIR<F, NullTraceGenerator>) {
+    pub fn add_sub_circuit_ast(&mut self, sub_circuit_ast: SBPIRLegacy<F, NullTraceGenerator>) {
         self.sub_circuit_asts.push(sub_circuit_ast);
     }
 
@@ -58,7 +58,7 @@ impl<F, MappingArgs> SuperCircuit<F, MappingArgs> {
 
 // Needed for the PIL backend.
 impl<F: Clone, MappingArgs> SuperCircuit<F, MappingArgs> {
-    pub fn get_super_asts(&self) -> Vec<SBPIR<F, NullTraceGenerator>> {
+    pub fn get_super_asts(&self) -> Vec<SBPIRLegacy<F, NullTraceGenerator>> {
         self.sub_circuit_asts.clone()
     }
 }

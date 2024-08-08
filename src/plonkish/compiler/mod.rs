@@ -5,7 +5,9 @@ use crate::{
         Circuit, Column, Poly, PolyExpr, PolyLookup,
     },
     poly::Expr,
-    sbpir::{query::Queriable, ExposeOffset, StepType, StepTypeUUID, PIR, SBPIR as astCircuit},
+    sbpir::{
+        query::Queriable, ExposeOffset, SBPIRLegacy as astCircuit, StepType, StepTypeUUID, PIR,
+    },
     wit_gen::{AutoTraceGenerator, FixedAssignment, TraceGenerator},
 };
 use std::hash::Hash;

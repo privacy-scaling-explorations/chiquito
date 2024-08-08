@@ -7,8 +7,12 @@ use halo2_backend::plonk::{
     Error as ErrorBack,
 };
 use halo2_middleware::{
-    circuit::{Any as Columns, Cell as CellMid, ColumnMid, CompiledCircuit, Preprocessing},
-    permutation::AssemblyMid,
+    circuit::{
+        Any as Columns, Cell as CellMid, ColumnMid, CompiledCircuit, ExpressionMid, GateMid,
+        Preprocessing, QueryMid, VarMid,
+    },
+    lookup,
+    permutation::{self, AssemblyMid},
     zal::impls::{H2cEngine, PlonkEngineConfig},
 };
 use halo2_proofs::{
@@ -17,10 +21,7 @@ use halo2_proofs::{
         bn256::{Bn256, Fr, G1Affine},
         ff::PrimeField,
     },
-    plonk::{
-        Advice, Any, Column, ConstraintSystem, ConstraintSystemMid, Error, Expression, FirstPhase,
-        Fixed, Instance, ProvingKey, SecondPhase, ThirdPhase, VerifyingKey, VirtualCells,
-    },
+    plonk::{Any, Column, ConstraintSystemMid, Error, ProvingKey, VerifyingKey},
     poly::{
         commitment::Params,
         kzg::{
@@ -51,7 +52,6 @@ use crate::{
             PolyExpr,
         },
     },
-    poly::ToField,
     util::UUID,
     wit_gen::TraceGenerator,
 };
@@ -77,30 +77,30 @@ impl<T: PrimeField + From<u64>> ChiquitoField for T {
     }
 }
 
-trait Halo2Configurable<F: Field> {
+trait Halo2Configurable<F: PrimeField> {
     fn compile_middleware(
         &mut self,
         num_circuit_rows: usize,
     ) -> Result<(CompiledCircuit<F>, u32), Error> {
-        let mut cs = self.configure_cs();
+        let mut cs_builder = self.configure_cs();
 
-        let preprocessing = self.preprocessing(&mut cs);
+        let preprocessing = self.preprocessing(&mut cs_builder);
 
-        let occupied_rows = num_circuit_rows + cs.minimum_rows();
+        let occupied_rows = num_circuit_rows + cs_builder.minimum_rows();
         let k = occupied_rows.next_power_of_two().trailing_zeros();
         let n = 2usize.pow(k);
 
         Ok((
             CompiledCircuit {
-                cs: cs.clone().into(),
+                cs: cs_builder.into(),
                 preprocessing: preprocessing.extend(n),
             },
             k,
         ))
     }
 
-    fn configure_cs(&mut self) -> ConstraintSystem<F>;
-    fn preprocessing(&self, cs: &mut ConstraintSystem<F>) -> PreprocessingCompact<F>;
+    fn configure_cs(&mut self) -> ConstraintSystemBuilder<F>;
+    fn preprocessing(&self, cs: &mut ConstraintSystemBuilder<F>) -> PreprocessingCompact<F>;
 }
 
 pub trait Halo2WitnessGenerator<F, W> {
@@ -119,26 +119,28 @@ pub struct ChiquitoHalo2<F: PrimeField + From<u64>> {
 
     pub(crate) plonkish_ir: Circuit<F>,
 
-    advice_columns: HashMap<UUID, Column<Advice>>,
-    fixed_columns: HashMap<UUID, Column<Fixed>>,
-    instance_column: Option<Column<Instance>>,
+    advice_columns: HashMap<UUID, ColumnMid>,
+    fixed_columns: HashMap<UUID, ColumnMid>,
 
     ir_id: UUID,
 }
 
 impl<F: PrimeField + Hash> Halo2Configurable<F> for ChiquitoHalo2<F> {
-    fn preprocessing(&self, cs: &mut ConstraintSystem<F>) -> PreprocessingCompact<F> {
+    fn preprocessing(
+        &self,
+        cs_builder: &mut ConstraintSystemBuilder<F>,
+    ) -> PreprocessingCompact<F> {
         let fixed_count = self.plonkish_ir.fixed_assignments.0.len();
         let mut fixed = vec![vec![]; fixed_count];
 
         for (column, values) in self.plonkish_ir.fixed_assignments.iter() {
-            let column = self.convert_fixed_column(column);
+            let column = cs_builder.convert_fixed_column(column);
 
             fixed[column.index].extend(values.iter().cloned());
         }
 
         let mut copies = vec![];
-        self.collect_permutations(cs, &mut copies);
+        cs_builder.collect_permutations(&mut copies, &self.plonkish_ir.exposed);
 
         PreprocessingCompact {
             permutation: AssemblyMid { copies },
@@ -146,14 +148,12 @@ impl<F: PrimeField + Hash> Halo2Configurable<F> for ChiquitoHalo2<F> {
         }
     }
 
-    fn configure_cs(&mut self) -> ConstraintSystem<F> {
-        let mut cs: ConstraintSystem<F> = ConstraintSystem::default();
+    fn configure_cs(&mut self) -> ConstraintSystemBuilder<F> {
+        let mut cs_builder = ConstraintSystemBuilder::new();
 
-        self.configure_columns_sub_circuit(&mut cs);
+        self.configure_halo2_columns(&mut cs_builder);
 
-        self.configure_sub_circuit(&mut cs);
-
-        cs
+        cs_builder
     }
 }
 
@@ -187,193 +187,225 @@ impl<F: PrimeField + From<u64> + Hash> ChiquitoHalo2<F> {
             plonkish_ir: circuit,
             advice_columns: Default::default(),
             fixed_columns: Default::default(),
-            instance_column: Default::default(),
             ir_id,
         }
     }
 
-    fn configure_columns_sub_circuit(&mut self, meta: &mut ConstraintSystem<F>) {
-        let mut advice_columns = HashMap::<UUID, Column<Advice>>::new();
-        let mut fixed_columns = HashMap::<UUID, Column<Fixed>>::new();
+    fn configure_halo2_columns(&mut self, cs_builder: &mut ConstraintSystemBuilder<F>) {
+        let mut advice_columns: HashMap<UUID, ColumnMid> = HashMap::new();
+        let mut fixed_columns: HashMap<UUID, ColumnMid> = HashMap::new();
 
-        for column in self.plonkish_ir.columns.iter() {
-            match column.ctype {
+        self.plonkish_ir
+            .columns
+            .iter()
+            .for_each(|column| match column.ctype {
                 cAdvice => {
-                    let halo2_column = to_halo2_advice(meta, column);
+                    let halo2_column = cs_builder.advice_column(column);
                     advice_columns.insert(column.uuid(), halo2_column);
-                    meta.annotate_lookup_any_column(halo2_column, || column.annotation.clone());
                 }
                 cFixed => {
-                    let halo2_column = meta.fixed_column();
+                    let halo2_column = cs_builder.fixed_column(column);
                     fixed_columns.insert(column.uuid(), halo2_column);
-                    meta.annotate_lookup_any_column(halo2_column, || column.annotation.clone());
                 }
-                Halo2Advice => {
-                    let halo2_column = column
-                        .halo2_advice
-                        .unwrap_or_else(|| {
-                            panic!("halo2 advice column not found {}", column.annotation)
-                        })
-                        .column;
-                    advice_columns.insert(column.uuid(), halo2_column);
-                    meta.annotate_lookup_any_column(halo2_column, || column.annotation.clone());
-                }
-                Halo2Fixed => {
-                    let halo2_column = column
-                        .halo2_fixed
-                        .unwrap_or_else(|| {
-                            panic!("halo2 advice column not found {}", column.annotation)
-                        })
-                        .column;
-                    fixed_columns.insert(column.uuid(), halo2_column);
-                    meta.annotate_lookup_any_column(halo2_column, || column.annotation.clone());
-                }
+                Halo2Advice | Halo2Fixed => panic!(
+                    "Use src/plonkish/backend/halo2_legacy.rs to compile a circuit with imported Halo2 columns"
+                ),
+            });
+
+        if !self.plonkish_ir.exposed.is_empty() {
+            cs_builder.has_instance_column = true;
+        }
+
+        self.plonkish_ir.polys.iter().for_each(|poly| {
+            cs_builder.gates.push(GateMid {
+                name: "main".to_string(),
+                poly: cs_builder.convert_poly(&poly.expr),
+            })
+        });
+
+        for lookup in self.plonkish_ir.lookups.iter() {
+            let annotation: &'static str = Box::leak(lookup.annotation.clone().into_boxed_str());
+            let mut exprs = Vec::new();
+            for (src, dest) in lookup.exprs.iter() {
+                exprs.push((cs_builder.convert_poly(src), cs_builder.convert_poly(dest)))
             }
+            cs_builder.lookups.push(lookup::ArgumentMid {
+                name: annotation.to_string(),
+                input_expressions: exprs.iter().map(|(src, _)| src.clone()).collect(),
+                table_expressions: exprs.iter().map(|(_, dest)| dest.clone()).collect(),
+            });
         }
 
         self.advice_columns = advice_columns;
         self.fixed_columns = fixed_columns;
     }
+}
 
-    fn configure_sub_circuit(&mut self, meta: &mut ConstraintSystem<F>) {
-        if !self.plonkish_ir.exposed.is_empty() {
-            self.instance_column = Some(meta.instance_column());
-        }
+#[derive(Default)]
+struct ConstraintSystemBuilder<F: PrimeField> {
+    num_fixed_columns: usize,
+    num_advice_columns: usize,
+    has_instance_column: bool,
+    gates: Vec<GateMid<F>>,
+    lookups: Vec<lookup::ArgumentMid<F>>,
+    /// Map from advice column UUID to index
+    advice_idx_map: HashMap<UUID, usize>,
+    /// Map from fixed column UUID to index
+    fixed_idx_map: HashMap<UUID, usize>,
+    permutation: PermutationArgument,
+    advice_queries: HashMap<usize, usize>,
+    fixed_queries: HashMap<usize, usize>,
+    instance_queries: HashMap<usize, usize>,
+    annotations: HashMap<ColumnMid, String>,
+}
 
-        if !self.plonkish_ir.polys.is_empty() {
-            meta.create_gate("main", |meta| {
-                let mut constraints: Vec<(&'static str, Expression<F>)> = Vec::new();
-
-                for poly in self.plonkish_ir.polys.iter() {
-                    let converted = self.convert_poly(meta, &poly.expr);
-                    let annotation = Box::leak(
-                        format!("{} => {:?}", poly.annotation, converted).into_boxed_str(),
-                    );
-                    constraints.push((annotation, converted));
-                }
-
-                constraints
-            });
-        }
-
-        for lookup in self.plonkish_ir.lookups.iter() {
-            let annotation: &'static str = Box::leak(lookup.annotation.clone().into_boxed_str());
-            meta.lookup_any(annotation, |meta| {
-                let mut exprs = Vec::new();
-                for (src, dest) in lookup.exprs.iter() {
-                    exprs.push((self.convert_poly(meta, src), self.convert_poly(meta, dest)))
-                }
-
-                exprs
-            });
-        }
-    }
-
-    fn convert_poly(&self, meta: &mut VirtualCells<'_, F>, src: &PolyExpr<F>) -> Expression<F> {
+impl<F: PrimeField> ConstraintSystemBuilder<F> {
+    fn convert_poly(&self, src: &PolyExpr<F>) -> ExpressionMid<F> {
         match src {
-            PolyExpr::Const(c, _) => Expression::Constant(*c),
+            PolyExpr::Const(c, _) => ExpressionMid::Constant(*c),
             PolyExpr::Sum(es, _) => {
                 let mut iter = es.iter();
-                let first = self.convert_poly(meta, iter.next().unwrap());
-                iter.fold(first, |acc, e| acc + self.convert_poly(meta, e))
+                let first = self.convert_poly(iter.next().unwrap());
+                iter.fold(first, |acc, e| acc + self.convert_poly(e))
             }
             PolyExpr::Mul(es, _) => {
                 let mut iter = es.iter();
-                let first = self.convert_poly(meta, iter.next().unwrap());
-                iter.fold(first, |acc, e| acc * self.convert_poly(meta, e))
+                let first = self.convert_poly(iter.next().unwrap());
+                iter.fold(first, |acc, e| acc * self.convert_poly(e))
             }
-            PolyExpr::Neg(e, _) => -self.convert_poly(meta, e),
+            PolyExpr::Neg(e, _) => -self.convert_poly(e),
             PolyExpr::Pow(e, n, _) => {
                 if *n == 0 {
-                    Expression::Constant(1.field())
+                    ExpressionMid::Constant(F::ONE)
                 } else {
-                    let e = self.convert_poly(meta, e);
+                    let e = self.convert_poly(e);
                     (1..*n).fold(e.clone(), |acc, _| acc * e.clone())
                 }
             }
-            PolyExpr::Halo2Expr(e, _) => e.clone(),
-            PolyExpr::Query((column, rotation, _), _) => {
-                self.convert_query(meta, column, *rotation)
-            }
+            PolyExpr::Halo2Expr(e, _) => ExpressionMid::from(e.clone()),
+            PolyExpr::Query((column, rotation, _), _) => self.convert_query(column, *rotation),
             PolyExpr::MI(_, _) => panic!("mi elimination not done"),
         }
     }
 
-    fn convert_query(
-        &self,
-        meta: &mut VirtualCells<'_, F>,
-        column: &cColumn,
-        rotation: i32,
-    ) -> Expression<F> {
+    fn convert_query(&self, column: &cColumn, rotation: i32) -> ExpressionMid<F> {
         match column.ctype {
-            cAdvice | Halo2Advice => {
-                let c = self
-                    .advice_columns
-                    .get(&column.uuid())
-                    .unwrap_or_else(|| panic!("column not found {}", column.annotation));
-
-                meta.query_advice(*c, Rotation(rotation))
-            }
-            cFixed | Halo2Fixed => {
-                let c = self
-                    .fixed_columns
-                    .get(&column.uuid())
-                    .unwrap_or_else(|| panic!("column not found {}", column.annotation));
-
-                meta.query_fixed(*c, Rotation(rotation))
-            }
+            cAdvice => ExpressionMid::Var(VarMid::Query(QueryMid {
+                column_index: self.advice_idx_map[&column.uuid()],
+                column_type: Any::Advice,
+                rotation: Rotation(rotation),
+            })),
+            cFixed => ExpressionMid::Var(VarMid::Query(QueryMid {
+                column_index: self.fixed_idx_map[&column.uuid()],
+                column_type: Any::Fixed,
+                rotation: Rotation(rotation),
+            })),
+            Halo2Advice | Halo2Fixed => panic!(
+                    "Use src/plonkish/backend/halo2_legacy.rs to compile a circuit with imported Halo2 columns"
+                ),
         }
     }
 
-    fn convert_advice_column(&self, column: &cColumn) -> Column<Advice> {
+    fn convert_advice_column(&self, column: &cColumn) -> ColumnMid {
         match column.ctype {
-            cAdvice | Halo2Advice => *self
-                .advice_columns
-                .get(&column.uuid())
-                .unwrap_or_else(|| panic!("column not found {}", column.annotation)),
+            cAdvice => ColumnMid {
+                column_type: Columns::Advice,
+                index: *self
+                    .advice_idx_map
+                    .get(&column.uuid())
+                    .unwrap_or_else(|| panic!("column not found {}", column.annotation)),
+            },
+            Halo2Advice => panic!(
+                    "Use src/plonkish/backend/halo2_legacy.rs to compile a circuit with imported Halo2 columns"
+                ),
             _ => panic!("wrong column type"),
         }
     }
 
-    fn convert_fixed_column(&self, column: &cColumn) -> Column<Fixed> {
+    fn convert_fixed_column(&self, column: &cColumn) -> ColumnMid {
         match column.ctype {
-            cFixed | Halo2Fixed => *self
-                .fixed_columns
-                .get(&column.uuid())
-                .unwrap_or_else(|| panic!("column not found {}", column.annotation)),
+            cFixed  => ColumnMid {
+                column_type: Columns::Fixed,
+                index: *self
+                    .fixed_idx_map
+                    .get(&column.uuid())
+                    .unwrap_or_else(|| panic!("column not found {}", column.annotation)),
+            },
+             Halo2Fixed => panic!(
+                    "Use src/plonkish/backend/halo2_legacy.rs to compile a circuit with imported Halo2 columns"
+                ),
             _ => panic!("wrong column type"),
         }
+    }
+
+    fn annotate(&mut self, index: usize, column: &cColumn, column_type: Any) {
+        self.annotations
+            .insert(ColumnMid { index, column_type }, column.annotation.clone());
+    }
+
+    fn count_query(&mut self, column: Column<Any>) {
+        match column.column_type {
+            Any::Advice => {
+                let advice_queries = &mut self.advice_queries;
+                *advice_queries.entry(column.index).or_insert(0) += 1;
+            }
+            Any::Fixed => {
+                let fixed_queries = &mut self.fixed_queries;
+                *fixed_queries.entry(column.index).or_insert(0) += 1;
+            }
+            Any::Instance => {
+                let instance_queries = &mut self.instance_queries;
+                *instance_queries.entry(column.index).or_insert(0) += 1;
+            }
+        }
+    }
+
+    /// Compute the minimum number of rows of the circuit.
+    /// For constants explanation see https://github.com/privacy-scaling-explorations/halo2/blob/bc857a701715ac3608056cb9b1999ad7cbc00b59/halo2_frontend/src/plonk/circuit/constraint_system.rs#L1055
+    fn minimum_rows(&self) -> usize {
+        self.blinding_factors() + 3
+    }
+
+    /// Compute the number of blinding factors necessary to perfectly blind
+    /// each of the prover's witness polynomials.
+    /// For constants explanation see https://github.com/privacy-scaling-explorations/halo2/blob/main/halo2_frontend/src/plonk/circuit/constraint_system.rs#L1026
+    pub(crate) fn blinding_factors(&self) -> usize {
+        let factors = *self.advice_queries.values().max().unwrap_or(&1);
+        let factors = std::cmp::max(3, factors);
+        factors + 2
     }
 
     fn collect_permutations(
-        &self,
-        cs: &mut ConstraintSystem<F>,
+        &mut self,
         copies: &mut Vec<(CellMid, CellMid)>,
+        exposed: &[(cColumn, i32)],
     ) {
-        self.plonkish_ir
-            .exposed
+        exposed
             .iter()
             .enumerate()
             .for_each(|(row, (column, offset))| {
                 let col_type: Columns = match column.ctype {
-                    cAdvice | Halo2Advice => Columns::Advice,
-                    cFixed | Halo2Fixed => Columns::Fixed,
+                    cAdvice  => Columns::Advice,
+                    cFixed  => Columns::Fixed,
+                    Halo2Advice | Halo2Fixed => panic!(
+                    "Use src/plonkish/backend/halo2_legacy.rs to compile a circuit with imported Halo2 columns"
+                ),
                 };
 
                 let index = if col_type == Columns::Advice {
                     let column = self.convert_advice_column(column);
-                    cs.enable_equality(column);
+                    self.collect_permutation(column);
                     column.index
                 } else {
                     let column = self.convert_fixed_column(column);
-                    cs.enable_equality(column);
+                    self.collect_permutation(column);
                     column.index
                 };
 
                 let column_mid = ColumnMid::new(col_type, index);
 
                 let instance_column = ColumnMid::new(Columns::Instance, 0);
-                cs.enable_equality(instance_column);
+                self.collect_permutation(instance_column);
                 copies.push((
                     CellMid {
                         column: column_mid,
@@ -385,6 +417,64 @@ impl<F: PrimeField + From<u64> + Hash> ChiquitoHalo2<F> {
                     },
                 ));
             });
+    }
+
+    fn collect_permutation<C: Into<Column<Any>>>(&mut self, column: C) {
+        let column: Column<Any> = column.into();
+        self.count_query(column);
+        if !self.permutation.columns.contains(&ColumnMid {
+            column_type: column.column_type,
+            index: column.index,
+        }) {
+            self.permutation = PermutationArgument {
+                columns: self
+                    .permutation
+                    .columns
+                    .iter()
+                    .cloned()
+                    .chain(iter::once(ColumnMid {
+                        column_type: column.column_type,
+                        index: column.index,
+                    }))
+                    .collect(),
+            };
+        }
+    }
+
+    fn new() -> Self {
+        Self::default()
+    }
+
+    fn advice_column(&mut self, column: &cColumn) -> ColumnMid {
+        let index = self.num_advice_columns;
+        self.allocate_advice(index, column)
+    }
+
+    fn fixed_column(&mut self, column: &cColumn) -> ColumnMid {
+        let index = self.num_fixed_columns;
+        self.allocate_fixed(index, column)
+    }
+
+    fn allocate_fixed(&mut self, index: usize, column: &cColumn) -> ColumnMid {
+        let column_mid = ColumnMid {
+            column_type: Any::Fixed,
+            index,
+        };
+        self.fixed_idx_map.insert(column.uuid(), index);
+        self.annotate(index, column, Any::Fixed);
+        self.num_fixed_columns += 1;
+        column_mid
+    }
+
+    fn allocate_advice(&mut self, index: usize, column: &cColumn) -> ColumnMid {
+        let column_mid = ColumnMid {
+            column_type: Any::Advice,
+            index,
+        };
+        self.advice_idx_map.insert(column.uuid(), index);
+        self.annotate(index, column, Any::Advice);
+        self.num_advice_columns += 1;
+        column_mid
     }
 }
 
@@ -459,21 +549,21 @@ impl<F: PrimeField> Halo2WitnessGenerator<F, SuperAssignments<F>> for ChiquitoHa
 }
 
 impl<F: PrimeField + Hash> Halo2Configurable<F> for ChiquitoHalo2SuperCircuit<F> {
-    fn configure_cs(&mut self) -> ConstraintSystem<F> {
-        let mut cs = ConstraintSystem::default();
+    fn configure_cs(&mut self) -> ConstraintSystemBuilder<F> {
+        let mut cs_builder = ConstraintSystemBuilder::new();
 
         self.sub_circuits
             .iter_mut()
-            .for_each(|c| c.configure_columns_sub_circuit(&mut cs));
+            .for_each(|c| c.configure_halo2_columns(&mut cs_builder));
 
-        let advice_columns: HashMap<UUID, Column<Advice>> =
+        let advice_columns: HashMap<UUID, ColumnMid> =
             self.sub_circuits
                 .iter()
                 .fold(HashMap::default(), |mut acc, s| {
                     acc.extend(s.advice_columns.clone());
                     acc
                 });
-        let fixed_columns: HashMap<UUID, Column<Fixed>> =
+        let fixed_columns: HashMap<UUID, ColumnMid> =
             self.sub_circuits
                 .iter()
                 .fold(HashMap::default(), |mut acc, s| {
@@ -484,14 +574,16 @@ impl<F: PrimeField + Hash> Halo2Configurable<F> for ChiquitoHalo2SuperCircuit<F>
         self.sub_circuits.iter_mut().for_each(|sub_circuit| {
             sub_circuit.advice_columns = advice_columns.clone();
             sub_circuit.fixed_columns = fixed_columns.clone();
-            sub_circuit.configure_sub_circuit(&mut cs)
         });
 
-        cs
+        cs_builder
     }
 
-    fn preprocessing(&self, cs: &mut ConstraintSystem<F>) -> PreprocessingCompact<F> {
-        let fixed_columns: HashMap<UUID, Column<Fixed>> =
+    fn preprocessing(
+        &self,
+        cs_builder: &mut ConstraintSystemBuilder<F>,
+    ) -> PreprocessingCompact<F> {
+        let fixed_columns: HashMap<UUID, ColumnMid> =
             self.sub_circuits
                 .iter()
                 .fold(HashMap::default(), |mut acc, s| {
@@ -509,12 +601,40 @@ impl<F: PrimeField + Hash> Halo2Configurable<F> for ChiquitoHalo2SuperCircuit<F>
 
                 fixed[column.index].extend(values.iter().cloned());
             }
-            subcircuit.collect_permutations(cs, &mut copies);
+            cs_builder.collect_permutations(&mut copies, &subcircuit.plonkish_ir.exposed);
         }
 
         PreprocessingCompact {
             permutation: AssemblyMid { copies },
             fixed_compact: fixed,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Default)]
+pub struct PermutationArgument {
+    /// A sequence of columns involved in the argument.
+    pub columns: Vec<ColumnMid>,
+}
+
+impl<F: PrimeField> From<ConstraintSystemBuilder<F>> for ConstraintSystemMid<F> {
+    fn from(val: ConstraintSystemBuilder<F>) -> Self {
+        ConstraintSystemMid {
+            num_fixed_columns: val.num_fixed_columns,
+            num_advice_columns: val.num_advice_columns,
+            num_instance_columns: if val.has_instance_column { 1 } else { 0 },
+            num_challenges: 0,
+            unblinded_advice_columns: Vec::new(),
+            advice_column_phase: (0..val.num_advice_columns).map(|_| 0).collect(),
+            challenge_phase: Vec::new(),
+            gates: val.gates,
+            permutation: permutation::ArgumentMid {
+                columns: val.permutation.columns,
+            },
+            lookups: val.lookups,
+            shuffles: Vec::new(),
+            general_column_annotations: val.annotations,
+            minimum_degree: None,
         }
     }
 }
@@ -782,17 +902,5 @@ impl BlockRngCore for DummyRng {
         for elem in results.iter_mut() {
             *elem = 1;
         }
-    }
-}
-
-fn to_halo2_advice<F: PrimeField>(
-    meta: &mut ConstraintSystem<F>,
-    column: &cColumn,
-) -> Column<Advice> {
-    match column.phase {
-        0 => meta.advice_column_in(FirstPhase),
-        1 => meta.advice_column_in(SecondPhase),
-        2 => meta.advice_column_in(ThirdPhase),
-        _ => panic!("jarll wrong phase"),
     }
 }
