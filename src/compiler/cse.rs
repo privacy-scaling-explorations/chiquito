@@ -17,6 +17,34 @@ use crate::{
     wit_gen::NullTraceGenerator,
 };
 
+#[derive(Clone, Debug)]
+pub struct CseConfig {
+    min_degree: usize,
+    min_occurrences: usize,
+
+    max_iterations: usize,
+}
+
+impl Default for CseConfig {
+    fn default() -> Self {
+        Self {
+            min_degree: 2,
+            min_occurrences: 2,
+
+            max_iterations: 100,
+        }
+    }
+}
+
+#[allow(dead_code)]
+pub fn config(min_degree: usize, min_occurrences: usize, max_iterations: Option<usize>) -> CseConfig {
+    CseConfig {
+        min_degree,
+        min_occurrences,
+        max_iterations: max_iterations.unwrap_or(100),
+    }
+}
+
 /// Common Subexpression Elimination (CSE) optimization.
 /// This optimization replaces common subexpressions with new internal signals for the step type.
 /// This is done by each time finding the optimal subexpression to replace and creating a new signal
@@ -28,9 +56,10 @@ use crate::{
 #[allow(dead_code)]
 pub(super) fn cse<F: Field + Hash>(
     mut circuit: SBPIR<F, NullTraceGenerator>,
+    config: CseConfig,
 ) -> SBPIR<F, NullTraceGenerator> {
     for (_, step_type) in circuit.step_types.iter_mut() {
-        cse_for_step(step_type, &circuit.forward_signals)
+        cse_for_step(step_type, &circuit.forward_signals, &config)
     }
     circuit
 }
@@ -38,11 +67,12 @@ pub(super) fn cse<F: Field + Hash>(
 fn cse_for_step<F: Field + Hash>(
     step_type: &mut StepType<F, ()>,
     forward_signals: &[ForwardSignal],
+    config: &CseConfig,
 ) {
     let mut signal_factory = SignalFactory::default();
     let mut replaced_hashes = HashSet::new();
 
-    loop {
+    for _ in 0..config.max_iterations {
         let mut queriables = Vec::<Queriable<F>>::new();
 
         forward_signals.iter().for_each(|signal| {
@@ -75,7 +105,7 @@ fn cse_for_step<F: Field + Hash>(
         }
 
         // Find the optimal subexpression to replace
-        if let Some(common_expr) = find_optimal_subexpression(&exprs, &replaced_hashes) {
+        if let Some(common_expr) = find_optimal_subexpression(&exprs, &replaced_hashes, config.clone()) {
             // Add the hash of the replaced expression to the set
             replaced_hashes.insert(common_expr.meta().hash);
             // Create a new signal for the common subexpression
@@ -124,12 +154,18 @@ impl SubexprInfo {
         self.count += 1;
         self.degree = self.degree.max(degree);
     }
+
+    fn get_score(&self) -> usize {
+        // TODO: Improve the scoring function and adjust the weights
+        2 * self.count + 3 * self.degree
+    }
 }
 
 /// Find the optimal subexpression to replace in a list of expressions.
 fn find_optimal_subexpression<F: Field + Hash>(
     exprs: &[Expr<F, Queriable<F>, HashResult>],
     replaced_hashes: &HashSet<u64>,
+    config: CseConfig
 ) -> Option<Expr<F, Queriable<F>, HashResult>> {
     let mut count_map = HashMap::<u64, SubexprInfo>::new();
     let mut hash_to_expr = HashMap::<u64, Expr<F, Queriable<F>, HashResult>>::new();
@@ -143,13 +179,14 @@ fn find_optimal_subexpression<F: Field + Hash>(
     let common_ses = count_map
         .into_iter()
         .filter(|&(hash, info)| {
-            info.count > 1 && info.degree > 1 && !replaced_hashes.contains(&hash)
+            info.count >= config.min_occurrences && info.degree >= config.min_degree && !replaced_hashes.contains(&hash)
         })
         .collect::<HashMap<_, _>>();
 
+    // Find the best common subexpression to replace based on the score
     let best_subexpr = common_ses
         .iter()
-        .max_by_key(|&(_, info)| (info.degree, info.count))
+        .max_by_key(|&(_, info)| info.get_score())
         .map(|(&hash, info)| (hash, info.count, info.degree));
 
     if let Some((hash, _count, _degree)) = best_subexpr {
@@ -224,7 +261,7 @@ mod test {
     use rand_chacha::{rand_core::SeedableRng, ChaCha20Rng};
 
     use crate::{
-        compiler::cse::cse,
+        compiler::cse::{cse, CseConfig},
         field::Field,
         poly::{Expr, VarAssignments},
         sbpir::{query::Queriable, InternalSignal, StepType, SBPIR},
@@ -263,7 +300,7 @@ mod test {
             hashed_exprs.push(hashed_expr);
         }
 
-        let best_expr = find_optimal_subexpression(&hashed_exprs, &HashSet::new());
+        let best_expr = find_optimal_subexpression(&hashed_exprs, &HashSet::new(), CseConfig::default());
 
         assert_eq!(format!("{:?}", best_expr.unwrap()), "(e * f * d)");
     }
@@ -309,7 +346,7 @@ mod test {
         let mut circuit: SBPIR<Fr, NullTraceGenerator> = SBPIR::default();
         let step_uuid = circuit.add_step_type_def(step);
 
-        let circuit = cse(circuit);
+        let circuit = cse(circuit, CseConfig::default());
 
         let common_ses_found_and_replaced = circuit
             .step_types
