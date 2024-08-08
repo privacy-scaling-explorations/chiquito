@@ -13,7 +13,7 @@ use crate::{
         cse::{create_common_ses_signal, replace_expr},
         Expr, HashResult, VarAssignments,
     },
-    sbpir::{query::Queriable, ForwardSignal, InternalSignal, StepType, SBPIR},
+    sbpir::{query::Queriable, ForwardSignal, InternalSignal, SBPIRLegacy, StepType},
     wit_gen::NullTraceGenerator,
 };
 
@@ -55,9 +55,9 @@ pub fn config(min_degree: usize, min_occurrences: usize, max_iterations: Option<
 /// with high probability.
 #[allow(dead_code)]
 pub(super) fn cse<F: Field + Hash>(
-    mut circuit: SBPIR<F, NullTraceGenerator>,
+    mut circuit: SBPIRLegacy<F, NullTraceGenerator>,
     config: CseConfig,
-) -> SBPIR<F, NullTraceGenerator> {
+) -> SBPIRLegacy<F, NullTraceGenerator> {
     for (_, step_type) in circuit.step_types.iter_mut() {
         cse_for_step(step_type, &circuit.forward_signals, &config)
     }
@@ -264,7 +264,7 @@ mod test {
         compiler::cse::{cse, CseConfig},
         field::Field,
         poly::{Expr, VarAssignments},
-        sbpir::{query::Queriable, InternalSignal, StepType, SBPIR},
+        sbpir::{query::Queriable, InternalSignal, SBPIRLegacy, StepType},
         util::uuid,
         wit_gen::NullTraceGenerator,
     };
@@ -343,7 +343,7 @@ mod test {
         step.add_constr("expr4".into(), expr4.clone());
         step.add_constr("expr5".into(), expr5);
 
-        let mut circuit: SBPIR<Fr, NullTraceGenerator> = SBPIR::default();
+        let mut circuit: SBPIRLegacy<Fr, NullTraceGenerator> = SBPIRLegacy::default();
         let step_uuid = circuit.add_step_type_def(step);
 
         let circuit = cse(circuit, CseConfig::default());

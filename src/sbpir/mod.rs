@@ -260,35 +260,6 @@ impl<F: Field + Hash, TG: TraceGenerator<F> + Clone, M: Clone> SBPIRLegacy<F, TG
     }
 }
 
-impl<F: Field + Hash, TG: TraceGenerator<F> + Clone, M: Clone> SBPIR<F, TG, M> {
-    pub fn transform_meta<N: Clone, ApplyMetaFn>(&self, apply_meta: ApplyMetaFn) -> SBPIR<F, TG, N>
-    where
-        ApplyMetaFn: Fn(&Expr<F, Queriable<F>, M>) -> N + Clone,
-    {
-        SBPIRLegacy {
-            step_types: self
-                .step_types
-                .iter()
-                .map(|(k, v)| (*k, v.transform_meta(apply_meta.clone())))
-                .collect(),
-            forward_signals: self.forward_signals.clone(),
-            shared_signals: self.shared_signals.clone(),
-            fixed_signals: self.fixed_signals.clone(),
-            halo2_advice: self.halo2_advice.clone(),
-            halo2_fixed: self.halo2_fixed.clone(),
-            exposed: self.exposed.clone(),
-            annotations: self.annotations.clone(),
-            trace_generator: self.trace_generator.clone(),
-            fixed_assignments: self.fixed_assignments.clone(),
-            first_step: self.first_step,
-            last_step: self.last_step,
-            num_steps: self.num_steps,
-            q_enable: self.q_enable,
-            id: self.id,
-        }
-    }
-}
-
 impl<F: Field, TraceArgs: Clone> SBPIRLegacy<F, DSLTraceGenerator<F, TraceArgs>> {
     pub fn set_trace<D>(&mut self, def: D)
     where

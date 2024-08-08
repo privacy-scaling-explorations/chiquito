@@ -18,8 +18,8 @@ use super::{
 
 /// Circuit (Step-Based Polynomial Identity Representation)
 #[derive(Clone)]
-pub struct SBPIRMachine<F, TG: TraceGenerator<F> = DSLTraceGenerator<F>> {
-    pub step_types: HashMap<UUID, StepType<F>>,
+pub struct SBPIRMachine<F, TG: TraceGenerator<F> = DSLTraceGenerator<F>, M = ()> {
+    pub step_types: HashMap<UUID, StepType<F, M>>,
 
     pub forward_signals: Vec<ForwardSignal>,
     pub shared_signals: Vec<SharedSignal>,
@@ -171,7 +171,7 @@ impl<F, TG: TraceGenerator<F>> SBPIRMachine<F, TG> {
         self.annotations.insert(handler.uuid(), name.into());
     }
 
-    pub fn add_step_type_def(&mut self, step: StepType<F>) -> StepTypeUUID {
+    pub fn add_step_type_def(&mut self, step: StepType<F, ()>) -> StepTypeUUID {
         let uuid = step.uuid();
         self.step_types.insert(uuid, step);
 
