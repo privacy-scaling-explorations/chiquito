@@ -269,22 +269,40 @@ impl<F: Clone + Field, TG: TraceGenerator<F>> SBPIRLegacy<F, TG> {
     }
 }
 
-pub struct SBPIR<F, TG: TraceGenerator<F> = DSLTraceGenerator<F>> {
-    pub machines: HashMap<UUID, SBPIRMachine<F, TG>>,
+#[derive(Debug)]
+pub struct SBPIR<F: Clone, TG: TraceGenerator<F> = DSLTraceGenerator<F>> {
+    pub machines: HashMap<String, SBPIRMachine<F, TG>>,
     pub identifiers: HashMap<String, UUID>,
 }
 
-impl<F, TG: TraceGenerator<F>> SBPIR<F, TG> {
-    pub(crate) fn from_legacy(circuit: SBPIRLegacy<F, TG>, machine_id: &str) -> SBPIR<F, TG> {
-        let mut machines = HashMap::new();
-        let circuit_id = circuit.id;
-        machines.insert(circuit_id, SBPIRMachine::from_legacy(circuit));
-        let mut identifiers = HashMap::new();
-        identifiers.insert(machine_id.to_string(), circuit_id);
+impl<F: Clone, TG: TraceGenerator<F>> SBPIR<F, TG> {
+    pub(crate) fn default() -> SBPIR<F, TG> {
+        let machines = HashMap::new();
+        let identifiers = HashMap::new();
         SBPIR {
             machines,
             identifiers,
         }
+    }
+
+    pub(crate) fn with_trace<TG2: TraceGenerator<F> + Clone>(
+        &self,
+        // TODO does it have to be the same trace across all the machines?
+        trace: &TG2,
+    ) -> SBPIR<F, TG2> {
+        let mut machines_with_trace = HashMap::new();
+        for (name, machine) in self.machines.iter() {
+            let machine_with_trace = machine.with_trace(trace.clone());
+            machines_with_trace.insert(name.clone(), machine_with_trace);
+        }
+        SBPIR {
+            machines: machines_with_trace,
+            identifiers: self.identifiers.clone(),
+        }
+    }
+
+    pub(crate) fn add_machine(&mut self, name: &str, without_trace: SBPIRMachine<F, TG>) {
+        self.machines.insert(name.to_string(), without_trace);
     }
 }
 

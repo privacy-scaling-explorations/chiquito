@@ -2,8 +2,9 @@ use std::hash::Hash;
 
 use chiquito::{
     field::Field,
-    frontend::dsl::{circuit, trace::DSLTraceGenerator}, /* main function for constructing an AST
-                                                         * circuit */
+    frontend::dsl::{circuit_context_legacy::circuit_legacy, trace::DSLTraceGenerator}, /* main function for constructing
+                                                                                        * an AST
+                                                                                        * circuit */
     plonkish::{
         backend::{
             halo2_legacy::{chiquito2Halo2, ChiquitoHalo2Circuit},
@@ -50,7 +51,7 @@ fn fibo_circuit<F: Field + From<u64> + Hash>() -> FiboReturn<F> {
 
     use chiquito::frontend::dsl::cb::*; // functions for constraint building
 
-    let fibo = circuit::<F, (), _>("fibonacci", |ctx| {
+    let fibo = circuit_legacy::<F, (), _>("fibonacci", |ctx| {
         // the following objects (forward signals, steptypes) are defined on the circuit-level
 
         // forward signals can have constraints across different steps

@@ -1,5 +1,8 @@
 use chiquito::{
-    frontend::dsl::{lb::LookupTable, super_circuit, trace::DSLTraceGenerator, CircuitContext},
+    frontend::dsl::{
+        circuit_context_legacy::CircuitContextLegacy, lb::LookupTable, super_circuit,
+        trace::DSLTraceGenerator,
+    },
     plonkish::{
         backend::halo2_legacy::{chiquitoSuperCircuit2Halo2, ChiquitoHalo2SuperCircuit},
         compiler::{
@@ -49,7 +52,7 @@ struct CircuitParams {
 }
 
 fn poseidon_constants_table<F: PrimeField + Eq + Hash>(
-    ctx: &mut CircuitContext<F>,
+    ctx: &mut CircuitContextLegacy<F>,
     param_t: usize,
 ) -> LookupTable {
     use chiquito::frontend::dsl::cb::*;
@@ -75,7 +78,7 @@ fn poseidon_constants_table<F: PrimeField + Eq + Hash>(
 }
 
 fn poseidon_matrix_table<F: PrimeField + Eq + Hash>(
-    ctx: &mut CircuitContext<F>,
+    ctx: &mut CircuitContextLegacy<F>,
     param_t: usize,
 ) -> LookupTable {
     use chiquito::frontend::dsl::cb::*;
@@ -97,7 +100,7 @@ fn poseidon_matrix_table<F: PrimeField + Eq + Hash>(
 }
 
 fn poseidon_circuit<F: PrimeField + Eq + Hash>(
-    ctx: &mut CircuitContext<F, DSLTraceGenerator<F, ValuesAndLens<F>>>,
+    ctx: &mut CircuitContextLegacy<F, DSLTraceGenerator<F, ValuesAndLens<F>>>,
     param: CircuitParams,
 ) {
     use chiquito::frontend::dsl::cb::*;

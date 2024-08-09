@@ -2,8 +2,9 @@ use std::hash::Hash;
 
 use chiquito::{
     field::Field,
-    frontend::dsl::{circuit, trace::DSLTraceGenerator}, /* main function for constructing an AST
-                                                         * circuit */
+    frontend::dsl::{circuit_context_legacy::circuit_legacy, trace::DSLTraceGenerator}, /* main function for constructing
+                                                                                        * an AST
+                                                                                        * circuit */
     plonkish::{
         backend::halo2_legacy::{chiquito2Halo2, ChiquitoHalo2Circuit},
         compiler::{
@@ -37,7 +38,7 @@ fn fibo_circuit<F: Field + From<u64> + Hash>(
         sbpir::ExposeOffset::*, // for exposing witnesses
     };
 
-    let fibo = circuit::<F, u32, _>("fibonacci", |ctx| {
+    let fibo = circuit_legacy::<F, u32, _>("fibonacci", |ctx| {
         // Example table for 7 rounds:
         // |    step_type    |  a |  b |  c |  n |
         // ---------------------------------------

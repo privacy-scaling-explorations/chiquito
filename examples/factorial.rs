@@ -2,8 +2,9 @@ use std::hash::Hash;
 
 use chiquito::{
     field::Field,
-    frontend::dsl::{circuit, trace::DSLTraceGenerator}, /* main function for constructing an AST
-                                                         * circuit */
+    frontend::dsl::{circuit_context_legacy::circuit_legacy, trace::DSLTraceGenerator}, /* main function for constructing
+                                                                                        * an AST
+                                                                                        * circuit */
     plonkish::{
         backend::halo2_legacy::{chiquito2Halo2, ChiquitoHalo2Circuit},
         compiler::{
@@ -42,7 +43,7 @@ fn generate<F: Field + From<u64> + Hash>() -> PlonkishCompilationResult<F, DSLTr
 
     use chiquito::frontend::dsl::cb::*; // functions for constraint building
 
-    let factorial_circuit = circuit::<F, u32, _>("factorial", |ctx| {
+    let factorial_circuit = circuit_legacy::<F, u32, _>("factorial", |ctx| {
         let i = ctx.shared("i");
         let x = ctx.forward("x");
 

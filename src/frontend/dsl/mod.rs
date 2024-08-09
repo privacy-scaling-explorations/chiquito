@@ -1,6 +1,8 @@
 use crate::{
     field::Field,
-    sbpir::{query::Queriable, ExposeOffset, SBPIRLegacy, StepType, StepTypeUUID, PIR},
+    sbpir::{
+        query::Queriable, sbpir_machine::SBPIRMachine, ExposeOffset, StepType, StepTypeUUID, PIR,
+    },
     util::{uuid, UUID},
     wit_gen::{FixedGenContext, StepInstance, TraceGenerator},
 };
@@ -19,24 +21,17 @@ use self::{
 pub use sc::*;
 
 pub mod cb;
+pub mod circuit_context_legacy;
 pub mod lb;
 pub mod sc;
 pub mod trace;
 
-#[derive(Debug, Default)]
-/// A generic structure designed to handle the context of a circuit.
-/// The struct contains a `Circuit` instance and implements methods to build the circuit,
-/// add various components, and manipulate the circuit.
-///
-/// ### Type parameters
-/// `F` is the field of the circuit.
-/// `TG` is the trace generator.
-pub struct CircuitContext<F, TG: TraceGenerator<F> = DSLTraceGenerator<F>> {
-    circuit: SBPIRLegacy<F, TG>,
+pub struct CircuitContext<F: Clone, TG: TraceGenerator<F> = DSLTraceGenerator<F>> {
+    circuit: SBPIRMachine<F, TG>,
     tables: LookupTableRegistry<F>,
 }
 
-impl<F, TG: TraceGenerator<F>> CircuitContext<F, TG> {
+impl<F: Clone, TG: TraceGenerator<F>> CircuitContext<F, TG> {
     /// Adds a forward signal to the circuit with a name string and zero rotation and returns a
     /// `Queriable` instance representing the added forward signal.
     pub fn forward(&mut self, name: &str) -> Queriable<F> {
@@ -424,13 +419,13 @@ impl<F, Args, D: Fn(&mut StepInstance<F>, Args) + 'static> StepTypeWGHandler<F, 
 pub fn circuit<F: Field, TraceArgs: Clone, D>(
     _name: &str,
     mut def: D,
-) -> SBPIRLegacy<F, DSLTraceGenerator<F, TraceArgs>>
+) -> SBPIRMachine<F, DSLTraceGenerator<F, TraceArgs>>
 where
     D: FnMut(&mut CircuitContext<F, DSLTraceGenerator<F, TraceArgs>>),
 {
     // TODO annotate circuit
     let mut context = CircuitContext {
-        circuit: SBPIRLegacy::default(),
+        circuit: SBPIRMachine::default(),
         tables: LookupTableRegistry::default(),
     };
 
@@ -441,18 +436,22 @@ where
 
 #[cfg(test)]
 mod tests {
+    use circuit_context_legacy::CircuitContextLegacy;
     use halo2_proofs::halo2curves::bn256::Fr;
 
-    use crate::{sbpir::ForwardSignal, wit_gen::NullTraceGenerator};
+    use crate::{
+        sbpir::{ForwardSignal, SBPIRLegacy},
+        wit_gen::NullTraceGenerator,
+    };
 
     use super::*;
 
-    fn setup_circuit_context<F, TG>() -> CircuitContext<F, TG>
+    fn setup_circuit_context<F, TG>() -> CircuitContextLegacy<F, TG>
     where
         F: Default,
         TG: TraceGenerator<F>,
     {
-        CircuitContext {
+        CircuitContextLegacy {
             circuit: SBPIRLegacy::default(),
             tables: Default::default(),
         }

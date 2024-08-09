@@ -1,10 +1,11 @@
 use chiquito::{
     frontend::dsl::{
         cb::{eq, select, table},
+        circuit_context_legacy::CircuitContextLegacy,
         lb::LookupTable,
         super_circuit,
         trace::DSLTraceGenerator,
-        CircuitContext, StepTypeSetupContext, StepTypeWGHandler,
+        StepTypeSetupContext, StepTypeWGHandler,
     },
     plonkish::{
         backend::halo2_legacy::{chiquitoSuperCircuit2Halo2, ChiquitoHalo2SuperCircuit},
@@ -127,7 +128,10 @@ pub fn split_to_4bits_values<F: PrimeField + Hash>(vec_values: &[u64]) -> Vec<Ve
         .collect()
 }
 
-fn blake2f_iv_table<F: PrimeField + Hash>(ctx: &mut CircuitContext<F>, _: usize) -> LookupTable {
+fn blake2f_iv_table<F: PrimeField + Hash>(
+    ctx: &mut CircuitContextLegacy<F>,
+    _: usize,
+) -> LookupTable {
     let lookup_iv_row: Queriable<F> = ctx.fixed("iv row");
     let lookup_iv_value: Queriable<F> = ctx.fixed("iv value");
 
@@ -144,7 +148,10 @@ fn blake2f_iv_table<F: PrimeField + Hash>(ctx: &mut CircuitContext<F>, _: usize)
 }
 
 // For range checking
-fn blake2f_4bits_table<F: PrimeField + Hash>(ctx: &mut CircuitContext<F>, _: usize) -> LookupTable {
+fn blake2f_4bits_table<F: PrimeField + Hash>(
+    ctx: &mut CircuitContextLegacy<F>,
+    _: usize,
+) -> LookupTable {
     let lookup_4bits_row: Queriable<F> = ctx.fixed("4bits row");
     let lookup_4bits_value: Queriable<F> = ctx.fixed("4bits value");
 
@@ -160,7 +167,7 @@ fn blake2f_4bits_table<F: PrimeField + Hash>(ctx: &mut CircuitContext<F>, _: usi
 }
 
 fn blake2f_xor_4bits_table<F: PrimeField + Hash>(
-    ctx: &mut CircuitContext<F>,
+    ctx: &mut CircuitContextLegacy<F>,
     _: usize,
 ) -> LookupTable {
     let lookup_xor_row: Queriable<F> = ctx.fixed("xor row");
@@ -526,7 +533,7 @@ fn g_setup<F: PrimeField + Hash>(
 }
 
 fn blake2f_circuit<F: PrimeField + Hash>(
-    ctx: &mut CircuitContext<F, DSLTraceGenerator<F, InputValues>>,
+    ctx: &mut CircuitContextLegacy<F, DSLTraceGenerator<F, InputValues>>,
     params: CircuitParams,
 ) {
     let v_vec: Vec<Queriable<F>> = (0..V_LEN)

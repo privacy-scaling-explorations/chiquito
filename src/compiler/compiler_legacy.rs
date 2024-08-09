@@ -6,7 +6,8 @@ use crate::{
     field::Field,
     frontend::dsl::{
         cb::{Constraint, Typing},
-        circuit, CircuitContext, StepTypeContext,
+        circuit_context_legacy::{circuit_legacy, CircuitContextLegacy},
+        StepTypeContext,
     },
     interpreter::InterpreterTraceGenerator,
     parser::{
@@ -19,8 +20,9 @@ use crate::{
         },
         lang::TLDeclsParser,
     },
+    plonkish::{self, compiler::PlonkishCompilationResult},
     poly::{self, mielim::mi_elimination, reduce::reduce_degree, Expr},
-    sbpir::{query::Queriable, InternalSignal, SBPIR},
+    sbpir::{query::Queriable, InternalSignal, SBPIRLegacy},
     wit_gen::{NullTraceGenerator, SymbolSignalMapping, TraceGenerator},
 };
 
@@ -30,15 +32,29 @@ use super::{
     Config, Message, Messages,
 };
 
+/// Contains the result of a single machine compilation (legacy).
 #[derive(Debug)]
-pub struct CompilerResult<F: Field + Hash> {
+pub struct CompilerResultLegacy<F: Field + Hash> {
     pub messages: Vec<Message>,
-    pub circuit: SBPIR<F, InterpreterTraceGenerator>,
+    pub circuit: SBPIRLegacy<F, InterpreterTraceGenerator>,
+}
+
+impl<F: Field + Hash> CompilerResultLegacy<F> {
+    /// Compiles to the Plonkish IR, that then can be compiled to plonkish backends.
+    pub fn plonkish<
+        CM: plonkish::compiler::cell_manager::CellManager,
+        SSB: plonkish::compiler::step_selector::StepSelectorBuilder,
+    >(
+        &self,
+        config: plonkish::compiler::CompilerConfig<CM, SSB>,
+    ) -> PlonkishCompilationResult<F, InterpreterTraceGenerator> {
+        plonkish::compiler::compile(config, &self.circuit)
+    }
 }
 
 /// This compiler compiles from chiquito source code to the SBPIR.
 #[derive(Default)]
-pub(super) struct Compiler<F> {
+pub(super) struct CompilerLegacy<F> {
     pub(super) config: Config,
 
     messages: Vec<Message>,
@@ -48,33 +64,33 @@ pub(super) struct Compiler<F> {
     _p: PhantomData<F>,
 }
 
-impl<F: Field + Hash> Compiler<F> {
+impl<F: Field + Hash> CompilerLegacy<F> {
     /// Creates a configured compiler.
     pub fn new(mut config: Config) -> Self {
         if config.max_steps == 0 {
             config.max_steps = 1000; // TODO: organise this better
         }
-        Compiler {
+        CompilerLegacy {
             config,
-            ..Compiler::default()
+            ..CompilerLegacy::default()
         }
     }
 
-    /// Compile the source code.
+    /// Compile the source code containing a single machine.
     pub(super) fn compile(
         mut self,
         source: &str,
         debug_sym_ref_factory: &DebugSymRefFactory,
-    ) -> Result<CompilerResult<F>, Vec<Message>> {
+    ) -> Result<CompilerResultLegacy<F>, Vec<Message>> {
         let ast = self
             .parse(source, debug_sym_ref_factory)
             .map_err(|_| self.messages.clone())?;
+        assert!(ast.len() == 1, "Use `compile` to compile multiple machines");
         let ast = self.add_virtual(ast);
         let symbols = self.semantic(&ast).map_err(|_| self.messages.clone())?;
-        let machine_setups = Self::interpret(&ast, &symbols);
-        let machine_setups = Self::map_consts(machine_setups);
-
-        let circuit = self.build(&machine_setups, &symbols);
+        let setup = Self::interpret(&ast, &symbols);
+        let setup = Self::map_consts(setup);
+        let circuit = self.build(&setup, &symbols);
         let circuit = Self::mi_elim(circuit);
         let circuit = if let Some(degree) = self.config.max_degree {
             Self::reduce(circuit, degree)
@@ -82,14 +98,14 @@ impl<F: Field + Hash> Compiler<F> {
             circuit
         };
 
-        let circuit = circuit.with_trace(&InterpreterTraceGenerator::new(
+        let circuit = circuit.with_trace(InterpreterTraceGenerator::new(
             ast,
             symbols,
             self.mapping,
             self.config.max_steps,
         ));
 
-        Ok(CompilerResult {
+        Ok(CompilerResultLegacy {
             messages: self.messages,
             circuit,
         })
@@ -272,11 +288,13 @@ impl<F: Field + Hash> Compiler<F> {
         }
     }
 
-    fn build(&mut self, setup: &Setup<F>, symbols: &SymTable) -> SBPIR<F, NullTraceGenerator> {
-        let mut sbpir = SBPIR::default();
-
-        for (machine_id, machine) in setup {
-            let sbpir_machine = circuit::<F, (), _>("circuit", |ctx| {
+    fn build(
+        &mut self,
+        setup: &Setup<F>,
+        symbols: &SymTable,
+    ) -> SBPIRLegacy<F, NullTraceGenerator> {
+        circuit_legacy::<F, (), _>("circuit", |ctx| {
+            for (machine_id, machine) in setup {
                 self.add_forwards(ctx, symbols, machine_id);
                 self.add_step_type_handlers(ctx, symbols, machine_id);
 
@@ -307,49 +325,42 @@ impl<F: Field + Hash> Compiler<F> {
                         },
                     );
                 }
+            }
 
-                ctx.trace(|_, _| {});
-            })
-            .without_trace();
-
-            sbpir.add_machine(machine_id, sbpir_machine);
-        }
-
-        sbpir
+            ctx.trace(|_, _| {});
+        })
+        .without_trace()
     }
 
-    fn mi_elim(mut circuit: SBPIR<F, NullTraceGenerator>) -> SBPIR<F, NullTraceGenerator> {
-        for machine in circuit.machines.values_mut() {
-            for (_, step_type) in machine.step_types.iter_mut() {
-                let mut signal_factory = SignalFactory::default();
+    fn mi_elim(
+        mut circuit: SBPIRLegacy<F, NullTraceGenerator>,
+    ) -> SBPIRLegacy<F, NullTraceGenerator> {
+        for (_, step_type) in circuit.step_types.iter_mut() {
+            let mut signal_factory = SignalFactory::default();
 
-                step_type
-                    .decomp_constraints(|expr| mi_elimination(expr.clone(), &mut signal_factory));
-            }
+            step_type.decomp_constraints(|expr| mi_elimination(expr.clone(), &mut signal_factory));
         }
 
         circuit
     }
 
     fn reduce(
-        mut circuit: SBPIR<F, NullTraceGenerator>,
+        mut circuit: SBPIRLegacy<F, NullTraceGenerator>,
         degree: usize,
-    ) -> SBPIR<F, NullTraceGenerator> {
-        for machine in circuit.machines.values_mut() {
-            for (_, step_type) in machine.step_types.iter_mut() {
-                let mut signal_factory = SignalFactory::default();
+    ) -> SBPIRLegacy<F, NullTraceGenerator> {
+        for (_, step_type) in circuit.step_types.iter_mut() {
+            let mut signal_factory = SignalFactory::default();
 
-                step_type.decomp_constraints(|expr| {
-                    reduce_degree(expr.clone(), degree, &mut signal_factory)
-                });
-            }
+            step_type.decomp_constraints(|expr| {
+                reduce_degree(expr.clone(), degree, &mut signal_factory)
+            });
         }
 
         circuit
     }
 
     #[allow(dead_code)]
-    fn cse(mut _circuit: SBPIR<F, NullTraceGenerator>) -> SBPIR<F, NullTraceGenerator> {
+    fn cse(mut _circuit: SBPIRLegacy<F, NullTraceGenerator>) -> SBPIRLegacy<F, NullTraceGenerator> {
         todo!()
     }
 
@@ -523,7 +534,7 @@ impl<F: Field + Hash> Compiler<F> {
 
     fn add_step_type_handlers<TG: TraceGenerator<F>>(
         &mut self,
-        ctx: &mut CircuitContext<F, TG>,
+        ctx: &mut CircuitContextLegacy<F, TG>,
         symbols: &SymTable,
         machine_id: &str,
     ) {
@@ -555,7 +566,7 @@ impl<F: Field + Hash> Compiler<F> {
 
     fn add_forwards<TG: TraceGenerator<F>>(
         &mut self,
-        ctx: &mut CircuitContext<F, TG>,
+        ctx: &mut CircuitContextLegacy<F, TG>,
         symbols: &SymTable,
         machine_id: &str,
     ) {
@@ -622,55 +633,17 @@ impl<F> poly::SignalFactory<Queriable<F>> for SignalFactory<F> {
 mod test {
     use halo2_proofs::halo2curves::bn256::Fr;
 
-    use crate::{compiler::compile, parser::ast::debug_sym_factory::DebugSymRefFactory};
+    use crate::{
+        compiler::{compile_file_legacy, compile_legacy},
+        parser::ast::debug_sym_factory::DebugSymRefFactory,
+    };
 
     use super::Config;
 
-    // TODO rewrite the test after machines are able to call other machines
     #[test]
-    fn test_compiler_fibo_multiple_machines() {
-        // Source code containing two machines
+    fn test_compiler_fibo() {
         let circuit = "
-        machine fibo1 (signal n) (signal b: field) {
-            // n and be are created automatically as shared
-            // signals
-            signal a: field, i;
-
-            // there is always a state called initial
-            // input signals get bound to the signal
-            // in the initial state (first instance)
-            state initial {
-             signal c;
-
-             i, a, b, c <== 1, 1, 1, 2;
-
-             -> middle {
-              a', b', n' <== b, c, n;
-             }
-            }
-
-            state middle {
-             signal c;
-
-             c <== a + b;
-
-             if i + 1 == n {
-              -> final {
-               i', b', n' <== i + 1, c, n;
-              }
-             } else {
-              -> middle {
-               i', a', b', n' <== i + 1, b, c, n;
-              }
-             }
-            }
-
-            // There is always a state called final.
-            // Output signals get automatically bound to the signals
-            // with the same name in the final step (last instance).
-            // This state can be implicit if there are no constraints in it.
-           }
-           machine fibo2 (signal n) (signal b: field) {
+        machine fibo(signal n) (signal b: field) {
             // n and be are created automatically as shared
             // signals
             signal a: field, i;
@@ -712,18 +685,35 @@ mod test {
         ";
 
         let debug_sym_ref_factory = DebugSymRefFactory::new("", circuit);
-        let result = compile::<Fr>(
+        let result = compile_legacy::<Fr>(
             circuit,
             Config::default().max_degree(2),
             &debug_sym_ref_factory,
         );
 
         match result {
-            Ok(result) => {
-                assert_eq!(result.circuit.machines.len(), 2);
-                println!("{:#?}", result)
-            }
+            Ok(result) => println!("{:#?}", result),
             Err(messages) => println!("{:#?}", messages),
         }
+    }
+
+    #[test]
+    fn test_compiler_fibo_file() {
+        let path = "test/circuit.chiquito";
+        let result = compile_file_legacy::<Fr>(path, Config::default().max_degree(2));
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_compiler_fibo_file_err() {
+        let path = "test/circuit_error.chiquito";
+        let result = compile_file_legacy::<Fr>(path, Config::default().max_degree(2));
+
+        assert!(result.is_err());
+
+        assert_eq!(
+            format!("{:?}", result.unwrap_err()),
+            r#"[SemErr { msg: "use of undeclared variable c", dsym: test/circuit_error.chiquito:24:39 }, SemErr { msg: "use of undeclared variable c", dsym: test/circuit_error.chiquito:28:46 }]"#
+        )
     }
 }

@@ -6,7 +6,10 @@ use halo2_proofs::{
 };
 
 use chiquito::{
-    frontend::dsl::{lb::LookupTable, super_circuit, trace::DSLTraceGenerator, CircuitContext},
+    frontend::dsl::{
+        circuit_context_legacy::CircuitContextLegacy, lb::LookupTable, super_circuit,
+        trace::DSLTraceGenerator,
+    },
     plonkish::{
         backend::halo2_legacy::{chiquitoSuperCircuit2Halo2, ChiquitoHalo2SuperCircuit},
         compiler::{
@@ -23,7 +26,7 @@ use mimc7_constants::ROUND_CONSTANTS;
 pub const ROUNDS: usize = 91;
 
 fn mimc7_constants<F: PrimeField + Eq + Hash>(
-    ctx: &mut CircuitContext<F, DSLTraceGenerator<F>>,
+    ctx: &mut CircuitContextLegacy<F, DSLTraceGenerator<F>>,
     _: (),
 ) -> LookupTable {
     use chiquito::frontend::dsl::cb::*;
@@ -49,7 +52,7 @@ fn mimc7_constants<F: PrimeField + Eq + Hash>(
 }
 
 fn mimc7_circuit<F: PrimeField + Eq + Hash>(
-    ctx: &mut CircuitContext<F, DSLTraceGenerator<F, (F, F)>>,
+    ctx: &mut CircuitContextLegacy<F, DSLTraceGenerator<F, (F, F)>>,
     constants: LookupTable,
 ) {
     use chiquito::frontend::dsl::cb::*;

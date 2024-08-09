@@ -1,6 +1,7 @@
 use chiquito::{
     frontend::dsl::{
-        lb::LookupTable, super_circuit, trace::DSLTraceGenerator, CircuitContext, StepTypeWGHandler,
+        circuit_context_legacy::CircuitContextLegacy, lb::LookupTable, super_circuit,
+        trace::DSLTraceGenerator, StepTypeWGHandler,
     },
     plonkish::{
         backend::halo2_legacy::{chiquitoSuperCircuit2Halo2, ChiquitoHalo2SuperCircuit},
@@ -231,7 +232,7 @@ fn eval_keccak_f_to_bit_vec4<F: PrimeField<Repr = [u8; 32]>>(value1: F, value2: 
 }
 
 fn keccak_xor_table_batch2<F: PrimeField + Eq + Hash>(
-    ctx: &mut CircuitContext<F>,
+    ctx: &mut CircuitContextLegacy<F>,
     lens: usize,
 ) -> LookupTable {
     use chiquito::frontend::dsl::cb::*;
@@ -254,7 +255,7 @@ fn keccak_xor_table_batch2<F: PrimeField + Eq + Hash>(
 }
 
 fn keccak_xor_table_batch3<F: PrimeField + Eq + Hash>(
-    ctx: &mut CircuitContext<F>,
+    ctx: &mut CircuitContextLegacy<F>,
     lens: usize,
 ) -> LookupTable {
     use chiquito::frontend::dsl::cb::*;
@@ -280,7 +281,7 @@ fn keccak_xor_table_batch3<F: PrimeField + Eq + Hash>(
 }
 
 fn keccak_xor_table_batch4<F: PrimeField + Eq + Hash>(
-    ctx: &mut CircuitContext<F>,
+    ctx: &mut CircuitContextLegacy<F>,
     lens: usize,
 ) -> LookupTable {
     use chiquito::frontend::dsl::cb::*;
@@ -306,7 +307,7 @@ fn keccak_xor_table_batch4<F: PrimeField + Eq + Hash>(
 }
 
 fn keccak_chi_table<F: PrimeField + Eq + Hash>(
-    ctx: &mut CircuitContext<F>,
+    ctx: &mut CircuitContextLegacy<F>,
     lens: usize,
 ) -> LookupTable {
     use chiquito::frontend::dsl::cb::*;
@@ -332,7 +333,7 @@ fn keccak_chi_table<F: PrimeField + Eq + Hash>(
 }
 
 fn keccak_pack_table<F: PrimeField + Eq + Hash>(
-    ctx: &mut CircuitContext<F>,
+    ctx: &mut CircuitContextLegacy<F>,
     _: usize,
 ) -> LookupTable {
     use chiquito::frontend::dsl::cb::*;
@@ -362,7 +363,7 @@ fn keccak_pack_table<F: PrimeField + Eq + Hash>(
 }
 
 fn keccak_round_constants_table<F: PrimeField + Eq + Hash>(
-    ctx: &mut CircuitContext<F>,
+    ctx: &mut CircuitContextLegacy<F>,
     lens: usize,
 ) -> LookupTable {
     use chiquito::frontend::dsl::cb::*;
@@ -722,7 +723,7 @@ fn eval_keccak_f_one_round<F: PrimeField<Repr = [u8; 32]> + Eq + Hash>(
 }
 
 fn keccak_circuit<F: PrimeField<Repr = [u8; 32]> + Eq + Hash>(
-    ctx: &mut CircuitContext<F, DSLTraceGenerator<F, KeccakCircuit>>,
+    ctx: &mut CircuitContextLegacy<F, DSLTraceGenerator<F, KeccakCircuit>>,
     param: CircuitParams,
 ) {
     use chiquito::frontend::dsl::cb::*;
