@@ -163,12 +163,13 @@ fn main() {
     // get assignments
     let assignments = plonkish.assignment_generator.unwrap().generate(());
     // get hyperplonk circuit
-    let mut hyperplonk_circuit = ChiquitoHyperPlonkCircuit::new(4, plonkish.circuit);
+    let mut hyperplonk_circuit = ChiquitoHyperPlonkCircuit::new(plonkish.circuit);
+    let k = hyperplonk_circuit.get_k();
+    println!("k: {}", k);
     hyperplonk_circuit.set_assignment(assignments);
-
     type GeminiKzg = multilinear::Gemini<univariate::UnivariateKzg<Bn256>>;
     type HyperPlonk = backend::hyperplonk::HyperPlonk<GeminiKzg>;
-    bench_plonkish_backend::<HyperPlonk, Fr>(System::HyperPlonk, 4, &hyperplonk_circuit);
+    bench_plonkish_backend::<HyperPlonk, Fr>(System::HyperPlonk, k, &hyperplonk_circuit);
 
     // pil boilerplate
     use chiquito::pil::backend::powdr_pil::chiquito2Pil;
