@@ -111,16 +111,19 @@ impl<F: Field + Hash, V: Debug + Clone + Eq + Hash, M: Clone> Expr<F, V, M> {
                     .collect(),
                 new_meta,
             ),
-            Expr::Neg(se, _) => Expr::Neg(Box::new(se.transform_meta(apply_meta.clone())), new_meta),
-            Expr::Pow(se, exp, _) => {
-                Expr::Pow(Box::new(se.transform_meta(apply_meta.clone())), *exp, new_meta)
+            Expr::Neg(se, _) => {
+                Expr::Neg(Box::new(se.transform_meta(apply_meta.clone())), new_meta)
             }
+            Expr::Pow(se, exp, _) => Expr::Pow(
+                Box::new(se.transform_meta(apply_meta.clone())),
+                *exp,
+                new_meta,
+            ),
             Expr::Query(v, _) => Expr::Query(v.clone(), new_meta),
             Expr::Halo2Expr(e, _) => Expr::Halo2Expr(e.clone(), new_meta),
             Expr::MI(se, _) => Expr::MI(Box::new(se.transform_meta(apply_meta.clone())), new_meta),
         }
     }
-    
 
     pub fn apply_subexpressions<T>(&self, mut f: T) -> Self
     where

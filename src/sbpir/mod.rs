@@ -232,7 +232,10 @@ impl<F, TG: TraceGenerator<F>, M> SBPIRLegacy<F, TG, M> {
 }
 
 impl<F: Field + Hash, TG: TraceGenerator<F> + Clone, M: Clone> SBPIRLegacy<F, TG, M> {
-    pub fn transform_meta<N: Clone, ApplyMetaFn>(&self, apply_meta: ApplyMetaFn) -> SBPIRLegacy<F, TG, N>
+    pub fn transform_meta<N: Clone, ApplyMetaFn>(
+        &self,
+        apply_meta: ApplyMetaFn,
+    ) -> SBPIRLegacy<F, TG, N>
     where
         ApplyMetaFn: Fn(&Expr<F, Queriable<F>, M>) -> N + Clone,
     {
