@@ -26,6 +26,14 @@ pub mod lb;
 pub mod sc;
 pub mod trace;
 
+#[derive(Debug, Default)]
+/// A generic structure designed to handle the context of a circuit.
+/// The struct contains a `Circuit` instance and implements methods to build the circuit,
+/// add various components, and manipulate the circuit.
+///
+/// ### Type parameters
+/// `F` is the field of the circuit.
+/// `TG` is the trace generator.
 pub struct CircuitContext<F: Clone, TG: TraceGenerator<F> = DSLTraceGenerator<F>> {
     circuit: SBPIRMachine<F, TG>,
     tables: LookupTableRegistry<F>,
