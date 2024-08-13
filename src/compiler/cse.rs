@@ -129,9 +129,7 @@ fn cse_for_step<F: Field + Hash, S: Scoring<F>>(
         }
 
         // Find the optimal subexpression to replace
-        if let Some(common_expr) =
-            find_optimal_subexpression(&exprs, &replaced_hashes, scorer)
-        {
+        if let Some(common_expr) = find_optimal_subexpression(&exprs, &replaced_hashes, scorer) {
             // Add the hash of the replaced expression to the set
             replaced_hashes.insert(common_expr.meta().hash);
             // Create a new signal for the common subexpression
@@ -317,11 +315,7 @@ mod test {
 
         let scorer = Scorer::default();
 
-        let best_expr = find_optimal_subexpression(
-            &hashed_exprs,
-            &HashSet::new(),
-            &scorer,
-        );
+        let best_expr = find_optimal_subexpression(&hashed_exprs, &HashSet::new(), &scorer);
 
         assert_eq!(format!("{:?}", best_expr.unwrap()), "(e * f * d)");
     }
