@@ -231,38 +231,6 @@ impl<F, TG: TraceGenerator<F>, M> SBPIRLegacy<F, TG, M> {
     }
 }
 
-impl<F: Field + Hash, TG: TraceGenerator<F> + Clone, M: Clone> SBPIRLegacy<F, TG, M> {
-    pub fn transform_meta<N: Clone, ApplyMetaFn>(
-        &self,
-        apply_meta: ApplyMetaFn,
-    ) -> SBPIRLegacy<F, TG, N>
-    where
-        ApplyMetaFn: Fn(&Expr<F, Queriable<F>, M>) -> N + Clone,
-    {
-        SBPIRLegacy {
-            step_types: self
-                .step_types
-                .iter()
-                .map(|(k, v)| (*k, v.transform_meta(apply_meta.clone())))
-                .collect(),
-            forward_signals: self.forward_signals.clone(),
-            shared_signals: self.shared_signals.clone(),
-            fixed_signals: self.fixed_signals.clone(),
-            halo2_advice: self.halo2_advice.clone(),
-            halo2_fixed: self.halo2_fixed.clone(),
-            exposed: self.exposed.clone(),
-            annotations: self.annotations.clone(),
-            trace_generator: self.trace_generator.clone(),
-            fixed_assignments: self.fixed_assignments.clone(),
-            first_step: self.first_step,
-            last_step: self.last_step,
-            num_steps: self.num_steps,
-            q_enable: self.q_enable,
-            id: self.id,
-        }
-    }
-}
-
 impl<F: Field, TraceArgs: Clone> SBPIRLegacy<F, DSLTraceGenerator<F, TraceArgs>> {
     pub fn set_trace<D>(&mut self, def: D)
     where
@@ -301,8 +269,8 @@ impl<F: Clone + Field, TG: TraceGenerator<F>> SBPIRLegacy<F, TG> {
     }
 }
 
-pub struct SBPIR<F, TG: TraceGenerator<F> = DSLTraceGenerator<F>> {
-    pub machines: HashMap<UUID, SBPIRMachine<F, TG>>,
+pub struct SBPIR<F, TG: TraceGenerator<F> = DSLTraceGenerator<F>, M = ()> {
+    pub machines: HashMap<UUID, SBPIRMachine<F, TG, M>>,
     pub identifiers: HashMap<String, UUID>,
 }
 
@@ -310,7 +278,7 @@ impl<F, TG: TraceGenerator<F>> SBPIR<F, TG> {
     pub(crate) fn from_legacy(circuit: SBPIRLegacy<F, TG>, machine_id: &str) -> SBPIR<F, TG> {
         let mut machines = HashMap::new();
         let circuit_id = circuit.id;
-        machines.insert(circuit_id, SBPIRMachine::from_legacy(circuit));
+        machines.insert(circuit_id, SBPIRMachine::<F, TG, ()>::from_legacy(circuit));
         let mut identifiers = HashMap::new();
         identifiers.insert(machine_id.to_string(), circuit_id);
         SBPIR {

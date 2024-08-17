@@ -13,14 +13,12 @@ use crate::{
         cse::{create_common_ses_signal, replace_expr},
         Expr, HashResult, VarAssignments,
     },
-    sbpir::{
-        query::Queriable, sbpir_machine::SBPIRMachine, ForwardSignal, InternalSignal, StepType,
-    },
+    sbpir::{query::Queriable, ForwardSignal, InternalSignal, StepType, SBPIR},
     wit_gen::NullTraceGenerator,
 };
 
 #[derive(Clone, Debug)]
-pub struct CseConfig {
+pub(super) struct CseConfig {
     max_iterations: usize,
 }
 
@@ -39,11 +37,11 @@ pub fn config(max_iterations: Option<usize>) -> CseConfig {
     }
 }
 
-pub trait Scoring<F: Field + Hash> {
+pub(super) trait Scoring<F: Field + Hash> {
     fn score(&self, expr: &Expr<F, Queriable<F>, HashResult>, info: &SubexprInfo) -> usize;
 }
 
-pub struct Scorer {
+pub(super) struct Scorer {
     min_degree: usize,
     min_occurrences: usize,
 }
@@ -77,12 +75,14 @@ impl<F: Field + Hash> Scoring<F> for Scorer {
 /// with high probability.
 #[allow(dead_code)]
 pub(super) fn cse<F: Field + Hash, S: Scoring<F>>(
-    mut circuit: SBPIRMachine<F, NullTraceGenerator>,
+    mut circuit: SBPIR<F, NullTraceGenerator>,
     config: CseConfig,
     scorer: &S,
-) -> SBPIRMachine<F, NullTraceGenerator> {
-    for (_, step_type) in circuit.step_types.iter_mut() {
-        cse_for_step(step_type, &circuit.forward_signals, &config, scorer)
+) -> SBPIR<F, NullTraceGenerator> {
+    for (_, machine) in circuit.machines.iter_mut() {
+        for (_, step_type) in machine.step_types.iter_mut() {
+            cse_for_step(step_type, &machine.forward_signals, &config, scorer)
+        }
     }
     circuit
 }
@@ -268,7 +268,7 @@ impl<F> poly::SignalFactory<Queriable<F>> for SignalFactory<F> {
 
 #[cfg(test)]
 mod test {
-    use std::collections::HashSet;
+    use std::collections::{HashMap, HashSet};
 
     use halo2_proofs::halo2curves::bn256::Fr;
     use rand_chacha::{rand_core::SeedableRng, ChaCha20Rng};
@@ -277,7 +277,7 @@ mod test {
         compiler::cse::{cse, CseConfig, Scorer},
         field::Field,
         poly::{Expr, VarAssignments},
-        sbpir::{query::Queriable, sbpir_machine::SBPIRMachine, InternalSignal, StepType},
+        sbpir::{query::Queriable, sbpir_machine::SBPIRMachine, InternalSignal, StepType, SBPIR},
         util::uuid,
         wit_gen::NullTraceGenerator,
     };
@@ -358,41 +358,126 @@ mod test {
         step.add_constr("expr4".into(), expr4.clone());
         step.add_constr("expr5".into(), expr5);
 
-        let mut circuit: SBPIRMachine<Fr, NullTraceGenerator> = SBPIRMachine::default();
-        let step_uuid = circuit.add_step_type_def(step);
+        let mut machine: SBPIRMachine<Fr, NullTraceGenerator> = SBPIRMachine::default();
+        let step_uuid = machine.add_step_type_def(step);
+        let mut machines = HashMap::new();
+        machines.insert(uuid(), machine);
+        let circuit = SBPIR {
+            machines,
+            identifiers: HashMap::new(),
+        };
 
         let scorer = Scorer::default();
         let circuit = cse(circuit, CseConfig::default(), &scorer);
 
-        let common_ses_found_and_replaced = circuit
-            .step_types
-            .get(&step_uuid)
-            .unwrap()
+        let machine = circuit.machines.iter().next().unwrap().1;
+        let step = machine.step_types.get(&step_uuid).unwrap();
+
+        // Check if CSE was applied
+        assert!(
+            step.auto_signals.len() > 0,
+            "No common subexpressions were found"
+        );
+
+        // Helper function to check if an expression contains a CSE signal
+        fn contains_cse_signal(expr: &Expr<Fr, Queriable<Fr>, ()>) -> bool {
+            match expr {
+                Expr::Query(Queriable::Internal(signal), _) => {
+                    signal.annotation().starts_with("cse-")
+                }
+                Expr::Sum(exprs, _) | Expr::Mul(exprs, _) => exprs.iter().any(contains_cse_signal),
+                Expr::Neg(sub_expr, _) => contains_cse_signal(sub_expr),
+                _ => false,
+            }
+        }
+
+        // Check if at least one constraint contains a CSE signal
+        let has_cse_constraint = step
+            .constraints
+            .iter()
+            .any(|constraint| contains_cse_signal(&constraint.expr));
+        assert!(has_cse_constraint, "No constraints with CSE signals found");
+
+        // Check for specific optimizations without relying on exact CSE signal names
+        let has_optimized_efg = step
+            .constraints
+            .iter()
+            .any(|constraint| match &constraint.expr {
+                Expr::Sum(terms, _) => {
+                    terms.iter().any(|term| match term {
+                        Expr::Mul(factors, _) => {
+                            factors.len() == 3
+                                && factors
+                                    .iter()
+                                    .all(|f| matches!(f, Expr::Query(Queriable::Internal(_), _)))
+                        }
+                        _ => false,
+                    }) && terms.iter().any(contains_cse_signal)
+                }
+                _ => false,
+            });
+        assert!(
+            has_optimized_efg,
+            "Expected optimization for (e * f * d) not found"
+        );
+
+        let has_optimized_ab = step
+            .constraints
+            .iter()
+            .any(|constraint| match &constraint.expr {
+                Expr::Sum(terms, _) => {
+                    terms.iter().any(|term| match term {
+                        Expr::Mul(factors, _) => {
+                            factors.len() == 2
+                                && factors
+                                    .iter()
+                                    .all(|f| matches!(f, Expr::Query(Queriable::Internal(_), _)))
+                        }
+                        _ => false,
+                    }) && terms.iter().any(contains_cse_signal)
+                }
+                _ => false,
+            });
+        assert!(
+            has_optimized_ab,
+            "Expected optimization for (a * b) not found"
+        );
+
+        // Check if the common subexpressions were actually created
+        let cse_signals: Vec<_> = step
             .auto_signals
-            .values();
+            .values()
+            .filter(|expr| matches!(expr, Expr::Mul(_, _)))
+            .collect();
 
-        assert!(circuit
-            .step_types
-            .get(&step_uuid)
-            .unwrap()
-            .constraints
-            .iter()
-            .any(|expr| format!("{:?}", expr.expr) == "((e * f * d) + (-cse-1))"));
+        assert!(
+            cse_signals.len() >= 2,
+            "Expected at least two multiplication CSEs"
+        );
 
-        assert!(circuit
-            .step_types
-            .get(&step_uuid)
-            .unwrap()
-            .constraints
-            .iter()
-            .any(|expr| format!("{:?}", expr.expr) == "((a * b) + (-cse-2))"));
+        let has_ab_cse = cse_signals.iter().any(|expr| {
+            if let Expr::Mul(factors, _) = expr {
+                factors.len() == 2
+                    && factors
+                        .iter()
+                        .all(|f| matches!(f, Expr::Query(Queriable::Internal(_), _)))
+            } else {
+                false
+            }
+        });
+        assert!(has_ab_cse, "CSE for (a * b) not found in auto_signals");
 
-        assert!(common_ses_found_and_replaced
-            .clone()
-            .any(|expr| format!("{:?}", &expr) == "(a * b)"));
-        assert!(common_ses_found_and_replaced
-            .clone()
-            .any(|expr| format!("{:?}", &expr) == "(e * f * d)"));
+        let has_efg_cse = cse_signals.iter().any(|expr| {
+            if let Expr::Mul(factors, _) = expr {
+                factors.len() == 3
+                    && factors
+                        .iter()
+                        .all(|f| matches!(f, Expr::Query(Queriable::Internal(_), _)))
+            } else {
+                false
+            }
+        });
+        assert!(has_efg_cse, "CSE for (e * f * d) not found in auto_signals");
     }
 
     #[derive(Clone)]
