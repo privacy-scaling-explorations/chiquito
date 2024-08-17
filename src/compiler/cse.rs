@@ -11,7 +11,7 @@ use crate::{
     poly::{
         self,
         cse::{create_common_ses_signal, replace_expr},
-        Expr, HashResult, VarAssignments,
+        ConstrDecomp, Expr, HashResult, VarAssignments,
     },
     sbpir::{query::Queriable, ForwardSignal, InternalSignal, StepType, SBPIR},
     wit_gen::NullTraceGenerator,
@@ -97,68 +97,102 @@ fn cse_for_step<F: Field + Hash, S: Scoring<F>>(
     let mut replaced_hashes = HashSet::new();
 
     for _ in 0..config.max_iterations {
-        let mut queriables = Vec::<Queriable<F>>::new();
+        // Step 1: Collect all queriables (forward and internal signals)
+        let queriables: Vec<Queriable<F>> = collect_queriables(forward_signals, step_type);
 
-        forward_signals.iter().for_each(|signal| {
-            queriables.push(Queriable::Forward(*signal, false));
-            queriables.push(Queriable::Forward(*signal, true));
-        });
-        step_type.signals.iter().for_each(|signal| {
-            queriables.push(Queriable::Internal(*signal));
-        });
+        // Step 2: Generate random assignments for hashing
+        let random_assignments = generate_random_assignments(&queriables);
 
-        // Generate random assignments for the queriables
-        let mut rng = ChaCha20Rng::seed_from_u64(0);
-        let random_assignments: VarAssignments<F, Queriable<F>> = queriables
+        // Step 3: Hash all expressions in the step type
+        let mut step_type_with_hash = hash_step_type_expressions(step_type, &random_assignments);
+
+        // Step 4: Extract all expressions from constraints
+        let exprs: Vec<Expr<F, Queriable<F>, HashResult>> = step_type_with_hash
+            .constraints
             .iter()
-            .cloned()
-            .map(|q| (q, F::random(&mut rng)))
+            .map(|constraint| constraint.expr.clone())
             .collect();
 
-        // Turn all Expr<F, V, ()> into Expr<F, V, HashResult>
-        let mut step_type_with_hash = step_type.transform_meta(|expr| {
-            let hashed_expr = expr.hash(&random_assignments);
-            hashed_expr.meta().clone()
-        });
-
-        // Extract all the expressions from the step type
-        let mut exprs = Vec::<Expr<F, Queriable<F>, HashResult>>::new();
-
-        for constraint in &step_type_with_hash.constraints {
-            exprs.push(constraint.expr.clone());
-        }
-
-        // Find the optimal subexpression to replace
+        // Step 5: Find the optimal subexpression to replace
         if let Some(common_expr) = find_optimal_subexpression(&exprs, &replaced_hashes, scorer) {
-            // Add the hash of the replaced expression to the set
-            replaced_hashes.insert(common_expr.meta().hash);
-            // Create a new signal for the common subexpression
+            // Step 6: Create a new signal for the common subexpression
             let (common_se, decomp) = create_common_ses_signal(&common_expr, &mut signal_factory);
 
-            // Add the new signal to the step type and a constraint for it
-            decomp.auto_signals.iter().for_each(|(q, expr)| {
-                if let Queriable::Internal(signal) = q {
-                    step_type_with_hash.add_internal(*signal);
-                }
-                step_type_with_hash.auto_signals.insert(*q, expr.clone());
-                step_type_with_hash.add_constr(format!("{:?}", q), expr.clone());
-            });
-            decomp.constrs.iter().for_each(|expr| {
-                step_type_with_hash.add_constr(format!("{:?}", expr), expr.clone());
-            });
+            // Step 7: Update the step type with the new common subexpression
+            update_step_type_with_common_subexpression(
+                &mut step_type_with_hash,
+                decomp,
+                &common_se,
+            );
 
-            // Replace the common subexpression in all constraints
-            step_type_with_hash
-                .constraints
-                .iter_mut()
-                .for_each(|constraint| {
-                    constraint.expr = replace_expr(&constraint.expr, &common_se);
-                });
+            // Step 8: Mark this subexpression as replaced
+            replaced_hashes.insert(common_expr.meta().hash);
         } else {
             // No more common subexpressions found, exit the loop
             break;
         }
+
+        // Step 9: Update the original step type, removing hash metadata
         *step_type = step_type_with_hash.transform_meta(|_| ());
+    }
+}
+
+fn collect_queriables<F: Field>(
+    forward_signals: &[ForwardSignal],
+    step_type: &StepType<F, ()>,
+) -> Vec<Queriable<F>> {
+    let mut queriables = Vec::new();
+    forward_signals.iter().for_each(|signal| {
+        queriables.push(Queriable::Forward(*signal, false));
+        queriables.push(Queriable::Forward(*signal, true));
+    });
+    step_type.signals.iter().for_each(|signal| {
+        queriables.push(Queriable::Internal(*signal));
+    });
+    queriables
+}
+
+fn generate_random_assignments<F: Field + Hash>(
+    queriables: &[Queriable<F>],
+) -> VarAssignments<F, Queriable<F>> {
+    let mut rng = ChaCha20Rng::seed_from_u64(0);
+    queriables
+        .iter()
+        .cloned()
+        .map(|q| (q, F::random(&mut rng)))
+        .collect()
+}
+
+fn hash_step_type_expressions<F: Field + Hash>(
+    step_type: &StepType<F, ()>,
+    random_assignments: &VarAssignments<F, Queriable<F>>,
+) -> StepType<F, HashResult> {
+    step_type.transform_meta(|expr| {
+        let hashed_expr = expr.hash(random_assignments);
+        hashed_expr.meta().clone()
+    })
+}
+
+fn update_step_type_with_common_subexpression<F: Field + Hash>(
+    step_type: &mut StepType<F, HashResult>,
+    decomp: ConstrDecomp<F, Queriable<F>, HashResult>,
+    common_se: &Expr<F, Queriable<F>, HashResult>,
+) {
+    // Add new signals and constraints
+    for (q, expr) in &decomp.auto_signals {
+        if let Queriable::Internal(signal) = q {
+            step_type.add_internal(*signal);
+        }
+        step_type.auto_signals.insert(*q, expr.clone());
+        step_type.add_constr(format!("{:?}", q), expr.clone());
+    }
+    for expr in &decomp.constrs {
+        step_type.add_constr(format!("{:?}", expr), expr.clone());
+    }
+
+    // Replace the common subexpression in all constraints
+    for constraint in &mut step_type.constraints {
+        constraint.expr = replace_expr(&constraint.expr, common_se);
     }
 }
 
