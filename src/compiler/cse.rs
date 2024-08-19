@@ -397,7 +397,7 @@ mod test {
 
         // Check if CSE was applied
         assert!(
-            step.auto_signals.len() > 0,
+            !step.auto_signals.is_empty(),
             "No common subexpressions were found"
         );
 
@@ -450,15 +450,24 @@ mod test {
         assert!(ab_expr_in_constraints);
 
         // Assert that (a * b) only appears once in the constraints
-        let ab_expr_count = step.constraints.iter().filter(|constraint| {
-            format!("{:?}", constraint.expr) == format!("({:?} + (-{:?}))", ab_expr, ab_signal)
-        }).count();
+        let ab_expr_count = step
+            .constraints
+            .iter()
+            .filter(|constraint| {
+                format!("{:?}", constraint.expr) == format!("({:?} + (-{:?}))", ab_expr, ab_signal)
+            })
+            .count();
         assert_eq!(ab_expr_count, 1);
 
         // Assert that (e * f * d) only appears once in the constraints
-        let efd_expr_count = step.constraints.iter().filter(|constraint| {
-            format!("{:?}", constraint.expr) == format!("({:?} + (-{:?}))", efd_expr, efd_signal)
-        }).count();
+        let efd_expr_count = step
+            .constraints
+            .iter()
+            .filter(|constraint| {
+                format!("{:?}", constraint.expr)
+                    == format!("({:?} + (-{:?}))", efd_expr, efd_signal)
+            })
+            .count();
         assert_eq!(efd_expr_count, 1);
     }
 
