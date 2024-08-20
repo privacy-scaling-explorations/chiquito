@@ -758,8 +758,7 @@ mod test {
             assert!(result
                 .forward_signals
                 .iter()
-                .find(|x| x.annotation() == val.annotation() && x.phase() == val.phase())
-                .is_some());
+                .any(|x| x.annotation() == val.annotation() && x.phase() == val.phase()));
         }
 
         assert_eq!(result.shared_signals, result_legacy.shared_signals);
@@ -789,14 +788,14 @@ mod test {
                     .iter()
                     .any(|x| x.annotation == constraint.annotation));
             }
-            assert_eq!(step_new.lookups.len() == 0, step.lookups.len() == 0);
+            assert_eq!(step_new.lookups.is_empty(), step.lookups.is_empty());
             assert_eq!(
-                step_new.auto_signals.len() == 0,
-                step.auto_signals.len() == 0
+                step_new.auto_signals.is_empty(),
+                step.auto_signals.is_empty()
             );
             assert_eq!(
-                step_new.transition_constraints.len() == 0,
-                step.transition_constraints.len() == 0
+                step_new.transition_constraints.is_empty(),
+                step.transition_constraints.is_empty()
             );
             // TODO investigate why new compiler produces extra annotations
             // assert_eq!(step_new.annotations.len(), step.annotations.len());
@@ -829,7 +828,7 @@ mod test {
                     .find(|x| x.0.annotation() == assignment.0.annotation())
                     .unwrap();
                 assert_eq!(assignment.0.annotation(), assignment_legacy.0.annotation());
-                assert!(assignment.1.eq(&assignment_legacy.1));
+                assert!(assignment.1.eq(assignment_legacy.1));
             }
         }
     }
