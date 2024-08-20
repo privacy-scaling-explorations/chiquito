@@ -22,7 +22,7 @@ use crate::{
 
 use super::{
     semantic::{SymTable, SymbolCategory},
-    setup_inter::{interpret, Setup},
+    setup_inter::{interpret, MachineSetup, Setup},
     Config, Message, Messages,
 };
 
@@ -260,22 +260,8 @@ impl<F: Field + Hash> Compiler<F> {
             );
 
             for state_id in machine_setup.states() {
-                let handler = self.mapping.get_step_type_handler(machine_name, state_id);
-
-                let mut step_type = StepType::new(handler.uuid(), handler.annotation.to_string());
-
-                self.add_internal_signals(symbols, machine_name, &mut step_type, state_id);
-
-                let poly_constraints =
-                    self.translate_queries(symbols, setup, machine_name, state_id);
-                poly_constraints.iter().for_each(|poly| {
-                    let constraint = Constraint {
-                        annotation: format!("{:?}", poly),
-                        expr: poly.clone(),
-                    };
-
-                    step_type.constraints.push(constraint)
-                });
+                let step_type =
+                    self.create_step_type(symbols, machine_name, machine_setup, state_id);
 
                 sbpir_machine.add_step_type_def(step_type);
             }
@@ -291,22 +277,26 @@ impl<F: Field + Hash> Compiler<F> {
         todo!()
     }
 
-    fn translate_queries(
+    /// Translate the queries to constraints
+    fn queries_into_constraints(
         &mut self,
         symbols: &SymTable,
-        setup: &Setup<F>,
+        setup: &MachineSetup<F>,
         machine_name: &str,
         state_id: &str,
-    ) -> Vec<Expr<F, Queriable<F>, ()>> {
-        let exprs = setup
-            .get(machine_name)
-            .unwrap()
-            .get_poly_constraints(state_id)
-            .unwrap();
+    ) -> Vec<Constraint<F>> {
+        let exprs = setup.get_poly_constraints(state_id).unwrap();
 
         exprs
             .iter()
-            .map(|expr| self.translate_queries_expr(symbols, machine_name, state_id, expr))
+            .map(|expr| {
+                let translate_queries_expr =
+                    self.translate_queries_expr(symbols, machine_name, state_id, expr);
+                Constraint {
+                    annotation: format!("{:?}", translate_queries_expr),
+                    expr: translate_queries_expr.clone(),
+                }
+            })
             .collect()
     }
 
@@ -435,6 +425,28 @@ impl<F: Field + Hash> Compiler<F> {
             .map(|(id, _)| id)
             .cloned()
             .collect()
+    }
+
+    fn create_step_type(
+        &mut self,
+        symbols: &SymTable,
+        machine_name: &str,
+        machine_setup: &MachineSetup<F>,
+        state_id: &str,
+    ) -> StepType<F> {
+        let handler = self.mapping.get_step_type_handler(machine_name, state_id);
+
+        let mut step_type: StepType<F> =
+            StepType::new(handler.uuid(), handler.annotation.to_string());
+
+        self.add_internal_signals(symbols, machine_name, &mut step_type, state_id);
+
+        let poly_constraints =
+            self.queries_into_constraints(symbols, machine_setup, machine_name, state_id);
+
+        step_type.constraints = poly_constraints.clone();
+
+        step_type
     }
 
     fn add_internal_signals(
