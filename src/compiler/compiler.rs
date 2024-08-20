@@ -17,9 +17,7 @@ use crate::{
         lang::TLDeclsParser,
     },
     poly::Expr,
-    sbpir::{
-        query::Queriable, sbpir_machine::SBPIRMachine, Constraint, InternalSignal, StepType, SBPIR,
-    },
+    sbpir::{query::Queriable, sbpir_machine::SBPIRMachine, Constraint, StepType, SBPIR},
     wit_gen::{NullTraceGenerator, SymbolSignalMapping},
 };
 
@@ -267,13 +265,7 @@ impl<F: Field + Hash> Compiler<F> {
 
                 let mut step_type = StepType::new(handler.uuid(), handler.annotation.to_string());
 
-                self.add_internal_signals(
-                    symbols,
-                    machine_name,
-                    &mut sbpir_machine,
-                    &mut step_type,
-                    state_id,
-                );
+                self.add_internal_signals(symbols, machine_name, &mut step_type, state_id);
 
                 let poly_constraints =
                     self.translate_queries(symbols, setup, machine_name, state_id);
@@ -450,7 +442,6 @@ impl<F: Field + Hash> Compiler<F> {
         &mut self,
         symbols: &SymTable,
         machine_name: &str,
-        sbpir_machine: &mut SBPIRMachine<F>,
         step_type: &mut StepType<F>,
         state_id: &str,
     ) {
@@ -459,13 +450,7 @@ impl<F: Field + Hash> Compiler<F> {
 
         for internal_id in internal_ids {
             let name = format!("{}:{}", &scope_name, internal_id);
-            let signal = InternalSignal::new(name);
-
-            sbpir_machine
-                .annotations
-                .insert(signal.uuid(), signal.annotation().to_string());
-
-            step_type.signals.push(signal);
+            let signal = step_type.add_signal(name.as_str());
 
             self.mapping
                 .symbol_uuid
@@ -744,8 +729,7 @@ mod test {
             assert_eq!(exposed.0 .0, exposed.1 .0);
             assert_eq!(exposed.0 .1, exposed.1 .1);
         }
-        // TODO investigate why new compiler produces extra annotations
-        // assert_eq!(result.annotations.len(), result_legacy.annotations.len());
+        assert_eq!(result.annotations.len(), result_legacy.annotations.len());
         for val in result_legacy.annotations.values() {
             assert!(result.annotations.values().contains(val));
         }
@@ -797,8 +781,7 @@ mod test {
                 step_new.transition_constraints.is_empty(),
                 step.transition_constraints.is_empty()
             );
-            // TODO investigate why new compiler produces extra annotations
-            // assert_eq!(step_new.annotations.len(), step.annotations.len());
+            assert_eq!(step_new.annotations.len(), step.annotations.len());
         }
 
         assert_eq!(
