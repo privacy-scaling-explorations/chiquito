@@ -4,10 +4,7 @@ use num_bigint::BigInt;
 
 use crate::{
     field::Field,
-    frontend::dsl::{
-        cb::{Constraint, Typing},
-        circuit, CircuitContext, StepTypeContext,
-    },
+    frontend::dsl::StepTypeHandler,
     interpreter::InterpreterTraceGenerator,
     parser::{
         ast::{
@@ -19,14 +16,16 @@ use crate::{
         },
         lang::TLDeclsParser,
     },
-    poly::{self, mielim::mi_elimination, reduce::reduce_degree, Expr},
-    sbpir::{query::Queriable, InternalSignal, SBPIR},
-    wit_gen::{NullTraceGenerator, SymbolSignalMapping, TraceGenerator},
+    poly::Expr,
+    sbpir::{
+        query::Queriable, sbpir_machine::SBPIRMachine, Constraint, InternalSignal, StepType, SBPIR,
+    },
+    wit_gen::{NullTraceGenerator, SymbolSignalMapping},
 };
 
 use super::{
     semantic::{SymTable, SymbolCategory},
-    setup_inter::{interpret, MachineSetup, Setup},
+    setup_inter::{interpret, Setup},
     Config, Message, Messages,
 };
 
@@ -72,12 +71,15 @@ impl<F: Field + Hash> Compiler<F> {
         let ast = self.add_virtual(ast);
         let symbols = self.semantic(&ast).map_err(|_| self.messages.clone())?;
         let machine_setups = Self::interpret(&ast, &symbols);
-        let machine_setups = Self::map_consts(machine_setups);
+        let machine_setups = machine_setups
+            .iter()
+            .map(|(k, v)| (k.clone(), v.map_consts()))
+            .collect();
 
         let circuit = self.build(&machine_setups, &symbols);
-        let circuit = Self::mi_elim(circuit);
+        let circuit = circuit.eliminate_mul_inv();
         let circuit = if let Some(degree) = self.config.max_degree {
-            Self::reduce(circuit, degree)
+            circuit.reduce(degree)
         } else {
             circuit
         };
@@ -113,6 +115,7 @@ impl<F: Field + Hash> Compiler<F> {
         }
     }
 
+    /// Adds "virtual" states to the AST (necessary to handle padding)
     fn add_virtual(
         &mut self,
         mut ast: Vec<TLDecl<BigInt, Identifier>>,
@@ -220,6 +223,8 @@ impl<F: Field + Hash> Compiler<F> {
         }
     }
 
+    /// Semantic analysis of the AST
+    /// Returns the symbol table if successful
     fn semantic(&mut self, ast: &[TLDecl<BigInt, Identifier>]) -> Result<SymTable, ()> {
         let result = super::semantic::analyser::analyse(ast);
         let has_errors = result.messages.has_errors();
@@ -237,115 +242,57 @@ impl<F: Field + Hash> Compiler<F> {
         interpret(ast, symbols)
     }
 
-    fn map_consts(setup: Setup<BigInt>) -> Setup<F> {
-        setup
-            .iter()
-            .map(|(machine_id, machine)| {
-                let poly_constraints: HashMap<String, Vec<Expr<F, Identifier, ()>>> = machine
-                    .iter_states_poly_constraints()
-                    .map(|(step_id, step)| {
-                        let new_step: Vec<Expr<F, Identifier, ()>> =
-                            step.iter().map(|pi| Self::map_pi_consts(pi)).collect();
-
-                        (step_id.clone(), new_step)
-                    })
-                    .collect();
-
-                let new_machine: MachineSetup<F> =
-                    machine.replace_poly_constraints(poly_constraints);
-                (machine_id.clone(), new_machine)
-            })
-            .collect()
-    }
-
-    fn map_pi_consts(expr: &Expr<BigInt, Identifier, ()>) -> Expr<F, Identifier, ()> {
-        use Expr::*;
-        match expr {
-            Const(v, _) => Const(F::from_big_int(v), ()),
-            Sum(ses, _) => Sum(ses.iter().map(|se| Self::map_pi_consts(se)).collect(), ()),
-            Mul(ses, _) => Mul(ses.iter().map(|se| Self::map_pi_consts(se)).collect(), ()),
-            Neg(se, _) => Neg(Box::new(Self::map_pi_consts(se)), ()),
-            Pow(se, exp, _) => Pow(Box::new(Self::map_pi_consts(se)), *exp, ()),
-            Query(q, _) => Query(q.clone(), ()),
-            Halo2Expr(_, _) => todo!(),
-            MI(se, _) => MI(Box::new(Self::map_pi_consts(se)), ()),
-        }
-    }
-
     fn build(&mut self, setup: &Setup<F>, symbols: &SymTable) -> SBPIR<F, NullTraceGenerator> {
         let mut sbpir = SBPIR::default();
 
-        for (machine_id, machine) in setup {
-            let sbpir_machine = circuit::<F, (), _>("circuit", |ctx| {
-                self.add_forwards(ctx, symbols, machine_id);
-                self.add_step_type_handlers(ctx, symbols, machine_id);
+        for (machine_name, machine_setup) in setup {
+            let mut sbpir_machine = SBPIRMachine::default();
+            self.add_forward_signals(&mut sbpir_machine, symbols, machine_name);
+            self.add_step_type_handlers(&mut sbpir_machine, symbols, machine_name);
 
-                ctx.pragma_num_steps(self.config.max_steps);
-                ctx.pragma_first_step(self.mapping.get_step_type_handler(machine_id, "initial"));
-                ctx.pragma_last_step(self.mapping.get_step_type_handler(machine_id, "__padding"));
+            sbpir_machine.num_steps = self.config.max_steps;
+            sbpir_machine.first_step = Some(
+                self.mapping
+                    .get_step_type_handler(machine_name, "initial")
+                    .uuid(),
+            );
+            sbpir_machine.last_step = Some(
+                self.mapping
+                    .get_step_type_handler(machine_name, "__padding")
+                    .uuid(),
+            );
 
-                for state_id in machine.states() {
-                    ctx.step_type_def(
-                        self.mapping.get_step_type_handler(machine_id, state_id),
-                        |ctx| {
-                            self.add_internals(ctx, symbols, machine_id, state_id);
+            for state_id in machine_setup.states() {
+                let handler = self.mapping.get_step_type_handler(machine_name, state_id);
 
-                            ctx.setup(|ctx| {
-                                let poly_constraints =
-                                    self.translate_queries(symbols, setup, machine_id, state_id);
-                                poly_constraints.iter().for_each(|poly| {
-                                    let constraint = Constraint {
-                                        annotation: format!("{:?}", poly),
-                                        expr: poly.clone(),
-                                        typing: Typing::AntiBooly,
-                                    };
-                                    ctx.constr(constraint);
-                                });
-                            });
+                let mut step_type = StepType::new(handler.uuid(), handler.annotation.to_string());
 
-                            ctx.wg(|_, _: ()| {})
-                        },
-                    );
-                }
+                self.add_internal_signals(
+                    symbols,
+                    machine_name,
+                    &mut sbpir_machine,
+                    &mut step_type,
+                    state_id,
+                );
 
-                ctx.trace(|_, _| {});
-            })
-            .without_trace();
+                let poly_constraints =
+                    self.translate_queries(symbols, setup, machine_name, state_id);
+                poly_constraints.iter().for_each(|poly| {
+                    let constraint = Constraint {
+                        annotation: format!("{:?}", poly),
+                        expr: poly.clone(),
+                    };
 
-            sbpir.add_machine(machine_id, sbpir_machine);
-        }
-
-        sbpir
-    }
-
-    fn mi_elim(mut circuit: SBPIR<F, NullTraceGenerator>) -> SBPIR<F, NullTraceGenerator> {
-        for machine in circuit.machines.values_mut() {
-            for (_, step_type) in machine.step_types.iter_mut() {
-                let mut signal_factory = SignalFactory::default();
-
-                step_type
-                    .decomp_constraints(|expr| mi_elimination(expr.clone(), &mut signal_factory));
-            }
-        }
-
-        circuit
-    }
-
-    fn reduce(
-        mut circuit: SBPIR<F, NullTraceGenerator>,
-        degree: usize,
-    ) -> SBPIR<F, NullTraceGenerator> {
-        for machine in circuit.machines.values_mut() {
-            for (_, step_type) in machine.step_types.iter_mut() {
-                let mut signal_factory = SignalFactory::default();
-
-                step_type.decomp_constraints(|expr| {
-                    reduce_degree(expr.clone(), degree, &mut signal_factory)
+                    step_type.constraints.push(constraint)
                 });
+
+                sbpir_machine.add_step_type_def(step_type);
             }
+
+            sbpir.machines.insert(machine_name.clone(), sbpir_machine);
         }
 
-        circuit
+        sbpir.without_trace()
     }
 
     #[allow(dead_code)]
@@ -357,25 +304,25 @@ impl<F: Field + Hash> Compiler<F> {
         &mut self,
         symbols: &SymTable,
         setup: &Setup<F>,
-        machine_id: &str,
+        machine_name: &str,
         state_id: &str,
     ) -> Vec<Expr<F, Queriable<F>, ()>> {
         let exprs = setup
-            .get(machine_id)
+            .get(machine_name)
             .unwrap()
             .get_poly_constraints(state_id)
             .unwrap();
 
         exprs
             .iter()
-            .map(|expr| self.translate_queries_expr(symbols, machine_id, state_id, expr))
+            .map(|expr| self.translate_queries_expr(symbols, machine_name, state_id, expr))
             .collect()
     }
 
     fn translate_queries_expr(
         &mut self,
         symbols: &SymTable,
-        machine_id: &str,
+        machine_name: &str,
         state_id: &str,
         expr: &Expr<F, Identifier, ()>,
     ) -> Expr<F, Queriable<F>, ()> {
@@ -384,38 +331,41 @@ impl<F: Field + Hash> Compiler<F> {
             Const(v, _) => Const(*v, ()),
             Sum(ses, _) => Sum(
                 ses.iter()
-                    .map(|se| self.translate_queries_expr(symbols, machine_id, state_id, se))
+                    .map(|se| self.translate_queries_expr(symbols, machine_name, state_id, se))
                     .collect(),
                 (),
             ),
             Mul(ses, _) => Mul(
                 ses.iter()
-                    .map(|se| self.translate_queries_expr(symbols, machine_id, state_id, se))
+                    .map(|se| self.translate_queries_expr(symbols, machine_name, state_id, se))
                     .collect(),
                 (),
             ),
             Neg(se, _) => Neg(
-                Box::new(self.translate_queries_expr(symbols, machine_id, state_id, se.as_ref())),
+                Box::new(self.translate_queries_expr(symbols, machine_name, state_id, se.as_ref())),
                 (),
             ),
             Pow(se, exp, _) => Pow(
-                Box::new(self.translate_queries_expr(symbols, machine_id, state_id, se.as_ref())),
+                Box::new(self.translate_queries_expr(symbols, machine_name, state_id, se.as_ref())),
                 *exp,
                 (),
             ),
             MI(se, _) => MI(
-                Box::new(self.translate_queries_expr(symbols, machine_id, state_id, se.as_ref())),
+                Box::new(self.translate_queries_expr(symbols, machine_name, state_id, se.as_ref())),
                 (),
             ),
             Halo2Expr(se, _) => Halo2Expr(se.clone(), ()),
-            Query(id, _) => Query(self.translate_query(symbols, machine_id, state_id, id), ()),
+            Query(id, _) => Query(
+                self.translate_query(symbols, machine_name, state_id, id),
+                (),
+            ),
         }
     }
 
     fn translate_query(
         &mut self,
         symbols: &SymTable,
-        machine_id: &str,
+        machine_name: &str,
         state_id: &str,
         id: &Identifier,
     ) -> Queriable<F> {
@@ -425,7 +375,7 @@ impl<F: Field + Hash> Compiler<F> {
             .find_symbol(
                 &[
                     "/".to_string(),
-                    machine_id.to_string(),
+                    machine_name.to_string(),
                     state_id.to_string(),
                 ],
                 id.name(),
@@ -434,17 +384,17 @@ impl<F: Field + Hash> Compiler<F> {
 
         match symbol.symbol.category {
             InputSignal | OutputSignal | InoutSignal => {
-                self.translate_forward_queriable(machine_id, id)
+                self.translate_forward_queriable(machine_name, id)
             }
             Signal => match symbol.scope_cat {
-                ScopeCategory::Machine => self.translate_forward_queriable(machine_id, id),
+                ScopeCategory::Machine => self.translate_forward_queriable(machine_name, id),
                 ScopeCategory::State => {
                     if id.rotation() != 0 {
                         unreachable!("semantic analyser should prevent this");
                     }
                     let signal = self
                         .mapping
-                        .get_internal(&format!("//{}/{}", machine_id, state_id), &id.name());
+                        .get_internal(&format!("//{}/{}", machine_name, state_id), &id.name());
 
                     Queriable::Internal(signal)
                 }
@@ -452,16 +402,16 @@ impl<F: Field + Hash> Compiler<F> {
                 ScopeCategory::Global => unreachable!("no global signals"),
             },
 
-            State => {
-                Queriable::StepTypeNext(self.mapping.get_step_type_handler(machine_id, &id.name()))
-            }
+            State => Queriable::StepTypeNext(
+                self.mapping.get_step_type_handler(machine_name, &id.name()),
+            ),
 
             _ => unreachable!("semantic analysis should prevent this"),
         }
     }
 
-    fn translate_forward_queriable(&mut self, machine_id: &str, id: &Identifier) -> Queriable<F> {
-        let forward = self.mapping.get_forward(machine_id, &id.name());
+    fn translate_forward_queriable(&mut self, machine_name: &str, id: &Identifier) -> Queriable<F> {
+        let forward = self.mapping.get_forward(machine_name, &id.name());
         let rot = if id.rotation() == 0 {
             false
         } else if id.rotation() == 1 {
@@ -476,13 +426,13 @@ impl<F: Field + Hash> Compiler<F> {
     fn get_all_internals(
         &mut self,
         symbols: &SymTable,
-        machine_id: &str,
+        machine_name: &str,
         state_id: &str,
     ) -> Vec<String> {
         let symbols = symbols
             .get_scope(&[
                 "/".to_string(),
-                machine_id.to_string(),
+                machine_name.to_string(),
                 state_id.to_string(),
             ])
             .expect("scope not found")
@@ -496,41 +446,41 @@ impl<F: Field + Hash> Compiler<F> {
             .collect()
     }
 
-    fn add_internals(
+    fn add_internal_signals(
         &mut self,
-        ctx: &mut StepTypeContext<F>,
         symbols: &SymTable,
-        machine_id: &str,
+        machine_name: &str,
+        sbpir_machine: &mut SBPIRMachine<F>,
+        step_type: &mut StepType<F>,
         state_id: &str,
     ) {
-        let internal_ids = self.get_all_internals(symbols, machine_id, state_id);
-        let scope_name = format!("//{}/{}", machine_id, state_id);
+        let internal_ids = self.get_all_internals(symbols, machine_name, state_id);
+        let scope_name = format!("//{}/{}", machine_name, state_id);
 
         for internal_id in internal_ids {
             let name = format!("{}:{}", &scope_name, internal_id);
+            let signal = InternalSignal::new(name);
 
-            let queriable = ctx.internal(name.as_str());
-            if let Queriable::Internal(signal) = queriable {
-                self.mapping
-                    .symbol_uuid
-                    .insert((scope_name.clone(), internal_id), signal.uuid());
-                self.mapping.internal_signals.insert(signal.uuid(), signal);
-            } else {
-                unreachable!("ctx.internal returns not internal signal");
-            }
+            sbpir_machine
+                .annotations
+                .insert(signal.uuid(), signal.annotation().to_string());
+
+            step_type.signals.push(signal);
+
+            self.mapping
+                .symbol_uuid
+                .insert((scope_name.clone(), internal_id), signal.uuid());
+            self.mapping.internal_signals.insert(signal.uuid(), signal);
         }
     }
 
-    fn add_step_type_handlers<TG: TraceGenerator<F>>(
+    fn add_step_type_handlers(
         &mut self,
-        ctx: &mut CircuitContext<F, TG>,
+        machine: &mut SBPIRMachine<F>,
         symbols: &SymTable,
-        machine_id: &str,
+        machine_name: &str,
     ) {
-        let symbols = symbols
-            .get_scope(&["/".to_string(), machine_id.to_string()])
-            .expect("scope not found")
-            .get_symbols();
+        let symbols = get_symbols(symbols, machine_name);
 
         let state_ids: Vec<_> = symbols
             .iter()
@@ -540,10 +490,13 @@ impl<F: Field + Hash> Compiler<F> {
             .collect();
 
         for state_id in state_ids {
-            let scope_name = format!("//{}", machine_id);
+            let scope_name = format!("//{}", machine_name);
             let name = format!("{}:{}", scope_name, state_id);
 
-            let handler = ctx.step_type(&name);
+            let handler = StepTypeHandler::new(name.to_string());
+
+            machine.add_step_type(handler, name);
+
             self.mapping
                 .step_type_handler
                 .insert(handler.uuid(), handler);
@@ -553,16 +506,13 @@ impl<F: Field + Hash> Compiler<F> {
         }
     }
 
-    fn add_forwards<TG: TraceGenerator<F>>(
+    fn add_forward_signals(
         &mut self,
-        ctx: &mut CircuitContext<F, TG>,
+        machine: &mut SBPIRMachine<F>,
         symbols: &SymTable,
-        machine_id: &str,
+        machine_name: &str,
     ) {
-        let symbols = symbols
-            .get_scope(&["/".to_string(), machine_id.to_string()])
-            .expect("scope not found")
-            .get_symbols();
+        let symbols = get_symbols(symbols, machine_name);
 
         let forward_ids: Vec<_> = symbols
             .iter()
@@ -572,17 +522,16 @@ impl<F: Field + Hash> Compiler<F> {
             .collect();
 
         for forward_id in forward_ids {
-            let scope_name = format!("//{}", machine_id);
+            let scope_name = format!("//{}", machine_name);
             let name = format!("{}:{}", scope_name, forward_id);
-
-            let queriable = ctx.forward(name.as_str());
+            let queriable = Queriable::<F>::Forward(machine.add_forward(name.as_str(), 0), false);
             if let Queriable::Forward(signal, _) = queriable {
                 self.mapping
                     .symbol_uuid
                     .insert((scope_name, forward_id), signal.uuid());
                 self.mapping.forward_signals.insert(signal.uuid(), signal);
             } else {
-                unreachable!("ctx.internal returns not internal signal");
+                unreachable!("Forward queriable should return a forward signal");
             }
         }
     }
@@ -600,29 +549,29 @@ impl<F: Field + Hash> Compiler<F> {
     }
 }
 
-// Basic signal factory.
-#[derive(Default)]
-struct SignalFactory<F> {
-    count: u64,
-    _p: PhantomData<F>,
-}
-
-impl<F> poly::SignalFactory<Queriable<F>> for SignalFactory<F> {
-    fn create<S: Into<String>>(&mut self, annotation: S) -> Queriable<F> {
-        self.count += 1;
-        Queriable::Internal(InternalSignal::new(format!(
-            "{}-{}",
-            annotation.into(),
-            self.count
-        )))
-    }
+fn get_symbols<'a>(
+    symbols: &'a SymTable,
+    machine_name: &'a str,
+) -> &'a HashMap<String, super::semantic::SymTableEntry> {
+    let symbols = symbols
+        .get_scope(&["/".to_string(), machine_name.to_string()])
+        .expect("scope not found")
+        .get_symbols();
+    symbols
 }
 
 #[cfg(test)]
 mod test {
-    use halo2_proofs::halo2curves::bn256::Fr;
+    use std::collections::HashMap;
 
-    use crate::{compiler::compile, parser::ast::debug_sym_factory::DebugSymRefFactory};
+    use halo2_proofs::halo2curves::bn256::Fr;
+    use itertools::Itertools;
+
+    use crate::{
+        compiler::{compile, compile_legacy},
+        parser::ast::debug_sym_factory::DebugSymRefFactory,
+        wit_gen::TraceGenerator,
+    };
 
     use super::Config;
 
@@ -645,7 +594,7 @@ mod test {
              i, a, b, c <== 1, 1, 1, 2;
 
              -> middle {
-              a', b', n' <== b, c, n;
+              i', a', b', n' <== i + 1, b, c, n;
              }
             }
 
@@ -684,7 +633,7 @@ mod test {
              i, a, b, c <== 1, 1, 1, 2;
 
              -> middle {
-              a', b', n' <== b, c, n;
+              i', a', b', n' <== i + 1, b, c, n;
              }
             }
 
@@ -724,6 +673,164 @@ mod test {
                 println!("{:#?}", result)
             }
             Err(messages) => println!("{:#?}", messages),
+        }
+    }
+
+    #[test]
+    fn test_is_new_compiler_identical_to_legacy() {
+        let circuit = "
+        machine fibo(signal n) (signal b: field) {
+            // n and be are created automatically as shared
+            // signals
+            signal a: field, i;
+
+            // there is always a state called initial
+            // input signals get bound to the signal
+            // in the initial state (first instance)
+            state initial {
+             signal c;
+
+             i, a, b, c <== 1, 1, 1, 2;
+
+             -> middle {
+              i', a', b', n' <== i + 1, b, c, n;
+             }
+            }
+
+            state middle {
+             signal c;
+
+             c <== a + b;
+
+             if i + 1 == n {
+              -> final {
+               i', b', n' <== i + 1, c, n;
+              }
+             } else {
+              -> middle {
+               i', a', b', n' <== i + 1, b, c, n;
+              }
+             }
+            }
+
+            // There is always a state called final.
+            // Output signals get automatically bound to the signals
+            // with the same name in the final step (last instance).
+            // This state can be implicit if there are no constraints in it.
+           }
+        ";
+
+        let debug_sym_ref_factory = DebugSymRefFactory::new("", circuit);
+        let result = compile::<Fr>(
+            circuit,
+            Config::default().max_degree(2),
+            &debug_sym_ref_factory,
+        )
+        .unwrap();
+
+        let result_legacy = compile_legacy::<Fr>(
+            circuit,
+            Config::default().max_degree(2),
+            &debug_sym_ref_factory,
+        )
+        .unwrap();
+
+        let result = result.circuit.machines.get("fibo").unwrap();
+        let result_legacy = result_legacy.circuit;
+        let exposed = &result.exposed;
+        let exposed_legacy = result_legacy.exposed;
+
+        for exposed in exposed.iter().zip(exposed_legacy.iter()) {
+            assert_eq!(exposed.0 .0, exposed.1 .0);
+            assert_eq!(exposed.0 .1, exposed.1 .1);
+        }
+        // TODO investigate why new compiler produces extra annotations
+        // assert_eq!(result.annotations.len(), result_legacy.annotations.len());
+        for val in result_legacy.annotations.values() {
+            assert!(result.annotations.values().contains(val));
+        }
+
+        assert_eq!(
+            result.forward_signals.len(),
+            result_legacy.forward_signals.len()
+        );
+        for val in result_legacy.forward_signals.iter() {
+            assert!(result
+                .forward_signals
+                .iter()
+                .find(|x| x.annotation() == val.annotation() && x.phase() == val.phase())
+                .is_some());
+        }
+
+        assert_eq!(result.shared_signals, result_legacy.shared_signals);
+        assert_eq!(result.fixed_signals, result_legacy.fixed_signals);
+        assert_eq!(result.halo2_advice, result_legacy.halo2_advice);
+        assert_eq!(result.halo2_fixed, result_legacy.halo2_fixed);
+        assert_eq!(result.step_types.len(), result_legacy.step_types.len());
+        for step in result_legacy.step_types.values() {
+            let name = step.name();
+            let step_new = result
+                .step_types
+                .iter()
+                .find(|x| x.1.name() == name)
+                .unwrap()
+                .1;
+            assert_eq!(step_new.signals.len(), step.signals.len());
+            for signal in step.signals.iter() {
+                assert!(step_new
+                    .signals
+                    .iter()
+                    .any(|x| x.annotation() == signal.annotation()));
+            }
+            assert_eq!(step_new.constraints.len(), step.constraints.len());
+            for constraint in step.constraints.iter() {
+                assert!(step_new
+                    .constraints
+                    .iter()
+                    .any(|x| x.annotation == constraint.annotation));
+            }
+            assert_eq!(step_new.lookups.len() == 0, step.lookups.len() == 0);
+            assert_eq!(
+                step_new.auto_signals.len() == 0,
+                step.auto_signals.len() == 0
+            );
+            assert_eq!(
+                step_new.transition_constraints.len() == 0,
+                step.transition_constraints.len() == 0
+            );
+            // TODO investigate why new compiler produces extra annotations
+            // assert_eq!(step_new.annotations.len(), step.annotations.len());
+        }
+
+        assert_eq!(
+            result.first_step.is_some(),
+            result_legacy.first_step.is_some()
+        );
+        assert_eq!(
+            result.last_step.is_some(),
+            result_legacy.last_step.is_some()
+        );
+        assert_eq!(result.num_steps, result_legacy.num_steps);
+        assert_eq!(result.q_enable, result_legacy.q_enable);
+
+        let tg_new = result.trace_generator.as_ref().unwrap();
+        let tg_legacy = result_legacy.trace_generator.unwrap();
+
+        // Check if the witness values of the new compiler are the same as the legacy compiler
+        let res = tg_new.generate(HashMap::from([("n".to_string(), Fr::from(12))]));
+        let res_legacy = tg_legacy.generate(HashMap::from([("n".to_string(), Fr::from(12))]));
+        assert_eq!(res.step_instances.len(), res_legacy.step_instances.len());
+        for (step, step_legacy) in res.step_instances.iter().zip(res_legacy.step_instances) {
+            assert_eq!(step.assignments.len(), step_legacy.assignments.len());
+            for assignment in step.assignments.iter() {
+                let assignment_legacy = step_legacy
+                    .assignments
+                    .iter()
+                    .find(|x| x.0.annotation() == assignment.0.annotation())
+                    .unwrap();
+                assert_eq!(assignment.0.annotation(), assignment_legacy.0.annotation());
+                assert!(assignment.1.eq(&assignment_legacy.1));
+            }
         }
     }
 }

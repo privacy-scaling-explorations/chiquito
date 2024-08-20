@@ -129,6 +129,7 @@ impl<F: Field + Hash> CompilerLegacy<F> {
         }
     }
 
+    /// Adds "virtual" states to the AST (necessary to handle padding)
     fn add_virtual(
         &mut self,
         mut ast: Vec<TLDecl<BigInt, Identifier>>,
@@ -236,6 +237,8 @@ impl<F: Field + Hash> CompilerLegacy<F> {
         }
     }
 
+    /// Semantic analysis of the AST
+    /// Returns the symbol table if successful
     fn semantic(&mut self, ast: &[TLDecl<BigInt, Identifier>]) -> Result<SymTable, ()> {
         let result = super::semantic::analyser::analyse(ast);
         let has_errors = result.messages.has_errors();
@@ -258,7 +261,7 @@ impl<F: Field + Hash> CompilerLegacy<F> {
             .iter()
             .map(|(machine_id, machine)| {
                 let poly_constraints: HashMap<String, Vec<Expr<F, Identifier, ()>>> = machine
-                    .iter_states_poly_constraints()
+                    .poly_constraints_iter()
                     .map(|(step_id, step)| {
                         let new_step: Vec<Expr<F, Identifier, ()>> =
                             step.iter().map(|pi| Self::map_pi_consts(pi)).collect();

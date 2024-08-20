@@ -22,6 +22,7 @@ pub struct SBPIRMachine<F: Clone, TG: TraceGenerator<F> = DSLTraceGenerator<F>> 
     pub step_types: HashMap<UUID, StepType<F>>,
 
     pub forward_signals: Vec<ForwardSignal>,
+    // TODO currently not used
     pub shared_signals: Vec<SharedSignal>,
     pub fixed_signals: Vec<FixedSignal>,
     pub halo2_advice: Vec<ImportedHalo2Advice>,
@@ -31,6 +32,7 @@ pub struct SBPIRMachine<F: Clone, TG: TraceGenerator<F> = DSLTraceGenerator<F>> 
     pub annotations: HashMap<UUID, String>,
 
     pub trace_generator: Option<TG>,
+    // TODO currently not used
     pub fixed_assignments: Option<FixedAssignment<F>>,
 
     pub first_step: Option<StepTypeUUID>,
@@ -109,6 +111,7 @@ impl<F: Clone, TG: TraceGenerator<F>> SBPIRMachine<F, TG> {
         signal
     }
 
+    // TODO currently not used
     pub fn add_fixed<N: Into<String>>(&mut self, name: N) -> FixedSignal {
         let name = name.into();
         let signal = FixedSignal::new(name.clone());
@@ -119,6 +122,7 @@ impl<F: Clone, TG: TraceGenerator<F>> SBPIRMachine<F, TG> {
         signal
     }
 
+    // TODO currently not used
     pub fn expose(&mut self, signal: Queriable<F>, offset: ExposeOffset) {
         match signal {
             Queriable::Forward(..) | Queriable::Shared(..) => {

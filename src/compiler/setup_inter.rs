@@ -4,6 +4,7 @@ use itertools::Itertools;
 use num_bigint::BigInt;
 
 use crate::{
+    field::Field,
     parser::ast::{
         statement::{Statement, TypedIdDecl},
         tl::TLDecl,
@@ -43,6 +44,50 @@ impl<F> Default for MachineSetup<F> {
             poly_constraints: HashMap::new(),
             input_signals: vec![],
             output_signals: vec![],
+        }
+    }
+}
+impl MachineSetup<BigInt> {
+    pub(crate) fn map_consts<F: Field>(&self) -> MachineSetup<F> {
+        let poly_constraints: HashMap<String, Vec<Expr<F, Identifier, ()>>> = self
+            .poly_constraints_iter()
+            .map(|(step_id, step)| {
+                let new_step: Vec<Expr<F, Identifier, ()>> = step
+                    .iter()
+                    .map(|pi| Self::convert_const_to_field(pi))
+                    .collect();
+
+                (step_id.clone(), new_step)
+            })
+            .collect();
+
+        let new_machine: MachineSetup<F> = self.replace_poly_constraints(poly_constraints);
+        new_machine
+    }
+
+    fn convert_const_to_field<F: Field>(
+        expr: &Expr<BigInt, Identifier, ()>,
+    ) -> Expr<F, Identifier, ()> {
+        use Expr::*;
+        match expr {
+            Const(v, _) => Const(F::from_big_int(v), ()),
+            Sum(ses, _) => Sum(
+                ses.iter()
+                    .map(|se| Self::convert_const_to_field(se))
+                    .collect(),
+                (),
+            ),
+            Mul(ses, _) => Mul(
+                ses.iter()
+                    .map(|se| Self::convert_const_to_field(se))
+                    .collect(),
+                (),
+            ),
+            Neg(se, _) => Neg(Box::new(Self::convert_const_to_field(se)), ()),
+            Pow(se, exp, _) => Pow(Box::new(Self::convert_const_to_field(se)), *exp, ()),
+            Query(q, _) => Query(q.clone(), ()),
+            Halo2Expr(_, _) => todo!(),
+            MI(se, _) => MI(Box::new(Self::convert_const_to_field(se)), ()),
         }
     }
 }
@@ -88,7 +133,7 @@ impl<F: Clone> MachineSetup<F> {
             .extend(poly_constraints);
     }
 
-    pub(super) fn iter_states_poly_constraints(
+    pub(super) fn poly_constraints_iter(
         &self,
     ) -> std::collections::hash_map::Iter<String, Vec<Expr<F, Identifier, ()>>> {
         self.poly_constraints.iter()
