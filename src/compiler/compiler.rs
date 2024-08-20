@@ -4,7 +4,6 @@ use num_bigint::BigInt;
 
 use crate::{
     field::Field,
-    frontend::dsl::StepTypeHandler,
     interpreter::InterpreterTraceGenerator,
     parser::{
         ast::{
@@ -38,9 +37,9 @@ pub struct CompilerResult<F: Field + Hash> {
 pub(super) struct Compiler<F> {
     pub(super) config: Config,
 
-    messages: Vec<Message>,
+    pub(super) messages: Vec<Message>,
 
-    mapping: SymbolSignalMapping,
+    pub(super) mapping: SymbolSignalMapping,
 
     _p: PhantomData<F>,
 }
@@ -478,9 +477,7 @@ impl<F: Field + Hash> Compiler<F> {
             let scope_name = format!("//{}", machine_name);
             let name = format!("{}:{}", scope_name, state_id);
 
-            let handler = StepTypeHandler::new(name.to_string());
-
-            machine.add_step_type(handler, name);
+            let handler = machine.add_step_type(name);
 
             self.mapping
                 .step_type_handler

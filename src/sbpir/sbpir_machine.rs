@@ -171,8 +171,11 @@ impl<F: Clone, TG: TraceGenerator<F>> SBPIRMachine<F, TG> {
         advice
     }
 
-    pub fn add_step_type<N: Into<String>>(&mut self, handler: StepTypeHandler, name: N) {
-        self.annotations.insert(handler.uuid(), name.into());
+    pub fn add_step_type<N: Into<String>>(&mut self, name: N) -> StepTypeHandler {
+        let annotation = name.into();
+        let handler = StepTypeHandler::new(annotation.clone());
+        self.annotations.insert(handler.uuid(), annotation);
+        handler
     }
 
     pub fn add_step_type_def(&mut self, step: StepType<F>) -> StepTypeUUID {
