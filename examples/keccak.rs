@@ -1,7 +1,7 @@
 use chiquito::{
     frontend::dsl::{
-        circuit_context_legacy::CircuitContextLegacy, lb::LookupTable, super_circuit,
-        trace::DSLTraceGenerator, StepTypeWGHandler,
+        lb::LookupTable, super_circuit, trace::DSLTraceGenerator, CircuitContextLegacy,
+        StepTypeWGHandler,
     },
     plonkish::{
         backend::halo2_legacy::{chiquitoSuperCircuit2Halo2, ChiquitoHalo2SuperCircuit},

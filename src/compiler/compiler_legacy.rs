@@ -6,8 +6,7 @@ use crate::{
     field::Field,
     frontend::dsl::{
         cb::{Constraint, Typing},
-        circuit_context_legacy::{circuit_legacy, CircuitContextLegacy},
-        StepTypeContext,
+        circuit_legacy, CircuitContextLegacy, StepTypeContext,
     },
     interpreter::InterpreterTraceGenerator,
     parser::{

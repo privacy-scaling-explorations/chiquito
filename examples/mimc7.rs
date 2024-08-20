@@ -7,8 +7,7 @@ use halo2_proofs::{
 
 use chiquito::{
     frontend::dsl::{
-        circuit_context_legacy::CircuitContextLegacy, lb::LookupTable, super_circuit,
-        trace::DSLTraceGenerator,
+        lb::LookupTable, super_circuit, trace::DSLTraceGenerator, CircuitContextLegacy,
     },
     plonkish::{
         backend::halo2_legacy::{chiquitoSuperCircuit2Halo2, ChiquitoHalo2SuperCircuit},

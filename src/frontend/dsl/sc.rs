@@ -17,9 +17,7 @@ use crate::{
     wit_gen::{NullTraceGenerator, TraceGenerator},
 };
 
-use super::{
-    circuit_context_legacy::CircuitContextLegacy, lb::LookupTableRegistry, trace::DSLTraceGenerator,
-};
+use super::{lb::LookupTableRegistry, trace::DSLTraceGenerator, CircuitContextLegacy};
 
 pub struct SuperCircuitContext<F, MappingArgs> {
     super_circuit: SuperCircuit<F, MappingArgs>,
@@ -150,7 +148,7 @@ mod tests {
     use halo2_proofs::halo2curves::{bn256::Fr, ff::PrimeField};
 
     use crate::{
-        frontend::dsl::circuit_context_legacy::circuit_legacy,
+        frontend::dsl::circuit_legacy,
         plonkish::compiler::{
             cell_manager::SingleRowCellManager, config, step_selector::SimpleStepSelectorBuilder,
         },

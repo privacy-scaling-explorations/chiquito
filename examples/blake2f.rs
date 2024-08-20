@@ -1,11 +1,10 @@
 use chiquito::{
     frontend::dsl::{
         cb::{eq, select, table},
-        circuit_context_legacy::CircuitContextLegacy,
         lb::LookupTable,
         super_circuit,
         trace::DSLTraceGenerator,
-        StepTypeSetupContext, StepTypeWGHandler,
+        CircuitContextLegacy, StepTypeSetupContext, StepTypeWGHandler,
     },
     plonkish::{
         backend::halo2_legacy::{chiquitoSuperCircuit2Halo2, ChiquitoHalo2SuperCircuit},

@@ -2,9 +2,9 @@ use std::hash::Hash;
 
 use chiquito::{
     field::Field,
-    frontend::dsl::{circuit_context_legacy::circuit_legacy, trace::DSLTraceGenerator}, /* main function for constructing
-                                                                                        * an AST
-                                                                                        * circuit */
+    frontend::dsl::{circuit_legacy, trace::DSLTraceGenerator}, /* main function for constructing
+                                                                * an AST
+                                                                * circuit */
     plonkish::{
         backend::{
             halo2_legacy::{chiquito2Halo2, ChiquitoHalo2Circuit},
