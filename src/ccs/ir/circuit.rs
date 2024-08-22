@@ -184,13 +184,13 @@ impl<F: Field + From<u64> + Hash> CCSCircuit<F> {
 
     pub fn write(
         &mut self,
-        matrics: &[Vec<(usize, usize, F)>],
+        matrices: &[Vec<(usize, usize, F)>],
         selectors: &[Vec<(usize, F)>],
         constants: &[F],
     ) {
         self.write_constants(constants);
         self.write_selectors_and_degree(selectors);
-        self.write_matrics(matrics);
+        self.write_matrices(matrices);
     }
 
     pub fn write_constants(&mut self, constants: &[F]) {
@@ -211,10 +211,10 @@ impl<F: Field + From<u64> + Hash> CCSCircuit<F> {
         self.d = degree;
     }
 
-    fn write_matrics(&mut self, matrics: &[Vec<(usize, usize, F)>]) {
-        assert_eq!(matrics.len(), self.t);
+    fn write_matrices(&mut self, matrices: &[Vec<(usize, usize, F)>]) {
+        assert_eq!(matrices.len(), self.t);
 
-        self.matrices = matrics
+        self.matrices = matrices
             .iter()
             .map(|cells| {
                 for &cell in cells.iter() {

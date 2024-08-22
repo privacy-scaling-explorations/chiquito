@@ -30,7 +30,7 @@ pub type CoeffsForSteps<F> = HashMap<UUID, CoeffsOneStep<F>>;
 
 impl<F: Field> PolyExpr<F> {
     pub fn poly_to_coeffs(&self) -> CoeffsOnePoly<F> {
-        let matrics = match self {
+        let matrices = match self {
             PolyExpr::Const(v) => vec![vec![vec![(*v, 0, false)]]],
             PolyExpr::Query((id, _, _, q)) => vec![vec![vec![(F::ONE, *id, *q)]]],
             PolyExpr::Sum(v) => {
@@ -77,21 +77,21 @@ impl<F: Field> PolyExpr<F> {
                 }
             }
             PolyExpr::Mul(v) => {
-                let mut matrics = Vec::new();
+                let mut matrices = Vec::new();
                 for e in v.iter() {
                     let matrix = e.poly_to_coeffs();
                     if matrix.len() != 1 {
                         panic!("[poly_to_coeffs]invalid poly expr with PolyExpr::Mul");
                     }
                     for m in matrix[0].iter() {
-                        matrics.push(m.clone());
+                        matrices.push(m.clone());
                     }
                 }
-                vec![matrics]
+                vec![matrices]
             }
             _ => panic!("[poly_to_coeffs]invalid poly expr"),
         };
-        matrics
+        matrices
     }
 
     pub fn factor_expr(&self) -> PolyExpr<F> {

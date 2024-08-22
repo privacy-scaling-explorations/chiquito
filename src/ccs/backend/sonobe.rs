@@ -9,7 +9,7 @@ use crate::{
 
 impl<F: Field> CCSCircuit<F> {
     pub fn convert_to_sonobe_circuit<Fr: PrimeField>(&self, f: fn(&F) -> Fr) -> CCS<Fr> {
-        let matrics = self
+        let matrices = self
             .matrices
             .iter()
             .map(|matrix| {
@@ -35,7 +35,7 @@ impl<F: Field> CCSCircuit<F> {
             d: self.d,
             s: log2(self.m) as usize,
             s_prime: log2(self.n) as usize,
-            M: matrics,
+            M: matrices,
             S: selectors,
             c: (0..self.q).map(|_| Fr::from(1u64)).collect(),
         }

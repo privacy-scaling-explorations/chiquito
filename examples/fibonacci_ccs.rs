@@ -38,13 +38,6 @@ use folding_schemes::{
 type FiboReturn<F> = (Circuit<F>, Option<AssignmentGenerator<F, ()>>, SBPIR<F, ()>);
 
 fn fibo_circuit_ccs<F: Field + From<u64> + Hash>() -> FiboReturn<F> {
-    // PLONKish table for the Fibonacci circuit:
-    // | a | b | c |
-    // | 1 | 1 | 2 |
-    // | 1 | 2 | 3 |
-    // | 2 | 3 | 5 |
-    // | 3 | 5 | 8 |
-    // ...
 
     use chiquito::frontend::dsl::cb::*; // functions for constraint building
 
