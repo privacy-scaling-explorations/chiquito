@@ -30,7 +30,8 @@ pub enum Expr<F, V, M> {
     Pow(Box<Expr<F, V, M>>, u32, M),
     Query(V, M),
     Halo2Expr(Expression<F>, M),
-    MI(Box<Expr<F, V, M>>, M), //  Multiplicative inverse, but MI(0) = 0
+    ///  Multiplicative inverse, but MI(0) = 0
+    MI(Box<Expr<F, V, M>>, M),
 }
 
 #[derive(Debug, Clone, Default, Hash)]

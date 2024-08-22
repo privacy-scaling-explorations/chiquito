@@ -1,7 +1,7 @@
 pub mod query;
 pub mod sbpir_machine;
 
-use std::{collections::HashMap, fmt::Debug, hash::Hash, rc::Rc};
+use std::{collections::HashMap, fmt::Debug, hash::Hash, marker::PhantomData, rc::Rc};
 
 use crate::{
     field::Field,
@@ -9,7 +9,7 @@ use crate::{
         trace::{DSLTraceGenerator, TraceContext},
         StepTypeHandler,
     },
-    poly::{ConstrDecomp, Expr},
+    poly::{self, mielim::mi_elimination, reduce::reduce_degree, ConstrDecomp, Expr},
     util::{uuid, UUID},
     wit_gen::{FixedAssignment, FixedGenContext, NullTraceGenerator, TraceGenerator},
 };
@@ -269,22 +269,94 @@ impl<F: Clone + Field, TG: TraceGenerator<F>> SBPIRLegacy<F, TG> {
     }
 }
 
-pub struct SBPIR<F, TG: TraceGenerator<F> = DSLTraceGenerator<F>, M = ()> {
-    pub machines: HashMap<UUID, SBPIRMachine<F, TG, M>>,
+#[derive(Debug)]
+pub struct SBPIR<F: Clone, TG: TraceGenerator<F> = DSLTraceGenerator<F>, M: Clone = ()> {
+    pub machines: HashMap<String, SBPIRMachine<F, TG, M>>,
     pub identifiers: HashMap<String, UUID>,
 }
 
-impl<F, TG: TraceGenerator<F>> SBPIR<F, TG> {
-    pub(crate) fn from_legacy(circuit: SBPIRLegacy<F, TG>, machine_id: &str) -> SBPIR<F, TG> {
-        let mut machines = HashMap::new();
-        let circuit_id = circuit.id;
-        machines.insert(circuit_id, SBPIRMachine::<F, TG, ()>::from_legacy(circuit));
-        let mut identifiers = HashMap::new();
-        identifiers.insert(machine_id.to_string(), circuit_id);
+impl<F: Field + Hash, TG: TraceGenerator<F>> SBPIR<F, TG> {
+    pub(crate) fn default() -> SBPIR<F, TG> {
+        let machines = HashMap::new();
+        let identifiers = HashMap::new();
         SBPIR {
             machines,
             identifiers,
         }
+    }
+
+    pub(crate) fn with_trace<TG2: TraceGenerator<F> + Clone>(
+        &self,
+        // TODO does it have to be the same trace across all the machines?
+        trace: &TG2,
+    ) -> SBPIR<F, TG2> {
+        let mut machines_with_trace = HashMap::new();
+        for (name, machine) in self.machines.iter() {
+            let machine_with_trace = machine.with_trace(trace.clone());
+            machines_with_trace.insert(name.clone(), machine_with_trace);
+        }
+        SBPIR {
+            machines: machines_with_trace,
+            identifiers: self.identifiers.clone(),
+        }
+    }
+
+    pub(crate) fn without_trace(&self) -> SBPIR<F, NullTraceGenerator> {
+        let mut machines_without_trace = HashMap::new();
+        for (name, machine) in self.machines.iter() {
+            let machine_without_trace = machine.without_trace();
+            machines_without_trace.insert(name.clone(), machine_without_trace);
+        }
+        SBPIR {
+            machines: machines_without_trace,
+            identifiers: self.identifiers.clone(),
+        }
+    }
+
+    /// Eliminate multiplicative inverses
+    pub(crate) fn eliminate_mul_inv(mut self) -> SBPIR<F, TG> {
+        for machine in self.machines.values_mut() {
+            for (_, step_type) in machine.step_types.iter_mut() {
+                let mut signal_factory = SignalFactory::default();
+
+                step_type
+                    .decomp_constraints(|expr| mi_elimination(expr.clone(), &mut signal_factory));
+            }
+        }
+
+        self
+    }
+
+    pub(crate) fn reduce(mut self, degree: usize) -> SBPIR<F, TG> {
+        for machine in self.machines.values_mut() {
+            for (_, step_type) in machine.step_types.iter_mut() {
+                let mut signal_factory = SignalFactory::default();
+
+                step_type.decomp_constraints(|expr| {
+                    reduce_degree(expr.clone(), degree, &mut signal_factory)
+                });
+            }
+        }
+
+        self
+    }
+}
+
+// Basic signal factory.
+#[derive(Default)]
+struct SignalFactory<F> {
+    count: u64,
+    _p: PhantomData<F>,
+}
+
+impl<F> poly::SignalFactory<Queriable<F>> for SignalFactory<F> {
+    fn create<S: Into<String>>(&mut self, annotation: S) -> Queriable<F> {
+        self.count += 1;
+        Queriable::Internal(InternalSignal::new(format!(
+            "{}-{}",
+            annotation.into(),
+            self.count
+        )))
     }
 }
 
@@ -738,7 +810,7 @@ impl FixedSignal {
     }
 }
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub enum ExposeOffset {
     First,
     Last,

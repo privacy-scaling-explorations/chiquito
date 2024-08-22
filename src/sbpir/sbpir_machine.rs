@@ -16,12 +16,13 @@ use super::{
     ImportedHalo2Fixed, SharedSignal, StepType, StepTypeUUID,
 };
 
-/// Circuit (Step-Based Polynomial Identity Representation)
+/// Step-Based Polynomial Identity Representation (SBPIR) of a single machine.
 #[derive(Clone)]
-pub struct SBPIRMachine<F, TG: TraceGenerator<F> = DSLTraceGenerator<F>, M = ()> {
+pub struct SBPIRMachine<F: Clone, TG: TraceGenerator<F> = DSLTraceGenerator<F>, M: Clone = ()> {
     pub step_types: HashMap<UUID, StepType<F, M>>,
 
     pub forward_signals: Vec<ForwardSignal>,
+    // TODO currently not used
     pub shared_signals: Vec<SharedSignal>,
     pub fixed_signals: Vec<FixedSignal>,
     pub halo2_advice: Vec<ImportedHalo2Advice>,
@@ -31,6 +32,7 @@ pub struct SBPIRMachine<F, TG: TraceGenerator<F> = DSLTraceGenerator<F>, M = ()>
     pub annotations: HashMap<UUID, String>,
 
     pub trace_generator: Option<TG>,
+    // TODO currently not used
     pub fixed_assignments: Option<FixedAssignment<F>>,
 
     pub first_step: Option<StepTypeUUID>,
@@ -41,7 +43,7 @@ pub struct SBPIRMachine<F, TG: TraceGenerator<F> = DSLTraceGenerator<F>, M = ()>
     pub id: UUID,
 }
 
-impl<F: Debug, TG: TraceGenerator<F>, M: Debug> Debug for SBPIRMachine<F, TG, M> {
+impl<F: Debug + Clone, TG: TraceGenerator<F>, M: Debug + Clone> Debug for SBPIRMachine<F, TG, M> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("Circuit")
             .field("step_types", &self.step_types)
@@ -61,7 +63,7 @@ impl<F: Debug, TG: TraceGenerator<F>, M: Debug> Debug for SBPIRMachine<F, TG, M>
     }
 }
 
-impl<F, TG: TraceGenerator<F>, M> Default for SBPIRMachine<F, TG, M> {
+impl<F: Clone, TG: TraceGenerator<F>, M: Clone> Default for SBPIRMachine<F, TG, M> {
     fn default() -> Self {
         Self {
             step_types: Default::default(),
@@ -88,7 +90,7 @@ impl<F, TG: TraceGenerator<F>, M> Default for SBPIRMachine<F, TG, M> {
     }
 }
 
-impl<F, TG: TraceGenerator<F>, M> SBPIRMachine<F, TG, M> {
+impl<F: Clone, TG: TraceGenerator<F>, M: Clone> SBPIRMachine<F, TG, M> {
     pub fn add_forward<N: Into<String>>(&mut self, name: N, phase: usize) -> ForwardSignal {
         let name = name.into();
         let signal = ForwardSignal::new_with_phase(phase, name.clone());
@@ -109,6 +111,7 @@ impl<F, TG: TraceGenerator<F>, M> SBPIRMachine<F, TG, M> {
         signal
     }
 
+    // TODO currently not used
     pub fn add_fixed<N: Into<String>>(&mut self, name: N) -> FixedSignal {
         let name = name.into();
         let signal = FixedSignal::new(name.clone());
@@ -119,6 +122,7 @@ impl<F, TG: TraceGenerator<F>, M> SBPIRMachine<F, TG, M> {
         signal
     }
 
+    // TODO currently not used
     pub fn expose(&mut self, signal: Queriable<F>, offset: ExposeOffset) {
         match signal {
             Queriable::Forward(..) | Queriable::Shared(..) => {
@@ -167,8 +171,11 @@ impl<F, TG: TraceGenerator<F>, M> SBPIRMachine<F, TG, M> {
         advice
     }
 
-    pub fn add_step_type<N: Into<String>>(&mut self, handler: StepTypeHandler, name: N) {
-        self.annotations.insert(handler.uuid(), name.into());
+    pub fn add_step_type<N: Into<String>>(&mut self, name: N) -> StepTypeHandler {
+        let annotation = name.into();
+        let handler = StepTypeHandler::new(annotation.clone());
+        self.annotations.insert(handler.uuid(), annotation);
+        handler
     }
 
     pub fn add_step_type_def(&mut self, step: StepType<F, M>) -> StepTypeUUID {
@@ -187,18 +194,18 @@ impl<F, TG: TraceGenerator<F>, M> SBPIRMachine<F, TG, M> {
         }
     }
 
-    pub fn without_trace(self) -> SBPIRMachine<F, NullTraceGenerator, M> {
+    pub fn without_trace(&self) -> SBPIRMachine<F, NullTraceGenerator, M> {
         SBPIRMachine {
-            step_types: self.step_types,
-            forward_signals: self.forward_signals,
-            shared_signals: self.shared_signals,
-            fixed_signals: self.fixed_signals,
-            halo2_advice: self.halo2_advice,
-            halo2_fixed: self.halo2_fixed,
-            exposed: self.exposed,
-            annotations: self.annotations,
+            step_types: self.step_types.clone(),
+            forward_signals: self.forward_signals.clone(),
+            shared_signals: self.shared_signals.clone(),
+            fixed_signals: self.fixed_signals.clone(),
+            halo2_advice: self.halo2_advice.clone(),
+            halo2_fixed: self.halo2_fixed.clone(),
+            exposed: self.exposed.clone(),
+            annotations: self.annotations.clone(),
             trace_generator: None, // Remove the trace.
-            fixed_assignments: self.fixed_assignments,
+            fixed_assignments: self.fixed_assignments.clone(),
             first_step: self.first_step,
             last_step: self.last_step,
             num_steps: self.num_steps,
@@ -207,44 +214,23 @@ impl<F, TG: TraceGenerator<F>, M> SBPIRMachine<F, TG, M> {
         }
     }
 
-    #[allow(dead_code)] // TODO: Copy of the legacy SBPIR code. Remove if not used in the new compilation
-    pub(crate) fn with_trace<TG2: TraceGenerator<F>>(self, trace: TG2) -> SBPIRMachine<F, TG2, M> {
+    pub(crate) fn with_trace<TG2: TraceGenerator<F>>(&self, clone: TG2) -> SBPIRMachine<F, TG2, M> {
         SBPIRMachine {
-            trace_generator: Some(trace), // Change trace
-            step_types: self.step_types,
-            forward_signals: self.forward_signals,
-            shared_signals: self.shared_signals,
-            fixed_signals: self.fixed_signals,
-            halo2_advice: self.halo2_advice,
-            halo2_fixed: self.halo2_fixed,
-            exposed: self.exposed,
-            annotations: self.annotations,
-            fixed_assignments: self.fixed_assignments,
+            trace_generator: Some(clone), // Set trace
+            step_types: self.step_types.clone(),
+            forward_signals: self.forward_signals.clone(),
+            shared_signals: self.shared_signals.clone(),
+            fixed_signals: self.fixed_signals.clone(),
+            halo2_advice: self.halo2_advice.clone(),
+            halo2_fixed: self.halo2_fixed.clone(),
+            exposed: self.exposed.clone(),
+            annotations: self.annotations.clone(),
+            fixed_assignments: self.fixed_assignments.clone(),
             first_step: self.first_step,
             last_step: self.last_step,
             num_steps: self.num_steps,
             q_enable: self.q_enable,
             id: self.id,
-        }
-    }
-
-    pub(crate) fn from_legacy(circuit: super::SBPIRLegacy<F, TG>) -> SBPIRMachine<F, TG> {
-        SBPIRMachine {
-            step_types: circuit.step_types,
-            forward_signals: circuit.forward_signals,
-            shared_signals: circuit.shared_signals,
-            fixed_signals: circuit.fixed_signals,
-            halo2_advice: circuit.halo2_advice,
-            halo2_fixed: circuit.halo2_fixed,
-            exposed: circuit.exposed,
-            annotations: circuit.annotations,
-            trace_generator: circuit.trace_generator,
-            fixed_assignments: circuit.fixed_assignments,
-            first_step: circuit.first_step,
-            last_step: circuit.last_step,
-            num_steps: circuit.num_steps,
-            q_enable: circuit.q_enable,
-            id: circuit.id,
         }
     }
 }

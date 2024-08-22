@@ -255,7 +255,7 @@ pub fn run<F: Field + Hash>(
 }
 
 /// A trace generator that interprets chiquito source
-#[derive(Default, Clone)]
+#[derive(Debug, Default, Clone)]
 pub struct InterpreterTraceGenerator {
     program: Vec<TLDecl<BigInt, Identifier>>,
     symbols: SymTable,

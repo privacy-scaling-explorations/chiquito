@@ -400,7 +400,7 @@ mod test {
         let mut machine: SBPIRMachine<Fr, NullTraceGenerator> = SBPIRMachine::default();
         let step_uuid = machine.add_step_type_def(step);
         let mut machines = HashMap::new();
-        machines.insert(uuid(), machine);
+        machines.insert("test_machine".to_string(), machine);
         let circuit = SBPIR {
             machines,
             identifiers: HashMap::new(),

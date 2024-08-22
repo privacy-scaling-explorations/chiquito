@@ -17,7 +17,7 @@ use crate::{
     wit_gen::{NullTraceGenerator, TraceGenerator},
 };
 
-use super::{lb::LookupTableRegistry, trace::DSLTraceGenerator, CircuitContext};
+use super::{lb::LookupTableRegistry, trace::DSLTraceGenerator, CircuitContextLegacy};
 
 pub struct SuperCircuitContext<F, MappingArgs> {
     super_circuit: SuperCircuit<F, MappingArgs>,
@@ -61,9 +61,9 @@ impl<F: Field + Hash, MappingArgs> SuperCircuitContext<F, MappingArgs> {
         Exports,
     )
     where
-        D: Fn(&mut CircuitContext<F, DSLTraceGenerator<F, TraceArgs>>, Imports) -> Exports,
+        D: Fn(&mut CircuitContextLegacy<F, DSLTraceGenerator<F, TraceArgs>>, Imports) -> Exports,
     {
-        let mut sub_circuit_context = CircuitContext {
+        let mut sub_circuit_context = CircuitContextLegacy {
             circuit: SBPIRLegacy::default(),
             tables: self.tables.clone(),
         };
@@ -148,6 +148,7 @@ mod tests {
     use halo2_proofs::halo2curves::{bn256::Fr, ff::PrimeField};
 
     use crate::{
+        frontend::dsl::circuit_legacy,
         plonkish::compiler::{
             cell_manager::SingleRowCellManager, config, step_selector::SimpleStepSelectorBuilder,
         },
@@ -180,7 +181,7 @@ mod tests {
         let mut ctx = SuperCircuitContext::<Fr, ()>::default();
 
         fn simple_circuit<F: PrimeField + Eq + Hash>(
-            ctx: &mut CircuitContext<F, DSLTraceGenerator<F>>,
+            ctx: &mut CircuitContextLegacy<F, DSLTraceGenerator<F>>,
             _: (),
         ) {
             use crate::frontend::dsl::cb::*;
@@ -239,7 +240,7 @@ mod tests {
         let mut ctx = SuperCircuitContext::<Fr, ()>::default();
 
         fn simple_circuit<F: PrimeField + Eq + Hash>(
-            ctx: &mut CircuitContext<F, DSLTraceGenerator<F>>,
+            ctx: &mut CircuitContextLegacy<F, DSLTraceGenerator<F>>,
             _: (),
         ) {
             use crate::frontend::dsl::cb::*;
@@ -296,10 +297,9 @@ mod tests {
 
     #[test]
     fn test_super_circuit_sub_circuit_with_ast() {
-        use crate::frontend::dsl::circuit;
         let mut ctx = SuperCircuitContext::<Fr, ()>::default();
 
-        let simple_circuit_with_ast = circuit("simple circuit", |ctx| {
+        let simple_circuit_with_ast = circuit_legacy("simple circuit", |ctx| {
             use crate::frontend::dsl::cb::*;
 
             let x = ctx.forward("x");
