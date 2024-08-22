@@ -506,3 +506,73 @@ fn is_last_step_with_next_signal<F: Clone>(
     }
     false
 }
+
+#[cfg(test)]
+mod tests {
+    use std::vec;
+
+    use super::*;
+    use halo2_proofs::halo2curves::bn256::Fr;
+
+    #[test]
+    fn test_ccs() {
+        let n = 7;
+        let l = 3;
+
+        let mut ccs_circuit: CCSCircuit<Fr> = CCSCircuit::new();
+        ccs_circuit.n = n;
+        ccs_circuit.m = 4;
+        ccs_circuit.t = 8;
+        ccs_circuit.q = 5;
+        ccs_circuit.l = 3;
+
+        let m0 = vec![
+            (0, 1, Fr::ONE),
+            (1, 2, Fr::ONE),
+            (2, 3, Fr::ONE),
+            (3, 6, Fr::ONE),
+        ];
+        let m1 = vec![
+            (0, 1, Fr::ONE),
+            (1, 2, Fr::ONE),
+            (2, 4, Fr::ONE),
+            (3, 6, Fr::ONE),
+        ];
+        let m2 = vec![
+            (0, 1, Fr::ONE),
+            (1, 2, Fr::ONE),
+            (2, 5, Fr::ONE),
+            (3, 6, Fr::ONE),
+        ];
+        let m3 = vec![(0, 0, Fr::ONE), (1, 0, Fr::ONE)];
+        let m4 = vec![(2, 0, Fr::from(2))];
+        let m5 = vec![(2, 0, Fr::from(2))];
+        let m6 = vec![
+            (0, 0, Fr::ONE.neg()),
+            (1, 0, Fr::ONE.neg()),
+            (2, 0, Fr::ONE.neg()),
+        ];
+        let m7 = vec![(0, 0, Fr::ZERO)];
+        let matrics = vec![m0, m1, m2, m3, m4, m5, m6, m7];
+
+        let selectors = vec![
+            vec![(3, Fr::ONE), (0, Fr::ONE), (1, Fr::ONE)],
+            vec![(4, Fr::ONE), (0, Fr::ONE)],
+            vec![(5, Fr::ONE), (1, Fr::ONE)],
+            vec![(6, Fr::ONE), (2, Fr::ONE)],
+            vec![(7, Fr::ONE)],
+        ];
+        let constants: Vec<Fr> = vec![Fr::ONE, Fr::ONE, Fr::ONE, Fr::ONE, Fr::ONE];
+        ccs_circuit.write(&matrics, &selectors, &constants);
+
+        let mut z = Z::new(n, l);
+        z.write_with_values(
+            &[Fr::ZERO, Fr::ONE, Fr::from(2)],
+            &[Fr::from(3), Fr::from(10), Fr::from(43)],
+        );
+
+        let result = ccs_circuit.is_satisfied(&z);
+
+        println!("result = {}", result);
+    }
+}

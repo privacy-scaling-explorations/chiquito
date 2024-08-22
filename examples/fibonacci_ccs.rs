@@ -38,7 +38,6 @@ use folding_schemes::{
 type FiboReturn<F> = (Circuit<F>, Option<AssignmentGenerator<F, ()>>, SBPIR<F, ()>);
 
 fn fibo_circuit_ccs<F: Field + From<u64> + Hash>() -> FiboReturn<F> {
-
     use chiquito::frontend::dsl::cb::*; // functions for constraint building
 
     let fibo = circuit::<F, (), _>("fibonacci", |ctx| {
