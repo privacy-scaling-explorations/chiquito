@@ -251,7 +251,7 @@ impl StepSelectorBuilder for LogNSelectorBuilder {
     }
 }
 
-fn other_step_type<F: Clone>(unit: &CompilationUnit<F>, uuid: UUID) -> Option<StepType<F>> {
+fn other_step_type<F: Clone>(unit: &CompilationUnit<F>, uuid: UUID) -> Option<StepType<F, ()>> {
     for step_type in unit.step_types.values() {
         if step_type.uuid() != uuid {
             return Some(step_type.clone());

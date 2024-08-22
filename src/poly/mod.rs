@@ -9,7 +9,6 @@ use halo2_proofs::plonk::Expression;
 
 use crate::field::Field;
 
-pub mod cse;
 pub mod mielim;
 pub mod reduce;
 pub mod simplify;
@@ -35,17 +34,46 @@ pub enum Expr<F, V, M> {
     MI(Box<Expr<F, V, M>>, M),
 }
 
-impl<F, V, M> Expr<F, V, M> {
+#[derive(Debug, Clone, Default, Hash)]
+pub struct HashResult {
+    pub hash: u64,
+    pub degree: usize,
+}
+
+impl HashResult {
+    pub fn new<F: Field + Hash, V: Clone + Eq + Hash + Debug>(
+        expr: &Expr<F, V, ()>,
+        assignments: &VarAssignments<F, V>,
+    ) -> Self {
+        let mut hasher = DefaultHasher::new();
+
+        // Custom hashing logic
+        if let Some(result) = expr.eval(assignments) {
+            result.hash(&mut hasher);
+        } else {
+            // TODO: what to do if the expression can't be evaluated?
+            panic!("Expression can't be evaluated: {:#?}", expr);
+        }
+
+        HashResult {
+            hash: hasher.finish(),
+            degree: expr.degree(),
+        }
+    }
+}
+
+impl<F: Clone, V: Clone, M> Expr<F, V, M> {
     pub fn degree(&self) -> usize {
         match self {
             Expr::Const(_, _) => 0,
-            Expr::Sum(ses, _) => ses.iter().map(|se| se.degree()).max().unwrap(),
+            Expr::Sum(ses, _) => ses.iter().map(|se| se.degree()).max().unwrap_or(0),
             Expr::Mul(ses, _) => ses.iter().fold(0, |acc, se| acc + se.degree()),
             Expr::Neg(se, _) => se.degree(),
             Expr::Pow(se, exp, _) => se.degree() * (*exp as usize),
             Expr::Query(_, _) => 1,
             Expr::Halo2Expr(_, _) => panic!("not implemented"),
-            Expr::MI(_, _) => panic!("not implemented"),
+            Expr::MI(se, _) => se.degree(), /* Treat MI as not changing the degree of the inner
+                                             * expression */
         }
     }
 
@@ -63,25 +91,58 @@ impl<F, V, M> Expr<F, V, M> {
     }
 }
 
-#[derive(Debug, Clone)]
-pub struct HashResult {
-    pub hash: u64,
-    pub degree: usize,
+impl<F: Field + Hash, V: Debug + Clone + Eq + Hash, M: Clone> Expr<F, V, M> {
+    pub fn transform_meta<N: Clone, ApplyMetaFn>(&self, apply_meta: ApplyMetaFn) -> Expr<F, V, N>
+    where
+        ApplyMetaFn: Fn(&Expr<F, V, M>) -> N + Clone,
+    {
+        let new_meta = apply_meta(self);
+        match self {
+            Expr::Const(v, _) => Expr::Const(*v, new_meta),
+            Expr::Sum(ses, _) => Expr::Sum(
+                ses.iter()
+                    .map(|e| e.transform_meta(apply_meta.clone()))
+                    .collect(),
+                new_meta,
+            ),
+            Expr::Mul(ses, _) => Expr::Mul(
+                ses.iter()
+                    .map(|e| e.transform_meta(apply_meta.clone()))
+                    .collect(),
+                new_meta,
+            ),
+            Expr::Neg(se, _) => {
+                Expr::Neg(Box::new(se.transform_meta(apply_meta.clone())), new_meta)
+            }
+            Expr::Pow(se, exp, _) => Expr::Pow(
+                Box::new(se.transform_meta(apply_meta.clone())),
+                *exp,
+                new_meta,
+            ),
+            Expr::Query(v, _) => Expr::Query(v.clone(), new_meta),
+            Expr::Halo2Expr(e, _) => Expr::Halo2Expr(e.clone(), new_meta),
+            Expr::MI(se, _) => Expr::MI(Box::new(se.transform_meta(apply_meta.clone())), new_meta),
+        }
+    }
+
+    pub fn apply_subexpressions<T>(&self, mut f: T) -> Self
+    where
+        T: FnMut(&Self) -> Self,
+    {
+        match self {
+            Expr::Sum(ses, m) => Expr::Sum(ses.iter().map(&mut f).collect(), m.clone()),
+            Expr::Mul(ses, m) => Expr::Mul(ses.iter().map(&mut f).collect(), m.clone()),
+            Expr::Neg(se, m) => Expr::Neg(Box::new(f(se)), m.clone()),
+            Expr::Pow(se, exp, m) => Expr::Pow(Box::new(f(se)), *exp, m.clone()),
+            Expr::MI(se, m) => Expr::MI(Box::new(f(se)), m.clone()),
+            _ => self.clone(),
+        }
+    }
 }
 
-impl<F: Field + Hash, V: Debug + Clone + Eq + Hash> Expr<F, V, ()> {
-    /// Uses Schwartz-Zippel Lemma to hash
+impl<F: Field + Hash, V: Clone + Eq + Hash + Debug> Expr<F, V, ()> {
     pub fn hash(&self, assignments: &VarAssignments<F, V>) -> Expr<F, V, HashResult> {
-        let mut hasher = DefaultHasher::new();
-
-        if let Some(result) = self.eval(assignments) {
-            result.hash(&mut hasher);
-        }
-
-        let hash_result = HashResult {
-            hash: hasher.finish(),
-            degree: self.degree(),
-        };
+        let hash_result = HashResult::new(self, assignments);
 
         match self {
             Expr::Const(v, _) => Expr::Const(*v, hash_result),
@@ -102,7 +163,7 @@ impl<F: Field + Hash, V: Debug + Clone + Eq + Hash> Expr<F, V, ()> {
     }
 }
 
-impl<F: Debug, V: Debug, M: Debug> Debug for Expr<F, V, M> {
+impl<F: Debug, V: Debug, M> Debug for Expr<F, V, M> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::Const(arg0, _) => {
@@ -144,7 +205,7 @@ impl<F: Debug, V: Debug, M: Debug> Debug for Expr<F, V, M> {
 
 pub type VarAssignments<F, V> = HashMap<V, F>;
 
-impl<F: Field + Hash, V: Eq + PartialEq + Hash, M: Clone + Default> Expr<F, V, M> {
+impl<F: Field + Hash, V: Eq + PartialEq + Hash, M: Hash> Expr<F, V, M> {
     pub fn eval(&self, assignments: &VarAssignments<F, V>) -> Option<F> {
         match self {
             Expr::Const(v, _) => Some(*v),
@@ -165,7 +226,7 @@ impl<F: Field + Hash, V: Eq + PartialEq + Hash, M: Clone + Default> Expr<F, V, M
     }
 }
 
-impl<F: Field + Hash, V: Eq + PartialEq + Hash + Clone, M: Clone + Default> Expr<F, V, M> {
+impl<F: Field + Hash, V: Eq + PartialEq + Hash + Clone, M> Expr<F, V, M> {
     /// Returns all the keys of the queries
     pub fn get_queries(&self) -> Vec<V> {
         match self {
@@ -332,15 +393,42 @@ pub trait SignalFactory<V> {
 
 /// The result of decomposing a PI into several
 #[derive(Debug, Clone)]
-pub struct ConstrDecomp<F, V> {
+pub struct ConstrDecomp<F, V, M> {
     /// PI constraint for the new signals introduced.
-    pub constrs: Vec<Expr<F, V, ()>>,
+    pub constrs: Vec<Expr<F, V, M>>,
     /// Expressions for how to create the witness for the generated signals the orginal expression
     /// has be decomposed into.
-    pub auto_signals: HashMap<V, Expr<F, V, ()>>,
+    pub auto_signals: HashMap<V, Expr<F, V, M>>,
 }
 
-impl<F, V> Default for ConstrDecomp<F, V> {
+impl<F, V: Debug, M> ConstrDecomp<F, V, M> {
+    pub fn get_auto_signal<S: Into<String> + Copy>(
+        &self,
+        annotation: S,
+    ) -> Option<(&V, &Expr<F, V, M>)> {
+        self.auto_signals.iter().find_map(|(s, e)| {
+            if format!("{:#?}", s) == annotation.into() {
+                Some((s, e))
+            } else {
+                None
+            }
+        })
+    }
+}
+
+impl<F: Clone, V: Clone> ConstrDecomp<F, V, HashResult> {
+    pub fn find_auto_signal_by_hash(&self, hash: u64) -> Option<(&V, &Expr<F, V, HashResult>)> {
+        self.auto_signals.iter().find_map(|(s, e)| {
+            if e.meta().hash == hash {
+                Some((s, e))
+            } else {
+                None
+            }
+        })
+    }
+}
+
+impl<F, V, M> Default for ConstrDecomp<F, V, M> {
     fn default() -> Self {
         Self {
             constrs: Default::default(),
@@ -349,14 +437,17 @@ impl<F, V> Default for ConstrDecomp<F, V> {
     }
 }
 
-impl<F: Clone, V: Clone + Eq + PartialEq + Hash> ConstrDecomp<F, V> {
-    fn auto_eq(&mut self, signal: V, expr: Expr<F, V, ()>) {
+impl<F: Clone, V: Clone + Eq + PartialEq + Hash, M: Clone + Default> ConstrDecomp<F, V, M> {
+    fn auto_eq(&mut self, signal: V, expr: Expr<F, V, M>) {
         self.constrs.push(Expr::Sum(
             vec![
                 expr.clone(),
-                Expr::Neg(Box::new(Expr::Query(signal.clone(), ())), ()),
+                Expr::Neg(
+                    Box::new(Expr::Query(signal.clone(), M::default())),
+                    M::default(),
+                ),
             ],
-            (),
+            M::default(),
         ));
 
         self.auto_signals.insert(signal, expr);

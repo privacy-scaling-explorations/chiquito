@@ -272,11 +272,6 @@ impl<F: Field + Hash> Compiler<F> {
         sbpir.without_trace()
     }
 
-    #[allow(dead_code)]
-    fn cse(mut _circuit: SBPIR<F, NullTraceGenerator>) -> SBPIR<F, NullTraceGenerator> {
-        todo!()
-    }
-
     /// Translate the queries to constraints
     fn queries_into_constraints(
         &mut self,
@@ -284,7 +279,7 @@ impl<F: Field + Hash> Compiler<F> {
         setup: &MachineSetup<F>,
         machine_name: &str,
         state_id: &str,
-    ) -> Vec<Constraint<F>> {
+    ) -> Vec<Constraint<F, ()>> {
         let exprs = setup.get_poly_constraints(state_id).unwrap();
 
         exprs
@@ -433,10 +428,10 @@ impl<F: Field + Hash> Compiler<F> {
         machine_name: &str,
         machine_setup: &MachineSetup<F>,
         state_id: &str,
-    ) -> StepType<F> {
+    ) -> StepType<F, ()> {
         let handler = self.mapping.get_step_type_handler(machine_name, state_id);
 
-        let mut step_type: StepType<F> =
+        let mut step_type: StepType<F, ()> =
             StepType::new(handler.uuid(), handler.annotation.to_string());
 
         self.add_internal_signals(symbols, machine_name, &mut step_type, state_id);
@@ -453,7 +448,7 @@ impl<F: Field + Hash> Compiler<F> {
         &mut self,
         symbols: &SymTable,
         machine_name: &str,
-        step_type: &mut StepType<F>,
+        step_type: &mut StepType<F, ()>,
         state_id: &str,
     ) {
         let internal_ids = self.get_all_internals(symbols, machine_name, state_id);

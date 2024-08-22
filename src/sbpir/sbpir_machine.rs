@@ -18,8 +18,8 @@ use super::{
 
 /// Step-Based Polynomial Identity Representation (SBPIR) of a single machine.
 #[derive(Clone)]
-pub struct SBPIRMachine<F: Clone, TG: TraceGenerator<F> = DSLTraceGenerator<F>> {
-    pub step_types: HashMap<UUID, StepType<F>>,
+pub struct SBPIRMachine<F: Clone, TG: TraceGenerator<F> = DSLTraceGenerator<F>, M: Clone = ()> {
+    pub step_types: HashMap<UUID, StepType<F, M>>,
 
     pub forward_signals: Vec<ForwardSignal>,
     // TODO currently not used
@@ -43,7 +43,7 @@ pub struct SBPIRMachine<F: Clone, TG: TraceGenerator<F> = DSLTraceGenerator<F>> 
     pub id: UUID,
 }
 
-impl<F: Debug + Clone, TG: TraceGenerator<F>> Debug for SBPIRMachine<F, TG> {
+impl<F: Debug + Clone, TG: TraceGenerator<F>, M: Debug + Clone> Debug for SBPIRMachine<F, TG, M> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("Circuit")
             .field("step_types", &self.step_types)
@@ -63,7 +63,7 @@ impl<F: Debug + Clone, TG: TraceGenerator<F>> Debug for SBPIRMachine<F, TG> {
     }
 }
 
-impl<F: Clone, TG: TraceGenerator<F>> Default for SBPIRMachine<F, TG> {
+impl<F: Clone, TG: TraceGenerator<F>, M: Clone> Default for SBPIRMachine<F, TG, M> {
     fn default() -> Self {
         Self {
             step_types: Default::default(),
@@ -90,7 +90,7 @@ impl<F: Clone, TG: TraceGenerator<F>> Default for SBPIRMachine<F, TG> {
     }
 }
 
-impl<F: Clone, TG: TraceGenerator<F>> SBPIRMachine<F, TG> {
+impl<F: Clone, TG: TraceGenerator<F>, M: Clone> SBPIRMachine<F, TG, M> {
     pub fn add_forward<N: Into<String>>(&mut self, name: N, phase: usize) -> ForwardSignal {
         let name = name.into();
         let signal = ForwardSignal::new_with_phase(phase, name.clone());
@@ -178,7 +178,7 @@ impl<F: Clone, TG: TraceGenerator<F>> SBPIRMachine<F, TG> {
         handler
     }
 
-    pub fn add_step_type_def(&mut self, step: StepType<F>) -> StepTypeUUID {
+    pub fn add_step_type_def(&mut self, step: StepType<F, M>) -> StepTypeUUID {
         let uuid = step.uuid();
         self.step_types.insert(uuid, step);
 
@@ -194,7 +194,7 @@ impl<F: Clone, TG: TraceGenerator<F>> SBPIRMachine<F, TG> {
         }
     }
 
-    pub fn without_trace(&self) -> SBPIRMachine<F, NullTraceGenerator> {
+    pub fn without_trace(&self) -> SBPIRMachine<F, NullTraceGenerator, M> {
         SBPIRMachine {
             step_types: self.step_types.clone(),
             forward_signals: self.forward_signals.clone(),
@@ -214,7 +214,7 @@ impl<F: Clone, TG: TraceGenerator<F>> SBPIRMachine<F, TG> {
         }
     }
 
-    pub(crate) fn with_trace<TG2: TraceGenerator<F>>(&self, clone: TG2) -> SBPIRMachine<F, TG2> {
+    pub(crate) fn with_trace<TG2: TraceGenerator<F>>(&self, clone: TG2) -> SBPIRMachine<F, TG2, M> {
         SBPIRMachine {
             trace_generator: Some(clone), // Set trace
             step_types: self.step_types.clone(),

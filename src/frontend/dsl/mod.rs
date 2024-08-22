@@ -221,7 +221,7 @@ impl From<String> for StepTypeDefInput {
 /// and manipulate the step type. `F` is a generic type representing the field of the step type.
 /// `Args` is the type of the step instance witness generation arguments.
 pub struct StepTypeContext<F> {
-    step_type: StepType<F>,
+    step_type: StepType<F, ()>,
     tables: LookupTableRegistry<F>,
 }
 
@@ -290,7 +290,7 @@ impl<F> StepTypeContext<F> {
 }
 
 pub struct StepTypeSetupContext<'a, F> {
-    step_type: &'a mut StepType<F>,
+    step_type: &'a mut StepType<F, ()>,
     tables: LookupTableRegistry<F>,
 }
 
@@ -329,11 +329,11 @@ impl<'a, F> StepTypeSetupContext<'a, F> {
 }
 
 impl<'a, F: Eq + PartialEq + Hash + Debug + Clone> StepTypeSetupContext<'a, F> {
-    pub fn auto(&mut self, signal: Queriable<F>, expr: PIR<F>) {
+    pub fn auto(&mut self, signal: Queriable<F>, expr: PIR<F, ()>) {
         self.step_type.auto_signals.insert(signal, expr);
     }
 
-    pub fn auto_eq(&mut self, signal: Queriable<F>, expr: PIR<F>) {
+    pub fn auto_eq(&mut self, signal: Queriable<F>, expr: PIR<F, ()>) {
         self.auto(signal.clone(), expr.clone());
 
         self.constr(eq(signal, expr));

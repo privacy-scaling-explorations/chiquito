@@ -16,6 +16,7 @@ pub mod abepi;
 #[allow(clippy::module_inception)]
 pub mod compiler;
 pub mod compiler_legacy;
+mod cse;
 pub mod semantic;
 mod setup_inter;
 

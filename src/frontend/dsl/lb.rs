@@ -12,16 +12,16 @@ use crate::{
 use super::{cb::Constraint, StepTypeSetupContext};
 
 pub trait LookupBuilder<F> {
-    fn build(self, ctx: &StepTypeSetupContext<F>) -> Lookup<F>;
+    fn build(self, ctx: &StepTypeSetupContext<F>) -> Lookup<F, ()>;
 }
 
 /// A helper struct for building lookup tables.
 pub struct InPlaceLookupBuilder<F> {
-    lookup: Lookup<F>,
+    lookup: Lookup<F, ()>,
 }
 
 impl<F> LookupBuilder<F> for InPlaceLookupBuilder<F> {
-    fn build(self, _: &StepTypeSetupContext<F>) -> Lookup<F> {
+    fn build(self, _: &StepTypeSetupContext<F>) -> Lookup<F, ()> {
         self.lookup
     }
 }
@@ -39,7 +39,7 @@ impl<F: Debug + Clone> InPlaceLookupBuilder<F> {
     /// mutable reference to the `LookupBuilder<F>`, it can an chain multiple `add` and `enable`
     /// function calls to build the lookup table. Requires calling `lookup` to create an empty
     /// `LookupBuilder` instance at the very front.
-    pub fn add<C: Into<Constraint<F>>, E: Into<PIR<F>>>(
+    pub fn add<C: Into<Constraint<F>>, E: Into<PIR<F, ()>>>(
         mut self,
         constraint: C,
         expression: E,
@@ -64,7 +64,7 @@ impl<F: Debug + Clone> InPlaceLookupBuilder<F> {
 #[derive(Debug, Clone)]
 pub struct LookupTableStore<F> {
     id: UUID,
-    dest: Vec<PIR<F>>,
+    dest: Vec<PIR<F, ()>>,
 }
 
 impl<F> Default for LookupTableStore<F> {
@@ -78,7 +78,7 @@ impl<F> Default for LookupTableStore<F> {
 
 impl<F> LookupTableStore<F> {
     #[allow(clippy::should_implement_trait)]
-    pub fn add<E: Into<PIR<F>>>(mut self, expr: E) -> Self {
+    pub fn add<E: Into<PIR<F, ()>>>(mut self, expr: E) -> Self {
         self.dest.push(expr.into());
 
         self
@@ -90,7 +90,7 @@ impl<F> LookupTableStore<F> {
 }
 
 impl<F: Debug + Clone> LookupTableStore<F> {
-    fn build(self, src: Vec<Constraint<F>>, enable: Option<Constraint<F>>) -> Lookup<F> {
+    fn build(self, src: Vec<Constraint<F>>, enable: Option<Constraint<F>>) -> Lookup<F, ()> {
         assert_eq!(
             self.dest.len(),
             src.len(),
@@ -195,7 +195,7 @@ impl<F> LookupTableBuilder<F> {
 }
 
 impl<F: Clone + Debug> LookupBuilder<F> for LookupTableBuilder<F> {
-    fn build(self, ctx: &StepTypeSetupContext<F>) -> Lookup<F> {
+    fn build(self, ctx: &StepTypeSetupContext<F>) -> Lookup<F, ()> {
         let table = ctx.tables.get(self.id);
 
         table.build(self.src, self.enable)

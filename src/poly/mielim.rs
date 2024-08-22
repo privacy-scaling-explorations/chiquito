@@ -8,7 +8,7 @@ use crate::field::Field;
 pub fn mi_elimination<F: Field, V: Clone + Eq + PartialEq + Hash + Debug, SF: SignalFactory<V>>(
     constr: Expr<F, V, ()>,
     signal_factory: &mut SF,
-) -> (Expr<F, V, ()>, ConstrDecomp<F, V>) {
+) -> (Expr<F, V, ()>, ConstrDecomp<F, V, ()>) {
     let mut decomp = ConstrDecomp::default();
     let expr = mi_elimination_recursive(&mut decomp, constr, signal_factory);
 
@@ -20,7 +20,7 @@ fn mi_elimination_recursive<
     V: Clone + Eq + PartialEq + Hash + Debug,
     SF: SignalFactory<V>,
 >(
-    decomp: &mut ConstrDecomp<F, V>,
+    decomp: &mut ConstrDecomp<F, V, ()>,
     constr: Expr<F, V, ()>,
     signal_factory: &mut SF,
 ) -> Expr<F, V, ()> {

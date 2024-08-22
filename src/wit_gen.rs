@@ -107,7 +107,7 @@ impl<F> TraceGenerator<F> for NullTraceGenerator {
 
 #[derive(Debug, Clone)]
 pub struct AutoTraceGenerator<F> {
-    auto_signals: HashMap<UUID, HashMap<Queriable<F>, PIR<F>>>,
+    auto_signals: HashMap<UUID, HashMap<Queriable<F>, PIR<F, ()>>>,
 }
 
 impl<F> Default for AutoTraceGenerator<F> {
@@ -183,7 +183,7 @@ impl<F: Field + Eq + PartialEq + Hash + Clone> AutoTraceGenerator<F> {
 
     fn step_gen(
         &self,
-        auto_signals: &HashMap<Queriable<F>, PIR<F>>,
+        auto_signals: &HashMap<Queriable<F>, PIR<F, ()>>,
         witness: &mut StepInstance<F>,
     ) {
         calc_auto_signals(auto_signals, &mut witness.assignments);

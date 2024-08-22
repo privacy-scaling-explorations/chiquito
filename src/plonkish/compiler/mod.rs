@@ -138,7 +138,7 @@ pub fn compile_phase2<F: Field + Clone>(unit: &mut CompilationUnit<F>) {
     unit.compilation_phase = 2;
 }
 
-fn compile_step<F: Field>(unit: &mut CompilationUnit<F>, step: &StepType<F>) {
+fn compile_step<F: Field>(unit: &mut CompilationUnit<F>, step: &StepType<F, ()>) {
     let step_annotation = unit
         .annotations
         .get(&step.uuid())
@@ -261,7 +261,7 @@ fn compile_fixed<F: Field + Hash, TG: TraceGenerator<F>>(
 
 fn place_queriable<F: Clone>(
     unit: &CompilationUnit<F>,
-    step: &StepType<F>,
+    step: &StepType<F, ()>,
     q: Queriable<F>,
 ) -> PolyExpr<F> {
     match q {
@@ -401,8 +401,8 @@ fn place_queriable<F: Clone>(
 
 fn transform_expr<F: Clone>(
     unit: &CompilationUnit<F>,
-    step: &StepType<F>,
-    source: &PIR<F>,
+    step: &StepType<F, ()>,
+    source: &PIR<F, ()>,
 ) -> PolyExpr<F> {
     match source.clone() {
         Expr::Const(c, _) => PolyExpr::Const(c, ()),
