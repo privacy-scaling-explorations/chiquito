@@ -9,7 +9,6 @@ use halo2_proofs::plonk::Expression;
 
 use crate::field::Field;
 
-pub mod cse;
 pub mod mielim;
 pub mod reduce;
 pub mod simplify;

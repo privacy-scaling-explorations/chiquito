@@ -4,11 +4,7 @@ use std::{collections::HashMap, hash::Hash, marker::PhantomData};
 
 use crate::{
     field::Field,
-    poly::{
-        self,
-        cse::{create_common_ses_signal, replace_expr},
-        ConstrDecomp, Expr, HashResult, VarAssignments,
-    },
+    poly::{self, Expr, HashResult, ToExpr, VarAssignments},
     sbpir::{query::Queriable, ForwardSignal, InternalSignal, StepType, SBPIR},
     wit_gen::NullTraceGenerator,
 };
@@ -89,6 +85,8 @@ fn cse_for_step<F: Field + Hash, S: Scoring<F>>(
     config: &CseConfig,
     scorer: &S,
 ) {
+    use crate::poly::SignalFactory as _;
+
     let mut signal_factory = SignalFactory::default();
 
     for _ in 0..config.max_iterations {
@@ -111,15 +109,13 @@ fn cse_for_step<F: Field + Hash, S: Scoring<F>>(
         // Step 5: Find the optimal subexpression to replace
         if let Some(common_expr) = find_optimal_subexpression(&exprs, scorer) {
             // Step 6: Create a new signal for the common subexpression
-            let (common_se, decomp) = create_common_ses_signal(&common_expr, &mut signal_factory);
-
-            println!("Decomp: {:#?}", decomp);
+            let cse_signal = signal_factory.create("cse");
 
             // Step 7: Update the step type with the new common subexpression
             update_step_type_with_common_subexpression(
                 &mut step_type_with_hash,
-                decomp,
-                &common_se,
+                cse_signal,
+                &common_expr,
             );
         } else {
             // No more common subexpressions found, exit the loop
@@ -169,23 +165,44 @@ fn hash_step_type_expressions<F: Field + Hash>(
 
 fn update_step_type_with_common_subexpression<F: Field + Hash>(
     step_type: &mut StepType<F, HashResult>,
-    decomp: ConstrDecomp<F, Queriable<F>, HashResult>,
+    cse_signal: Queriable<F>,
     common_se: &Expr<F, Queriable<F>, HashResult>,
 ) {
     // Add new signals and constraints
-    for (q, expr) in &decomp.auto_signals {
-        if let Queriable::Internal(signal) = q {
-            step_type.add_internal(*signal);
-        }
-        step_type.auto_signals.insert(*q, expr.clone());
+    let common_se_query = Expr::Query(cse_signal, common_se.meta().clone());
+
+    // Add the new signal to the step type
+    if let Queriable::Internal(signal) = cse_signal {
+        step_type.add_internal(signal);
     }
-    for expr in &decomp.constrs {
-        step_type.add_constr(format!("{:?}", expr), expr.clone());
-    }
+    step_type.auto_signals.insert(cse_signal, common_se.expr());
+
+    let expr = common_se.clone() - common_se_query.clone();
+    step_type.add_constr(format!("{:?}", expr), expr.clone());
 
     // Replace the common subexpression in all constraints
     for constraint in &mut step_type.constraints {
-        constraint.expr = replace_expr(&constraint.expr, common_se);
+        constraint.expr = replace_expr(&constraint.expr, &common_se_query);
+    }
+}
+
+fn replace_expr<F: Field + Hash>(
+    expr: &Expr<F, Queriable<F>, HashResult>,
+    cse_virtual_signal_query: &Expr<F, Queriable<F>, HashResult>,
+) -> Expr<F, Queriable<F>, HashResult> {
+    let common_expr_hash = cse_virtual_signal_query.meta().hash;
+
+    if expr.meta().degree < cse_virtual_signal_query.meta().degree {
+        // If the current expression's degree is less than the common subexpression's degree,
+        // it can't contain the common subexpression, so we return it as is
+        expr.clone()
+    }
+    // If the expression is the same as the common subexpression return the cse signal query
+    else if expr.meta().hash == common_expr_hash {
+        cse_virtual_signal_query.clone()
+    } else {
+        // Recursively apply the function to the subexpressions
+        expr.apply_subexpressions(|se| replace_expr(se, cse_virtual_signal_query))
     }
 }
 
@@ -394,6 +411,8 @@ mod test {
 
         let machine = circuit.machines.iter().next().unwrap().1;
         let step = machine.step_types.get(&step_uuid).unwrap();
+
+        println!("{:#?}", step);
 
         // Check if CSE was applied
         assert!(
