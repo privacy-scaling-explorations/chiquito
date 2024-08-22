@@ -21,11 +21,26 @@ use super::PIR;
 #[derive(Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Queriable<F> {
     Internal(InternalSignal),
+    /// Forward signal
+    /// - `ForwardSignal` is the signal to be queried
+    /// - `bool` is the rotation state of the signal (true if rotated)
     Forward(ForwardSignal, bool),
+    /// Shared signal
+    /// - `SharedSignal` is the signal to be queried
+    /// - `i32` is the rotation value
     Shared(SharedSignal, i32),
+    /// Fixed signal
+    /// - `FixedSignal` is the signal to be queried
+    /// - `i32` is the rotation value
     Fixed(FixedSignal, i32),
     StepTypeNext(StepTypeHandler),
+    /// Imported Halo2 advice query
+    /// - `ImportedHalo2Advice` is the signal to be queried
+    /// - `i32` is the rotation value
     Halo2AdviceQuery(ImportedHalo2Advice, i32),
+    /// Imported Halo2 fixed query
+    /// - `ImportedHalo2Fixed` is the signal to be queried
+    /// - `i32` is the rotation value
     Halo2FixedQuery(ImportedHalo2Fixed, i32),
     #[allow(non_camel_case_types)]
     _unaccessible(PhantomData<F>),
@@ -38,7 +53,7 @@ impl<F> Debug for Queriable<F> {
 }
 
 impl<F> Queriable<F> {
-    /// Call `next` function on a `Querible` forward signal to build constraints for forward
+    /// Call `next` function on a `Queriable` forward signal to build constraints for forward
     /// signal with rotation. Cannot be called on an internal signal and must be used within a
     /// `transition` constraint. Returns a new `Queriable` forward signal with rotation.
     pub fn next(&self) -> Queriable<F> {

@@ -4,9 +4,9 @@ use std::{
     io::{self, Read},
 };
 
-use compiler::CompilerResult;
+use compiler::{Compiler, CompilerResult};
+use compiler_legacy::{CompilerLegacy, CompilerResultLegacy};
 
-use self::compiler::{Compiler, CompilerResultLegacy};
 use crate::{
     field::Field,
     parser::ast::{debug_sym_factory::DebugSymRefFactory, DebugSymRef},
@@ -15,6 +15,7 @@ use crate::{
 pub mod abepi;
 #[allow(clippy::module_inception)]
 pub mod compiler;
+pub mod compiler_legacy;
 pub mod semantic;
 mod setup_inter;
 
@@ -74,7 +75,7 @@ pub fn compile_legacy<F: Field + Hash>(
     config: Config,
     debug_sym_ref_factory: &DebugSymRefFactory,
 ) -> Result<CompilerResultLegacy<F>, Vec<Message>> {
-    Compiler::new(config).compile_legacy(source, debug_sym_ref_factory)
+    CompilerLegacy::new(config).compile(source, debug_sym_ref_factory)
 }
 
 /// Compiles chiquito source code file into a SBPIR for a single machine, also returns messages

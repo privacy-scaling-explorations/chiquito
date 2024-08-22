@@ -5,18 +5,18 @@ use crate::{
     wit_gen::{FixedGenContext, StepInstance, TraceGenerator},
 };
 
-use halo2_proofs::plonk::{Advice, Column as Halo2Column, Fixed};
-use trace::{DSLTraceGenerator, TraceContext};
-
 use core::{fmt::Debug, hash::Hash};
 use std::marker::PhantomData;
 
 use self::{
     cb::{eq, Constraint, Typing},
-    lb::{LookupBuilder, LookupTable, LookupTableRegistry, LookupTableStore},
+    lb::{LookupBuilder, LookupTableRegistry},
 };
 
+use halo2_proofs::plonk::{Advice, Column as Halo2Column, Fixed};
+use lb::{LookupTable, LookupTableStore};
 pub use sc::*;
+use trace::{DSLTraceGenerator, TraceContext};
 
 pub mod cb;
 pub mod lb;
@@ -31,12 +31,12 @@ pub mod trace;
 /// ### Type parameters
 /// `F` is the field of the circuit.
 /// `TG` is the trace generator.
-pub struct CircuitContext<F, TG: TraceGenerator<F> = DSLTraceGenerator<F>> {
+pub struct CircuitContextLegacy<F, TG: TraceGenerator<F> = DSLTraceGenerator<F>> {
     circuit: SBPIRLegacy<F, TG>,
     tables: LookupTableRegistry<F>,
 }
 
-impl<F, TG: TraceGenerator<F>> CircuitContext<F, TG> {
+impl<F, TG: TraceGenerator<F>> CircuitContextLegacy<F, TG> {
     /// Adds a forward signal to the circuit with a name string and zero rotation and returns a
     /// `Queriable` instance representing the added forward signal.
     pub fn forward(&mut self, name: &str) -> Queriable<F> {
@@ -159,7 +159,7 @@ impl<F, TG: TraceGenerator<F>> CircuitContext<F, TG> {
     }
 }
 
-impl<F: Field, TraceArgs: Clone> CircuitContext<F, DSLTraceGenerator<F, TraceArgs>> {
+impl<F: Field, TraceArgs: Clone> CircuitContextLegacy<F, DSLTraceGenerator<F, TraceArgs>> {
     /// Sets the trace function that builds the witness. The trace function is responsible for
     /// adding step instances defined in `step_type_def`. The function is entirely left for
     /// the user to implement and is Turing complete. Users typically use external parameters
@@ -173,7 +173,7 @@ impl<F: Field, TraceArgs: Clone> CircuitContext<F, DSLTraceGenerator<F, TraceArg
     }
 }
 
-impl<F: Field + Hash, TG: TraceGenerator<F>> CircuitContext<F, TG> {
+impl<F: Field + Hash, TG: TraceGenerator<F>> CircuitContextLegacy<F, TG> {
     /// Executes the fixed generation function provided by the user and sets the fixed assignments
     /// for the circuit. The fixed generation function is responsible for assigning fixed values to
     /// fixed columns. It is entirely left for the user to implement and is Turing complete. Users
@@ -193,7 +193,6 @@ impl<F: Field + Hash, TG: TraceGenerator<F>> CircuitContext<F, TG> {
         self.circuit.set_fixed_assignments(assignments);
     }
 }
-
 pub enum StepTypeDefInput {
     Handler(StepTypeHandler),
     String(&'static str),
@@ -355,7 +354,7 @@ pub struct StepTypeHandler {
 }
 
 impl StepTypeHandler {
-    fn new(annotation: String) -> Self {
+    pub(crate) fn new(annotation: String) -> Self {
         Self {
             id: uuid(),
             annotation: Box::leak(annotation.into_boxed_str()),
@@ -421,15 +420,16 @@ impl<F, Args, D: Fn(&mut StepInstance<F>, Args) + 'static> StepTypeWGHandler<F, 
 /// functions. This is the main function that users call to define a Chiquito circuit. Currently,
 /// the name is not used for annotation within the function, but it may be used in future
 /// implementations.
-pub fn circuit<F: Field, TraceArgs: Clone, D>(
+/// (LEGACY)
+pub fn circuit_legacy<F: Field, TraceArgs: Clone, D>(
     _name: &str,
     mut def: D,
 ) -> SBPIRLegacy<F, DSLTraceGenerator<F, TraceArgs>>
 where
-    D: FnMut(&mut CircuitContext<F, DSLTraceGenerator<F, TraceArgs>>),
+    D: FnMut(&mut CircuitContextLegacy<F, DSLTraceGenerator<F, TraceArgs>>),
 {
     // TODO annotate circuit
-    let mut context = CircuitContext {
+    let mut context = CircuitContextLegacy {
         circuit: SBPIRLegacy::default(),
         tables: LookupTableRegistry::default(),
     };
@@ -442,17 +442,21 @@ where
 #[cfg(test)]
 mod tests {
     use halo2_proofs::halo2curves::bn256::Fr;
+    use trace::DSLTraceGenerator;
 
-    use crate::{sbpir::ForwardSignal, wit_gen::NullTraceGenerator};
+    use crate::{
+        sbpir::{ExposeOffset, ForwardSignal, SBPIRLegacy},
+        wit_gen::{NullTraceGenerator, TraceGenerator},
+    };
 
     use super::*;
 
-    fn setup_circuit_context<F, TG>() -> CircuitContext<F, TG>
+    fn setup_circuit_context<F, TG>() -> CircuitContextLegacy<F, TG>
     where
         F: Default,
         TG: TraceGenerator<F>,
     {
-        CircuitContext {
+        CircuitContextLegacy {
             circuit: SBPIRLegacy::default(),
             tables: Default::default(),
         }
