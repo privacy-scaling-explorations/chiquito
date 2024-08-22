@@ -2,13 +2,15 @@ use ark_ff::PrimeField;
 use ark_std::log2;
 use folding_schemes::{ccs::CCS, utils::vec::dense_matrix_to_sparse};
 
-use super::ccs::{CCSCircuit, Z};
-use crate::field::Field;
+use crate::{
+    ccs::ir::circuit::{CCSCircuit, Z},
+    field::Field,
+};
 
 impl<F: Field> CCSCircuit<F> {
     pub fn convert_to_sonobe_circuit<Fr: PrimeField>(&self, f: fn(&F) -> Fr) -> CCS<Fr> {
         let matrics = self
-            .matrics
+            .matrices
             .iter()
             .map(|matrix| {
                 let values = matrix

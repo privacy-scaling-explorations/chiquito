@@ -5,7 +5,6 @@ use std::hash::Hash;
 
 use chiquito::{
     ccs::{
-        backend::ccs::{chiquito2CCS, ChiquitoCCSCircuit},
         compiler::{
             cell_manager::SingleRowCellManager,
             compile, // input for constructing the compiler
@@ -126,21 +125,21 @@ fn fibo_circuit_ccs<F: Field + From<u64> + Hash>() -> FiboReturn<F> {
 }
 
 fn main() {
-    let (chiquito, wit_gen, _) = fibo_circuit_ccs::<Fr>();
-    let compiled = chiquito2CCS(chiquito);
+    let (mut chiquito, wit_gen, _) = fibo_circuit_ccs::<Fr>();
+    let witness = wit_gen.map(|g| g.generate(()));
 
-    let circuit = ChiquitoCCSCircuit::new(compiled, wit_gen.map(|g| g.generate(())));
-
-    let (ccs, z) = circuit.configure();
-    let result = ccs.is_satisfied(&z);
+    let z = chiquito.generate(witness);
+    let compiled = chiquito.ccs;
+    let result = compiled.is_satisfied(&z);
     println!("fibonacci {:#?}", result);
 
-    let (chiquito, wit_gen, _) = fibo_circuit_ccs::<Fr>();
-    let compiled = chiquito2CCS(chiquito);
-    let circuit = ChiquitoCCSCircuit::new(compiled, wit_gen.map(|g| g.generate(())));
-    let (circuit, z) = circuit.configure();
+    let (mut chiquito, wit_gen, _) = fibo_circuit_ccs::<Fr>();
+    let witness = wit_gen.map(|g| g.generate(()));
 
-    let ccs = circuit.convert_to_sonobe_circuit(fr_convert);
+    let z = chiquito.generate(witness);
+    let compiled = chiquito.ccs;
+
+    let ccs = compiled.convert_to_sonobe_circuit(fr_convert);
     let inputs = z.convert_to_sonobe_inputs(fr_convert);
 
     let result = ccs.check_relation(&inputs);
