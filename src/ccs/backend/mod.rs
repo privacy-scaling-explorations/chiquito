@@ -1,1 +1,1 @@
-pub mod sonobe;
+pub mod sonobe_hypernova;
