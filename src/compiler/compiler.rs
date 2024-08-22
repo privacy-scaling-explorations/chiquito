@@ -562,7 +562,7 @@ mod test {
     use itertools::Itertools;
 
     use crate::{
-        compiler::{compile, compile_legacy},
+        compiler::{compile, compile_file, compile_legacy},
         parser::ast::debug_sym_factory::DebugSymRefFactory,
         wit_gen::TraceGenerator,
     };
@@ -823,5 +823,25 @@ mod test {
                 assert!(assignment.1.eq(assignment_legacy.1));
             }
         }
+    }
+
+    #[test]
+    fn test_compiler_fibo_file() {
+        let path = "test/circuit.chiquito";
+        let result = compile_file::<Fr>(path, Config::default().max_degree(2));
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_compiler_fibo_file_err() {
+        let path = "test/circuit_error.chiquito";
+        let result = compile_file::<Fr>(path, Config::default().max_degree(2));
+
+        assert!(result.is_err());
+
+        assert_eq!(
+            format!("{:?}", result.unwrap_err()),
+            r#"[SemErr { msg: "use of undeclared variable c", dsym: test/circuit_error.chiquito:24:39 }, SemErr { msg: "use of undeclared variable c", dsym: test/circuit_error.chiquito:28:46 }]"#
+        )
     }
 }
