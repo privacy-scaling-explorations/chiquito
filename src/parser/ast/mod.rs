@@ -141,6 +141,22 @@ impl PartialEq for DebugSymRef {
     }
 }
 
+/// Interface of the debug symbol reference to use with the Chiquito language server
+pub trait LanguageServerInterface {
+    fn get_start(&self) -> usize;
+    fn get_end(&self) -> usize;
+}
+
+impl LanguageServerInterface for DebugSymRef {
+    fn get_start(&self) -> usize {
+        self.start
+    }
+
+    fn get_end(&self) -> usize {
+        self.end
+    }
+}
+
 #[derive(Clone, PartialEq, Eq)]
 pub struct Identifier(
     /// Name
@@ -227,7 +243,20 @@ mod test {
 
     use codespan_reporting::files::SimpleFile;
 
-    use crate::parser::ast::{DebugSymRef, Identifier};
+    use crate::parser::ast::{DebugSymRef, Identifier, LanguageServerInterface};
+
+    #[test]
+    fn test_language_server_interface() {
+        let debug_sym_ref = DebugSymRef {
+            start: 0,
+            end: 1,
+            file: Arc::new(SimpleFile::new("file_path".to_string(), "".to_string())),
+            virt: false,
+        };
+
+        assert_eq!(debug_sym_ref.get_start(), 0);
+        assert_eq!(debug_sym_ref.get_end(), 1);
+    }
 
     #[test]
     fn test_from_string() {
