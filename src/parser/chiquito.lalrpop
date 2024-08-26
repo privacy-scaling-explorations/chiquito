@@ -53,7 +53,8 @@ StatementType: Statement<BigInt, Identifier> = {
     ParseWGVarDecl,
     ParseTransitionSimple,
     ParseTransition,
-    HyperTransition
+    HyperTransition,
+    Call,
 }
 
 AssertEq: Statement<BigInt, Identifier> = {
@@ -113,7 +114,11 @@ ParseTransition: Statement<BigInt, Identifier> = {
 }
 
 HyperTransition: Statement<BigInt, Identifier> = {
-    <l: @L> <ids: ParseIdsList> "<==" <machine: Identifier> "(" <es:ParseExpressionList> ")" "->" <st: Identifier> <r: @R> => Statement::HyperTransition(dsym_factory.create(l,r), ids, machine, es, st),
+    <l: @L> <call: Call> "->" <st: Identifier> <r: @R> => build_hyper_transition(dsym_factory.create(l,r), st, call),
+}
+
+Call: Statement<BigInt, Identifier> = {
+    <l: @L>  <ids: ParseIdsList> "<==" <machine: Identifier> "(" <es:ParseExpressionList> ")"  <r: @R> => Statement::Call(dsym_factory.create(l,r), ids, machine, es),
 }
 
 ParseSignalDecl: Statement<BigInt, Identifier> = {

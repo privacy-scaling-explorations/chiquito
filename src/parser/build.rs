@@ -61,3 +61,11 @@ pub fn build_transition<F>(
 ) -> Statement<F, Identifier> {
     Statement::Transition(dsym, id, Box::new(block))
 }
+
+pub fn build_hyper_transition<F>(
+    dsym: DebugSymRef,
+    state: Identifier,
+    call: Statement<F, Identifier>,
+) -> Statement<F, Identifier> {
+    Statement::HyperTransition(dsym, state, Box::new(call))
+}

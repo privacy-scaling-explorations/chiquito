@@ -818,6 +818,19 @@ mod test {
 
         assert!(result.is_ok());
 
+        let circuit = "
+        machine caller (signal n) (signal b: field) {
+            -> final {
+                a', b, c' <== fibo(d, e, f + g);
+            }
+        }
+        ";
+
+        let debug_sym_ref_factory = DebugSymRefFactory::new("", circuit);
+        let result = TLDeclsParser::new().parse(&debug_sym_ref_factory, circuit);
+
+        assert!(result.is_ok());
+
         // Wrong transition operator
         let circuit = "
         machine caller (signal n) (signal b: field) {
@@ -832,24 +845,7 @@ mod test {
         let err = result.err().unwrap();
         assert_eq!(
             err.to_string(),
-            "Unrecognized token `-` found at 99:100\nExpected one of \"->\""
-        );
-
-        // No transition
-        let circuit = "
-        machine caller (signal n) (signal b: field) {
-            a', b, c' <== fibo(d, e, f + g);
-        }
-        ";
-
-        let debug_sym_ref_factory = DebugSymRefFactory::new("", circuit);
-        let result = TLDeclsParser::new().parse(&debug_sym_ref_factory, circuit);
-
-        assert!(result.is_err());
-        let err = result.err().unwrap();
-        assert_eq!(
-            err.to_string(),
-            "Unrecognized token `;` found at 98:99\nExpected one of \"->\""
+            "Unrecognized token `-` found at 99:100\nExpected one of \"->\" or \";\""
         );
     }
 }

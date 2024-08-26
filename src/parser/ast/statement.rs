@@ -35,15 +35,20 @@ pub enum Statement<F, V> {
     Transition(DebugSymRef, V, Box<Statement<F, V>>), // -> x { y }
 
     Block(DebugSymRef, Vec<Statement<F, V>>), // { x }
-    /// Call into another machine with assertion and subsequent transition to another
-    /// state.
+    /// Call into another machine with assertion.
     /// Tuple values:
     /// - debug symbol reference;
     /// - assigned/asserted ids vector;
     /// - machine ID;
-    /// - call argument expressions vector;
+    /// - call argument expressions vector.
+    Call(DebugSymRef, Vec<V>, V, Vec<Expression<F, V>>),
+    /// Call into another machine with assertion and subsequent transition to another
+    /// state.
+    /// Tuple values:
+    /// - debug symbol reference;
     /// - next state ID.
-    HyperTransition(DebugSymRef, Vec<V>, V, Vec<Expression<F, V>>, V),
+    /// - machine call;
+    HyperTransition(DebugSymRef, V, Box<Statement<F, V>>),
 }
 
 impl<F: Debug> Debug for Statement<F, Identifier> {
@@ -93,15 +98,11 @@ impl<F: Debug> Debug for Statement<F, Identifier> {
                         .join(" ")
                 )
             }
-            Statement::HyperTransition(_, ids, machine, exprs, state) => {
-                write!(
-                    f,
-                    "{:?} <== {} ({:?}) --> {:?};",
-                    ids,
-                    machine.name(),
-                    exprs,
-                    state
-                )
+            Statement::Call(_, ids, machine, exprs) => {
+                write!(f, "{:?} <== {} ({:?});", ids, machine.name(), exprs)
+            }
+            Statement::HyperTransition(_, state, call) => {
+                write!(f, "{:?} -> {:?};", call, state)
             }
         }
     }
@@ -121,7 +122,8 @@ impl<F, V> Statement<F, V> {
             Statement::StateDecl(dsym, _, _) => dsym.clone(),
             Statement::Transition(dsym, _, _) => dsym.clone(),
             Statement::Block(dsym, _) => dsym.clone(),
-            Statement::HyperTransition(dsym, _, _, _, _) => dsym.clone(),
+            Statement::Call(dsym, _, _, _) => dsym.clone(),
+            Statement::HyperTransition(dsym, _, _) => dsym.clone(),
         }
     }
 }
