@@ -1,5 +1,3 @@
-use num_bigint::BigInt;
-
 use super::ast::{expression::Expression, statement::Statement, DebugSymRef, Identifier};
 
 pub fn build_bin_op<S: Into<String>, F, V>(
@@ -62,27 +60,4 @@ pub fn build_transition<F>(
     block: Statement<F, Identifier>,
 ) -> Statement<F, Identifier> {
     Statement::Transition(dsym, id, Box::new(block))
-}
-
-pub fn add_dsym(
-    dsym: DebugSymRef,
-    stmt: Statement<BigInt, Identifier>,
-) -> Statement<BigInt, Identifier> {
-    match stmt {
-        Statement::Assert(_, expr) => Statement::Assert(dsym, expr),
-        Statement::SignalAssignment(_, ids, exprs) => Statement::SignalAssignment(dsym, ids, exprs),
-        Statement::SignalAssignmentAssert(_, ids, exprs) => {
-            Statement::SignalAssignmentAssert(dsym, ids, exprs)
-        }
-        Statement::WGAssignment(_, ids, exprs) => Statement::WGAssignment(dsym, ids, exprs),
-        Statement::StateDecl(_, id, block) => Statement::StateDecl(dsym, id, block),
-        Statement::IfThen(_, cond, then_block) => Statement::IfThen(dsym, cond, then_block),
-        Statement::IfThenElse(_, cond, then_block, else_block) => {
-            Statement::IfThenElse(dsym, cond, then_block, else_block)
-        }
-        Statement::Block(_, stmts) => Statement::Block(dsym, stmts),
-        Statement::SignalDecl(_, ids) => Statement::SignalDecl(dsym, ids),
-        Statement::WGVarDecl(_, ids) => Statement::WGVarDecl(dsym, ids),
-        Statement::Transition(_, id, stmt) => Statement::Transition(dsym, id, stmt),
-    }
 }

@@ -558,57 +558,22 @@ mod test {
 
     use crate::{
         compiler::{compile, compile_file, compile_legacy},
-        parser::ast::debug_sym_factory::DebugSymRefFactory,
+        parser::{ast::debug_sym_factory::DebugSymRefFactory, lang::TLDeclsParser},
         wit_gen::TraceGenerator,
     };
 
     use super::Config;
 
-    // TODO rewrite the test after machines are able to call other machines
+    // TODO improve the test for HyperTransition
     #[test]
     fn test_compiler_fibo_multiple_machines() {
         // Source code containing two machines
         let circuit = "
-        machine fibo1 (signal n) (signal b: field) {
-            // n and be are created automatically as shared
-            // signals
-            signal a: field, i;
-
-            // there is always a state called initial
-            // input signals get bound to the signal
-            // in the initial state (first instance)
-            state initial {
-             signal c;
-
-             i, a, b, c <== 1, 1, 1, 2;
-
-             -> middle {
-              i', a', b', n' <== i + 1, b, c, n;
-             }
-            }
-
-            state middle {
-             signal c;
-
-             c <== a + b;
-
-             if i + 1 == n {
-              -> final {
-               i', b', n' <== i + 1, c, n;
-              }
-             } else {
-              -> middle {
-               i', a', b', n' <== i + 1, b, c, n;
-              }
-             }
-            }
-
-            // There is always a state called final.
-            // Output signals get automatically bound to the signals
-            // with the same name in the final step (last instance).
-            // This state can be implicit if there are no constraints in it.
+        machine caller (signal n) (signal b: field) {
+            signal b_1: field;
+            b_1' <== fibo(n) -> final;
            }
-           machine fibo2 (signal n) (signal b: field) {
+           machine fibo (signal n) (signal b: field) {
             // n and be are created automatically as shared
             // signals
             signal a: field, i;
@@ -838,5 +803,53 @@ mod test {
             format!("{:?}", result.unwrap_err()),
             r#"[SemErr { msg: "use of undeclared variable c", dsym: test/circuit_error.chiquito:24:39 }, SemErr { msg: "use of undeclared variable c", dsym: test/circuit_error.chiquito:28:46 }]"#
         )
+    }
+
+    #[test]
+    fn test_parse_hyper_transition() {
+        let circuit = "
+        machine caller (signal n) (signal b: field) {
+            a', b, c' <== fibo(d, e, f + g) -> final;
+        }
+        ";
+
+        let debug_sym_ref_factory = DebugSymRefFactory::new("", circuit);
+        let result = TLDeclsParser::new().parse(&debug_sym_ref_factory, circuit);
+
+        assert!(result.is_ok());
+
+        // Wrong transition operator
+        let circuit = "
+        machine caller (signal n) (signal b: field) {
+            a', b, c' <== fibo(d, e, f + g) --> final;
+        }
+        ";
+
+        let debug_sym_ref_factory = DebugSymRefFactory::new("", circuit);
+        let result = TLDeclsParser::new().parse(&debug_sym_ref_factory, circuit);
+
+        assert!(result.is_err());
+        let err = result.err().unwrap();
+        assert_eq!(
+            err.to_string(),
+            "Unrecognized token `-` found at 99:100\nExpected one of \"->\""
+        );
+
+        // No transition
+        let circuit = "
+        machine caller (signal n) (signal b: field) {
+            a', b, c' <== fibo(d, e, f + g);
+        }
+        ";
+
+        let debug_sym_ref_factory = DebugSymRefFactory::new("", circuit);
+        let result = TLDeclsParser::new().parse(&debug_sym_ref_factory, circuit);
+
+        assert!(result.is_err());
+        let err = result.err().unwrap();
+        assert_eq!(
+            err.to_string(),
+            "Unrecognized token `;` found at 98:99\nExpected one of \"->\""
+        );
     }
 }

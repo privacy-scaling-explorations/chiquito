@@ -31,10 +31,22 @@ pub enum Statement<F, V> {
     WGVarDecl(DebugSymRef, Vec<TypedIdDecl<V>>),  // var x;
 
     StateDecl(DebugSymRef, V, Box<Statement<F, V>>), // state x { y }
-
+    /// Transition to another state.
     Transition(DebugSymRef, V, Box<Statement<F, V>>), // -> x { y }
 
     Block(DebugSymRef, Vec<Statement<F, V>>), // { x }
+    /// Call into another machine with assertion and subsequent transition to another
+    /// state:  
+    /// ```no_run
+    ///     id_1', id_2' <== machine_id(expr1, expr2 + expr3) -> state_id;
+    /// ```
+    /// Tuple values:
+    /// - debug symbol reference;
+    /// - assigned/asserted ids vector;
+    /// - machine ID;
+    /// - call argument expressions vector;
+    /// - next state ID.
+    HyperTransition(DebugSymRef, Vec<V>, V, Vec<Expression<F, V>>, V),
 }
 
 impl<F: Debug> Debug for Statement<F, Identifier> {
@@ -84,6 +96,16 @@ impl<F: Debug> Debug for Statement<F, Identifier> {
                         .join(" ")
                 )
             }
+            Statement::HyperTransition(_, ids, machine, exprs, state) => {
+                write!(
+                    f,
+                    "{:?} <== {} ({:?}) --> {:?};",
+                    ids,
+                    machine.name(),
+                    exprs,
+                    state
+                )
+            }
         }
     }
 }
@@ -102,6 +124,7 @@ impl<F, V> Statement<F, V> {
             Statement::StateDecl(dsym, _, _) => dsym.clone(),
             Statement::Transition(dsym, _, _) => dsym.clone(),
             Statement::Block(dsym, _) => dsym.clone(),
+            Statement::HyperTransition(dsym, _, _, _, _) => dsym.clone(),
         }
     }
 }
