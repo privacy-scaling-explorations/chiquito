@@ -36,10 +36,7 @@ pub enum Statement<F, V> {
 
     Block(DebugSymRef, Vec<Statement<F, V>>), // { x }
     /// Call into another machine with assertion and subsequent transition to another
-    /// state:  
-    /// ```no_run
-    ///     id_1', id_2' <== machine_id(expr1, expr2 + expr3) -> state_id;
-    /// ```
+    /// state.
     /// Tuple values:
     /// - debug symbol reference;
     /// - assigned/asserted ids vector;
