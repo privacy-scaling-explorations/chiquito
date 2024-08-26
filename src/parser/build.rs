@@ -67,5 +67,8 @@ pub fn build_hyper_transition<F>(
     state: Identifier,
     call: Statement<F, Identifier>,
 ) -> Statement<F, Identifier> {
-    Statement::HyperTransition(dsym, state, Box::new(call))
+    match call {
+        Statement::Call(_, _, _, _) => Statement::HyperTransition(dsym, state, Box::new(call)),
+        _ => unreachable!("Hyper transition must include a call statement"),
+    }
 }

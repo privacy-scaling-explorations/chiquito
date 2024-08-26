@@ -831,6 +831,18 @@ mod test {
 
         assert!(result.is_ok());
 
+        // TODO should no-arg calls be allowed?
+        let circuit = "
+        machine caller (signal n) (signal b: field) {
+            smth <== a() -> final;
+        }
+        ";
+
+        let debug_sym_ref_factory = DebugSymRefFactory::new("", circuit);
+        let result = TLDeclsParser::new().parse(&debug_sym_ref_factory, circuit);
+
+        assert!(result.is_ok());
+
         // Wrong transition operator
         let circuit = "
         machine caller (signal n) (signal b: field) {
