@@ -91,14 +91,14 @@ impl<F: Clone, V: Clone, M> Expr<F, V, M> {
     }
 }
 
-impl<F: Field + Hash, V: Debug + Clone + Eq + Hash, M: Clone> Expr<F, V, M> {
+impl<F: Clone, V: Debug + Clone + Eq, M: Clone> Expr<F, V, M> {
     pub fn transform_meta<N: Clone, ApplyMetaFn>(&self, apply_meta: ApplyMetaFn) -> Expr<F, V, N>
     where
         ApplyMetaFn: Fn(&Expr<F, V, M>) -> N + Clone,
     {
         let new_meta = apply_meta(self);
         match self {
-            Expr::Const(v, _) => Expr::Const(*v, new_meta),
+            Expr::Const(v, _) => Expr::Const(v.clone(), new_meta),
             Expr::Sum(ses, _) => Expr::Sum(
                 ses.iter()
                     .map(|e| e.transform_meta(apply_meta.clone()))
