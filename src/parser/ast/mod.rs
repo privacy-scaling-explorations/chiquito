@@ -142,12 +142,14 @@ impl PartialEq for DebugSymRef {
 }
 
 /// Interface of the debug symbol reference to use with the Chiquito language server
-pub trait LanguageServerInterface {
+pub trait Spanned {
+    /// Get span start
     fn get_start(&self) -> usize;
+    /// Get span end
     fn get_end(&self) -> usize;
 }
 
-impl LanguageServerInterface for DebugSymRef {
+impl Spanned for DebugSymRef {
     fn get_start(&self) -> usize {
         self.start
     }
@@ -243,7 +245,7 @@ mod test {
 
     use codespan_reporting::files::SimpleFile;
 
-    use crate::parser::ast::{DebugSymRef, Identifier, LanguageServerInterface};
+    use crate::parser::ast::{DebugSymRef, Identifier, Spanned};
 
     #[test]
     fn test_language_server_interface() {
