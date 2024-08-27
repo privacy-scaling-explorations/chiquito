@@ -32,7 +32,7 @@ pub(super) fn interpret(ast: &[TLDecl<BigInt, Identifier>], _symbols: &SymTable)
 pub(super) type Setup<F> = HashMap<String, MachineSetup<F>>;
 
 pub(super) struct MachineSetup<F> {
-    poly_constraints: HashMap<String, Vec<Expr<F, Identifier, ()>>>,
+    poly_constraints: HashMap<String, Vec<Expr<F, Identifier, DebugSymRef>>>,
 
     input_signals: Vec<TypedIdDecl<Identifier>>,
     output_signals: Vec<TypedIdDecl<Identifier>>,
@@ -49,10 +49,10 @@ impl<F> Default for MachineSetup<F> {
 }
 impl MachineSetup<BigInt> {
     pub(crate) fn map_consts<F: Field>(&self) -> MachineSetup<F> {
-        let poly_constraints: HashMap<String, Vec<Expr<F, Identifier, ()>>> = self
+        let poly_constraints: HashMap<String, Vec<Expr<F, Identifier, DebugSymRef>>> = self
             .poly_constraints_iter()
             .map(|(step_id, step)| {
-                let new_step: Vec<Expr<F, Identifier, ()>> = step
+                let new_step: Vec<Expr<F, Identifier, DebugSymRef>> = step
                     .iter()
                     .map(|pi| Self::convert_const_to_field(pi))
                     .collect();
@@ -66,28 +66,32 @@ impl MachineSetup<BigInt> {
     }
 
     fn convert_const_to_field<F: Field>(
-        expr: &Expr<BigInt, Identifier, ()>,
-    ) -> Expr<F, Identifier, ()> {
+        expr: &Expr<BigInt, Identifier, DebugSymRef>,
+    ) -> Expr<F, Identifier, DebugSymRef> {
         use Expr::*;
         match expr {
-            Const(v, _) => Const(F::from_big_int(v), ()),
-            Sum(ses, _) => Sum(
+            Const(v, dsym) => Const(F::from_big_int(v), dsym.clone()),
+            Sum(ses, dsym) => Sum(
                 ses.iter()
                     .map(|se| Self::convert_const_to_field(se))
                     .collect(),
-                (),
+                dsym.clone(),
             ),
-            Mul(ses, _) => Mul(
+            Mul(ses, dsym) => Mul(
                 ses.iter()
                     .map(|se| Self::convert_const_to_field(se))
                     .collect(),
-                (),
+                dsym.clone(),
             ),
-            Neg(se, _) => Neg(Box::new(Self::convert_const_to_field(se)), ()),
-            Pow(se, exp, _) => Pow(Box::new(Self::convert_const_to_field(se)), *exp, ()),
-            Query(q, _) => Query(q.clone(), ()),
+            Neg(se, dsym) => Neg(Box::new(Self::convert_const_to_field(se)), dsym.clone()),
+            Pow(se, exp, dsym) => Pow(
+                Box::new(Self::convert_const_to_field(se)),
+                *exp,
+                dsym.clone(),
+            ),
+            Query(q, dsym) => Query(q.clone(), dsym.clone()),
             Halo2Expr(_, _) => todo!(),
-            MI(se, _) => MI(Box::new(Self::convert_const_to_field(se)), ()),
+            MI(se, dsym) => MI(Box::new(Self::convert_const_to_field(se)), dsym.clone()),
         }
     }
 }
@@ -125,7 +129,7 @@ impl<F: Clone> MachineSetup<F> {
     fn add_poly_constraints<S: Into<String>>(
         &mut self,
         state: S,
-        poly_constraints: Vec<Expr<F, Identifier, ()>>,
+        poly_constraints: Vec<Expr<F, Identifier, DebugSymRef>>,
     ) {
         self.poly_constraints
             .get_mut(&state.into())
@@ -135,13 +139,13 @@ impl<F: Clone> MachineSetup<F> {
 
     pub(super) fn poly_constraints_iter(
         &self,
-    ) -> std::collections::hash_map::Iter<String, Vec<Expr<F, Identifier, ()>>> {
+    ) -> std::collections::hash_map::Iter<String, Vec<Expr<F, Identifier, DebugSymRef>>> {
         self.poly_constraints.iter()
     }
 
     pub(super) fn replace_poly_constraints<F2>(
         &self,
-        poly_constraints: HashMap<String, Vec<Expr<F2, Identifier, ()>>>,
+        poly_constraints: HashMap<String, Vec<Expr<F2, Identifier, DebugSymRef>>>,
     ) -> MachineSetup<F2> {
         MachineSetup {
             poly_constraints,
@@ -157,7 +161,7 @@ impl<F: Clone> MachineSetup<F> {
     pub(super) fn get_poly_constraints<S: Into<String>>(
         &self,
         state: S,
-    ) -> Option<&Vec<Expr<F, Identifier, ()>>> {
+    ) -> Option<&Vec<Expr<F, Identifier, DebugSymRef>>> {
         self.poly_constraints.get(&state.into())
     }
 }
@@ -252,10 +256,15 @@ impl SetupInterpreter {
             SignalDecl(_, _) | WGVarDecl(_, _) => vec![],
         };
 
-        self.add_poly_constraints(result.into_iter().map(|cr| cr.anti_booly).collect());
+        self.add_poly_constraints(
+            result
+                .into_iter()
+                .map(|cr| cr.anti_booly.transform_meta(|_| cr.dsym.clone()))
+                .collect(),
+        );
     }
 
-    fn add_poly_constraints(&mut self, pis: Vec<Expr<BigInt, Identifier, ()>>) {
+    fn add_poly_constraints(&mut self, pis: Vec<Expr<BigInt, Identifier, DebugSymRef>>) {
         self.setup
             .get_mut(&self.current_machine)
             .unwrap()
