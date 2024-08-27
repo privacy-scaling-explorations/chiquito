@@ -473,8 +473,8 @@ impl<F: Field + From<u64> + Hash> h2Circuit<F> for ChiquitoHalo2SuperCircuit<F> 
             });
 
         sub_circuits.iter_mut().for_each(|sub_circuit| {
-            sub_circuit.advice_columns = advice_columns.clone();
-            sub_circuit.fixed_columns = fixed_columns.clone();
+            sub_circuit.advice_columns.clone_from(&advice_columns);
+            sub_circuit.fixed_columns.clone_from(&fixed_columns);
             sub_circuit.configure_sub_circuit(meta)
         });
 

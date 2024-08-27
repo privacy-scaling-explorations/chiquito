@@ -1635,9 +1635,15 @@ fn keccak_circuit<F: PrimeField<Repr = [u8; 32]> + Eq + Hash>(
                     let mut tmp_pi_sum_split_xor_vec = setup_theta_sum_split_xor_vec.clone();
                     for i in 0..PART_SIZE as usize {
                         for j in 0..PART_SIZE as usize {
+                            // tmp_pi_sum_split_xor_vec
+                            //     [j * PART_SIZE as usize + ((2 * i + 3 * j) % PART_SIZE as usize)]
+                            // =     setup_theta_sum_split_xor_vec[i *
+                            // PART_SIZE as usize + j].clone();
                             tmp_pi_sum_split_xor_vec
-                                [j * PART_SIZE as usize + ((2 * i + 3 * j) % PART_SIZE as usize)] =
-                                setup_theta_sum_split_xor_vec[i * PART_SIZE as usize + j].clone();
+                                [j * PART_SIZE as usize + ((2 * i + 3 * j) % PART_SIZE as usize)]
+                                .clone_from(
+                                    &setup_theta_sum_split_xor_vec[i * PART_SIZE as usize + j],
+                                );
                         }
                     }
 

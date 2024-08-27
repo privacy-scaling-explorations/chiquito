@@ -871,15 +871,15 @@ fn blake2f_circuit<F: PrimeField + Hash>(
                         let mut output_vec = v_mid1_vec.clone();
                         if i >= 8 {
                             if i % 2 == 0 {
-                                input_vec = v_mid2_vec.clone();
-                                output_vec = v_mid3_vec.clone();
+                                input_vec.clone_from(&v_mid2_vec);
+                                output_vec.clone_from(&v_mid3_vec)
                             } else {
-                                input_vec = v_mid3_vec.clone();
-                                output_vec = v_mid4_vec.clone();
+                                input_vec.clone_from(&v_mid3_vec);
+                                output_vec.clone_from(&v_mid4_vec)
                             }
                         } else if i % 2 == 1 {
-                            input_vec = v_mid1_vec.clone();
-                            output_vec = v_mid2_vec.clone();
+                            input_vec.clone_from(&v_mid1_vec);
+                            output_vec.clone_from(&v_mid2_vec);
                         }
                         let (mut a, mut b, mut c, mut d) =
                             (i / 2, 4 + i / 2, 8 + i / 2, 12 + i / 2);
@@ -1319,7 +1319,7 @@ fn blake2f_circuit<F: PrimeField + Hash>(
                 b_3bits_vec,
             };
             ctx.add(&blake2f_g_setup_vec[r as usize], ginputs);
-            v_vec_values = v_mid4_vec_values.clone();
+            v_vec_values.clone_from(&v_mid4_vec_values);
         }
 
         let output_vec_values: Vec<u64> = h_vec_values

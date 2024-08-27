@@ -189,22 +189,22 @@ pub(crate) fn calc_auto_signals<F: Field + Hash, V: Clone + Eq + PartialEq + Has
     let mut pending_amount = pending.len();
 
     while pending_amount > 0 {
-        pending = pending
-            .clone()
-            .into_iter()
-            .filter(|s| {
-                if let Some(value) = auto_signals
-                    .get(s)
-                    .expect("auto definition not found")
-                    .eval(assignments)
-                {
-                    assignments.insert(s.clone(), value);
-                }
-
-                assignments.get(s).is_none()
-            })
-            .collect::<Vec<V>>()
-            .clone();
+        pending.clone_from(
+            &pending
+                .clone()
+                .into_iter()
+                .filter(|s| {
+                    if let Some(value) = auto_signals
+                        .get(s)
+                        .expect("auto definition not found")
+                        .eval(assignments)
+                    {
+                        assignments.insert(s.clone(), value);
+                    }
+                    assignments.get(s).is_none()
+                })
+                .collect::<Vec<V>>(),
+        );
 
         // in each round at least one new signal should be assigned
         if pending.len() == pending_amount {

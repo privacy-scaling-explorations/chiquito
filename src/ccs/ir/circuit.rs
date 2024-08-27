@@ -77,8 +77,8 @@ impl<F: Field + From<u64> + Hash> Z<F> {
         assert_eq!(inputs.len(), self.l);
         assert_eq!(witnesses.len(), self.n - self.l - 1);
 
-        self.public_inputs = inputs.to_owned().clone();
-        self.assignments = witnesses.to_owned().clone();
+        self.public_inputs.clone_from(&inputs.to_owned());
+        self.assignments.clone_from(&witnesses.to_owned());
     }
 }
 
@@ -114,7 +114,8 @@ impl<F: Field> Matrix<F> {
 
     pub fn reduce_rows(&mut self, m: usize) {
         if m < self.m {
-            self.values = self.values[0..m].to_owned();
+            // self.values = self.values[0..m].to_owned();
+            self.values.truncate(m);
             self.m = m;
         }
     }
@@ -195,7 +196,7 @@ impl<F: Field + From<u64> + Hash> CCSCircuit<F> {
 
     pub fn write_constants(&mut self, constants: &[F]) {
         assert_eq!(constants.len(), self.q);
-        self.constants = constants.to_owned().clone();
+        self.constants.clone_from(&constants.to_owned());
     }
 
     pub fn write_selectors_and_degree(&mut self, selectors: &[Vec<(usize, F)>]) {
@@ -207,7 +208,7 @@ impl<F: Field + From<u64> + Hash> CCSCircuit<F> {
             }
             degree = degree.max(selector.len())
         }
-        self.selectors = selectors.to_owned().clone();
+        self.selectors.clone_from(&selectors.to_owned());
         self.d = degree;
     }
 
@@ -303,9 +304,9 @@ impl<F: Field + From<u64> + Hash> Circuit<F> {
         self.calcu_bounds(&selectors.matrix_selectors);
 
         self.ccs.constants = vec![F::ONE; self.ccs.q];
-        self.ccs.selectors = selectors.matrix_selectors.clone();
-        self.exposed = exposed.to_owned();
-        self.witness = witness.clone();
+        self.ccs.selectors.clone_from(&selectors.matrix_selectors);
+        exposed.clone_into(&mut self.exposed);
+        self.witness.clone_from(witness);
 
         self.construct_matrix_coeffs_and_offsets(matrix_coeffs, &selectors.step_selectors);
     }
