@@ -272,16 +272,10 @@ impl Analyser {
 
             Statement::SignalDecl(_, _) => {}
             Statement::WGVarDecl(_, _) => {}
-            Statement::HyperTransition(_, state, call) => {
-                self.analyse_statement(*call);
+            Statement::HyperTransition(_, ids, call, state) => {
+                self.analyse_expression(call);
                 self.collect_id_usages(&[state]);
-            }
-            Statement::Call(_, ids, _machine, exprs) => {
-                // TODO analyze machine?
                 self.collect_id_usages(&ids);
-                exprs
-                    .into_iter()
-                    .for_each(|expr| self.analyse_expression(expr))
             }
         }
     }
@@ -318,6 +312,12 @@ impl Analyser {
                 sub,
             } => {
                 self.extract_usages_expression(&sub);
+            }
+            Expression::Call(_, fun, exprs) => {
+                self.collect_id_usages(&[fun]);
+                exprs
+                    .into_iter()
+                    .for_each(|expr| self.extract_usages_expression(&expr));
             }
             _ => {}
         }

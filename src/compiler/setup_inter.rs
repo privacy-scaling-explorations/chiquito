@@ -250,8 +250,7 @@ impl SetupInterpreter {
 
             SignalAssignment(_, _, _) | WGAssignment(_, _, _) => vec![],
             SignalDecl(_, _) | WGVarDecl(_, _) => vec![],
-            Call(_, _, _, _) => todo!(),
-            HyperTransition(_, _, _) => todo!(),
+            HyperTransition(_, _, _, _) => todo!(),
         };
 
         self.add_poly_constraints(result.into_iter().map(|cr| cr.anti_booly).collect());

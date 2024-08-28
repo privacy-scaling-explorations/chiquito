@@ -54,7 +54,6 @@ StatementType: Statement<BigInt, Identifier> = {
     ParseTransitionSimple,
     ParseTransition,
     HyperTransition,
-    Call,
 }
 
 AssertEq: Statement<BigInt, Identifier> = {
@@ -114,11 +113,11 @@ ParseTransition: Statement<BigInt, Identifier> = {
 }
 
 HyperTransition: Statement<BigInt, Identifier> = {
-    <l: @L> <call: Call> "->" <st: Identifier> <r: @R> => build_hyper_transition(dsym_factory.create(l,r), st, call),
+    <l: @L> <ids: ParseIdsList> "<==" <call:Expression> "->" <st: Identifier> <r: @R> => build_hyper_transition(dsym_factory.create(l,r), ids, call, st),
 }
 
-Call: Statement<BigInt, Identifier> = {
-    <l: @L>  <ids: ParseIdsList> "<==" <machine: Identifier> "(" <es:ParseExpressionList> ")"  <r: @R> => Statement::Call(dsym_factory.create(l,r), ids, machine, es),
+Call: Expression<BigInt, Identifier> = {
+    <l: @L> <fun: Identifier> "(" <es:ParseExpressionList> ")" <r: @R> => Expression::Call(dsym_factory.create(l,r), fun, es),
 }
 
 ParseSignalDecl: Statement<BigInt, Identifier> = {
@@ -212,6 +211,7 @@ ExpressionTerm: Expr = {
     <l: @L> "true" <r: @R> => Expression::True(dsym_factory.create(l,r)),
     <l: @L> "false" <r: @R> => Expression::False(dsym_factory.create(l,r)),
     <l: @L> "(" <e: Expression> ")" <r: @R> => e,
+    Call
 }
 
 ParseBinOp<Op, Next>: Expr = {

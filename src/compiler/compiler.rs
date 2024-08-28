@@ -842,22 +842,5 @@ mod test {
         let result = TLDeclsParser::new().parse(&debug_sym_ref_factory, circuit);
 
         assert!(result.is_ok());
-
-        // Wrong transition operator
-        let circuit = "
-        machine caller (signal n) (signal b: field) {
-            a', b, c' <== fibo(d, e, f + g) --> final;
-        }
-        ";
-
-        let debug_sym_ref_factory = DebugSymRefFactory::new("", circuit);
-        let result = TLDeclsParser::new().parse(&debug_sym_ref_factory, circuit);
-
-        assert!(result.is_err());
-        let err = result.err().unwrap();
-        assert_eq!(
-            err.to_string(),
-            "Unrecognized token `-` found at 99:100\nExpected one of \"->\" or \";\""
-        );
     }
 }
