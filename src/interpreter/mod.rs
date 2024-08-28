@@ -206,7 +206,7 @@ impl<'a, F: Field + Hash> Interpreter<'a, F> {
             Block(_, stmts) => self.exec_step_block(stmts),
             Assert(_, _) => Ok(None),
             StateDecl(_, _, _) => Ok(None),
-            HyperTransition(_, _, _, _) => todo!("execute hypertransition?"),
+            HyperTransition(_, _, _, _) => todo!("Needs specs"),
         }
     }
 

@@ -82,7 +82,9 @@ pub(crate) fn eval_expr<F: Field + Hash, V: Identifiable>(
         Const(_, v) => Ok(Value::Field(F::from_big_int(v))),
         True(_) => Ok(Value::Bool(true)),
         False(_) => Ok(Value::Bool(false)),
-        Call(_, _, _) => todo!(),
+        Call(_, _, _) => {
+            todo!("Needs specs. Evaluate the argument expressions, evaluate the function output?")
+        }
     }
     .map_err(|msg| Message::RuntimeErr {
         msg,

@@ -223,7 +223,9 @@ impl<F, V> Expression<F, V> {
             Const(_, _) => true,
             True(_) => false,
             False(_) => false,
-            Call(_, _, _) => todo!(),
+            Call(_, _, _) => {
+                todo!("Needs specs. For a function call, depends on the function return type?")
+            }
         }
     }
 
@@ -241,7 +243,9 @@ impl<F, V> Expression<F, V> {
 
                 when_true.is_logic()
             }
-            Expression::Call { .. } => todo!(),
+            Expression::Call { .. } => {
+                todo!("Needs specs. For a function call, depends on the function return type?")
+            }
             _ => false,
         }
     }

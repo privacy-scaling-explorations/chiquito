@@ -831,7 +831,7 @@ mod test {
 
         assert!(result.is_ok());
 
-        // TODO should no-arg calls be allowed?
+        // TODO should no-arg calls be allowed? Needs more specs for function/machine calls
         let circuit = "
         machine caller (signal n) (signal b: field) {
             smth <== a() -> final;

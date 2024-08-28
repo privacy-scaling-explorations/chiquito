@@ -431,7 +431,7 @@ impl<F: From<u64> + TryInto<u32> + Clone + Debug, V: Clone + Debug> CompilationU
         _call: Expression<F, V>,
         _state: V,
     ) -> Vec<CompilationResult<F, V>> {
-        todo!("Compile expressions?")
+        todo!("Compile expressions? Needs specs")
     }
 }
 
