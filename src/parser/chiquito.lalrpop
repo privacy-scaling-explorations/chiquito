@@ -37,9 +37,9 @@ pub Statements: Vec<Statement<BigInt, Identifier>> = {
 }
 
 ParseStatement: Statement<BigInt, Identifier> = {
-    <l: @L> <s: StatementType> ";" <r: @R> => add_dsym(dsym_factory.create(l,r), s),
-    <l: @L> <s: ConditionalStatement> <r: @R> => add_dsym(dsym_factory.create(l,r), s),
-    <l: @L> <s: StateTransition> <r: @R> => add_dsym(dsym_factory.create(l,r), s),
+    <s: StatementType> ";" => s,
+    <s: ConditionalStatement> => s,
+    <s: StateTransition> => s,
 }
 
 StatementType: Statement<BigInt, Identifier> = {
@@ -53,6 +53,7 @@ StatementType: Statement<BigInt, Identifier> = {
     ParseWGVarDecl,
     ParseTransitionSimple,
     ParseTransition,
+    HyperTransition,
 }
 
 AssertEq: Statement<BigInt, Identifier> = {
@@ -109,6 +110,10 @@ ParseTransitionSimple: Statement<BigInt, Identifier> = {
 
 ParseTransition: Statement<BigInt, Identifier> = {
     <l: @L> "->" <id: Identifier> <block: StatementsBlock> <r: @R> => build_transition(dsym_factory.create(l,r), id, block),
+}
+
+HyperTransition: Statement<BigInt, Identifier> = {
+    <l: @L> <ids: ParseIdsList> "<==" <call:Expression> "->" <st: Identifier> <r: @R> => build_hyper_transition(dsym_factory.create(l,r), ids, call, st),
 }
 
 ParseSignalDecl: Statement<BigInt, Identifier> = {
@@ -196,12 +201,17 @@ ParsePrefix: Expr = {
     ExpressionTerm
 }
 
+Call: Expr = {
+    <l: @L> <fun: Identifier> "(" <es:ParseExpressionList> ")" <r: @R> => Expression::Call(dsym_factory.create(l,r), fun, es),
+}
+
 ExpressionTerm: Expr = {
     <l: @L> <id: Identifier> <r: @R> => build_query(id, dsym_factory.create(l,r)),
     <l: @L> <lit: FieldElement> <r: @R> => lit,
     <l: @L> "true" <r: @R> => Expression::True(dsym_factory.create(l,r)),
     <l: @L> "false" <r: @R> => Expression::False(dsym_factory.create(l,r)),
     <l: @L> "(" <e: Expression> ")" <r: @R> => e,
+    Call
 }
 
 ParseBinOp<Op, Next>: Expr = {

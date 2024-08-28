@@ -272,6 +272,11 @@ impl Analyser {
 
             Statement::SignalDecl(_, _) => {}
             Statement::WGVarDecl(_, _) => {}
+            Statement::HyperTransition(_, ids, call, state) => {
+                self.analyse_expression(call);
+                self.collect_id_usages(&[state]);
+                self.collect_id_usages(&ids);
+            }
         }
     }
 
@@ -307,6 +312,12 @@ impl Analyser {
                 sub,
             } => {
                 self.extract_usages_expression(&sub);
+            }
+            Expression::Call(_, fun, exprs) => {
+                self.collect_id_usages(&[fun]);
+                exprs
+                    .into_iter()
+                    .for_each(|expr| self.extract_usages_expression(&expr));
             }
             _ => {}
         }
