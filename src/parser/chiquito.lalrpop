@@ -116,10 +116,6 @@ HyperTransition: Statement<BigInt, Identifier> = {
     <l: @L> <ids: ParseIdsList> "<==" <call:Expression> "->" <st: Identifier> <r: @R> => build_hyper_transition(dsym_factory.create(l,r), ids, call, st),
 }
 
-Call: Expression<BigInt, Identifier> = {
-    <l: @L> <fun: Identifier> "(" <es:ParseExpressionList> ")" <r: @R> => Expression::Call(dsym_factory.create(l,r), fun, es),
-}
-
 ParseSignalDecl: Statement<BigInt, Identifier> = {
     <l: @L> "signal" <ids: ParseTypedIdList> <r: @R> => Statement::SignalDecl(dsym_factory.create(l,r), ids),
 }
@@ -203,6 +199,10 @@ ParsePrefix: Expr = {
     <l: @L> "~" <sub: ExpressionTerm> <r: @R> => build_unary_op("~", sub, dsym_factory.create(l,r)),
 
     ExpressionTerm
+}
+
+Call: Expr = {
+    <l: @L> <fun: Identifier> "(" <es:ParseExpressionList> ")" <r: @R> => Expression::Call(dsym_factory.create(l,r), fun, es),
 }
 
 ExpressionTerm: Expr = {
