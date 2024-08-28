@@ -79,8 +79,6 @@ impl<F, TraceArgs> From<&astCircuit<F, TraceArgs>> for CompilationUnit<F> {
 
 impl<F: Field + Hash> From<CompilationUnit<F>> for Circuit<F> {
     fn from(unit: CompilationUnit<F>) -> Self {
-        let mut circuit = Circuit::new(unit.ast_id);
-
         let exposed: Vec<(usize, UUID)> = unit
             .exposed
             .iter()
@@ -104,6 +102,7 @@ impl<F: Field + Hash> From<CompilationUnit<F>> for Circuit<F> {
             witnesses.insert(*step_uuid, signal_uuids);
         }
 
+        let mut circuit = Circuit::new(unit.ast_id);
         circuit.write(&unit.matrix_coeffs, &unit.selector, &exposed, &witnesses);
 
         circuit

@@ -28,11 +28,16 @@ pub fn vec_add<F: Field + From<u64> + Hash>(vec: &[Vec<F>]) -> Vec<F> {
     })
 }
 
-// input vector z = [1, x, w]
+// The satisfying assignment Z consists of an finite field value 1,
+// a vector public input and output x, and a vector witness w.
+// `n` is the length of z vector
+// `l` is the length of x
+// `witnesses` is a vector witness w
+// `public_inputs` is a vector public input and output
 pub struct Z<F: Field + From<u64>> {
     pub n: usize,
     pub l: usize,
-    pub assignments: Vec<F>,
+    pub witnesses: Vec<F>,
     pub public_inputs: Vec<F>,
 }
 
@@ -42,44 +47,49 @@ impl<F: Field + From<u64> + Hash> Z<F> {
         Self {
             n,
             l,
-            assignments: Default::default(),
+            witnesses: Default::default(),
             public_inputs: Default::default(),
         }
     }
 
-    pub fn write(
-        &mut self,
-        inputs: &HashMap<(usize, UUID), F>,
-        witnesses: &[(UUID, HashMap<UUID, F>)],
-        assign_pos: &AssignmentOffsets,
-    ) {
-        assert_eq!(inputs.len(), self.l);
-        assert_eq!(assign_pos.len(), self.n);
-        let witness_len = self.n - self.l - 1;
-        let mut witness_values = vec![F::ZERO; witness_len];
-        let mut public_values = vec![F::ZERO; self.l];
-        for ((step_idx, signal_id), idx) in assign_pos.iter() {
-            if *signal_id == 0 {
-                continue;
-            }
-            if *idx < self.n - self.l {
-                witness_values[*idx - 1] = *witnesses[*step_idx].1.get(signal_id).unwrap();
-            } else {
-                public_values[*idx - witness_len - 1] =
-                    *inputs.get(&(*step_idx, *signal_id)).unwrap();
-            }
+    pub fn from_values(inputs: &[F], witnesses: &[F]) -> Self {
+        Self {
+            l: inputs.len(),
+            n: inputs.len() + witnesses.len() + 1,
+            public_inputs: inputs.to_vec(),
+            witnesses: witnesses.to_vec(),
         }
-        self.assignments = witness_values;
-        self.public_inputs = public_values;
     }
+}
 
-    pub fn write_with_values(&mut self, inputs: &[F], witnesses: &[F]) {
-        assert_eq!(inputs.len(), self.l);
-        assert_eq!(witnesses.len(), self.n - self.l - 1);
+pub fn create_z_from_assignments<F: Field + From<u64> + Hash>(
+    assignments: &Option<Assignments<F>>,
+    inputs: &HashMap<(usize, UUID), F>,
+    assign_pos: &AssignmentOffsets,
+) -> Z<F> {
+    let l = inputs.len();
+    let n = assign_pos.len();
+    let mut z = Z::new(n, l);
 
-        self.public_inputs.clone_from(&inputs.to_owned());
-        self.assignments.clone_from(&witnesses.to_owned());
+    let witnesses = assignments.as_deref().unwrap();
+
+    let witness_len = n - l - 1;
+    let mut witness_values = vec![F::ZERO; witness_len];
+    let mut public_values = vec![F::ZERO; l];
+    for ((step_idx, signal_id), idx) in assign_pos.iter() {
+        if *signal_id == 0 {
+            continue;
+        }
+        if *idx < n - l {
+            witness_values[*idx - 1] = *witnesses[*step_idx].1.get(signal_id).unwrap();
+        } else {
+            public_values[*idx - witness_len - 1] = *inputs.get(&(*step_idx, *signal_id)).unwrap();
+        }
     }
+    z.witnesses = witness_values;
+    z.public_inputs = public_values;
+
+    z
 }
 
 #[derive(Debug, Clone)]
@@ -98,11 +108,27 @@ impl<F: Field> Matrix<F> {
         }
     }
 
+    // Modify parts of cells in a Matrix
     pub fn write(&mut self, values: &[(usize, usize, F)]) {
         for &(row, col, value) in values.iter() {
             assert!(row < self.m);
             assert!(col < self.n);
             self.values[row][col] = value;
+        }
+    }
+
+    pub fn from_values(n: usize, m: usize, values: &[(usize, usize, F)]) -> Self {
+        let mut mvalues = vec![vec![F::ZERO; n]; m];
+        for &(row, col, value) in values.iter() {
+            assert!(row < m);
+            assert!(col < n);
+            mvalues[row][col] = value;
+        }
+
+        Self {
+            n,
+            m,
+            values: mvalues,
         }
     }
 
@@ -157,24 +183,6 @@ pub struct CCSCircuit<F> {
 }
 
 impl<F: Field + From<u64> + Hash> CCSCircuit<F> {
-    pub fn new() -> Self {
-        let matrices = Vec::new();
-        let selectors = Vec::new();
-        let constants = Vec::new();
-
-        Self {
-            n: 0,
-            m: 0,
-            l: 0,
-            t: 0,
-            q: 0,
-            d: 0,
-            matrices,
-            selectors,
-            constants,
-        }
-    }
-
     pub fn public_num(&self) -> usize {
         self.l
     }
@@ -183,58 +191,11 @@ impl<F: Field + From<u64> + Hash> CCSCircuit<F> {
         self.n - self.l - 1
     }
 
-    pub fn write(
-        &mut self,
-        matrices: &[Vec<(usize, usize, F)>],
-        selectors: &[Vec<(usize, F)>],
-        constants: &[F],
-    ) {
-        self.write_constants(constants);
-        self.write_selectors_and_degree(selectors);
-        self.write_matrices(matrices);
-    }
-
-    pub fn write_constants(&mut self, constants: &[F]) {
-        assert_eq!(constants.len(), self.q);
-        self.constants.clone_from(&constants.to_owned());
-    }
-
-    pub fn write_selectors_and_degree(&mut self, selectors: &[Vec<(usize, F)>]) {
-        let mut degree = 0;
-        assert_eq!(selectors.len(), self.q);
-        for selector in selectors.iter() {
-            for &(s, _) in selector {
-                assert!(s < self.t)
-            }
-            degree = degree.max(selector.len())
-        }
-        self.selectors.clone_from(&selectors.to_owned());
-        self.d = degree;
-    }
-
-    fn write_matrices(&mut self, matrices: &[Vec<(usize, usize, F)>]) {
-        assert_eq!(matrices.len(), self.t);
-
-        self.matrices = matrices
-            .iter()
-            .map(|cells| {
-                for &cell in cells.iter() {
-                    assert!(cell.0 < self.m);
-                    assert!(cell.1 < self.n);
-                }
-
-                let mut matrix = Matrix::new(self.n, self.m);
-                matrix.write(cells);
-                matrix
-            })
-            .collect();
-    }
-
     pub fn is_satisfied(&self, z: &Z<F>) -> bool {
         assert_eq!(self.selectors.len(), self.q);
         assert_eq!(self.constants.len(), self.q);
 
-        let mut witnesses = z.assignments.clone();
+        let mut witnesses = z.witnesses.clone();
         let mut inputs = z.public_inputs.clone();
 
         let mut values = vec![F::ONE];
@@ -272,6 +233,40 @@ impl<F: Field + From<u64> + Hash> CCSCircuit<F> {
     }
 }
 
+pub fn create_ccs_circuit<F: Field + From<u64> + Hash>(
+    n: usize,
+    m: usize,
+    l: usize,
+    matrices: &[Vec<(usize, usize, F)>],
+    selectors: &[Vec<(usize, F)>],
+    constants: &[F],
+) -> CCSCircuit<F> {
+    let mut degree = 0;
+    assert_eq!(selectors.len(), constants.len());
+    for selector in selectors.iter() {
+        for &(s, _) in selector {
+            assert!(s < matrices.len())
+        }
+        degree = degree.max(selector.len())
+    }
+    let matrices: Vec<Matrix<F>> = matrices
+        .iter()
+        .map(|cells| Matrix::from_values(n, m, cells))
+        .collect();
+
+    CCSCircuit {
+        n,
+        m,
+        t: matrices.len(),
+        q: constants.len(),
+        l,
+        d: degree,
+        constants: constants.to_vec(),
+        selectors: selectors.to_vec(),
+        matrices,
+    }
+}
+
 #[derive(Debug)]
 pub struct Circuit<F> {
     pub ast_id: UUID,
@@ -289,7 +284,7 @@ impl<F: Field + From<u64> + Hash> Circuit<F> {
             matrix_coeffs_and_offsets: HashMap::new(),
             exposed: Vec::new(),
             witness: HashMap::new(),
-            ccs: CCSCircuit::new(),
+            ccs: CCSCircuit::default(),
             ast_id,
         }
     }
@@ -376,14 +371,7 @@ impl<F: Field + From<u64> + Hash> Circuit<F> {
         self.ccs.m = m;
         self.ccs.matrices = matrices;
 
-        let mut z: Z<F> = Z::new(n, l);
-        z.write(
-            &self.instance(&assignments),
-            assignments.as_deref().unwrap(),
-            &assign_pos,
-        );
-
-        z
+        create_z_from_assignments(&assignments, &self.instance(&assignments), &assign_pos)
     }
 
     fn assignments_coeff_offset(
@@ -435,6 +423,7 @@ impl<F: Field + From<u64> + Hash> Circuit<F> {
                     .sum()
             })
             .unwrap();
+        // Initial a vector of Matrices
         let mut matrices = vec![Matrix::new(n, num_poly); num];
         let mut row = 0;
 
@@ -466,6 +455,7 @@ impl<F: Field + From<u64> + Hash> Circuit<F> {
                                     Some(col) => values.push((row, *col, *value)),
                                 }
                             }
+                            // Modify matrices values from steps
                             matrices[*selector].write(&values);
                         }
                     }
@@ -518,14 +508,8 @@ mod tests {
     #[test]
     fn test_ccs() {
         let n = 7;
+        let m = 4;
         let l = 3;
-
-        let mut ccs_circuit: CCSCircuit<Fr> = CCSCircuit::new();
-        ccs_circuit.n = n;
-        ccs_circuit.m = 4;
-        ccs_circuit.t = 8;
-        ccs_circuit.q = 5;
-        ccs_circuit.l = 3;
 
         let m0 = vec![
             (0, 1, Fr::ONE),
@@ -554,7 +538,7 @@ mod tests {
             (2, 0, Fr::ONE.neg()),
         ];
         let m7 = vec![(0, 0, Fr::ZERO)];
-        let matrics = vec![m0, m1, m2, m3, m4, m5, m6, m7];
+        let matrices = vec![m0, m1, m2, m3, m4, m5, m6, m7];
 
         let selectors = vec![
             vec![(3, Fr::ONE), (0, Fr::ONE), (1, Fr::ONE)],
@@ -564,10 +548,10 @@ mod tests {
             vec![(7, Fr::ONE)],
         ];
         let constants: Vec<Fr> = vec![Fr::ONE, Fr::ONE, Fr::ONE, Fr::ONE, Fr::ONE];
-        ccs_circuit.write(&matrics, &selectors, &constants);
 
-        let mut z = Z::new(n, l);
-        z.write_with_values(
+        let ccs_circuit = create_ccs_circuit(n, m, l, &matrices, &selectors, &constants);
+
+        let z = Z::from_values(
             &[Fr::ZERO, Fr::ONE, Fr::from(2)],
             &[Fr::from(3), Fr::from(10), Fr::from(43)],
         );

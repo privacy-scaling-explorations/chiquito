@@ -46,7 +46,7 @@ impl<F: Field> Z<F> {
     pub fn convert_to_sonobe_inputs<Fr: PrimeField>(&self, f: fn(&F) -> Fr) -> Vec<Fr> {
         [
             vec![F::from(1u64)],
-            self.assignments.clone(),
+            self.witnesses.clone(),
             self.public_inputs.clone(),
         ]
         .concat()
