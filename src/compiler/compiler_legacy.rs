@@ -259,15 +259,16 @@ impl<F: Field + Hash> CompilerLegacy<F> {
         setup
             .iter()
             .map(|(machine_id, machine)| {
-                let poly_constraints: HashMap<String, Vec<Expr<F, Identifier, ()>>> = machine
-                    .poly_constraints_iter()
-                    .map(|(step_id, step)| {
-                        let new_step: Vec<Expr<F, Identifier, ()>> =
-                            step.iter().map(|pi| Self::map_pi_consts(pi)).collect();
+                let poly_constraints: HashMap<String, Vec<Expr<F, Identifier, DebugSymRef>>> =
+                    machine
+                        .poly_constraints_iter()
+                        .map(|(step_id, step)| {
+                            let new_step: Vec<Expr<F, Identifier, DebugSymRef>> =
+                                step.iter().map(|pi| Self::map_pi_consts(pi)).collect();
 
-                        (step_id.clone(), new_step)
-                    })
-                    .collect();
+                            (step_id.clone(), new_step)
+                        })
+                        .collect();
 
                 let new_machine: MachineSetup<F> =
                     machine.replace_poly_constraints(poly_constraints);
@@ -276,17 +277,25 @@ impl<F: Field + Hash> CompilerLegacy<F> {
             .collect()
     }
 
-    fn map_pi_consts(expr: &Expr<BigInt, Identifier, ()>) -> Expr<F, Identifier, ()> {
+    fn map_pi_consts(
+        expr: &Expr<BigInt, Identifier, DebugSymRef>,
+    ) -> Expr<F, Identifier, DebugSymRef> {
         use Expr::*;
         match expr {
-            Const(v, _) => Const(F::from_big_int(v), ()),
-            Sum(ses, _) => Sum(ses.iter().map(|se| Self::map_pi_consts(se)).collect(), ()),
-            Mul(ses, _) => Mul(ses.iter().map(|se| Self::map_pi_consts(se)).collect(), ()),
-            Neg(se, _) => Neg(Box::new(Self::map_pi_consts(se)), ()),
-            Pow(se, exp, _) => Pow(Box::new(Self::map_pi_consts(se)), *exp, ()),
-            Query(q, _) => Query(q.clone(), ()),
+            Const(v, dsym) => Const(F::from_big_int(v), dsym.clone()),
+            Sum(ses, dsym) => Sum(
+                ses.iter().map(|se| Self::map_pi_consts(se)).collect(),
+                dsym.clone(),
+            ),
+            Mul(ses, dsym) => Mul(
+                ses.iter().map(|se| Self::map_pi_consts(se)).collect(),
+                dsym.clone(),
+            ),
+            Neg(se, dsym) => Neg(Box::new(Self::map_pi_consts(se)), dsym.clone()),
+            Pow(se, exp, dsym) => Pow(Box::new(Self::map_pi_consts(se)), *exp, dsym.clone()),
+            Query(q, dsym) => Query(q.clone(), dsym.clone()),
             Halo2Expr(_, _) => todo!(),
-            MI(se, _) => MI(Box::new(Self::map_pi_consts(se)), ()),
+            MI(se, dsym) => MI(Box::new(Self::map_pi_consts(se)), dsym.clone()),
         }
     }
 
@@ -316,7 +325,7 @@ impl<F: Field + Hash> CompilerLegacy<F> {
                                 poly_constraints.iter().for_each(|poly| {
                                     let constraint = Constraint {
                                         annotation: format!("{:?}", poly),
-                                        expr: poly.clone(),
+                                        expr: poly.transform_meta(|_| ()),
                                         typing: Typing::AntiBooly,
                                     };
                                     ctx.constr(constraint);
@@ -372,7 +381,7 @@ impl<F: Field + Hash> CompilerLegacy<F> {
         setup: &Setup<F>,
         machine_id: &str,
         state_id: &str,
-    ) -> Vec<Expr<F, Queriable<F>, ()>> {
+    ) -> Vec<Expr<F, Queriable<F>, DebugSymRef>> {
         let exprs = setup
             .get(machine_id)
             .unwrap()
@@ -390,38 +399,41 @@ impl<F: Field + Hash> CompilerLegacy<F> {
         symbols: &SymTable,
         machine_id: &str,
         state_id: &str,
-        expr: &Expr<F, Identifier, ()>,
-    ) -> Expr<F, Queriable<F>, ()> {
+        expr: &Expr<F, Identifier, DebugSymRef>,
+    ) -> Expr<F, Queriable<F>, DebugSymRef> {
         use Expr::*;
         match expr {
-            Const(v, _) => Const(*v, ()),
-            Sum(ses, _) => Sum(
+            Const(v, dsym) => Const(*v, dsym.clone()),
+            Sum(ses, dsym) => Sum(
                 ses.iter()
                     .map(|se| self.translate_queries_expr(symbols, machine_id, state_id, se))
                     .collect(),
-                (),
+                dsym.clone(),
             ),
-            Mul(ses, _) => Mul(
+            Mul(ses, dsym) => Mul(
                 ses.iter()
                     .map(|se| self.translate_queries_expr(symbols, machine_id, state_id, se))
                     .collect(),
-                (),
+                dsym.clone(),
             ),
-            Neg(se, _) => Neg(
+            Neg(se, dsym) => Neg(
                 Box::new(self.translate_queries_expr(symbols, machine_id, state_id, se.as_ref())),
-                (),
+                dsym.clone(),
             ),
-            Pow(se, exp, _) => Pow(
+            Pow(se, exp, dsym) => Pow(
                 Box::new(self.translate_queries_expr(symbols, machine_id, state_id, se.as_ref())),
                 *exp,
-                (),
+                dsym.clone(),
             ),
-            MI(se, _) => MI(
+            MI(se, dsym) => MI(
                 Box::new(self.translate_queries_expr(symbols, machine_id, state_id, se.as_ref())),
-                (),
+                dsym.clone(),
             ),
-            Halo2Expr(se, _) => Halo2Expr(se.clone(), ()),
-            Query(id, _) => Query(self.translate_query(symbols, machine_id, state_id, id), ()),
+            Halo2Expr(se, dsym) => Halo2Expr(se.clone(), dsym.clone()),
+            Query(id, dsym) => Query(
+                self.translate_query(symbols, machine_id, state_id, id),
+                dsym.clone(),
+            ),
         }
     }
 

@@ -275,8 +275,8 @@ pub struct SBPIR<F: Clone, TG: TraceGenerator<F> = DSLTraceGenerator<F>, M: Clon
     pub identifiers: HashMap<String, UUID>,
 }
 
-impl<F: Field + Hash, TG: TraceGenerator<F>> SBPIR<F, TG> {
-    pub(crate) fn default() -> SBPIR<F, TG> {
+impl<F: Field + Hash, TG: TraceGenerator<F>, M: Clone> SBPIR<F, TG, M> {
+    pub(crate) fn default() -> SBPIR<F, TG, M> {
         let machines = HashMap::new();
         let identifiers = HashMap::new();
         SBPIR {
@@ -289,7 +289,7 @@ impl<F: Field + Hash, TG: TraceGenerator<F>> SBPIR<F, TG> {
         &self,
         // TODO does it have to be the same trace across all the machines?
         trace: &TG2,
-    ) -> SBPIR<F, TG2> {
+    ) -> SBPIR<F, TG2, M> {
         let mut machines_with_trace = HashMap::new();
         for (name, machine) in self.machines.iter() {
             let machine_with_trace = machine.with_trace(trace.clone());
@@ -301,7 +301,7 @@ impl<F: Field + Hash, TG: TraceGenerator<F>> SBPIR<F, TG> {
         }
     }
 
-    pub(crate) fn without_trace(&self) -> SBPIR<F, NullTraceGenerator> {
+    pub(crate) fn without_trace(&self) -> SBPIR<F, NullTraceGenerator, M> {
         let mut machines_without_trace = HashMap::new();
         for (name, machine) in self.machines.iter() {
             let machine_without_trace = machine.without_trace();
@@ -312,7 +312,28 @@ impl<F: Field + Hash, TG: TraceGenerator<F>> SBPIR<F, TG> {
             identifiers: self.identifiers.clone(),
         }
     }
+}
 
+impl<F: Field + Hash, TG: TraceGenerator<F> + Clone, M: Clone> SBPIR<F, TG, M> {
+    pub fn transform_metadata<N: Clone, ApplyMetaFn>(
+        self,
+        apply_meta: ApplyMetaFn,
+    ) -> SBPIR<F, TG, N>
+    where
+        ApplyMetaFn: Fn(&Expr<F, Queriable<F>, M>) -> N + Clone,
+    {
+        SBPIR {
+            machines: self
+                .machines
+                .into_iter()
+                .map(|(name, machine)| (name, machine.transform_meta(apply_meta.clone())))
+                .collect(),
+            identifiers: self.identifiers,
+        }
+    }
+}
+
+impl<F: Field + Hash, TG: TraceGenerator<F>> SBPIR<F, TG> {
     /// Eliminate multiplicative inverses
     pub(crate) fn eliminate_mul_inv(mut self) -> SBPIR<F, TG> {
         for machine in self.machines.values_mut() {
@@ -443,7 +464,7 @@ impl<F, M> StepType<F, M> {
     }
 }
 
-impl<F: Field + Hash, M: Clone> StepType<F, M> {
+impl<F: Clone + PartialEq + Eq + Hash, M: Clone> StepType<F, M> {
     pub fn transform_meta<N: Clone, ApplyMetaFn>(&self, apply_meta: ApplyMetaFn) -> StepType<F, N>
     where
         ApplyMetaFn: Fn(&Expr<F, Queriable<F>, M>) -> N + Clone,
@@ -470,7 +491,7 @@ impl<F: Field + Hash, M: Clone> StepType<F, M> {
             auto_signals: self
                 .auto_signals
                 .iter()
-                .map(|(k, v)| (*k, v.transform_meta(apply_meta.clone())))
+                .map(|(k, v)| (k.clone(), v.transform_meta(apply_meta.clone())))
                 .collect(),
             annotations: self.annotations.clone(),
         }
@@ -560,7 +581,7 @@ pub struct Constraint<F, M> {
     pub expr: PIR<F, M>,
 }
 
-impl<F: Field + Hash, M: Clone> Constraint<F, M> {
+impl<F: Clone + PartialEq + Eq, M: Clone> Constraint<F, M> {
     pub fn transform_meta<N: Clone, ApplyMetaFn>(&self, apply_meta: ApplyMetaFn) -> Constraint<F, N>
     where
         ApplyMetaFn: Fn(&Expr<F, Queriable<F>, M>) -> N + Clone,
@@ -579,7 +600,7 @@ pub struct TransitionConstraint<F, M> {
     pub expr: PIR<F, M>,
 }
 
-impl<F: Field + Hash, M: Clone> TransitionConstraint<F, M> {
+impl<F: Clone + PartialEq + Eq, M: Clone> TransitionConstraint<F, M> {
     pub fn transform_meta<N: Clone, ApplyMetaFn>(
         &self,
         apply_meta: ApplyMetaFn,
@@ -676,7 +697,7 @@ impl<F: Debug + Clone, M: Clone + Default> Lookup<F, M> {
     }
 }
 
-impl<F: Field + Hash, M: Clone> Lookup<F, M> {
+impl<F: Clone + PartialEq + Eq, M: Clone> Lookup<F, M> {
     pub fn transform_meta<N: Clone, ApplyMetaFn>(&self, apply_meta: ApplyMetaFn) -> Lookup<F, N>
     where
         ApplyMetaFn: Fn(&Expr<F, Queriable<F>, M>) -> N + Clone,

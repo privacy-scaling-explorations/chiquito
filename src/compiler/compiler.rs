@@ -4,6 +4,7 @@ use num_bigint::BigInt;
 
 use crate::{
     field::Field,
+    frontend::dsl::trace::DSLTraceGenerator,
     interpreter::InterpreterTraceGenerator,
     parser::{
         ast::{
@@ -269,6 +270,8 @@ impl<F: Field + Hash> Compiler<F> {
             sbpir.machines.insert(machine_name.clone(), sbpir_machine);
         }
 
+        let sbpir = sbpir.transform_metadata(|_| ());
+
         sbpir.without_trace()
     }
 
@@ -279,7 +282,7 @@ impl<F: Field + Hash> Compiler<F> {
         setup: &MachineSetup<F>,
         machine_name: &str,
         state_id: &str,
-    ) -> Vec<Constraint<F, ()>> {
+    ) -> Vec<Constraint<F, DebugSymRef>> {
         let exprs = setup.get_poly_constraints(state_id).unwrap();
 
         exprs
@@ -300,40 +303,40 @@ impl<F: Field + Hash> Compiler<F> {
         symbols: &SymTable,
         machine_name: &str,
         state_id: &str,
-        expr: &Expr<F, Identifier, ()>,
-    ) -> Expr<F, Queriable<F>, ()> {
+        expr: &Expr<F, Identifier, DebugSymRef>,
+    ) -> Expr<F, Queriable<F>, DebugSymRef> {
         use Expr::*;
         match expr {
-            Const(v, _) => Const(*v, ()),
-            Sum(ses, _) => Sum(
+            Const(v, dsym) => Const(*v, dsym.clone()),
+            Sum(ses, dsym) => Sum(
                 ses.iter()
                     .map(|se| self.translate_queries_expr(symbols, machine_name, state_id, se))
                     .collect(),
-                (),
+                dsym.clone(),
             ),
-            Mul(ses, _) => Mul(
+            Mul(ses, dsym) => Mul(
                 ses.iter()
                     .map(|se| self.translate_queries_expr(symbols, machine_name, state_id, se))
                     .collect(),
-                (),
+                dsym.clone(),
             ),
-            Neg(se, _) => Neg(
+            Neg(se, dsym) => Neg(
                 Box::new(self.translate_queries_expr(symbols, machine_name, state_id, se.as_ref())),
-                (),
+                dsym.clone(),
             ),
-            Pow(se, exp, _) => Pow(
+            Pow(se, exp, dsym) => Pow(
                 Box::new(self.translate_queries_expr(symbols, machine_name, state_id, se.as_ref())),
                 *exp,
-                (),
+                dsym.clone(),
             ),
-            MI(se, _) => MI(
+            MI(se, dsym) => MI(
                 Box::new(self.translate_queries_expr(symbols, machine_name, state_id, se.as_ref())),
-                (),
+                dsym.clone(),
             ),
-            Halo2Expr(se, _) => Halo2Expr(se.clone(), ()),
-            Query(id, _) => Query(
+            Halo2Expr(se, dsym) => Halo2Expr(se.clone(), dsym.clone()),
+            Query(id, dsym) => Query(
                 self.translate_query(symbols, machine_name, state_id, id),
-                (),
+                dsym.clone(),
             ),
         }
     }
@@ -428,10 +431,10 @@ impl<F: Field + Hash> Compiler<F> {
         machine_name: &str,
         machine_setup: &MachineSetup<F>,
         state_id: &str,
-    ) -> StepType<F, ()> {
+    ) -> StepType<F, DebugSymRef> {
         let handler = self.mapping.get_step_type_handler(machine_name, state_id);
 
-        let mut step_type: StepType<F, ()> =
+        let mut step_type: StepType<F, DebugSymRef> =
             StepType::new(handler.uuid(), handler.annotation.to_string());
 
         self.add_internal_signals(symbols, machine_name, &mut step_type, state_id);
@@ -448,7 +451,7 @@ impl<F: Field + Hash> Compiler<F> {
         &mut self,
         symbols: &SymTable,
         machine_name: &str,
-        step_type: &mut StepType<F, ()>,
+        step_type: &mut StepType<F, DebugSymRef>,
         state_id: &str,
     ) {
         let internal_ids = self.get_all_internals(symbols, machine_name, state_id);
@@ -467,7 +470,7 @@ impl<F: Field + Hash> Compiler<F> {
 
     fn add_step_type_handlers(
         &mut self,
-        machine: &mut SBPIRMachine<F>,
+        machine: &mut SBPIRMachine<F, DSLTraceGenerator<F>, DebugSymRef>,
         symbols: &SymTable,
         machine_name: &str,
     ) {
@@ -497,7 +500,7 @@ impl<F: Field + Hash> Compiler<F> {
 
     fn add_forward_signals(
         &mut self,
-        machine: &mut SBPIRMachine<F>,
+        machine: &mut SBPIRMachine<F, DSLTraceGenerator<F>, DebugSymRef>,
         symbols: &SymTable,
         machine_name: &str,
     ) {

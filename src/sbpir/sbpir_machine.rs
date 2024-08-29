@@ -4,12 +4,13 @@ use crate::{
         trace::{DSLTraceGenerator, TraceContext},
         StepTypeHandler,
     },
+    poly::Expr,
     sbpir::Halo2Column,
     util::{uuid, UUID},
     wit_gen::{FixedAssignment, NullTraceGenerator, TraceGenerator},
 };
 use halo2_proofs::plonk::{Advice, Fixed};
-use std::{collections::HashMap, fmt::Debug, rc::Rc};
+use std::{collections::HashMap, fmt::Debug, hash::Hash, rc::Rc};
 
 use super::{
     query::Queriable, ExposeOffset, FixedSignal, ForwardSignal, ImportedHalo2Advice,
@@ -268,6 +269,45 @@ impl<F: Clone + Field, TG: TraceGenerator<F>> SBPIRMachine<F, TG> {
             last_step: self.last_step,
             num_steps: self.num_steps,
             q_enable: self.q_enable,
+            id: self.id,
+        }
+    }
+}
+
+impl<F: Clone + PartialEq + Eq + Hash, TG: TraceGenerator<F> + Clone, M: Clone>
+    SBPIRMachine<F, TG, M>
+{
+    pub fn transform_meta<N: Clone, ApplyMetaFn>(
+        &self,
+        apply_meta: ApplyMetaFn,
+    ) -> SBPIRMachine<F, TG, N>
+    where
+        ApplyMetaFn: Fn(&Expr<F, Queriable<F>, M>) -> N + Clone,
+    {
+        SBPIRMachine {
+            step_types: self
+                .step_types
+                .iter()
+                .map(|(uuid, step_type)| (*uuid, step_type.transform_meta(apply_meta.clone())))
+                .collect(),
+
+            forward_signals: self.forward_signals.clone(),
+            shared_signals: self.shared_signals.clone(),
+            fixed_signals: self.fixed_signals.clone(),
+            halo2_advice: self.halo2_advice.clone(),
+            halo2_fixed: self.halo2_fixed.clone(),
+            exposed: self.exposed.clone(),
+
+            annotations: self.annotations.clone(),
+
+            trace_generator: self.trace_generator.clone(),
+            fixed_assignments: self.fixed_assignments.clone(),
+
+            first_step: self.first_step,
+            last_step: self.last_step,
+            num_steps: self.num_steps,
+            q_enable: self.q_enable,
+
             id: self.id,
         }
     }
