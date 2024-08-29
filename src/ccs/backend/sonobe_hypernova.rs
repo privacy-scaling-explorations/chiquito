@@ -3,7 +3,7 @@ use ark_std::log2;
 use folding_schemes::{ccs::CCS, utils::vec::dense_matrix_to_sparse};
 
 use crate::{
-    ccs::ir::circuit::{CCSCircuit, Z},
+    ccs::ir::{assignments::Z, circuit::CCSCircuit},
     field::Field,
 };
 

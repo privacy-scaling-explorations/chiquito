@@ -11,7 +11,7 @@ use chiquito::{
             config,
             step_selector::SimpleStepSelectorBuilder,
         },
-        ir::{assignments::AssignmentGenerator, circuit::Circuit},
+        ir::{assignments::AssignmentGenerator, Circuit},
     },
     field::Field,
     frontend::dsl::circuit,

@@ -1,5 +1,6 @@
 use std::{
     collections::HashMap,
+    fmt::Debug,
     hash::Hash,
     ops::{Deref, DerefMut},
 };
@@ -14,6 +15,7 @@ use crate::{
 
 pub type Coeffs<F> = Vec<Vec<Vec<Vec<(F, UUID, bool)>>>>;
 
+// All the assignments values in all the steps.
 #[derive(Debug, Clone)]
 pub struct Assignments<F>(pub Vec<(UUID, HashMap<UUID, F>)>);
 
@@ -208,5 +210,51 @@ impl<F: Field> PublicInputs<F> {
 
     pub fn is_empty(&self) -> bool {
         self.len() == 0
+    }
+}
+
+// The satisfying assignment Z consists of an finite field value 1,
+// a vector public input and output x, and a vector witness w.
+// `n` is the length of z vector
+// `l` is the length of x
+// `witnesses` is a vector witness w
+// `public_inputs` is a vector public input and output
+#[derive(Clone, Default)]
+pub struct Z<F> {
+    pub n: usize,
+    pub l: usize,
+    pub witnesses: Vec<F>,
+    pub public_inputs: Vec<F>,
+}
+
+impl<F: Debug> Debug for Z<F> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Z")
+            .field("n", &self.n)
+            .field("l", &self.l)
+            .field("witnesses", &self.witnesses)
+            .field("public_inputs", &self.public_inputs)
+            .finish()
+    }
+}
+
+impl<F: Field + From<u64> + Hash> Z<F> {
+    pub fn new(n: usize, l: usize) -> Self {
+        assert!(n > l);
+        Self {
+            n,
+            l,
+            witnesses: Default::default(),
+            public_inputs: Default::default(),
+        }
+    }
+
+    pub fn from_values(inputs: &[F], witnesses: &[F]) -> Self {
+        Self {
+            l: inputs.len(),
+            n: inputs.len() + witnesses.len() + 1,
+            public_inputs: inputs.to_vec(),
+            witnesses: witnesses.to_vec(),
+        }
     }
 }

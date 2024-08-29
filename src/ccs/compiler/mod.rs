@@ -6,7 +6,7 @@ use std::{collections::HashMap, hash::Hash, rc::Rc};
 use unit::CompilationUnit;
 
 use crate::{
-    ccs::ir::{assignments::AssignmentGenerator, circuit::Circuit, CoeffsForSteps, Poly, PolyExpr},
+    ccs::ir::{assignments::AssignmentGenerator, Circuit, CoeffsForSteps, Poly, PolyExpr},
     field::Field,
     poly::Expr,
     sbpir::{query::Queriable, ExposeOffset, PIR, SBPIR as astCircuit},
