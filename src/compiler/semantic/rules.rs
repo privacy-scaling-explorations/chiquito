@@ -43,6 +43,9 @@ fn undeclared_rule(analyser: &mut Analyser, expr: &Expression<BigInt, Identifier
             undeclared_rule(analyser, when_false);
         }
         Expression::Const(_, _) | Expression::True(_) | Expression::False(_) => {}
+        Expression::Call(_, _, args) => {
+            args.iter().for_each(|arg| undeclared_rule(analyser, arg));
+        }
     }
 }
 

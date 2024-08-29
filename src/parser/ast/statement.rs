@@ -13,28 +13,42 @@ pub struct TypedIdDecl<V> {
 
 #[derive(Clone)]
 pub enum Statement<F, V> {
-    Assert(DebugSymRef, Expression<F, V>), // assert x;
-
-    SignalAssignment(DebugSymRef, Vec<V>, Vec<Expression<F, V>>), // x <-- y;
-    SignalAssignmentAssert(DebugSymRef, Vec<V>, Vec<Expression<F, V>>), // x <== y;
-    WGAssignment(DebugSymRef, Vec<V>, Vec<Expression<F, V>>),     // x = y;
-
-    IfThen(DebugSymRef, Box<Expression<F, V>>, Box<Statement<F, V>>), // if x { y }
+    /// assert x;
+    Assert(DebugSymRef, Expression<F, V>),
+    /// x <-- y;
+    SignalAssignment(DebugSymRef, Vec<V>, Vec<Expression<F, V>>),
+    /// x <== y;
+    SignalAssignmentAssert(DebugSymRef, Vec<V>, Vec<Expression<F, V>>),
+    /// x = y;
+    WGAssignment(DebugSymRef, Vec<V>, Vec<Expression<F, V>>),
+    /// if x { y }
+    IfThen(DebugSymRef, Box<Expression<F, V>>, Box<Statement<F, V>>),
+    /// if x { y } else { z }
     IfThenElse(
         DebugSymRef,
         Box<Expression<F, V>>,
         Box<Statement<F, V>>,
         Box<Statement<F, V>>,
-    ), // if x { y } else { z }
-
-    SignalDecl(DebugSymRef, Vec<TypedIdDecl<V>>), // signal x;
-    WGVarDecl(DebugSymRef, Vec<TypedIdDecl<V>>),  // var x;
-
-    StateDecl(DebugSymRef, V, Box<Statement<F, V>>), // state x { y }
-
-    Transition(DebugSymRef, V, Box<Statement<F, V>>), // -> x { y }
-
-    Block(DebugSymRef, Vec<Statement<F, V>>), // { x }
+    ),
+    /// signal x;
+    SignalDecl(DebugSymRef, Vec<TypedIdDecl<V>>),
+    /// var x;
+    WGVarDecl(DebugSymRef, Vec<TypedIdDecl<V>>),
+    /// state x { y }
+    StateDecl(DebugSymRef, V, Box<Statement<F, V>>),
+    /// Transition to another state.
+    /// -> x { y }
+    Transition(DebugSymRef, V, Box<Statement<F, V>>),
+    /// { x }
+    Block(DebugSymRef, Vec<Statement<F, V>>),
+    /// Call into another machine with assertion and subsequent transition to another
+    /// state.
+    /// Tuple values:
+    /// - debug symbol reference;
+    /// - assigned signal IDs;
+    /// - call expression;
+    /// - next state ID;
+    HyperTransition(DebugSymRef, Vec<V>, Expression<F, V>, V),
 }
 
 impl<F: Debug> Debug for Statement<F, Identifier> {
@@ -84,6 +98,18 @@ impl<F: Debug> Debug for Statement<F, Identifier> {
                         .join(" ")
                 )
             }
+            Statement::HyperTransition(_, ids, call, state) => {
+                write!(
+                    f,
+                    "{:?} <== {:?} -> {:?};",
+                    ids.iter()
+                        .map(|id| id.name())
+                        .collect::<Vec<_>>()
+                        .join(", "),
+                    call,
+                    state
+                )
+            }
         }
     }
 }
@@ -102,6 +128,7 @@ impl<F, V> Statement<F, V> {
             Statement::StateDecl(dsym, _, _) => dsym.clone(),
             Statement::Transition(dsym, _, _) => dsym.clone(),
             Statement::Block(dsym, _) => dsym.clone(),
+            Statement::HyperTransition(dsym, _, _, _) => dsym.clone(),
         }
     }
 }

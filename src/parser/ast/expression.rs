@@ -193,6 +193,12 @@ pub enum Expression<F, V> {
     Const(DebugSymRef, F),
     True(DebugSymRef),
     False(DebugSymRef),
+    /// Function or machine call.
+    /// Tuple values:
+    /// - debug symbol reference;
+    /// - function/machine ID;
+    /// - call argument expressions vector.
+    Call(DebugSymRef, V, Vec<Expression<F, V>>),
 }
 
 // Shorthand for BigInt expression
@@ -217,6 +223,9 @@ impl<F, V> Expression<F, V> {
             Const(_, _) => true,
             True(_) => false,
             False(_) => false,
+            Call(_, _, _) => {
+                todo!("Needs specs. For a function call, depends on the function return type?")
+            }
         }
     }
 
@@ -234,6 +243,9 @@ impl<F, V> Expression<F, V> {
 
                 when_true.is_logic()
             }
+            Expression::Call { .. } => {
+                todo!("Needs specs. For a function call, depends on the function return type?")
+            }
             _ => false,
         }
     }
@@ -247,6 +259,7 @@ impl<F, V> Expression<F, V> {
             Expression::Const(dsym, _) => dsym,
             Expression::True(dsym) => dsym,
             Expression::False(dsym) => dsym,
+            Expression::Call(dsym, _, _) => dsym,
         }
     }
 
@@ -260,6 +273,7 @@ impl<F, V> Expression<F, V> {
             Expression::Query(_, _) => false,
             Expression::True(_) => false,
             Expression::False(_) => false,
+            Expression::Call(_, _, _) => false,
         }
     }
 }
@@ -315,6 +329,7 @@ impl<F: Debug, V: Debug> Debug for Expression<F, V> {
 
             Expression::True(_) => write!(f, "true"),
             Expression::False(_) => write!(f, "false"),
+            Expression::Call(_, fun, exprs) => write!(f, "{:?}({:?})", fun, exprs),
         }
     }
 }
