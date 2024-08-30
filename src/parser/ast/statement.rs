@@ -45,10 +45,9 @@ pub enum Statement<F, V> {
     /// state.
     /// Tuple values:
     /// - debug symbol reference;
-    /// - assigned signal IDs;
-    /// - call expression;
-    /// - next state ID;
-    HyperTransition(DebugSymRef, Vec<V>, Expression<F, V>, V),
+    /// - Statement::SignalAssignmentAssert;
+    /// - Statement::Transition;
+    HyperTransition(DebugSymRef, Box<Statement<F, V>>, Box<Statement<F, V>>),
 }
 
 impl<F: Debug> Debug for Statement<F, Identifier> {
@@ -98,17 +97,8 @@ impl<F: Debug> Debug for Statement<F, Identifier> {
                         .join(" ")
                 )
             }
-            Statement::HyperTransition(_, ids, call, state) => {
-                write!(
-                    f,
-                    "{:?} <== {:?} -> {:?};",
-                    ids.iter()
-                        .map(|id| id.name())
-                        .collect::<Vec<_>>()
-                        .join(", "),
-                    call,
-                    state
-                )
+            Statement::HyperTransition(_, assign_call, state_transition) => {
+                write!(f, "{:?} -> {{ {:?} }};", state_transition, assign_call,)
             }
         }
     }
@@ -128,7 +118,7 @@ impl<F, V> Statement<F, V> {
             Statement::StateDecl(dsym, _, _) => dsym.clone(),
             Statement::Transition(dsym, _, _) => dsym.clone(),
             Statement::Block(dsym, _) => dsym.clone(),
-            Statement::HyperTransition(dsym, _, _, _) => dsym.clone(),
+            Statement::HyperTransition(dsym, _, _) => dsym.clone(),
         }
     }
 }

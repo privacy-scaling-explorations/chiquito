@@ -1,3 +1,4 @@
+use itertools::Itertools;
 use num_bigint::BigInt;
 
 use crate::{
@@ -48,7 +49,67 @@ impl Default for Analyser {
 impl Analyser {
     /// Analyse chiquito AST.
     fn analyse(&mut self, program: &[TLDecl<BigInt, Identifier>]) {
+        program
+            .iter()
+            .for_each(|decl: &TLDecl<BigInt, Identifier>| self.collect_tl_decl(decl));
         program.iter().for_each(|decl| self.analyse_tldcl(decl));
+    }
+
+    /// Collect a top level declaration to later perform necessary checks (e.g., validate the
+    /// calls of machines from other machines).
+    fn collect_tl_decl(&mut self, decl: &TLDecl<BigInt, Identifier>) {
+        match decl.clone() {
+            TLDecl::MachineDecl {
+                dsym: _,
+                id,
+                input_params,
+                output_params,
+                block: _,
+            } => {
+                let sym = SymTableEntry::new_machine(
+                    id.name(),
+                    id.debug_sym_ref(),
+                    SymbolCategory::Machine,
+                    None,
+                    input_params
+                        .iter()
+                        .map(|param| match param {
+                            Statement::SignalDecl(_, decls) | Statement::WGVarDecl(_, decls) => {
+                                if decls.len() != 1 {
+                                    unreachable!("Each input should be a single identifier");
+                                }
+                                decls[0].id.name()
+                            }
+                            _ => unreachable!("Inputs should be signals or vars"),
+                        })
+                        .collect_vec(),
+                    output_params
+                        .iter()
+                        .map(|param| match param {
+                            Statement::SignalDecl(_, decls) | Statement::WGVarDecl(_, decls) => {
+                                if decls.len() != 1 {
+                                    unreachable!("Each output should be a single identifier");
+                                }
+                                decls[0].id.name()
+                            }
+                            _ => unreachable!("Outputs should be signals or vars"),
+                        })
+                        .collect_vec(),
+                );
+
+                RULES.apply_new_symbol_tldecl(self, decl, &id, &sym);
+
+                self.symbols.add_symbol(&self.cur_scope, id.name(), sym);
+
+                self.enter_new_scope(id.name());
+
+                self.analyse_machine_input_params(input_params);
+
+                self.analyse_machine_output_params(output_params);
+
+                self.exit_scope();
+            }
+        }
     }
 
     /// Analyse top level declaration.
@@ -57,37 +118,17 @@ impl Analyser {
             TLDecl::MachineDecl {
                 dsym: _,
                 id,
-                input_params,
-                output_params,
+                input_params: _,
+                output_params: _,
                 block,
             } => {
-                let sym = SymTableEntry::new(
-                    id.name(),
-                    id.debug_sym_ref(),
-                    SymbolCategory::Machine,
-                    None,
-                );
-
-                RULES.apply_new_symbol_tldecl(self, decl, &id, &sym);
-
-                self.symbols.add_symbol(&self.cur_scope, id.name(), sym);
-
-                self.analyse_machine(id, input_params, output_params, block);
+                self.analyse_machine(id, block);
             }
         }
     }
 
-    fn analyse_machine(
-        &mut self,
-        id: Identifier,
-        input_params: Vec<Statement<BigInt, Identifier>>,
-        output_params: Vec<Statement<BigInt, Identifier>>,
-        block: Statement<BigInt, Identifier>,
-    ) {
+    fn analyse_machine(&mut self, id: Identifier, block: Statement<BigInt, Identifier>) {
         self.enter_new_scope(id.name());
-
-        self.analyse_machine_input_params(input_params);
-        self.analyse_machine_output_params(output_params);
 
         self.add_state_decls(&block);
 
@@ -193,9 +234,6 @@ impl Analyser {
 
     fn analyse_statement(&mut self, stmt: Statement<BigInt, Identifier>) {
         self.statement_add_symbols(&stmt);
-
-        RULES.apply_statement(self, &stmt);
-
         self.analyse_statement_recursive(stmt);
     }
 
@@ -233,6 +271,8 @@ impl Analyser {
     }
 
     fn analyse_statement_recursive(&mut self, stmt: Statement<BigInt, Identifier>) {
+        RULES.apply_statement(self, &stmt);
+
         match stmt {
             Statement::Assert(_, expr) => self.analyse_expression(expr),
             Statement::SignalAssignment(_, ids, exprs) => {
@@ -272,10 +312,9 @@ impl Analyser {
 
             Statement::SignalDecl(_, _) => {}
             Statement::WGVarDecl(_, _) => {}
-            Statement::HyperTransition(_, ids, call, state) => {
-                self.analyse_expression(call);
-                self.collect_id_usages(&[state]);
-                self.collect_id_usages(&ids);
+            Statement::HyperTransition(_, ref assign_call, ref state_transition) => {
+                self.analyse_statement_recursive(*assign_call.clone());
+                self.analyse_statement_recursive(*state_transition.clone());
             }
         }
     }
@@ -398,7 +437,7 @@ mod test {
 
         assert_eq!(
             format!("{:?}", result),
-            r#"AnalysisResult { symbols: /: ScopeTable { symbols: "fibo: SymTableEntry { id: \"fibo\", definition_ref: nofile:2:17, usages: [], category: Machine, ty: None }", scope: Global },//fibo: ScopeTable { symbols: "a: SymTableEntry { id: \"a\", definition_ref: nofile:5:20, usages: [nofile:13:17, nofile:16:15, nofile:23:20, nofile:31:20], category: Signal, ty: Some(\"field\") },b: SymTableEntry { id: \"b\", definition_ref: nofile:2:40, usages: [nofile:13:20, nofile:16:30, nofile:16:19, nofile:23:24, nofile:27:20, nofile:31:42, nofile:31:24], category: OutputSignal, ty: Some(\"field\") },i: SymTableEntry { id: \"i\", definition_ref: nofile:5:30, usages: [nofile:13:14, nofile:25:17, nofile:27:31, nofile:27:16, nofile:31:35, nofile:31:16], category: Signal, ty: None },initial: SymTableEntry { id: \"initial\", definition_ref: nofile:10:19, usages: [], category: State, ty: None },middle: SymTableEntry { id: \"middle\", definition_ref: nofile:20:19, usages: [nofile:15:17, nofile:30:18], category: State, ty: None },n: SymTableEntry { id: \"n\", definition_ref: nofile:2:29, usages: [nofile:16:36, nofile:16:23, nofile:25:26, nofile:27:41, nofile:27:24, nofile:31:48, nofile:31:28], category: InputSignal, ty: None }", scope: Machine },//fibo/initial: ScopeTable { symbols: "c: SymTableEntry { id: \"c\", definition_ref: nofile:11:21, usages: [nofile:13:23, nofile:16:33], category: Signal, ty: None }", scope: State },//fibo/middle: ScopeTable { symbols: "c: SymTableEntry { id: \"c\", definition_ref: nofile:21:21, usages: [nofile:23:14, nofile:27:38, nofile:31:45], category: Signal, ty: None }", scope: State }, messages: [] }"#
+            r#"AnalysisResult { symbols: /: ScopeTable { symbols: "fibo: SymTableEntry { id: \"fibo\", definition_ref: nofile:2:17, usages: [], category: Machine, ty: None, ins: Some([\"n\"]), outs: Some([\"b\"]) }", scope: Global },//fibo: ScopeTable { symbols: "a: SymTableEntry { id: \"a\", definition_ref: nofile:5:20, usages: [nofile:13:17, nofile:16:15, nofile:23:20, nofile:31:20], category: Signal, ty: Some(\"field\"), ins: None, outs: None },b: SymTableEntry { id: \"b\", definition_ref: nofile:2:40, usages: [nofile:13:20, nofile:16:30, nofile:16:19, nofile:23:24, nofile:27:20, nofile:31:42, nofile:31:24], category: OutputSignal, ty: Some(\"field\"), ins: None, outs: None },i: SymTableEntry { id: \"i\", definition_ref: nofile:5:30, usages: [nofile:13:14, nofile:25:17, nofile:27:31, nofile:27:16, nofile:31:35, nofile:31:16], category: Signal, ty: None, ins: None, outs: None },initial: SymTableEntry { id: \"initial\", definition_ref: nofile:10:19, usages: [], category: State, ty: None, ins: None, outs: None },middle: SymTableEntry { id: \"middle\", definition_ref: nofile:20:19, usages: [nofile:15:17, nofile:30:18], category: State, ty: None, ins: None, outs: None },n: SymTableEntry { id: \"n\", definition_ref: nofile:2:29, usages: [nofile:16:36, nofile:16:23, nofile:25:26, nofile:27:41, nofile:27:24, nofile:31:48, nofile:31:28], category: InputSignal, ty: None, ins: None, outs: None }", scope: Machine },//fibo/initial: ScopeTable { symbols: "c: SymTableEntry { id: \"c\", definition_ref: nofile:11:21, usages: [nofile:13:23, nofile:16:33], category: Signal, ty: None, ins: None, outs: None }", scope: State },//fibo/middle: ScopeTable { symbols: "c: SymTableEntry { id: \"c\", definition_ref: nofile:21:21, usages: [nofile:23:14, nofile:27:38, nofile:31:45], category: Signal, ty: None, ins: None, outs: None }", scope: State }, messages: [] }"#
         );
     }
 }

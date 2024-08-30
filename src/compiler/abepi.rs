@@ -65,8 +65,8 @@ impl<F: From<u64> + TryInto<u32> + Clone + Debug, V: Clone + Debug> CompilationU
             Statement::Transition(dsym, id, stmt) => {
                 self.compiler_statement_transition(dsym, id, *stmt)
             }
-            Statement::HyperTransition(dsym, ids, call, state) => {
-                self.compiler_statement_hyper_transition(dsym, ids, call, state)
+            Statement::HyperTransition(dsym, assign_call, state_transition) => {
+                self.compiler_statement_hyper_transition(dsym, *assign_call, *state_transition)
             }
             _ => vec![],
         }
@@ -427,9 +427,8 @@ impl<F: From<u64> + TryInto<u32> + Clone + Debug, V: Clone + Debug> CompilationU
     fn compiler_statement_hyper_transition(
         &self,
         _dsym: DebugSymRef,
-        _ids: Vec<V>,
-        _call: Expression<F, V>,
-        _state: V,
+        _assign_call: Statement<F, V>,
+        _state_transition: Statement<F, V>,
     ) -> Vec<CompilationResult<F, V>> {
         todo!("Compile expressions? Needs specs")
     }

@@ -107,14 +107,66 @@ fn state_decl(analyser: &mut Analyser, expr: &Statement<BigInt, Identifier>) {
     });
 }
 
+// Cannot transition to a non-existing state.
+fn state_rule(analyser: &mut Analyser, expr: &Statement<BigInt, Identifier>) {
+    if let Statement::Transition(_, state, _) = expr {
+        // State "final" is implicit and may not always be present in the code.
+        if state.name() == "final" {
+            return;
+        }
+        let found_symbol = &analyser
+            .symbols
+            .find_symbol(&analyser.cur_scope, state.name());
+
+        if found_symbol.is_none()
+            || found_symbol.as_ref().unwrap().symbol.category != SymbolCategory::State
+        {
+            analyser.error(
+                format!("Cannot transition to non-existing state `{}`", state.name()),
+                &expr.get_dsym(),
+            );
+        }
+    }
+}
+
 // Should only allow to assign `<--` or assign and assert `<==` signals (and not wg vars).
 // Left hand side should only have signals.
 fn assignment_rule(analyser: &mut Analyser, expr: &Statement<BigInt, Identifier>) {
-    let ids = match expr {
-        Statement::SignalAssignment(_, id, _) => id,
-        Statement::SignalAssignmentAssert(_, id, _) => id,
+    let (ids, rhs) = match expr {
+        Statement::SignalAssignment(_, id, rhs) => (id, rhs),
+        Statement::SignalAssignmentAssert(_, id, rhs) => (id, rhs),
         _ => return,
     };
+
+    if let Expression::Call(_, machine, _) = &rhs[0] {
+        let machine_scope = vec!["/".to_string(), machine.name()];
+        let found_machine = &analyser.symbols.find_symbol(&machine_scope, machine.name());
+
+        if found_machine.is_some()
+            && found_machine.as_ref().unwrap().symbol.category == SymbolCategory::Machine
+        {
+            let outs = &found_machine.as_ref().unwrap().symbol.outs;
+            if outs.is_some() {
+                let outs = &outs.clone().unwrap();
+                if outs.len() != ids.len() {
+                    analyser.error(
+                                format!(
+                                    "Machine `{}` has {} output(s), but left hand side has {} identifier(s)",
+                                    machine.name(),
+                                    outs.len(),
+                                    ids.len()
+                                ),
+                                &machine.debug_sym_ref(),
+                            )
+                }
+            }
+        }
+    } else if ids.len() != rhs.len() {
+        analyser.error(
+            "Number of identifiers and expressions in assignment should be equal".to_string(),
+            &expr.get_dsym(),
+        )
+    }
 
     ids.iter().for_each(|id| {
         if let Some(symbol) = analyser.symbols.find_symbol(&analyser.cur_scope, id.name()) {
@@ -412,11 +464,198 @@ fn wg_assignment_rule(analyser: &mut Analyser, expr: &Statement<BigInt, Identifi
     });
 }
 
+fn hyper_transition_rule(analyser: &mut Analyser, expr: &Statement<BigInt, Identifier>) {
+    if let Statement::HyperTransition(_, assign_call, _) = expr {
+        match *assign_call.to_owned() {
+            Statement::SignalAssignmentAssert(_, ids, _) => {
+                ids.iter().for_each(|id| {
+        if id.1 != 1 {
+            analyser.error(
+                format!(
+                    "All assigned identifiers in the hyper-transition must have a forward rotation ('), but `{}` is missing it.",
+                    id.name(),
+                ),
+                &id.debug_sym_ref(),
+            )
+        }
+    });
+            }
+            _ => analyser.error(
+                "Hyper transition must include an assignment with assertion (<==).".to_string(),
+                &expr.get_dsym(),
+            ),
+        }
+    }
+    if let Statement::Block(_, stmts) = expr {
+        // There can only be a hyper-transition after a hyper-transition in a block
+        stmts.iter().enumerate().for_each(|(idx, stmt)| {
+            if idx < stmts.len() - 1
+                && let Statement::HyperTransition(_, _, _) = stmt
+            {
+                let next_stmt = &stmts[idx + 1];
+                analyser.error(
+                    "Hyper-transition should be the last statement in a block".to_string(),
+                    &next_stmt.get_dsym(),
+                )
+            }
+        });
+    }
+}
+
+fn call_rules(analyser: &mut Analyser, expr: &Expression<BigInt, Identifier>) {
+    if let Expression::Call(_, machine, exprs) = expr {
+        // Argument expressions in a call statement should not have nonzero rotation.
+        exprs
+            .iter()
+            .for_each(|expr| detect_nonzero_rotation(expr, analyser));
+
+        let machine_scope = vec!["/".to_string(), machine.name()];
+        let found_machine = &analyser.symbols.find_symbol(&machine_scope, machine.name());
+        if found_machine.is_none()
+            || found_machine.as_ref().unwrap().symbol.category != SymbolCategory::Machine
+        {
+            analyser.error(
+                format!(
+                    "Call statement must call a valid machine, but `{}` is not a machine.",
+                    machine.name()
+                ),
+                &machine.debug_sym_ref(),
+            )
+        } else if found_machine.as_ref().unwrap().symbol.category == SymbolCategory::Machine {
+            let ins = &found_machine.as_ref().unwrap().symbol.ins;
+            if ins.is_some() {
+                let ins = &ins.clone().unwrap();
+                if ins.len() != exprs.len() {
+                    analyser.error(
+                        format!(
+                            "Expected {} argument(s) for `{}`, but got {}.",
+                            ins.len(),
+                            machine.name(),
+                            exprs.len()
+                        ),
+                        &machine.debug_sym_ref(),
+                    )
+                }
+                for (input, arg) in ins.iter().zip(exprs.iter()) {
+                    let input = analyser
+                        .symbols
+                        .find_symbol(&machine_scope, input.to_string());
+                    if input.is_none() {
+                        unreachable!("Machine input should be added to the symbol table")
+                    } else {
+                        let input = input.unwrap();
+                        let arg_is_signal = is_signal_recursive(analyser, arg);
+                        if input.symbol.is_signal() != arg_is_signal {
+                            analyser.error(
+                                format!(
+                                    "Cannot assign {} `{:?}` to input {} `{}`",
+                                    if arg_is_signal { "signal" } else { "variable" },
+                                    arg,
+                                    if input.symbol.is_signal() {
+                                        "signal"
+                                    } else {
+                                        "variable"
+                                    },
+                                    input.symbol.id,
+                                ),
+                                expr.get_dsym(),
+                            )
+                        }
+                    }
+                }
+            }
+        }
+
+        let mut current_machine_scope = analyser.cur_scope.clone();
+        current_machine_scope.truncate(2);
+        if machine_scope == *current_machine_scope {
+            analyser.error(
+                "A machine should not call itself.".to_string(),
+                &machine.debug_sym_ref(),
+            )
+        }
+    }
+}
+
+/// Check if the expression result is a signal. For each of the Queries in the expression, check if
+/// the identifier is a signal.
+fn is_signal_recursive(analyser: &Analyser, expr: &Expression<BigInt, Identifier>) -> bool {
+    let mut is_signal = true;
+    match expr {
+        Expression::Query(_, id) => {
+            if let Some(symbol) = analyser.symbols.find_symbol(&analyser.cur_scope, id.name()) {
+                is_signal = is_signal && symbol.symbol.is_signal();
+            }
+        }
+        Expression::BinOp { lhs, rhs, .. } => {
+            is_signal = is_signal
+                && is_signal_recursive(analyser, lhs)
+                && is_signal_recursive(analyser, rhs);
+        }
+        Expression::UnaryOp { sub, .. } => {
+            is_signal = is_signal && is_signal_recursive(analyser, sub);
+        }
+        Expression::Select {
+            cond,
+            when_true,
+            when_false,
+            ..
+        } => {
+            is_signal = is_signal
+                && is_signal_recursive(analyser, cond)
+                && is_signal_recursive(analyser, when_true)
+                && is_signal_recursive(analyser, when_false);
+        }
+        _ => (),
+    }
+    is_signal
+}
+
+fn detect_nonzero_rotation(expr: &Expression<BigInt, Identifier>, analyser: &mut Analyser) {
+    match expr {
+        Expression::Query(_, id) => {
+            if id.1 != 0 {
+                analyser.error(
+                    "Non-zero rotation is not allowed in a call.".to_string(),
+                    &id.debug_sym_ref(),
+                )
+            }
+        }
+        Expression::BinOp {
+            dsym: _,
+            op: _,
+            lhs,
+            rhs,
+        } => {
+            detect_nonzero_rotation(lhs, analyser);
+            detect_nonzero_rotation(rhs, analyser);
+        }
+        Expression::UnaryOp {
+            dsym: _,
+            op: _,
+            sub,
+        } => {
+            detect_nonzero_rotation(sub, analyser);
+        }
+        Expression::Select {
+            dsym: _,
+            cond,
+            when_true,
+            when_false,
+        } => {
+            detect_nonzero_rotation(cond, analyser);
+            detect_nonzero_rotation(when_true, analyser);
+            detect_nonzero_rotation(when_false, analyser);
+        }
+        _ => (),
+    }
+}
+
 lazy_static! {
     /// Global semantic analyser rules.
     pub(super) static ref RULES: RuleSet = RuleSet {
-        expression: vec![undeclared_rule, true_false_rule],
-        statement: vec![state_decl, assignment_rule, assert_rule, if_condition_rule, wg_assignment_rule],
+        expression: vec![undeclared_rule, true_false_rule,  call_rules],
+        statement: vec![state_decl, assignment_rule, assert_rule, if_condition_rule, wg_assignment_rule, state_rule, hyper_transition_rule],
         new_symbol: vec![rotation_decl, redeclare_rule, types_rule],
         new_tl_symbol: vec![rotation_decl_tl, machine_decl_tl, types_rule_tl],
     };
@@ -431,15 +670,11 @@ mod test {
 
     #[test]
     fn test_analyser_undeclared() {
-        let circuit = "
+        do_test(
+            "
         machine fibo(signal n) (signal b: field) {
-            // n and be are created automatically as shared
-            // signals
             signal i; // a is undeclared
 
-            // there is always a state called initial
-            // input signals get bound to the signal
-            // in the initial state (first instance)
             state initial {
              signal c;
 
@@ -465,38 +700,19 @@ mod test {
               }
              }
             }
-
-            // There is always a state called final.
-            // Output signals get automatically bound to the signals
-            // with the same name in the final step (last instance).
-            // This state can be implicit if there are no constraints in it.
            }
-        ";
-
-        let debug_sym_ref_factory = DebugSymRefFactory::new("", circuit);
-        let decls = lang::TLDeclsParser::new()
-            .parse(&debug_sym_ref_factory, circuit)
-            .unwrap();
-
-        let result = analyse(&decls);
-
-        assert_eq!(
-            format!("{:?}", result.messages),
-            r#"[SemErr { msg: "use of undeclared variable a", dsym: nofile:23:20 }]"#
+        ",
+            r#"[SemErr { msg: "use of undeclared variable a", dsym: nofile:18:20 }]"#,
         )
     }
 
     #[test]
     fn test_analyser_rotation_decl() {
-        let circuit = "
+        do_test(
+            "
         machine fibo'(signal n) (signal b: field) {
-            // n and be are created automatically as shared
-            // signals
             signal a, i;
-
-            // there is always a state called initial
-            // input signals get bound to the signal
-            // in the initial state (first instance)
+            
             state initial {
              signal c;
 
@@ -522,35 +738,16 @@ mod test {
               }
              }
             }
-
-            // There is always a state called final.
-            // Output signals get automatically bound to the signals
-            // with the same name in the final step (last instance).
-            // This state can be implicit if there are no constraints in it.
            }
-        ";
-
-        let debug_sym_ref_factory = DebugSymRefFactory::new("", circuit);
-        let decls = lang::TLDeclsParser::new()
-            .parse(&debug_sym_ref_factory, circuit)
-            .unwrap();
-
-        let result = analyse(&decls);
-
-        assert_eq!(
-            format!("{:?}", result.messages),
-            r#"[SemErr { msg: "There cannot be rotation in identifier declaration of fibo", dsym: nofile:2:9 }]"#
+        ",
+            r#"[SemErr { msg: "There cannot be rotation in identifier declaration of fibo", dsym: nofile:2:9 }]"#,
         );
 
-        let circuit = "
+        do_test(
+            "
         machine fibo(signal n) (signal b: field) {
-            // n and be are created automatically as shared
-            // signals
             signal a, i;
-
-            // there is always a state called initial
-            // input signals get bound to the signal
-            // in the initial state (first instance)
+            
             state initial' {
              signal c;
 
@@ -576,34 +773,16 @@ mod test {
               }
              }
             }
-
-            // There is always a state called final.
-            // Output signals get automatically bound to the signals
-            // with the same name in the final step (last instance).
-            // This state can be implicit if there are no constraints in it.
            }
-        ";
-
-        let decls = lang::TLDeclsParser::new()
-            .parse(&debug_sym_ref_factory, circuit)
-            .unwrap();
-
-        let result = analyse(&decls);
-
-        assert_eq!(
-            format!("{:?}", result.messages),
-            r#"[SemErr { msg: "There cannot be rotation in identifier declaration of initial", dsym: nofile:10:12 }]"#
+        ",
+            r#"[SemErr { msg: "There cannot be rotation in identifier declaration of initial", dsym: nofile:5:13 }]"#,
         );
 
-        let circuit = "
+        do_test(
+            "
         machine fibo(signal n) (signal b: field) {
-            // n and be are created automatically as shared
-            // signals
             signal a, i;
-
-            // there is always a state called initial
-            // input signals get bound to the signal
-            // in the initial state (first instance)
+            
             state initial {
              signal c';
 
@@ -629,37 +808,19 @@ mod test {
               }
              }
             }
-
-            // There is always a state called final.
-            // Output signals get automatically bound to the signals
-            // with the same name in the final step (last instance).
-            // This state can be implicit if there are no constraints in it.
            }
-        ";
-
-        let decls = lang::TLDeclsParser::new()
-            .parse(&debug_sym_ref_factory, circuit)
-            .unwrap();
-
-        let result = analyse(&decls);
-
-        assert_eq!(
-            format!("{:?}", result.messages),
-            r#"[SemErr { msg: "There cannot be rotation in identifier declaration of c", dsym: nofile:11:13 }]"#
+        ",
+            r#"[SemErr { msg: "There cannot be rotation in identifier declaration of c", dsym: nofile:6:14 }]"#,
         )
     }
 
     #[test]
     fn test_analyser_state_decl() {
-        let circuit = "
+        do_test(
+            "
         machine fibo(signal n) (signal b: field) {
-            // n and be are created automatically as shared
-            // signals
             signal a, i;
-
-            // there is always a state called initial
-            // input signals get bound to the signal
-            // in the initial state (first instance)
+            
             state initial {
              signal c;
 
@@ -689,35 +850,16 @@ mod test {
               }
              }
             }
-
-            // There is always a state called final.
-            // Output signals get automatically bound to the signals
-            // with the same name in the final step (last instance).
-            // This state can be implicit if there are no constraints in it.
            }
-        ";
-
-        let debug_sym_ref_factory = DebugSymRefFactory::new("", circuit);
-        let decls = lang::TLDeclsParser::new()
-            .parse(&debug_sym_ref_factory, circuit)
-            .unwrap();
-
-        let result = analyse(&decls);
-
-        assert_eq!(
-            format!("{:?}", result.messages),
-            r#"[SemErr { msg: "Cannot declare state nested here", dsym: nofile:13:17 }]"#
+        ",
+            r#"[SemErr { msg: "Cannot declare state nested here", dsym: nofile:8:17 }]"#,
         );
 
-        let circuit = "
+        do_test(
+            "
         machine fibo(signal n) (signal b: field) {
-            // n and be are created automatically as shared
-            // signals
             signal a, i;
-
-            // there is always a state called initial
-            // input signals get bound to the signal
-            // in the initial state (first instance)
+            
             state initial {
              signal c;
 
@@ -747,37 +889,19 @@ mod test {
               }
              }
             }
-
-            // There is always a state called final.
-            // Output signals get automatically bound to the signals
-            // with the same name in the final step (last instance).
-            // This state can be implicit if there are no constraints in it.
            }
-        ";
-
-        let decls = lang::TLDeclsParser::new()
-            .parse(&debug_sym_ref_factory, circuit)
-            .unwrap();
-
-        let result = analyse(&decls);
-
-        assert_eq!(
-            format!("{:?}", result.messages),
-            r#"[SemErr { msg: "Cannot declare state nested here", dsym: nofile:18:1 }]"#
+        ",
+            r#"[SemErr { msg: "Cannot declare state nested here", dsym: nofile:13:15 }]"#,
         );
     }
 
     #[test]
     fn test_assignment_rule() {
-        let circuit = "
+        do_test(
+            "
         machine fibo(signal n) (signal b: field) {
-            // n and be are created automatically as shared
-            // signals
             signal a: field, i;
-
-            // there is always a state called initial
-            // input signals get bound to the signal
-            // in the initial state (first instance)
+            
             state initial {
              signal c;
              var wrong;
@@ -804,38 +928,18 @@ mod test {
               }
              }
             }
-
-            // There is always a state called final.
-            // Output signals get automatically bound to the signals
-            // with the same name in the final step (last instance).
-            // This state can be implicit if there are no constraints in it.
            }
-        ";
-
-        let debug_sym_ref_factory = DebugSymRefFactory::new("", circuit);
-        let decls = lang::TLDeclsParser::new()
-            .parse(&debug_sym_ref_factory, circuit)
-            .unwrap();
-
-        let result = analyse(&decls);
-
-        assert_eq!(
-            format!("{:?}", result.messages),
-            r#"[SemErr { msg: "Cannot assign with <-- or <== to variable wrong with category WGVar, you can only assign to signals. Use = instead.", dsym: nofile:14:14 }]"#
+        ",
+            r#"[SemErr { msg: "Cannot assign with <-- or <== to variable wrong with category WGVar, you can only assign to signals. Use = instead.", dsym: nofile:9:14 }]"#,
         );
     }
 
     #[test]
     fn test_assert_rule() {
-        let circuit = "
+        do_test(
+            "
         machine fibo(signal n) (signal b: field) {
-            // n and be are created automatically as shared
-            // signals
             signal a: field, i;
-
-            // there is always a state called initial
-            // input signals get bound to the signal
-            // in the initial state (first instance)
             state initial {
              signal c;
 
@@ -864,40 +968,21 @@ mod test {
               }
              }
             }
-
-            // There is always a state called final.
-            // Output signals get automatically bound to the signals
-            // with the same name in the final step (last instance).
-            // This state can be implicit if there are no constraints in it.
            }
-        ";
-
-        let debug_sym_ref_factory = DebugSymRefFactory::new("", circuit);
-        let decls = lang::TLDeclsParser::new()
-            .parse(&debug_sym_ref_factory, circuit)
-            .unwrap();
-
-        let result = analyse(&decls);
-
-        assert_eq!(
-            format!("{:?}", result.messages),
-            r#"[SemErr { msg: "Cannot use wgvar wrong in statement assert wrong == 3;", dsym: nofile:24:14 }, SemErr { msg: "Cannot use wgvar wrong in statement [c] <== [(a + b) + wrong];", dsym: nofile:26:14 }]"#
+        ",
+            r#"[SemErr { msg: "Cannot use wgvar wrong in statement assert wrong == 3;", dsym: nofile:18:14 }, SemErr { msg: "Cannot use wgvar wrong in statement [c] <== [(a + b) + wrong];", dsym: nofile:20:14 }]"#,
         )
     }
 
     #[test]
     fn test_machine_decl_rule() {
-        let circuit = "
+        do_test(
+            "
         machine fibo(signal n) (signal b: field) {
-            // n and be are created automatically as shared
-            // signals
             signal a: field, i;
 
             i, a, b, c <== 1, 1, 1, 2; // this cannot be here
 
-            // there is always a state called initial
-            // input signals get bound to the signal
-            // in the initial state (first instance)
             state initial {
              signal c;
 
@@ -929,38 +1014,18 @@ mod test {
               }
              }
             }
-
-            // There is always a state called final.
-            // Output signals get automatically bound to the signals
-            // with the same name in the final step (last instance).
-            // This state can be implicit if there are no constraints in it.
            }
-        ";
-
-        let debug_sym_ref_factory = DebugSymRefFactory::new("", circuit);
-        let decls = lang::TLDeclsParser::new()
-            .parse(&debug_sym_ref_factory, circuit)
-            .unwrap();
-
-        let result = analyse(&decls);
-
-        assert_eq!(
-            format!("{:?}", result.messages),
-            r#"[SemErr { msg: "Cannot declare [i, a, b, c] <== [1, 1, 1, 2]; in the machine, only states, wgvars and signals are allowed", dsym: nofile:2:9 }, SemErr { msg: "Cannot declare if (i + 1) == n { [a] <-- [3]; } else { [b] <== [3]; } in the machine, only states, wgvars and signals are allowed", dsym: nofile:2:9 }]"#
+        ",
+            r#"[SemErr { msg: "Cannot declare [i, a, b, c] <== [1, 1, 1, 2]; in the machine, only states, wgvars and signals are allowed", dsym: nofile:2:9 }, SemErr { msg: "Cannot declare if (i + 1) == n { [a] <-- [3]; } else { [b] <== [3]; } in the machine, only states, wgvars and signals are allowed", dsym: nofile:2:9 }]"#,
         );
     }
 
     #[test]
     fn test_redeclare_rule() {
-        let circuit = "
+        do_test(
+            "
         machine fibo(signal n) (signal b: field) {
-            // n and be are created automatically as shared
-            // signals
             signal a: field, i;
-
-            // there is always a state called initial
-            // input signals get bound to the signal
-            // in the initial state (first instance)
             state initial {
              signal c;
 
@@ -995,38 +1060,18 @@ mod test {
               }
              }
             }
-
-            // There is always a state called final.
-            // Output signals get automatically bound to the signals
-            // with the same name in the final step (last instance).
-            // This state can be implicit if there are no constraints in it.
            }
-        ";
-
-        let debug_sym_ref_factory = DebugSymRefFactory::new("", circuit);
-        let decls = lang::TLDeclsParser::new()
-            .parse(&debug_sym_ref_factory, circuit)
-            .unwrap();
-
-        let result = analyse(&decls);
-
-        assert_eq!(
-            format!("{:?}", result.messages),
-            r#"[SemErr { msg: "Cannot redeclare middle in the same scope [\"/\", \"fibo\"]", dsym: nofile:28:13 }, SemErr { msg: "Cannot redeclare n in the same scope [\"/\", \"fibo\"]", dsym: nofile:20:13 }, SemErr { msg: "Cannot redeclare c in the same scope [\"/\", \"fibo\", \"middle\"]", dsym: nofile:30:14 }]"#
+        ",
+            r#"[SemErr { msg: "Cannot redeclare middle in the same scope [\"/\", \"fibo\"]", dsym: nofile:22:13 }, SemErr { msg: "Cannot redeclare n in the same scope [\"/\", \"fibo\"]", dsym: nofile:14:13 }, SemErr { msg: "Cannot redeclare c in the same scope [\"/\", \"fibo\", \"middle\"]", dsym: nofile:24:14 }]"#,
         );
     }
 
     #[test]
     fn test_types_rule() {
-        let circuit = "
+        do_test(
+            "
         machine fibo(signal n: uint) (signal b: field) {
-            // n and be are created automatically as shared
-            // signals
             signal a: field, i;
-
-            // there is always a state called initial
-            // input signals get bound to the signal
-            // in the initial state (first instance)
             state initial {
              signal c;
 
@@ -1052,38 +1097,18 @@ mod test {
               }
              }
             }
-
-            // There is always a state called final.
-            // Output signals get automatically bound to the signals
-            // with the same name in the final step (last instance).
-            // This state can be implicit if there are no constraints in it.
            }
-        ";
-
-        let debug_sym_ref_factory = DebugSymRefFactory::new("", circuit);
-        let decls = lang::TLDeclsParser::new()
-            .parse(&debug_sym_ref_factory, circuit)
-            .unwrap();
-
-        let result = analyse(&decls);
-
-        assert_eq!(
-            format!("{:?}", result.messages),
-            r#"[SemErr { msg: "Cannot declare n with type uint, only field and bool are allowed.", dsym: nofile:2:22 }, SemErr { msg: "Cannot declare c with type int, only field and bool are allowed.", dsym: nofile:21:14 }]"#
+        ",
+            r#"[SemErr { msg: "Cannot declare n with type uint, only field and bool are allowed.", dsym: nofile:2:22 }, SemErr { msg: "Cannot declare c with type int, only field and bool are allowed.", dsym: nofile:15:14 }]"#,
         );
     }
 
     #[test]
     fn test_true_false_rule() {
-        let circuit = "
+        do_test(
+            "
         machine fibo(signal n) (signal b: field) {
-            // n and be are created automatically as shared
-            // signals
             signal a: field, i;
-
-            // there is always a state called initial
-            // input signals get bound to the signal
-            // in the initial state (first instance)
             state initial {
              signal c;
              var is_true;
@@ -1118,38 +1143,18 @@ mod test {
               }
              }
             }
-
-            // There is always a state called final.
-            // Output signals get automatically bound to the signals
-            // with the same name in the final step (last instance).
-            // This state can be implicit if there are no constraints in it.
            }
-        ";
-
-        let debug_sym_ref_factory = DebugSymRefFactory::new("", circuit);
-        let decls = lang::TLDeclsParser::new()
-            .parse(&debug_sym_ref_factory, circuit)
-            .unwrap();
-
-        let result = analyse(&decls);
-
-        assert_eq!(
-            format!("{:?}", result.messages),
-            r#"[SemErr { msg: "Cannot use true in expression 2 + true", dsym: nofile:15:42 }, SemErr { msg: "Cannot use true in expression 1 * true", dsym: nofile:32:24 }, SemErr { msg: "Cannot use false in expression false - 123", dsym: nofile:32:31 }, SemErr { msg: "Cannot use false in expression false * false", dsym: nofile:32:50 }, SemErr { msg: "Cannot use false in expression false * false", dsym: nofile:32:58 }]"#
+        ",
+            r#"[SemErr { msg: "Cannot use true in expression 2 + true", dsym: nofile:9:42 }, SemErr { msg: "Cannot use true in expression 1 * true", dsym: nofile:26:24 }, SemErr { msg: "Cannot use false in expression false - 123", dsym: nofile:26:31 }, SemErr { msg: "Cannot use false in expression false * false", dsym: nofile:26:50 }, SemErr { msg: "Cannot use false in expression false * false", dsym: nofile:26:58 }]"#,
         );
     }
 
     #[test]
     fn test_if_expression_rule() {
-        let circuit = "
+        do_test(
+            "
         machine fibo(signal n) (signal b: field) {
-            // n and be are created automatically as shared
-            // signals
             signal a: field, i;
-
-            // there is always a state called initial
-            // input signals get bound to the signal
-            // in the initial state (first instance)
             state initial {
              signal c;
 
@@ -1195,39 +1200,19 @@ mod test {
               }
              }
             }
-
-            // There is always a state called final.
-            // Output signals get automatically bound to the signals
-            // with the same name in the final step (last instance).
-            // This state can be implicit if there are no constraints in it.
            }
-        ";
-
-        let debug_sym_ref_factory = DebugSymRefFactory::new("", circuit);
-        let decls = lang::TLDeclsParser::new()
-            .parse(&debug_sym_ref_factory, circuit)
-            .unwrap();
-
-        let result = analyse(&decls);
-
-        assert_eq!(
-            format!("{:?}", result.messages),
-            r#"[SemErr { msg: "Condition i + 1 in if statement must be a logic expression", dsym: nofile:36:14 }, SemErr { msg: "Signal c in if statement condition must be bool", dsym: nofile:37:17 }, SemErr { msg: "Condition 4 in if statement must be a logic expression", dsym: nofile:43:17 }]"#
+        ",
+            r#"[SemErr { msg: "Condition i + 1 in if statement must be a logic expression", dsym: nofile:30:14 }, SemErr { msg: "Signal c in if statement condition must be bool", dsym: nofile:31:17 }, SemErr { msg: "Condition 4 in if statement must be a logic expression", dsym: nofile:37:17 }]"#,
         );
     }
 
     #[test]
     fn test_wg_assignment_rule() {
-        let circuit = "
+        do_test(
+            "
         machine fibo(signal n) (signal b: field) {
-            // n and be are created automatically as shared
-            // signals
             signal a: field, i;
             var wgvar;
-
-            // there is always a state called initial
-            // input signals get bound to the signal
-            // in the initial state (first instance)
             state initial {
              signal c;
 
@@ -1256,24 +1241,231 @@ mod test {
               }
              }
             }
-
-            // There is always a state called final.
-            // Output signals get automatically bound to the signals
-            // with the same name in the final step (last instance).
-            // This state can be implicit if there are no constraints in it.
            }
-        ";
+        ",
+            r#"[SemErr { msg: "Cannot assign with = to Signal i, you can only assign to WGVars. Use <-- or <== instead.", dsym: nofile:9:14 }]"#,
+        );
+    }
 
+    #[test]
+    fn test_assignment_args_count() {
+        // The number of identifiers and expressions in the assignment should be equal:
+        do_test(
+            "
+        machine caller (signal n) (signal b: field) {
+            signal c;
+            signal d, e: field;
+            state initial {
+                c' <-- d, e;
+            }
+        }
+        ",
+            r#"[SemErr { msg: "Number of identifiers and expressions in assignment should be equal", dsym: nofile:6:17 }]"#,
+        );
+
+        do_test(
+            "
+        machine caller (signal n) (signal b: field) {
+            signal c;
+            signal d, e: field;
+            state initial {
+                c' <== d, e;
+            }
+        }
+        ",
+            r#"[SemErr { msg: "Number of identifiers and expressions in assignment should be equal", dsym: nofile:6:17 }]"#,
+        );
+    }
+
+    #[test]
+    fn test_transition_to_valid_state() {
+        // The transition should be to a valid state. Trying to transition to a state that does not
+        // exist:
+        do_test(
+            "
+        machine caller (signal n) (signal b: field) {
+            state initial {
+                -> no_state;
+            }
+        }
+        ",
+            r#"[SemErr { msg: "Cannot transition to non-existing state `no_state`", dsym: nofile:4:17 }]"#,
+        );
+    }
+
+    #[test]
+    fn test_call_assignments_rotation() {
+        // Testing the mandatory identifier rotation syntax
+        do_test(
+            "
+        machine caller (signal n) (signal b: field) {
+            state initial {
+                b <== other(n) -> final;
+            }
+        }
+        machine other (signal n) (signal b: field) {
+            state initial {
+                b' <== n;
+            }
+        }
+        ",
+            r#"[SemErr { msg: "All assigned identifiers in the hyper-transition must have a forward rotation ('), but `b` is missing it.", dsym: nofile:4:17 }]"#,
+        );
+    }
+
+    #[test]
+    fn test_call_no_expression_rotation() {
+        // Testing the absence of rotation in expressions
+        do_test(
+            "
+        machine caller (signal n) (signal b: field) {
+            signal c;
+            signal d, e;
+            state initial {
+                c' <== other(d + e') -> final;
+            }
+        }
+        machine other (signal n) (signal b: field) {
+            state initial {
+                b' <== n;
+            }
+        }
+        ",
+            r#"[SemErr { msg: "Non-zero rotation is not allowed in a call.", dsym: nofile:6:34 }]"#,
+        );
+    }
+
+    #[test]
+    fn test_hyper_transition_valid_machine() {
+        // The callee should be a valid machine. Trying to call a machine that does not exist:
+        do_test(
+            "
+        machine caller (signal n) (signal b: field) {
+            signal c;
+            signal d, e;
+            state initial {
+                c' <== other(d + e) -> final;
+            }
+        }
+        ",
+            r#"[SemErr { msg: "Call statement must call a valid machine, but `other` is not a machine.", dsym: nofile:6:24 }]"#,
+        );
+    }
+
+    #[test]
+    fn test_hyper_transition_call_itself() {
+        // The callee should be a valid machine. Trying to call itself:
+        do_test(
+            "
+        machine caller (signal n) (signal b: field) {
+            signal c;
+            signal d, e;
+            state initial {
+                c' <== caller(d + e) -> final;
+            }
+        }
+        ",
+            r#"[SemErr { msg: "A machine should not call itself.", dsym: nofile:6:24 }]"#,
+        );
+    }
+
+    #[test]
+    fn test_hyper_transition_valid_state() {
+        // The transition should be to a valid state. Trying to transition to a state that does not
+        // exist:
+        do_test(
+            "
+        machine caller (signal n) (signal b: field) {
+            signal c;
+            signal d, e;
+            state initial {
+                c' <== other(d + e) -> no_state;
+            }
+        }
+        machine other (signal n) (signal b: field) {
+            state initial {
+                b' <== n;
+            }
+        }
+        ",
+            r#"[SemErr { msg: "Cannot transition to non-existing state `no_state`", dsym: nofile:6:37 }]"#,
+        );
+    }
+
+    #[test]
+    fn test_hyper_transition_is_the_last() {
+        // The hyper-transition should be the last statement in a block
+        do_test(
+            "
+        machine caller (signal n) (signal b: field) {
+            signal c;
+            signal d, e;
+            state initial {
+                c' <== other(d + e) -> final;
+                c' <== 1;
+            }
+        }
+        machine other (signal n) (signal b: field) {
+            state initial {
+                b' <== n;
+            }
+        }
+        ",
+            r#"[SemErr { msg: "Hyper-transition should be the last statement in a block", dsym: nofile:7:17 }]"#,
+        );
+    }
+
+    #[test]
+    fn test_hyper_transition_call_arg_count() {
+        // Cannot call a machine with the wrong number of arguments
+        do_test(
+            "
+        machine caller (signal n) (signal b: field) {
+            signal c;
+            signal d, e: field;
+            state initial {
+                c' <== other(d, e) -> final;
+            }
+        }
+        machine other (signal n) (signal b: field) {
+            state initial {
+                b' <== n;
+            }
+        }
+        ",
+            r#"[SemErr { msg: "Expected 1 argument(s) for `other`, but got 2.", dsym: nofile:6:24 }]"#,
+        );
+    }
+
+    #[test]
+    fn test_hyper_transition_assignment_arg_count() {
+        // Cannot assign call result with the wrong number of arguments
+        do_test(
+            "
+        machine caller (signal n) (signal b: field) {
+            signal c;
+            state initial {
+                c' <== other(n) -> final;
+            }
+        }
+        machine other (signal n) (signal b: field, signal c: field) {
+            state initial {
+                b' <== n;
+                c' <== n;
+            }
+        }
+        ",
+            r#"[SemErr { msg: "Machine `other` has 2 output(s), but left hand side has 1 identifier(s)", dsym: nofile:5:24 }]"#,
+        );
+    }
+
+    fn do_test(circuit: &str, expected: &str) {
         let debug_sym_ref_factory = DebugSymRefFactory::new("", circuit);
         let decls = lang::TLDeclsParser::new()
             .parse(&debug_sym_ref_factory, circuit)
             .unwrap();
-
         let result = analyse(&decls);
 
-        assert_eq!(
-            format!("{:?}", result.messages),
-            r#"[SemErr { msg: "Cannot assign with = to Signal i, you can only assign to WGVars. Use <-- or <== instead.", dsym: nofile:15:14 }]"#
-        );
+        assert_eq!(format!("{:?}", result.messages), expected);
     }
 }

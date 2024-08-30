@@ -212,6 +212,9 @@ impl SetupInterpreter {
             Statement::StateDecl(dsym, id, stmt) => self.interpret_state_decl(dsym, id, stmt),
             Statement::SignalDecl(_, _) => {}
             Statement::WGVarDecl(_, _) => {}
+            Statement::HyperTransition(_, _, _) => {
+                // TODO interpret hyper transition? Needs specs
+            }
 
             _ => unreachable!("semantic analyser should prevent this"),
         }
@@ -250,7 +253,8 @@ impl SetupInterpreter {
 
             SignalAssignment(_, _, _) | WGAssignment(_, _, _) => vec![],
             SignalDecl(_, _) | WGVarDecl(_, _) => vec![],
-            HyperTransition(_, _, _, _) => todo!("Implement compilation for hyper transitions"),
+            // TODO Implement compilation for hyper transitions
+            HyperTransition(_, _, _) => vec![],
         };
 
         self.add_poly_constraints(result.into_iter().map(|cr| cr.anti_booly).collect());

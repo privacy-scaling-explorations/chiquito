@@ -55,6 +55,8 @@ pub struct SymTableEntry {
     pub category: SymbolCategory,
     /// Type
     pub ty: Option<String>,
+    pub ins: Option<Vec<String>>,
+    pub outs: Option<Vec<String>>,
 }
 
 impl SymTableEntry {
@@ -70,6 +72,27 @@ impl SymTableEntry {
             usages: Vec::new(),
             category,
             ty,
+            ins: None,
+            outs: None,
+        }
+    }
+
+    pub fn new_machine(
+        id: String,
+        definition_ref: DebugSymRef,
+        category: SymbolCategory,
+        ty: Option<String>,
+        input_params: Vec<String>,
+        output_params: Vec<String>,
+    ) -> Self {
+        SymTableEntry {
+            id,
+            definition_ref,
+            usages: Vec::new(),
+            category,
+            ty,
+            ins: Some(input_params),
+            outs: Some(output_params),
         }
     }
 

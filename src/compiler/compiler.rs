@@ -570,10 +570,12 @@ mod test {
         // Source code containing two machines
         let circuit = "
         machine caller (signal n) (signal b: field) {
-            signal b_1: field;
-            b_1' <== fibo(n) -> final;
-           }
-           machine fibo (signal n) (signal b: field) {
+                state initial {
+                    signal b_1: field;
+                    b_1' <== fibo(n) -> final;
+                }
+        }
+        machine fibo (signal n) (signal b: field) {
             // n and be are created automatically as shared
             // signals
             signal a: field, i;
@@ -809,7 +811,8 @@ mod test {
     fn test_parse_hyper_transition() {
         let circuit = "
         machine caller (signal n) (signal b: field) {
-            a', b, c' <== fibo(d, e, f + g) -> final;
+            var some_var; 
+            a', b', some_var' <== fibo(d, e, f + g) -> final;
         }
         ";
 
@@ -821,7 +824,7 @@ mod test {
         let circuit = "
         machine caller (signal n) (signal b: field) {
             -> final {
-                a', b, c' <== fibo(d, e, f + g);
+                a', b', c' <== fibo(d, e, f + g);
             }
         }
         ";
@@ -834,7 +837,7 @@ mod test {
         // TODO should no-arg calls be allowed? Needs more specs for function/machine calls
         let circuit = "
         machine caller (signal n) (signal b: field) {
-            smth <== a() -> final;
+            smth' <== a() -> final;
         }
         ";
 

@@ -62,14 +62,25 @@ pub fn build_transition<F>(
     Statement::Transition(dsym, id, Box::new(block))
 }
 
-pub fn build_hyper_transition<F: Clone>(
+pub fn build_inline_hyper_transition<F: Clone>(
     dsym: DebugSymRef,
-    ids: Vec<Identifier>,
-    call: Expression<F, Identifier>,
-    state: Identifier,
+    assign_call: Statement<F, Identifier>,
+    state_transition: Statement<F, Identifier>,
 ) -> Statement<F, Identifier> {
-    match call {
-        Expression::Call(_, _, _) => Statement::HyperTransition(dsym, ids, call, state),
-        _ => unreachable!("Hyper transition must include a call statement"),
+    match &assign_call {
+        Statement::SignalAssignmentAssert(_, _, call) => {
+            if call.len() != 1 {
+                unreachable!("Inline hyper-transition should have a single call statement")
+            }
+            match call[0] {
+                Expression::Call(_, _, _) => Statement::HyperTransition(
+                    dsym,
+                    Box::new(assign_call),
+                    Box::new(state_transition),
+                ),
+                _ => unreachable!("Inline hyper-transition should have a call statement"),
+            }
+        }
+        _ => unreachable!("Hyper transition must include a SignalAssignmentAssert"),
     }
 }

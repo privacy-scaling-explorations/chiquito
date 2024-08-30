@@ -113,7 +113,7 @@ ParseTransition: Statement<BigInt, Identifier> = {
 }
 
 HyperTransition: Statement<BigInt, Identifier> = {
-    <l: @L> <ids: ParseIdsList> "<==" <call:Expression> "->" <st: Identifier> <r: @R> => build_hyper_transition(dsym_factory.create(l,r), ids, call, st),
+    <l: @L> <assign_call: SignalAssignmentAssert> <st: ParseTransitionSimple> <r: @R> => build_inline_hyper_transition(dsym_factory.create(l,r), assign_call, st),
 }
 
 ParseSignalDecl: Statement<BigInt, Identifier> = {
