@@ -469,9 +469,13 @@ fn wg_assignment_rule(analyser: &mut Analyser, expr: &Statement<BigInt, Identifi
 }
 
 fn hyper_transition_rule(analyser: &mut Analyser, expr: &Statement<BigInt, Identifier>) {
-    if let Statement::HyperTransition(_, assign_call, _) = expr {
-        match *assign_call.to_owned() {
-            Statement::SignalAssignmentAssert(_, ids, _) => {
+    if let Statement::SignalAssignmentAssert(_, ids, call) = expr {
+        if call.len() == 1
+            && let Expression::Call(_, machine, _) = &call[0]
+        {
+            let machine_scope = vec!["/".to_string(), machine.name()];
+            let found_machine = &analyser.symbols.find_symbol(&machine_scope, machine.name());
+            if found_machine.is_some() {
                 ids.iter().for_each(|id| {
         if id.1 != 1 {
             analyser.error(
@@ -484,10 +488,6 @@ fn hyper_transition_rule(analyser: &mut Analyser, expr: &Statement<BigInt, Ident
         }
     });
             }
-            _ => analyser.error(
-                "Hyper transition must include an assignment with assertion (<==).".to_string(),
-                &expr.get_dsym(),
-            ),
         }
     }
     if let Statement::Block(_, stmts) = expr {
@@ -1314,6 +1314,24 @@ mod test {
         }
         ",
             r#"[SemErr { msg: "All assigned identifiers in the hyper-transition must have a forward rotation ('), but `b` is missing it.", dsym: nofile:4:17 }]"#,
+        );
+
+        do_test(
+            "
+        machine caller (signal n) (signal b: field) {
+            state initial {
+                -> final {
+                    b <== other(n);
+                }
+            }
+        }
+        machine other (signal n) (signal b: field) {
+            state initial {
+                b' <== n;
+            }
+        }
+        ",
+            r#"[SemErr { msg: "All assigned identifiers in the hyper-transition must have a forward rotation ('), but `b` is missing it.", dsym: nofile:5:21 }]"#,
         );
     }
 
