@@ -163,7 +163,11 @@ fn assignment_rule(analyser: &mut Analyser, expr: &Statement<BigInt, Identifier>
         }
     } else if ids.len() != rhs.len() {
         analyser.error(
-            "Number of identifiers and expressions in assignment should be equal".to_string(),
+            format!(
+                "Left hand side has {} identifier(s), but right hand side has {} expression(s)",
+                ids.len(),
+                rhs.len()
+            ),
             &expr.get_dsym(),
         )
     }
@@ -1260,7 +1264,7 @@ mod test {
             }
         }
         ",
-            r#"[SemErr { msg: "Number of identifiers and expressions in assignment should be equal", dsym: nofile:6:17 }]"#,
+            r#"[SemErr { msg: "Left hand side has 1 identifier(s), but right hand side has 2 expression(s)", dsym: nofile:6:17 }]"#,
         );
 
         do_test(
@@ -1273,7 +1277,7 @@ mod test {
             }
         }
         ",
-            r#"[SemErr { msg: "Number of identifiers and expressions in assignment should be equal", dsym: nofile:6:17 }]"#,
+            r#"[SemErr { msg: "Left hand side has 1 identifier(s), but right hand side has 2 expression(s)", dsym: nofile:6:17 }]"#,
         );
     }
 
