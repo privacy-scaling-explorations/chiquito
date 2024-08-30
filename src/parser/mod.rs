@@ -113,6 +113,58 @@ mod test {
     }
 
     #[test]
+    fn test_parser_declarations() {
+        let debug_sym_ref_factory = DebugSymRefFactory::new("", "");
+        let signal_decl = lang::StatementsParser::new()
+            .parse(&debug_sym_ref_factory, "signal a: field, b, c;")
+            .unwrap();
+        assert_eq!(
+            format!("{:?}", signal_decl),
+            r#"[signal a, b, c;]"#
+        );
+
+        let typed_signal_decl = lang::StatementsParser::new()
+            .parse(&debug_sym_ref_factory, "signal a: field;")
+            .unwrap();
+        assert_eq!(
+            format!("{:?}", typed_signal_decl),
+            r#"[signal a;]"#
+        );
+
+        let var_decl = lang::StatementsParser::new()
+            .parse(&debug_sym_ref_factory, "var a: field, b, c;")
+            .unwrap();
+        assert_eq!(
+            format!("{:?}", var_decl),
+            r#"[var a, b, c;]"#
+        );
+
+        let signal_array_decl = lang::StatementsParser::new()
+            .parse(&debug_sym_ref_factory, "signal a[7];")
+            .unwrap();
+        assert_eq!(
+            format!("{:?}", signal_array_decl),
+            r#"[signal a[7];]"#
+        );
+
+        let signal_typed_array_decl = lang::StatementsParser::new()
+            .parse(&debug_sym_ref_factory, "signal a: field[7];")
+            .unwrap();
+        assert_eq!(
+            format!("{:?}", signal_typed_array_decl),
+            r#"[signal a[7];]"#
+        );
+
+        let var_array_decl = lang::StatementsParser::new()
+            .parse(&debug_sym_ref_factory, "var a[7];")
+            .unwrap();
+        assert_eq!(
+            format!("{:?}", var_array_decl),
+            r#"[var a[7];]"#
+        );
+    }
+
+    #[test]
     fn test_parser_tracer() {
         let circuit = "
         machine fibo(signal n) (signal b: field) {

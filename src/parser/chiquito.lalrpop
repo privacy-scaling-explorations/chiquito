@@ -249,8 +249,20 @@ ParseParamDecl: Statement<BigInt, Identifier> = {
 }
 
 ParseTypedId: TypedIdDecl<Identifier> = {
-    <id: Identifier> ":" <ty: Identifier> => TypedIdDecl { id, ty: Some(ty) },
-    <id: Identifier> => TypedIdDecl { id, ty: None },
+    <id: Identifier> ":" <ty: Identifier> <dim: ParseArrayDimension?> => TypedIdDecl { 
+        id, 
+        ty: Some(ty), 
+        dimension: dim 
+    },
+    <id: Identifier> <dim: ParseArrayDimension?> => TypedIdDecl { 
+        id, 
+        ty: None, 
+        dimension: dim 
+    },
+}
+
+ParseArrayDimension: Expression<BigInt, Identifier> = {
+    "[" <expr: Expression> "]" => expr,
 }
 
 // Terminals

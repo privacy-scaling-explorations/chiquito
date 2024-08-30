@@ -1,5 +1,7 @@
 use std::fmt::Debug;
 
+use num_bigint::BigInt;
+
 use super::{expression::Expression, DebugSymRef, Identifiable, Identifier};
 
 /// An identifier with the type it is declared with.
@@ -9,6 +11,8 @@ pub struct TypedIdDecl<V> {
     pub id: V,
     /// type
     pub ty: Option<V>,
+    /// Array dimension (if any)
+    pub dimension: Option<Expression<BigInt, V>>,
 }
 
 #[derive(Clone)]
@@ -69,7 +73,10 @@ impl<F: Debug> Debug for Statement<F, Identifier> {
                 f,
                 "signal {};",
                 id.iter()
-                    .map(|id| id.id.name())
+                    .map(|id| match &id.dimension {
+                        Some(dim) => format!("{}[{:?}]", id.id.name(), dim),
+                        None => id.id.name().to_string(),
+                    })
                     .collect::<Vec<_>>()
                     .join(", ")
             ),
@@ -77,7 +84,10 @@ impl<F: Debug> Debug for Statement<F, Identifier> {
                 f,
                 "var {};",
                 id.iter()
-                    .map(|id| id.id.name())
+                    .map(|id| match &id.dimension {
+                        Some(dim) => format!("{}[{:?}]", id.id.name(), dim),
+                        None => id.id.name().to_string(),
+                    })
                     .collect::<Vec<_>>()
                     .join(", ")
             ),
