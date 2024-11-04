@@ -1,3 +1,5 @@
+# THIS PROJECT HAS BEEN SUNSET AND IT IS NOT ACTIVELY MAINTAINED ANYMORE
+
 # Chiquito
 
 Chiquito is a high-level structured language for implementing zero knowledge proof applications.
